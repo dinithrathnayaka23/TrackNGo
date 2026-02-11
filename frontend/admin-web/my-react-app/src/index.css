@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .animate-auth-card {
+    animation: authCardIn 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-auth-left {
+    animation: authLeftIn 850ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-auth-fade-up {
+    animation: authFadeUp 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-auth-float {
+    animation: authFloat 3.6s ease-in-out infinite;
+  }
+}
+
+@keyframes authCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes authLeftIn {
+  from {
+    opacity: 0;
+    transform: translateX(-22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes authFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes authFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-auth-card,
+  .animate-auth-left,
+  .animate-auth-fade-up,
+  .animate-auth-float {
+    animation: none !important;
+  }
+}

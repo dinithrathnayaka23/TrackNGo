@@ -766,21 +766,25 @@ function Analytics() {
                 <h2 className="text-3xl font-bold text-[#1f2737]">Booking Status Distribution</h2>
                 <div className="mt-10 grid grid-cols-2 gap-4 xl:grid-cols-4">
                   {[
-                    ['Confirmed', '83%', '#2741a0', '#dfe8fb'],
-                    ['Completed', '60%', '#1bb37f', '#daf6ea'],
-                    ['Cancelled', '10%', '#eb4f59', '#f8dfe2'],
-                    ['Pending', '24%', '#eea006', '#f8efc7'],
-                  ].map(([label, value, bar, bg], index) => (
-                    <div key={label} className="animate-dash-in rounded-lg border border-[#e2e6ef] bg-[#f9fafc] p-3" style={{ animationDelay: `${390 + index * 45}ms` }}>
-                      <div className="h-28 rounded-md" style={{ backgroundColor: bg }}>
+                    { label: 'Confirmed', value: 83, bar: '#2741a0', bg: '#dfe8fb' },
+                    { label: 'Completed', value: 60, bar: '#1bb37f', bg: '#daf6ea' },
+                    { label: 'Cancelled', value: 10, bar: '#eb4f59', bg: '#f8dfe2' },
+                    { label: 'Pending', value: 24, bar: '#eea006', bg: '#f8efc7' },
+                  ].map((item, index) => (
+                    <div key={item.label} className="animate-dash-in rounded-lg border border-[#e2e6ef] bg-[#f9fafc] p-3" style={{ animationDelay: `${390 + index * 45}ms` }}>
+                      <div className="relative h-28 overflow-hidden rounded-md" style={{ backgroundColor: item.bg }}>
                         <div
-                          className="flex h-full items-center justify-center rounded-md text-4xl font-extrabold text-white"
-                          style={{ backgroundColor: bar }}
+                          className="absolute bottom-0 left-0 right-0 rounded-md transition-all duration-300"
+                          style={{ height: `${item.value}%`, backgroundColor: item.bar }}
+                        />
+                        <p
+                          className="absolute inset-0 grid place-items-center text-4xl font-extrabold"
+                          style={{ color: item.value < 30 || item.label === 'Pending' ? '#111827' : '#ffffff' }}
                         >
-                          {value}
-                        </div>
+                          {item.value}%
+                        </p>
                       </div>
-                      <p className="mt-2 text-center text-sm font-semibold text-[#5f6b82]">{label}</p>
+                      <p className="mt-2 text-center text-sm font-semibold text-[#5f6b82]">{item.label}</p>
                     </div>
                   ))}
                 </div>

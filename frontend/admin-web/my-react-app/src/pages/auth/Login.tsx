@@ -92,7 +92,7 @@ function Login() {
           <p className="text-xl font-semibold text-[#4d5564]">
             New administrator profile required?{' '}
             <Link to="/signup" className="text-[#129a8f]">
-              Request Access
+              Sign Up
             </Link>
           </p>
 

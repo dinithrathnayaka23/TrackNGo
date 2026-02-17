@@ -1,36 +1,52 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faBusSimple,
-  faChartColumn,
+  faChartLine,
   faCommentDots,
   faExclamationTriangle,
   faLocationDot,
   faTicketSimple,
   faUsers,
   faTableColumns,
-  faCircleUser,
 } from '@fortawesome/free-solid-svg-icons'
+import adminProfileImage from '../../assets/images/adminDinith.png'
 
 const navItems = [
-  { to: '/dashboard/analytics', label: 'Dashboard', icon: faTableColumns, section: 'Main Menu' },
-  { to: '/dashboard/users', label: 'Users', icon: faUsers, section: 'Main Menu' },
+  { to: '/dashboard', label: 'Dashboard', icon: faTableColumns, section: 'Main Menu' },
+  {
+    to: '/dashboard/users',
+    label: 'Users',
+    icon: faUsers,
+    section: 'Main Menu',
+    activeOn: ['/dashboard/users', '/dashboard/passenger', '/dashboard/driver', '/dashboard/corporate'],
+  },
   { to: '/dashboard/buses', label: 'Buses', icon: faBusSimple, section: 'Main Menu' },
-  { to: '/dashboard/booking', label: 'Routes', icon: faLocationDot, section: 'Main Menu' },
-  { to: '/dashboard/booking', label: 'Bookings', icon: faTicketSimple, section: 'Main Menu' },
+  { to: '/dashboard/booking?view=routes', label: 'Routes', icon: faLocationDot, section: 'Main Menu' },
+  { to: '/dashboard/booking?view=bookings', label: 'Bookings', icon: faTicketSimple, section: 'Main Menu' },
   { to: '/dashboard/complaints', label: 'Complaints', icon: faExclamationTriangle, section: 'System' },
-  { to: '/dashboard/analytics', label: 'Analytics', icon: faChartColumn, section: 'System' },
-  { to: '/dashboard/users', label: 'Chat', icon: faCommentDots, section: 'System' },
+  { to: '/dashboard/analytics', label: 'Analytics', icon: faChartLine, section: 'System' },
+  { to: '/dashboard/chat', label: 'Chat', icon: faCommentDots, section: 'System' },
 ]
 
 function Sidebar() {
+  const location = useLocation()
   const mainMenu = navItems.filter((item) => item.section === 'Main Menu')
   const systemMenu = navItems.filter((item) => item.section === 'System')
 
-  const linkClasses = ({ isActive }: { isActive: boolean }) =>
+  const linkClasses = (isActive: boolean) =>
     `flex items-center gap-3 rounded-lg px-3 py-2 text-[22px] md:text-[15px] transition ${
       isActive ? 'bg-[#28469d] text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'
     }`
+
+  const isItemActive = (to: string, activeOn?: string[]) => {
+    if (activeOn && activeOn.includes(location.pathname)) return true
+
+    const [path, search = ''] = to.split('?')
+    if (location.pathname !== path) return false
+    if (!search) return location.search === ''
+    return location.search === `?${search}`
+  }
 
   return (
     <aside className="sticky top-0 hidden h-screen w-[320px] flex-col border-r border-[#2e3d5f] bg-[#1d2b45] text-white md:flex">
@@ -45,7 +61,11 @@ function Sidebar() {
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/50">Main Menu</p>
         <nav className="space-y-1">
           {mainMenu.map((item) => (
-            <NavLink key={`${item.to}-${item.label}`} to={item.to} className={linkClasses}>
+            <NavLink
+              key={`${item.to}-${item.label}`}
+              to={item.to}
+              className={linkClasses(isItemActive(item.to, item.activeOn))}
+            >
               <FontAwesomeIcon icon={item.icon} className="w-5" />
               <span>{item.label}</span>
             </NavLink>
@@ -55,7 +75,11 @@ function Sidebar() {
         <p className="mb-3 mt-7 text-xs font-semibold uppercase tracking-wide text-white/50">System</p>
         <nav className="space-y-1">
           {systemMenu.map((item) => (
-            <NavLink key={`${item.to}-${item.label}`} to={item.to} className={linkClasses}>
+            <NavLink
+              key={`${item.to}-${item.label}`}
+              to={item.to}
+              className={linkClasses(isItemActive(item.to, item.activeOn))}
+            >
               <FontAwesomeIcon icon={item.icon} className="w-5" />
               <span>{item.label}</span>
             </NavLink>
@@ -65,7 +89,11 @@ function Sidebar() {
 
       <div className="border-t border-white/10 p-5">
         <div className="flex items-center gap-3 rounded-xl bg-[#c7ccd4] px-3 py-2 text-[#1f2937]">
-          <FontAwesomeIcon icon={faCircleUser} className="text-3xl text-[#f59e0b]" />
+          <img
+            src={adminProfileImage}
+            alt="Admin profile"
+            className="h-10 w-10 rounded-full object-cover"
+          />
           <div>
             <p className="text-sm font-semibold leading-tight">Dinith Rathnayaka</p>
             <p className="text-xs text-[#6b7280]">Admin</p>

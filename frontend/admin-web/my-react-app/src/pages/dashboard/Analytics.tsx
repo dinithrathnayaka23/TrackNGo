@@ -156,7 +156,7 @@ function Analytics() {
   return (
     <section className="mx-auto w-full max-w-[1320px]">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-5xl font-bold tracking-tight text-[#171923]">Dashboard Overview</h1>
+        <h1 className="text-5xl font-bold tracking-tight text-[#171923]">Dashboard</h1>
         <div className="flex flex-wrap items-center gap-3">
           <label className="inline-flex h-10 items-center rounded-lg border border-[#d9dde5] bg-white px-3 text-sm font-medium text-[#374151]">
             <select

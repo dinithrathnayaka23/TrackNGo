@@ -10,7 +10,6 @@ function AppRoutes() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/dashboard" element={<Navigate to="/dashboard/analytics" replace />} />
         <Route path="/dashboard/*" element={<DashboardRoutes />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

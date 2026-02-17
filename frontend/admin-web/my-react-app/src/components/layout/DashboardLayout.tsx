@@ -12,7 +12,9 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation()
   const segment = location.pathname.split('/')[2] || 'dashboard'
   const labelBySegment: Record<string, string> = {
-    analytics: 'Dashboard',
+    dashboard: 'Dashboard',
+    analytics: 'Analytics',
+    chat: 'Chat',
     users: 'Users',
     passenger: 'Passenger',
     driver: 'Driver',

@@ -27,7 +27,7 @@ function Login() {
           className="mt-10 space-y-6"
           onSubmit={(event) => {
             event.preventDefault()
-            navigate('/dashboard/analytics')
+            navigate('/dashboard')
           }}
         >
           <div className="animate-auth-fade-up" style={{ animationDelay: '160ms' }}>

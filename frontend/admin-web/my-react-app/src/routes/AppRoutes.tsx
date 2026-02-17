@@ -1,6 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Login from '../pages/auth/Login'
 import Signup from '../pages/auth/Signup'
+import BusDetail from '../pages/dashboard/BusDetail'
+import RoutesPage from '../pages/dashboard/Routes'
+import Analytics from '../pages/dashboard/Analytics'
+import Users from '../pages/dashboard/Users'
 
 function AppRoutes() {
   return (
@@ -9,6 +13,10 @@ function AppRoutes() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/dashboard/buses/nd-1151" element={<BusDetail />} />
+        <Route path="/dashboard/routes" element={<RoutesPage />} />
+        <Route path="/dashboard/analytics" element={<Analytics />} />
+        <Route path="/dashboard/users" element={<Users />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

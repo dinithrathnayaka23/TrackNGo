@@ -13,7 +13,7 @@ function AppRoutes() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/dashboard/buses/nd-1151" element={<BusDetail />} />
+        <Route path="/dashboard/buses/busdetails" element={<BusDetail />} />
         <Route path="/dashboard/routes" element={<RoutesPage />} />
         <Route path="/dashboard/analytics" element={<Analytics />} />
         <Route path="/dashboard/users" element={<Users />} />

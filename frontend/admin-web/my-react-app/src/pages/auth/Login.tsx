@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faArrowRight,
@@ -13,6 +13,7 @@ import AuthLayout from '../../components/layout/AuthLayout'
 function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [rememberDevice, setRememberDevice] = useState(false)
+  const navigate = useNavigate()
 
   return (
     <AuthLayout>
@@ -22,7 +23,13 @@ function Login() {
           Access your centralized transport control panel.
         </p>
 
-        <form className="mt-10 space-y-6" onSubmit={(event) => event.preventDefault()}>
+        <form
+          className="mt-10 space-y-6"
+          onSubmit={(event) => {
+            event.preventDefault()
+            navigate('/dashboard/analytics')
+          }}
+        >
           <div className="animate-auth-fade-up" style={{ animationDelay: '160ms' }}>
             <label htmlFor="login-email" className="mb-2 block text-lg font-semibold text-[#4d5564]">
               Email Address

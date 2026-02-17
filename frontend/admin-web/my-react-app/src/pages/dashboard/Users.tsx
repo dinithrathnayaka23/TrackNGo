@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faCalendarDays,
-  faChevronDown,
   faChevronLeft,
   faChevronRight,
   faDownload,
@@ -93,25 +92,40 @@ function roleBadgeClass(role: Role) {
   return 'bg-[#f3e8ff] text-[#7e22ce]'
 }
 
+function isSameCalendarDate(sourceDateText: string, selectedDate: string) {
+  const source = new Date(sourceDateText)
+  const selected = new Date(selectedDate)
+
+  if (Number.isNaN(source.getTime()) || Number.isNaN(selected.getTime())) return false
+
+  return (
+    source.getFullYear() === selected.getFullYear() &&
+    source.getMonth() === selected.getMonth() &&
+    source.getDate() === selected.getDate()
+  )
+}
+
 function Users() {
   const navigate = useNavigate()
   const location = useLocation()
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<'All' | Role>('All')
   const [statusFilter, setStatusFilter] = useState<'All Status' | Status>('All Status')
+  const [registrationDate, setRegistrationDate] = useState('')
   const [selectedRows, setSelectedRows] = useState<string[]>(['u2', 'u3'])
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       const roleMatch = roleFilter === 'All' || user.role === roleFilter
       const statusMatch = statusFilter === 'All Status' || user.status === statusFilter
+      const dateMatch = registrationDate === '' || isSameCalendarDate(user.joined, registrationDate)
       const searchMatch =
         user.name.toLowerCase().includes(search.toLowerCase()) ||
         user.email.toLowerCase().includes(search.toLowerCase()) ||
         user.phone.includes(search)
-      return roleMatch && statusMatch && searchMatch
+      return roleMatch && statusMatch && dateMatch && searchMatch
     })
-  }, [roleFilter, search, statusFilter])
+  }, [registrationDate, roleFilter, search, statusFilter])
 
   const allVisibleSelected =
     filteredUsers.length > 0 && filteredUsers.every((user) => selectedRows.includes(user.uid))
@@ -176,7 +190,7 @@ function Users() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/dashboard/analytics')}
+            onClick={() => navigate('/dashboard')}
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 text-sm font-semibold text-[#334155]"
           >
             <FontAwesomeIcon icon={faDownload} />
@@ -208,7 +222,6 @@ function Users() {
               <option value="Driver">Driver</option>
               <option value="Corporate">Corporate</option>
             </select>
-            <FontAwesomeIcon icon={faChevronDown} className="text-xs text-[#64748b]" />
           </label>
 
           <label className="inline-flex h-11 items-center justify-between rounded-xl border border-[#d9dde5] px-3 text-sm text-[#334155]">
@@ -221,17 +234,18 @@ function Users() {
               <option value="Active">Active</option>
               <option value="Suspended">Suspended</option>
             </select>
-            <FontAwesomeIcon icon={faChevronDown} className="text-xs text-[#64748b]" />
           </label>
 
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard/booking')}
-            className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#d9dde5] px-3 text-sm text-[#334155]"
-          >
+          <label className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#d9dde5] px-3 text-sm text-[#334155]">
             <FontAwesomeIcon icon={faCalendarDays} />
-            Registration Date
-          </button>
+            <input
+              type="date"
+              value={registrationDate}
+              onChange={(event) => setRegistrationDate(event.target.value)}
+              className="w-full bg-transparent outline-none"
+              aria-label="Registration Date"
+            />
+          </label>
 
           <div className="flex items-center gap-4 pl-1 text-sm">
             <button type="button" className="font-semibold text-[#3156c2]">
@@ -243,6 +257,7 @@ function Users() {
                 setSearch('')
                 setRoleFilter('All')
                 setStatusFilter('All Status')
+                setRegistrationDate('')
               }}
               className="text-[#64748b]"
             >
@@ -270,7 +285,7 @@ function Users() {
             </button>
             <button
               type="button"
-              onClick={() => navigate('/dashboard/analytics')}
+              onClick={() => navigate('/dashboard')}
               className="text-[#334155]"
             >
               Export Selected

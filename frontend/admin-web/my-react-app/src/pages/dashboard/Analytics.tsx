@@ -68,7 +68,7 @@ type DailyAnalyticsPoint = {
 const mainMenu: MenuItem[] = [
   { label: 'Dashboard', icon: faChartSimple },
   { label: 'Users', icon: faUsers },
-  { label: 'Buses', icon: faBus, path: '/dashboard/buses/nd-1151' },
+  { label: 'Buses', icon: faBus, path: '/dashboard/buses' },
   { label: 'Routes', icon: faLocationDot, path: '/dashboard/routes' },
   { label: 'Bookings', icon: faBook },
 ]

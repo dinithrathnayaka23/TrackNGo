@@ -61,7 +61,7 @@ type DetailTab = 'overview' | 'contracts' | 'billing'
 const mainMenu: MenuItem[] = [
   { label: 'Dashboard', icon: faChartSimple },
   { label: 'Users', icon: faUsers, active: true, path: '/dashboard/users' },
-  { label: 'Buses', icon: faBus, path: '/dashboard/buses/nd-1151' },
+  { label: 'Buses', icon: faBus, path: '/dashboard/buses' },
   { label: 'Routes', icon: faRoute, path: '/dashboard/routes' },
   { label: 'Bookings', icon: faBook },
 ]

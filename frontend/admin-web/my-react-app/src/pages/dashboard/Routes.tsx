@@ -151,6 +151,7 @@ function Routes() {
   const [busTypeFilter, setBusTypeFilter] = useState<'all' | 'high-way' | 'long-distance'>('all')
   const [routesData, setRoutesData] = useState<RouteRow[]>(routeRows)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [createRouteError, setCreateRouteError] = useState('')
   const [newRoute, setNewRoute] = useState({
     name: '',
     code: '',
@@ -190,9 +191,48 @@ function Routes() {
   const handleCreateRoute = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    if (!newRoute.name.trim() || !newRoute.code.trim()) {
+    const trimmedName = newRoute.name.trim()
+    const trimmedCode = newRoute.code.trim()
+    const trimmedDistance = newRoute.distance.trim()
+    const trimmedDuration = newRoute.duration.trim()
+    const trimmedFare = newRoute.baseFare.trim().replace(/^rs\.?/i, '')
+
+    if (!trimmedName || !trimmedCode) {
+      setCreateRouteError('Route name and route code are required.')
       return
     }
+
+    if (!/^[A-Za-z]{2,4}-\d{2,4}$/.test(trimmedCode)) {
+      setCreateRouteError('Route code must follow a format like RT-200.')
+      return
+    }
+
+    if (trimmedDistance && !/^\d+(\.\d+)?\s*km$/i.test(trimmedDistance)) {
+      setCreateRouteError('Distance must be in a format like 120 km.')
+      return
+    }
+
+    if (trimmedDuration && !/^\d+h(\s*\d+m)?$/i.test(trimmedDuration)) {
+      setCreateRouteError('Duration must be in a format like 2h 35m.')
+      return
+    }
+
+    if (newRoute.stops && Number(newRoute.stops) < 0) {
+      setCreateRouteError('Stops cannot be negative.')
+      return
+    }
+
+    if (newRoute.activeBuses && Number(newRoute.activeBuses) < 0) {
+      setCreateRouteError('Active buses cannot be negative.')
+      return
+    }
+
+    if (trimmedFare && (!/^\d+(\.\d+)?$/.test(trimmedFare) || Number(trimmedFare) <= 0)) {
+      setCreateRouteError('Base fare must be a positive number.')
+      return
+    }
+
+    setCreateRouteError('')
 
     const normalizedFareValue = newRoute.baseFare.trim()
     const normalizedFare =
@@ -214,6 +254,7 @@ function Routes() {
 
     setRoutesData((previous) => [createdRoute, ...previous])
     setIsCreateModalOpen(false)
+    setCreateRouteError('')
     setNewRoute({
       name: '',
       code: '',
@@ -246,7 +287,10 @@ function Routes() {
               </h1>
               <button
                 type="button"
-                onClick={() => setIsCreateModalOpen(true)}
+                onClick={() => {
+                  setCreateRouteError('')
+                  setIsCreateModalOpen(true)
+                }}
                 className="animate-dash-in flex items-center gap-2 rounded-xl bg-[#2642a6] px-6 py-3 text-lg font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
                 style={{ animationDelay: '110ms' }}
               >
@@ -465,7 +509,10 @@ function Routes() {
               </div>
               <button
                 type="button"
-                onClick={() => setIsCreateModalOpen(false)}
+                onClick={() => {
+                  setIsCreateModalOpen(false)
+                  setCreateRouteError('')
+                }}
                 className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
                 aria-label="Close create route modal"
               >
@@ -609,9 +656,15 @@ function Routes() {
               </div>
 
               <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] pt-4">
+                {createRouteError ? (
+                  <p className="mr-auto text-sm font-semibold text-[#d14343]">{createRouteError}</p>
+                ) : null}
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
+                  onClick={() => {
+                    setIsCreateModalOpen(false)
+                    setCreateRouteError('')
+                  }}
                   className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
                 >
                   Cancel

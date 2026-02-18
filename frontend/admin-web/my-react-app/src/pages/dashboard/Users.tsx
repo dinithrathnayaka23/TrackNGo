@@ -169,6 +169,22 @@ function Users() {
       return
     }
 
+    if (!contractDraft.validFrom || !contractDraft.validTo) {
+      showToast('Please select both valid from and valid to dates.')
+      return
+    }
+
+    if (contractDraft.validFrom > contractDraft.validTo) {
+      showToast('Valid from date must be before valid to date.')
+      return
+    }
+
+    const monthlyRaw = contractDraft.monthly.trim().replace(/^rs\.?/i, '')
+    if (!monthlyRaw || !/^\d+(\.\d+)?$/.test(monthlyRaw) || Number(monthlyRaw) <= 0) {
+      showToast('Monthly value must be a positive number.')
+      return
+    }
+
     const formatDate = (dateText: string) =>
       dateText
         ? new Date(dateText).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -176,8 +192,7 @@ function Users() {
 
     const fromLabel = formatDate(contractDraft.validFrom)
     const toLabel = formatDate(contractDraft.validTo)
-    const monthlyRaw = contractDraft.monthly.trim()
-    const monthlyValue = monthlyRaw.startsWith('Rs.') ? monthlyRaw : `Rs.${monthlyRaw || '0'}`
+    const monthlyValue = `Rs.${monthlyRaw}`
 
     const newContract: Contract = {
       id: `#CNT-2024-${String(contracts.length + 101).padStart(3, '0')}`,

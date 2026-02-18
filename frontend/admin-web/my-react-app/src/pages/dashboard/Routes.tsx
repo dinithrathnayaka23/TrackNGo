@@ -1,8 +1,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useMemo, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
-  faBell,
   faBook,
   faBus,
   faChartColumn,
@@ -11,11 +10,9 @@ import {
   faComment,
   faBan,
   faLocationDot,
-  faMagnifyingGlass,
   faPen,
   faPlus,
   faRoute,
-  faSignOutAlt,
   faTrash,
   faTriangleExclamation,
   faUsers,
@@ -26,15 +23,9 @@ import {
   faChevronRight,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
-import adminProfileImage from '../../assets/images/adminProfile.png'
 import mapPreviewImage from '../../assets/images/map.png'
-
-type MenuItem = {
-  label: string
-  icon: typeof faBus
-  active?: boolean
-  path?: string
-}
+import Navbar from '../../components/layout/Navbar'
+import Sidebar, { type SidebarMenuItem } from '../../components/layout/Sidebar'
 
 type RouteRow = {
   name: string
@@ -48,7 +39,7 @@ type RouteRow = {
   status: 'Active' | 'Inactive'
 }
 
-const mainMenu: MenuItem[] = [
+const mainMenu: SidebarMenuItem[] = [
   { label: 'Dashboard', icon: faChartSimple },
   { label: 'Users', icon: faUsers },
   { label: 'Buses', icon: faBus },
@@ -56,7 +47,7 @@ const mainMenu: MenuItem[] = [
   { label: 'Bookings', icon: faBook },
 ]
 
-const systemMenu: MenuItem[] = [
+const systemMenu: SidebarMenuItem[] = [
   { label: 'Complaints', icon: faTriangleExclamation },
   { label: 'Analytics', icon: faChartColumn, path: '/dashboard/analytics' },
   { label: 'Chat', icon: faComment },
@@ -119,40 +110,6 @@ const routeRows: RouteRow[] = [
     status: 'Active',
   },
 ]
-
-function MenuSection({ title, items }: { title: string; items: MenuItem[] }) {
-  return (
-    <div>
-      <p className="mb-3 px-4 text-xs font-semibold uppercase tracking-wide text-[#9aa5bc]">{title}</p>
-      <div className="space-y-1">
-        {items.map((item) => {
-          const itemClass = [
-            'flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left text-[15px] font-semibold transition duration-200',
-            item.active
-              ? 'bg-[#2642a6] text-white shadow-[0_8px_16px_rgba(23,38,96,0.35)]'
-              : 'text-[#d6dded] hover:bg-[#243456]',
-          ].join(' ')
-
-          if (item.path) {
-            return (
-              <Link key={item.label} to={item.path} className={itemClass}>
-                <FontAwesomeIcon icon={item.icon} className="text-sm" />
-                <span>{item.label}</span>
-              </Link>
-            )
-          }
-
-          return (
-            <button type="button" key={item.label} className={itemClass}>
-              <FontAwesomeIcon icon={item.icon} className="text-sm" />
-              <span>{item.label}</span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 function SummaryCard({
   icon,
@@ -273,83 +230,14 @@ function Routes() {
 
   return (
     <div className="h-screen bg-[#efeff4]" style={{ fontFamily: 'Manrope, Segoe UI, sans-serif' }}>
-      <aside className="fixed inset-y-0 left-0 z-20 w-[314px] border-r border-[#2f3f61] bg-[#1c2a44]">
-        <div className="flex h-full flex-col">
-          <div className="border-b border-[#2f3f61] px-6 py-5 animate-dash-in" style={{ animationDelay: '20ms' }}>
-            <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-md bg-[#2b4cad] text-white">
-                <FontAwesomeIcon icon={faBus} className="text-lg" />
-              </div>
-              <span className="text-[32px] font-extrabold tracking-tight text-white">TrackNGo</span>
-            </div>
-          </div>
-
-          <div className="flex-1 space-y-8 overflow-y-auto px-4 py-5">
-            <div className="animate-dash-in" style={{ animationDelay: '80ms' }}>
-              <MenuSection title="Main Menu" items={mainMenu} />
-            </div>
-            <div className="animate-dash-in" style={{ animationDelay: '120ms' }}>
-              <MenuSection title="System" items={systemMenu} />
-            </div>
-          </div>
-
-          <div className="border-t border-[#2f3f61] p-4 animate-dash-in" style={{ animationDelay: '150ms' }}>
-            <div className="flex items-center gap-3 rounded-lg bg-[#c8cdd8] px-3 py-2">
-              <img
-                src={adminProfileImage}
-                alt="Administrator profile avatar"
-                className="h-12 w-12 rounded-full object-cover"
-              />
-              <div>
-                <p className="text-sm font-bold text-[#222a3b]">Dinith Rathnayaka</p>
-                <p className="text-sm text-[#5c6679]">Admin</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <Sidebar mainMenu={mainMenu} systemMenu={systemMenu} />
 
       <div className="ml-[314px] flex h-screen flex-col">
-        <header
-          className="z-10 flex h-[78px] shrink-0 items-center justify-between border-b border-[#dfe1e8] bg-[#f7f7fa] px-8 animate-dash-in"
-          style={{ animationDelay: '40ms' }}
-        >
-          <div className="flex items-center gap-3 text-sm text-[#6a7284]">
-            <span>Home</span>
-            <span>{'>'}</span>
-            <span className="font-bold text-[#2b3448]">Routes</span>
-          </div>
-
-          <div className="w-full max-w-[560px] px-6">
-            <div className="flex h-12 items-center gap-3 rounded-xl bg-[#eef0f5] px-4 text-[#7d8798]">
-              <FontAwesomeIcon icon={faMagnifyingGlass} />
-              <input
-                type="text"
-                className="w-full bg-transparent text-sm text-[#2f394d] outline-none"
-                placeholder="Search buses, drivers, or routes..."
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-8">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
-            >
-              <FontAwesomeIcon icon={faSignOutAlt} />
-              Logout
-            </button>
-            <button
-              type="button"
-              className="relative text-lg text-[#3b4253] transition duration-200 hover:scale-105"
-              aria-label="Notifications"
-            >
-              <FontAwesomeIcon icon={faBell} />
-              <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#f24f4f]" />
-            </button>
-          </div>
-        </header>
+        <Navbar
+          breadcrumbs={['Home', 'Routes']}
+          onLogout={handleLogout}
+          unreadCount={1}
+        />
 
         <main className="flex-1 overflow-y-auto p-8">
           <div className="mx-auto max-w-[1700px] space-y-5">

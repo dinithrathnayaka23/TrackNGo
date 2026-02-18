@@ -1,10 +1,9 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useMemo, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   faArrowLeft,
   faBan,
-  faBell,
   faBook,
   faBus,
   faCalendar,
@@ -16,27 +15,19 @@ import {
   faFileContract,
   faFileInvoice,
   faLocationDot,
-  faMagnifyingGlass,
   faPen,
   faPhone,
   faPlus,
   faRoute,
-  faSignOutAlt,
   faTrash,
   faTriangleExclamation,
   faUsers,
   faWallet,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
-import adminProfileImage from '../../assets/images/adminProfile.png'
 import oshadiImage from '../../assets/images/oshadi.jpeg'
-
-type MenuItem = {
-  label: string
-  icon: typeof faBus
-  active?: boolean
-  path?: string
-}
+import Navbar from '../../components/layout/Navbar'
+import Sidebar, { type SidebarMenuItem } from '../../components/layout/Sidebar'
 
 type ContractStatus = 'Active' | 'Expiring Soon'
 
@@ -58,7 +49,7 @@ type Invoice = {
 
 type DetailTab = 'overview' | 'contracts' | 'billing'
 
-const mainMenu: MenuItem[] = [
+const mainMenu: SidebarMenuItem[] = [
   { label: 'Dashboard', icon: faChartSimple },
   { label: 'Users', icon: faUsers, active: true, path: '/dashboard/users' },
   { label: 'Buses', icon: faBus, path: '/dashboard/buses' },
@@ -66,7 +57,7 @@ const mainMenu: MenuItem[] = [
   { label: 'Bookings', icon: faBook },
 ]
 
-const systemMenu: MenuItem[] = [
+const systemMenu: SidebarMenuItem[] = [
   { label: 'Complaints', icon: faTriangleExclamation },
   { label: 'Analytics', icon: faChartColumn, path: '/dashboard/analytics' },
   { label: 'Chat', icon: faComment },
@@ -104,40 +95,6 @@ const initialInvoices: Invoice[] = [
   { id: '#INV-00754', date: 'Sep 01, 2023', amount: 'Rs.45,000.00', status: 'Paid' },
   { id: '#INV-00688', date: 'Aug 01, 2023', amount: 'Rs.41,200.00', status: 'Paid' },
 ]
-
-function MenuSection({ title, items, onMenuAction }: { title: string; items: MenuItem[]; onMenuAction: (label: string) => void }) {
-  return (
-    <div>
-      <p className="mb-3 px-4 text-xs font-semibold uppercase tracking-wide text-[#9aa5bc]">{title}</p>
-      <div className="space-y-1">
-        {items.map((item) => {
-          const itemClass = [
-            'flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left text-[15px] font-semibold transition duration-200',
-            item.active
-              ? 'bg-[#2642a6] text-white shadow-[0_8px_16px_rgba(23,38,96,0.35)]'
-              : 'text-[#d6dded] hover:bg-[#243456]',
-          ].join(' ')
-
-          if (item.path) {
-            return (
-              <Link key={item.label} to={item.path} className={itemClass}>
-                <FontAwesomeIcon icon={item.icon} className="text-sm" />
-                <span>{item.label}</span>
-              </Link>
-            )
-          }
-
-          return (
-            <button type="button" key={item.label} className={itemClass} onClick={() => onMenuAction(item.label)}>
-              <FontAwesomeIcon icon={item.icon} className="text-sm" />
-              <span>{item.label}</span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 function Users() {
   const navigate = useNavigate()
@@ -254,89 +211,28 @@ function Users() {
 
   return (
     <div className="h-screen bg-[#efeff4]" style={{ fontFamily: 'Manrope, Segoe UI, sans-serif' }}>
-      <aside className="fixed inset-y-0 left-0 z-20 w-[314px] border-r border-[#2f3f61] bg-[#1c2a44]">
-        <div className="flex h-full flex-col">
-          <div className="border-b border-[#2f3f61] px-6 py-5 animate-dash-in" style={{ animationDelay: '20ms' }}>
-            <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-md bg-[#2b4cad] text-white">
-                <FontAwesomeIcon icon={faBus} className="text-lg" />
-              </div>
-              <span className="text-[32px] font-extrabold tracking-tight text-white">TrackNGo</span>
-            </div>
-          </div>
-
-          <div className="flex-1 space-y-8 overflow-y-auto px-4 py-5">
-            <div className="animate-dash-in" style={{ animationDelay: '80ms' }}>
-              <MenuSection title="Main Menu" items={mainMenu} onMenuAction={showToast} />
-            </div>
-            <div className="animate-dash-in" style={{ animationDelay: '120ms' }}>
-              <MenuSection title="System" items={systemMenu} onMenuAction={showToast} />
-            </div>
-          </div>
-
-          <div className="border-t border-[#2f3f61] p-4 animate-dash-in" style={{ animationDelay: '150ms' }}>
-            <div className="flex items-center gap-3 rounded-lg bg-[#c8cdd8] px-3 py-2">
-              <img
-                src={adminProfileImage}
-                alt="Administrator profile avatar"
-                className="h-12 w-12 rounded-full object-cover"
-              />
-              <div>
-                <p className="text-sm font-bold text-[#222a3b]">Dinith Rathnayaka</p>
-                <p className="text-sm text-[#5c6679]">Admin</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <Sidebar mainMenu={mainMenu} systemMenu={systemMenu} onMenuAction={showToast} />
 
       <div className="ml-[314px] flex h-screen flex-col">
-        <header className="z-10 flex h-[78px] shrink-0 items-center justify-between border-b border-[#dfe1e8] bg-[#f7f7fa] px-8 animate-dash-in" style={{ animationDelay: '40ms' }}>
-          <div className="flex items-center gap-3 text-sm text-[#6a7284]">
-            <span>Co-operate</span>
-            <span>{'>'}</span>
-            <span className="font-bold text-[#2b3448]">Co-operate Details</span>
-          </div>
-
-          <div className="w-full max-w-[560px] px-6">
-            <div className="flex h-12 items-center gap-3 rounded-xl bg-[#eef0f5] px-4 text-[#7d8798]">
-              <FontAwesomeIcon icon={faMagnifyingGlass} />
-              <input
-                type="text"
-                value={topSearch}
-                onChange={(event) => setTopSearch(event.target.value)}
-                className="w-full bg-transparent text-sm text-[#2f394d] outline-none"
-                placeholder="Search buses, drivers, or routes..."
-              />
-            </div>
-          </div>
-
-          <div className="relative flex items-center gap-8">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
-            >
-              <FontAwesomeIcon icon={faSignOutAlt} />
-              Logout
-            </button>
-            <button type="button" className="relative text-lg text-[#3b4253]" aria-label="Notifications" onClick={() => setNotificationOpen((v) => !v)}>
-              <FontAwesomeIcon icon={faBell} />
-              {unreadCount > 0 ? <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#f24f4f]" /> : null}
-            </button>
-            {notificationOpen ? (
-              <div className="absolute right-0 top-12 z-30 w-72 rounded-xl border border-[#dce1eb] bg-white p-3 shadow-lg">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-bold text-[#2b3448]">Notifications</p>
-                  <button type="button" className="text-xs font-semibold text-[#2642a6]" onClick={() => setUnreadCount(0)}>
-                    Mark all read
-                  </button>
-                </div>
-                <p className="rounded-md bg-[#f2f5fb] p-2 text-sm text-[#546078]">1 contract expires next month.</p>
+        <Navbar
+          breadcrumbs={['Co-operate', 'Co-operate Details']}
+          onLogout={handleLogout}
+          searchValue={topSearch}
+          onSearchChange={setTopSearch}
+          unreadCount={unreadCount}
+          onToggleNotifications={() => setNotificationOpen((v) => !v)}
+          notificationPanel={notificationOpen ? (
+            <div className="absolute right-0 top-12 z-30 w-72 rounded-xl border border-[#dce1eb] bg-white p-3 shadow-lg">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-bold text-[#2b3448]">Notifications</p>
+                <button type="button" className="text-xs font-semibold text-[#2642a6]" onClick={() => setUnreadCount(0)}>
+                  Mark all read
+                </button>
               </div>
-            ) : null}
-          </div>
-        </header>
+              <p className="rounded-md bg-[#f2f5fb] p-2 text-sm text-[#546078]">1 contract expires next month.</p>
+            </div>
+          ) : null}
+        />
 
         <main className="flex-1 overflow-y-auto p-8">
           <div className="mx-auto max-w-[1700px] space-y-5">

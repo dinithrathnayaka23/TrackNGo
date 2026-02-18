@@ -26,6 +26,7 @@ import {
 import mapPreviewImage from '../../assets/images/map.png'
 import Navbar from '../../components/layout/Navbar'
 import Sidebar, { type SidebarMenuItem } from '../../components/layout/Sidebar'
+import { logoutToLogin } from '../../utils/authSession'
 
 type RouteRow = {
   name: string
@@ -144,6 +145,7 @@ function SummaryCard({
 
 function Routes() {
   const navigate = useNavigate()
+  // Filter and create-route state for the route management table.
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [busTypeFilter, setBusTypeFilter] = useState<'all' | 'high-way' | 'long-distance'>('all')
@@ -162,13 +164,10 @@ function Routes() {
   })
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('admin')
-    sessionStorage.removeItem('authToken')
-    sessionStorage.removeItem('admin')
-    navigate('/login', { replace: true })
+    logoutToLogin(navigate)
   }
 
+  // Derived list keeps table rendering declarative and avoids inline filter logic in JSX.
   const filteredRoutes = useMemo(
     () =>
       routesData.filter((route) => {

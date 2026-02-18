@@ -29,6 +29,7 @@ import adminProfileImage from '../../assets/images/adminProfile.png'
 import mapImage from '../../assets/images/map.png'
 import Navbar from '../../components/layout/Navbar'
 import Sidebar, { type SidebarMenuItem } from '../../components/layout/Sidebar'
+import { logoutToLogin } from '../../utils/authSession'
 
 type Amenity = {
   name: string
@@ -116,11 +117,7 @@ function BusDetail() {
   const [isFullScheduleVisible, setIsFullScheduleVisible] = useState(false)
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('admin')
-    sessionStorage.removeItem('authToken')
-    sessionStorage.removeItem('admin')
-    navigate('/login', { replace: true })
+    logoutToLogin(navigate)
   }
 
   const openAmenityModal = () => {

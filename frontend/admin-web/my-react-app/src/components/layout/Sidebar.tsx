@@ -41,6 +41,7 @@ function MenuSection({
           ].join(' ')
 
           if (item.path) {
+            // Routed items navigate directly via react-router.
             return (
               <Link key={item.label} to={item.path} className={itemClass}>
                 <FontAwesomeIcon icon={item.icon} className="text-sm" />
@@ -54,6 +55,7 @@ function MenuSection({
               type="button"
               key={item.label}
               className={itemClass}
+              // Non-routed items bubble actions to parent pages for toasts/placeholders.
               onClick={() => onMenuAction?.(item.label)}
             >
               <FontAwesomeIcon icon={item.icon} className="text-sm" />
@@ -74,6 +76,7 @@ function Sidebar({
   profileRole = 'Admin',
 }: SidebarProps) {
   return (
+    // Left navigation shell shared across dashboard screens.
     <aside className="fixed inset-y-0 left-0 z-20 w-[314px] border-r border-[#2f3f61] bg-[#1c2a44]">
       <div className="flex h-full flex-col">
         <div className="animate-dash-in border-b border-[#2f3f61] px-6 py-5" style={{ animationDelay: '20ms' }}>

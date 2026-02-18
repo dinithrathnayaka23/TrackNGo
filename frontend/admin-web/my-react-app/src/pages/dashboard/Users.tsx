@@ -28,6 +28,7 @@ import {
 import oshadiImage from '../../assets/images/oshadi.jpeg'
 import Navbar from '../../components/layout/Navbar'
 import Sidebar, { type SidebarMenuItem } from '../../components/layout/Sidebar'
+import { logoutToLogin } from '../../utils/authSession'
 
 type ContractStatus = 'Active' | 'Expiring Soon'
 
@@ -98,6 +99,7 @@ const initialInvoices: Invoice[] = [
 
 function Users() {
   const navigate = useNavigate()
+  // Page-level state for tabs, searchable data, notifications, and contract creation.
   const [activeTab, setActiveTab] = useState<DetailTab>('overview')
   const [isSuspended, setIsSuspended] = useState(false)
   const [topSearch, setTopSearch] = useState('')
@@ -118,15 +120,12 @@ function Users() {
   })
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('admin')
-    sessionStorage.removeItem('authToken')
-    sessionStorage.removeItem('admin')
-    navigate('/login', { replace: true })
+    logoutToLogin(navigate)
   }
 
   const showToast = (message: string) => setToastMessage(message)
 
+  // Lightweight search over local contract rows.
   const filteredContracts = useMemo(() => {
     const normalized = topSearch.trim().toLowerCase()
     if (!normalized) return contracts
@@ -138,6 +137,7 @@ function Users() {
   const visibleInvoices = showAllInvoices ? invoices : invoices.slice(0, 3)
 
   const downloadInvoice = (invoice: Invoice) => {
+    // Dummy CSV export to simulate reporting behavior.
     const csv = `Invoice,Date,Amount,Status\n${invoice.id},${invoice.date},${invoice.amount},${invoice.status}\n`
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -150,6 +150,7 @@ function Users() {
   }
 
   const openContractModal = () => {
+    // Prefill defaults every time the modal opens.
     setContractDraft({
       name: '',
       status: contracts.length % 2 === 0 ? 'Active' : 'Expiring Soon',

@@ -151,6 +151,8 @@ function Routes() {
   const [busTypeFilter, setBusTypeFilter] = useState<'all' | 'high-way' | 'long-distance'>('all')
   const [routesData, setRoutesData] = useState<RouteRow[]>(routeRows)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [editingRouteCode, setEditingRouteCode] = useState<string | null>(null)
+  const [routePendingDelete, setRoutePendingDelete] = useState<RouteRow | null>(null)
   const [createRouteError, setCreateRouteError] = useState('')
   const [newRoute, setNewRoute] = useState({
     name: '',
@@ -166,6 +168,27 @@ function Routes() {
 
   const handleLogout = () => {
     logoutToLogin(navigate)
+  }
+
+  const resetRouteForm = () => {
+    setNewRoute({
+      name: '',
+      code: '',
+      type: 'High Way',
+      distance: '',
+      duration: '',
+      stops: '',
+      activeBuses: '',
+      baseFare: '',
+      status: 'Active',
+    })
+  }
+
+  const openCreateRouteModal = () => {
+    setEditingRouteCode(null)
+    setCreateRouteError('')
+    resetRouteForm()
+    setIsCreateModalOpen(true)
   }
 
   // Derived list keeps table rendering declarative and avoids inline filter logic in JSX.
@@ -187,6 +210,12 @@ function Routes() {
       }),
     [routesData, searchTerm, statusFilter, busTypeFilter],
   )
+
+  const totalRoutes = routesData.length
+  const activeRoutes = routesData.filter((route) => route.status === 'Active').length
+  const busesDeployed = routesData
+    .filter((route) => route.status === 'Active')
+    .reduce((sum, route) => sum + route.activeBuses, 0)
 
   const handleCreateRoute = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -252,20 +281,78 @@ function Routes() {
       status: newRoute.status,
     }
 
-    setRoutesData((previous) => [createdRoute, ...previous])
+    if (editingRouteCode) {
+      const duplicateCode = routesData.some(
+        (route) => route.code.toLowerCase() === createdRoute.code.toLowerCase() && route.code !== editingRouteCode,
+      )
+      if (duplicateCode) {
+        setCreateRouteError('Route code already exists. Please use a unique code.')
+        return
+      }
+
+      setRoutesData((previous) =>
+        previous.map((route) => (route.code === editingRouteCode ? createdRoute : route)),
+      )
+    } else {
+      const duplicateCode = routesData.some(
+        (route) => route.code.toLowerCase() === createdRoute.code.toLowerCase(),
+      )
+      if (duplicateCode) {
+        setCreateRouteError('Route code already exists. Please use a unique code.')
+        return
+      }
+
+      setRoutesData((previous) => [createdRoute, ...previous])
+    }
+
     setIsCreateModalOpen(false)
+    setEditingRouteCode(null)
+    setCreateRouteError('')
+    resetRouteForm()
+  }
+
+  const handleEditRoute = (route: RouteRow) => {
+    setEditingRouteCode(route.code)
     setCreateRouteError('')
     setNewRoute({
-      name: '',
-      code: '',
-      type: 'High Way',
-      distance: '',
-      duration: '',
-      stops: '',
-      activeBuses: '',
-      baseFare: '',
-      status: 'Active',
+      name: route.name,
+      code: route.code,
+      type: route.type,
+      distance: route.distance,
+      duration: route.duration,
+      stops: String(route.stops),
+      activeBuses: String(route.activeBuses),
+      baseFare: route.baseFare.replace(/^Rs\.?/i, ''),
+      status: route.status,
     })
+    setIsCreateModalOpen(true)
+  }
+
+  const handleToggleSuspendRoute = (routeCode: string) => {
+    setRoutesData((previous) =>
+      previous.map((route) =>
+        route.code === routeCode
+          ? { ...route, status: route.status === 'Active' ? 'Inactive' : 'Active' }
+          : route,
+      ),
+    )
+  }
+
+  const handleDeleteRoute = (routeCode: string) => {
+    const route = routesData.find((item) => item.code === routeCode)
+    if (!route) return
+
+    setRoutePendingDelete(route)
+  }
+
+  const cancelDeleteRoute = () => {
+    setRoutePendingDelete(null)
+  }
+
+  const confirmDeleteRoute = () => {
+    if (!routePendingDelete) return
+    setRoutesData((previous) => previous.filter((item) => item.code !== routePendingDelete.code))
+    setRoutePendingDelete(null)
   }
 
   return (
@@ -287,10 +374,7 @@ function Routes() {
               </h1>
               <button
                 type="button"
-                onClick={() => {
-                  setCreateRouteError('')
-                  setIsCreateModalOpen(true)
-                }}
+                onClick={openCreateRouteModal}
                 className="animate-dash-in flex items-center gap-2 rounded-xl bg-[#2642a6] px-6 py-3 text-lg font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
                 style={{ animationDelay: '110ms' }}
               >
@@ -304,21 +388,21 @@ function Routes() {
                 icon={faRoute}
                 iconWrap="bg-[#eef0f7] text-[#2642a6]"
                 title="Total Routes"
-                value="142"
+                value={String(totalRoutes)}
                 delay="130ms"
               />
               <SummaryCard
                 icon={faCheckCircle}
                 iconWrap="bg-[#e5f7ef] text-[#1aac6e]"
                 title="Active Routes"
-                value="128"
+                value={String(activeRoutes)}
                 delay="170ms"
               />
               <SummaryCard
                 icon={faBus}
                 iconWrap="bg-[#e8efff] text-[#2e63d8]"
                 title="Buses Deployed"
-                value="356"
+                value={String(busesDeployed)}
                 delay="210ms"
               />
             </section>
@@ -450,13 +534,28 @@ function Routes() {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex justify-end gap-4 text-[#6f7890]">
-                              <button type="button" aria-label={`Edit route ${route.name}`} className="transition duration-200 hover:text-[#1f2737]">
+                              <button
+                                type="button"
+                                aria-label={`Edit route ${route.name}`}
+                                onClick={() => handleEditRoute(route)}
+                                className="transition duration-200 hover:text-[#1f2737]"
+                              >
                                 <FontAwesomeIcon icon={faPen} />
                               </button>
-                              <button type="button" aria-label={`Suspend route ${route.name}`} className="transition duration-200 hover:text-[#1f2737]">
+                              <button
+                                type="button"
+                                aria-label={`${route.status === 'Active' ? 'Suspend' : 'Activate'} route ${route.name}`}
+                                onClick={() => handleToggleSuspendRoute(route.code)}
+                                className="transition duration-200 hover:text-[#1f2737]"
+                              >
                                 <FontAwesomeIcon icon={faBan} />
                               </button>
-                              <button type="button" aria-label={`Delete route ${route.name}`} className="transition duration-200 hover:text-[#d74949]">
+                              <button
+                                type="button"
+                                aria-label={`Delete route ${route.name}`}
+                                onClick={() => handleDeleteRoute(route.code)}
+                                className="transition duration-200 hover:text-[#d74949]"
+                              >
                                 <FontAwesomeIcon icon={faTrash} />
                               </button>
                             </div>
@@ -504,14 +603,20 @@ function Routes() {
           <div className="w-full max-w-3xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
             <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
               <div>
-                <h2 className="text-2xl font-extrabold text-[#1f2737]">Create New Route</h2>
-                <p className="text-sm text-[#6d778e]">Add route data and save it to the table.</p>
+                <h2 className="text-2xl font-extrabold text-[#1f2737]">
+                  {editingRouteCode ? 'Edit Route' : 'Create New Route'}
+                </h2>
+                <p className="text-sm text-[#6d778e]">
+                  {editingRouteCode ? 'Update route data and save your changes.' : 'Add route data and save it to the table.'}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => {
                   setIsCreateModalOpen(false)
+                  setEditingRouteCode(null)
                   setCreateRouteError('')
+                  resetRouteForm()
                 }}
                 className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
                 aria-label="Close create route modal"
@@ -663,7 +768,9 @@ function Routes() {
                   type="button"
                   onClick={() => {
                     setIsCreateModalOpen(false)
+                    setEditingRouteCode(null)
                     setCreateRouteError('')
+                    resetRouteForm()
                   }}
                   className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
                 >
@@ -673,10 +780,39 @@ function Routes() {
                   type="submit"
                   className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]"
                 >
-                  Create Route
+                  {editingRouteCode ? 'Save Changes' : 'Create Route'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {routePendingDelete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101426]/45 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#f0d6d6] bg-[#fff7f7] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
+            <div className="border-b border-[#efdcdc] px-6 py-4">
+              <h2 className="text-2xl font-extrabold text-[#8d1f1f]">Delete Route</h2>
+              <p className="text-sm text-[#9a5555]">
+                Are you sure you want to delete {routePendingDelete.name} ({routePendingDelete.code})?
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4">
+              <button
+                type="button"
+                onClick={cancelDeleteRoute}
+                className="rounded-lg border border-[#d3d9e6] bg-white px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#f5f7fc]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteRoute}
+                className="rounded-lg bg-[#e04444] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#d43939]"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

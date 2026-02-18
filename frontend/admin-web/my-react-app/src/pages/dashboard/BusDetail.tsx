@@ -742,13 +742,12 @@ function BusDetail() {
                 />
               </div>
               <div>
-                <label htmlFor="driver-rating" className="mb-1 block text-sm font-semibold text-[#45516b]">Rating</label>
-                <input
-                  id="driver-rating"
-                  value={driverDraft.rating}
-                  onChange={(event) => setDriverDraft((prev) => ({ ...prev, rating: event.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                />
+                <p className="mb-1 block text-sm font-semibold text-[#45516b]">Rating</p>
+                <div
+                  className="flex h-11 w-full items-center rounded-lg border border-[#d7dde9] bg-[#eef1f7] px-3 text-sm text-[#6a7284]"
+                >
+                  {driverDraft.rating} (auto-calculated)
+                </div>
               </div>
               <div className="md:col-span-2">
                 <label htmlFor="driver-trips" className="mb-1 block text-sm font-semibold text-[#45516b]">Trips</label>

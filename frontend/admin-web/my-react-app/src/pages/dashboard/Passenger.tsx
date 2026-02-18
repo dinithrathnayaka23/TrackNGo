@@ -16,6 +16,69 @@ interface Passenger {
 
 type PassengerStatus = 'Active' | 'Suspended' | 'Inactive' | 'All'
 
+const ALL_PASSENGERS: Passenger[] = [
+  {
+    id: '1',
+    name: 'Dinith Rathnayaka',
+    userId: '#PAS-2023-001',
+    email: 'dinithrathnayaka@gmail.com',
+    phone: '+94707803826',
+    status: 'Active',
+    registeredDate: 'Oct 24, 2024',
+    lastTrip: '2 Days Ago',
+    lastRoute: 'Kandy to Colombo',
+    bookingsCount: 42,
+  },
+  {
+    id: '2',
+    name: 'Janani Pitawala',
+    userId: '#PAS-2024-042',
+    email: 'jananipitawala@uom.lk',
+    phone: '+94704567892',
+    status: 'Suspended',
+    registeredDate: 'July 24, 2024',
+    lastTrip: '8 Days Ago',
+    lastRoute: 'Colombo to Kandy',
+    bookingsCount: 21,
+  },
+  {
+    id: '3',
+    name: 'Prashani Bhagya',
+    userId: '#PAS-2022-110',
+    email: 'pbhagya123@gmail.com',
+    phone: '+94716543279',
+    status: 'Active',
+    registeredDate: 'April 15, 2024',
+    lastTrip: '5 Days Ago',
+    lastRoute: 'Colombo to Kaluthara',
+    bookingsCount: 12,
+  },
+  {
+    id: '4',
+    name: 'Oshadi Liyanage',
+    userId: '#PAS-2023-044',
+    email: 'oshadiliyanage@outlook.com',
+    phone: '+94701313658',
+    status: 'Active',
+    registeredDate: 'Sep 19, 2024',
+    lastTrip: '1 Day Ago',
+    lastRoute: 'Matara to Colombo',
+    bookingsCount: 17,
+  },
+  {
+    id: '5',
+    name: 'Anjana Lakshan',
+    userId: '#PAS-2023-015',
+    email: 'anjanelakshan35@gmail.com',
+    phone: '+94752145689',
+    status: 'Active',
+    registeredDate: 'Aug 01, 2024',
+    lastTrip: '3 Days Ago',
+    lastRoute: 'Galle to Colombo',
+    bookingsCount: 28,
+  },
+]
+
 type FilterBarProps = {
   searchTerm: string
   selectedStatus: PassengerStatus
@@ -266,73 +329,10 @@ function PassengerManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<PassengerStatus>('All')
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(4)
-
-  const allPassengers: Passenger[] = [
-    {
-      id: '1',
-      name: 'Dinith Rathnayaka',
-      userId: '#PAS-2023-001',
-      email: 'dinithrathnayaka@gmail.com',
-      phone: '+94707803826',
-      status: 'Active',
-      registeredDate: 'Oct 24, 2024',
-      lastTrip: '2 Days Ago',
-      lastRoute: 'Kandy to Colombo',
-      bookingsCount: 42,
-    },
-    {
-      id: '2',
-      name: 'Janani Pitawala',
-      userId: '#PAS-2024-042',
-      email: 'jananipitawala@uom.lk',
-      phone: '+94704567892',
-      status: 'Suspended',
-      registeredDate: 'July 24, 2024',
-      lastTrip: '8 Days Ago',
-      lastRoute: 'Colombo to Kandy',
-      bookingsCount: 21,
-    },
-    {
-      id: '3',
-      name: 'Prashani Bhagya',
-      userId: '#PAS-2022-110',
-      email: 'pbhagya123@gmail.com',
-      phone: '+94716543279',
-      status: 'Active',
-      registeredDate: 'April 15, 2024',
-      lastTrip: '5 Days Ago',
-      lastRoute: 'Colombo to Kaluthara',
-      bookingsCount: 12,
-    },
-    {
-      id: '4',
-      name: 'Oshadi Liyanage',
-      userId: '#PAS-2023-044',
-      email: 'oshadiliyanage@outlook.com',
-      phone: '+94701313658',
-      status: 'Active',
-      registeredDate: 'Sep 19, 2024',
-      lastTrip: '1 Day Ago',
-      lastRoute: 'Matara to Colombo',
-      bookingsCount: 17,
-    },
-    {
-      id: '5',
-      name: 'Anjana Lakshan',
-      userId: '#PAS-2023-015',
-      email: 'anjanelakshan35@gmail.com',
-      phone: '+94752145689',
-      status: 'Active',
-      registeredDate: 'Aug 01, 2024',
-      lastTrip: '3 Days Ago',
-      lastRoute: 'Galle to Colombo',
-      bookingsCount: 28,
-    },
-  ]
+  const itemsPerPage = 4
 
   const filteredPassengers = useMemo(() => {
-    return allPassengers.filter((passenger) => {
+    return ALL_PASSENGERS.filter((passenger) => {
       const matchesSearch =
         passenger.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         passenger.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -342,7 +342,7 @@ function PassengerManagement() {
 
       return matchesSearch && matchesStatus
     })
-  }, [searchTerm, selectedStatus, allPassengers])
+  }, [searchTerm, selectedStatus])
 
   const totalPages = Math.ceil(filteredPassengers.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -358,23 +358,23 @@ function PassengerManagement() {
     <section className="mx-auto w-full max-w-[1320px]">
       <div className="mb-6 flex items-center justify-between gap-4">
         <div className="flex items-start gap-4">
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard/users')}
-          className="rounded-lg p-2 text-[#111827] hover:bg-gray-100"
-        >
-          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div>
-          <h1 className="text-5xl font-bold tracking-tight text-[#111827]">Passenger Management</h1>
-          <p className="mt-1 text-[26px] font-semibold text-[#475569]">
-            Total Passengers: <span className="text-[#0f172a]">142</span> | Active:{' '}
-            <span className="text-[#10b981]">132</span>
-          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/users')}
+            className="rounded-lg p-2 text-[#111827] hover:bg-gray-100"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-5xl font-bold tracking-tight text-[#111827]">Passenger Management</h1>
+            <p className="mt-1 text-[26px] font-semibold text-[#475569]">
+              Total Passengers: <span className="text-[#0f172a]">142</span> | Active:{' '}
+              <span className="text-[#10b981]">132</span>
+            </p>
+          </div>
         </div>
-      </div>
         <button className="flex items-center gap-2 rounded-xl bg-[#22449d] px-5 py-2.5 font-semibold text-white hover:bg-[#1b357f]">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

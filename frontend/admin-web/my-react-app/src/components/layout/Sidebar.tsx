@@ -1,19 +1,20 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
+  faBook,
+  faBus,
   faBusSimple,
+  faChartColumn,
   faChartLine,
-  faCommentDots,
-  faExclamationTriangle,
+  faComment,
   faLocationDot,
-  faTicketSimple,
+  faTriangleExclamation,
   faUsers,
-  faTableColumns,
 } from '@fortawesome/free-solid-svg-icons'
 import adminProfileImage from '../../assets/images/adminDinith.png'
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: faTableColumns, section: 'Main Menu' },
+  { to: '/dashboard', label: 'Dashboard', icon: faChartColumn, section: 'Main Menu' },
   {
     to: '/dashboard/users',
     label: 'Users',
@@ -21,12 +22,12 @@ const navItems = [
     section: 'Main Menu',
     activeOn: ['/dashboard/users', '/dashboard/passenger', '/dashboard/driver', '/dashboard/corporate'],
   },
-  { to: '/dashboard/buses', label: 'Buses', icon: faBusSimple, section: 'Main Menu' },
+  { to: '/dashboard/buses', label: 'Buses', icon: faBus, section: 'Main Menu' },
   { to: '/dashboard/booking?view=routes', label: 'Routes', icon: faLocationDot, section: 'Main Menu' },
-  { to: '/dashboard/booking?view=bookings', label: 'Bookings', icon: faTicketSimple, section: 'Main Menu' },
-  { to: '/dashboard/complaints', label: 'Complaints', icon: faExclamationTriangle, section: 'System' },
+  { to: '/dashboard/booking?view=bookings', label: 'Bookings', icon: faBook, section: 'Main Menu' },
+  { to: '/dashboard/complaints', label: 'Complaints', icon: faTriangleExclamation, section: 'System' },
   { to: '/dashboard/analytics', label: 'Analytics', icon: faChartLine, section: 'System' },
-  { to: '/dashboard/chat', label: 'Chat', icon: faCommentDots, section: 'System' },
+  { to: '/dashboard/chat', label: 'Chat', icon: faComment, section: 'System' },
 ]
 
 function Sidebar() {

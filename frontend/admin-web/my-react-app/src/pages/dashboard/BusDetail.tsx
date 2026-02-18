@@ -88,6 +88,13 @@ const initialDriver: Driver = {
   trips: '128',
 }
 
+const driverDirectory: Record<string, string> = {
+  'dinesh gamage': 'DRV-892',
+  'kasun perera': 'DRV-415',
+  'nimal silva': 'DRV-233',
+  'amila fernando': 'DRV-761',
+}
+
 const initialBusInfo: BusInfo = {
   code: 'ND-1151',
   seats: '45',
@@ -115,6 +122,8 @@ function BusDetail() {
   const [isBusDeleted, setIsBusDeleted] = useState(false)
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview')
   const [isFullScheduleVisible, setIsFullScheduleVisible] = useState(false)
+  const [driverFormError, setDriverFormError] = useState('')
+  const [busFormError, setBusFormError] = useState('')
 
   const handleLogout = () => {
     logoutToLogin(navigate)
@@ -142,10 +151,37 @@ function BusDetail() {
   const openDriverModal = () => {
     // Snapshot current driver into draft for safe editing.
     setDriverDraft(assignedDriver)
+    setDriverFormError('')
     setIsDriverModalOpen(true)
   }
 
+  const handleDriverNameChange = (name: string) => {
+    const matchedId = driverDirectory[name.trim().toLowerCase()] ?? ''
+    setDriverFormError('')
+    setDriverDraft((prev) => ({ ...prev, name, id: matchedId }))
+  }
+
   const handleSaveDriver = () => {
+    const normalizedName = driverDraft.name.trim()
+    const normalizedPhone = driverDraft.phone.trim()
+    const normalizedTrips = driverDraft.trips.trim()
+
+    if (!normalizedName || !driverDraft.id) {
+      setDriverFormError('Please enter a valid driver name to auto-load a driver ID.')
+      return
+    }
+
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      setDriverFormError('Phone number must contain exactly 10 digits.')
+      return
+    }
+
+    if (!/^\d+$/.test(normalizedTrips) || Number(normalizedTrips) < 0) {
+      setDriverFormError('Trips must be a non-negative whole number.')
+      return
+    }
+
+    setDriverFormError('')
     setAssignedDriver(driverDraft)
     setIsDriverModalOpen(false)
   }
@@ -153,10 +189,34 @@ function BusDetail() {
   const openEditBusModal = () => {
     // Load current bus fields into modal draft before editing.
     setBusDraft(busInfo)
+    setBusFormError('')
     setIsEditBusModalOpen(true)
   }
 
   const handleSaveBus = () => {
+    const normalizedCode = busDraft.code.trim()
+    const normalizedSeats = busDraft.seats.trim()
+    const normalizedBrand = busDraft.brand.trim()
+    const normalizedCondition = busDraft.condition.trim()
+    const normalizedType = busDraft.type.trim()
+    const normalizedInsuranceExp = busDraft.insuranceExp.trim()
+
+    if (!/^[A-Za-z]{2,4}-\d{2,4}$/.test(normalizedCode)) {
+      setBusFormError('Bus code must follow a format like ND-1151.')
+      return
+    }
+
+    if (!/^\d+$/.test(normalizedSeats) || Number(normalizedSeats) <= 0) {
+      setBusFormError('Seats must be a positive whole number.')
+      return
+    }
+
+    if (!normalizedBrand || !normalizedCondition || !normalizedType || !normalizedInsuranceExp) {
+      setBusFormError('Brand, condition, type, and insurance expiry are required.')
+      return
+    }
+
+    setBusFormError('')
     setBusInfo(busDraft)
     setIsEditBusModalOpen(false)
   }
@@ -719,7 +779,7 @@ function BusDetail() {
                 <input
                   id="driver-name"
                   value={driverDraft.name}
-                  onChange={(event) => setDriverDraft((prev) => ({ ...prev, name: event.target.value }))}
+                  onChange={(event) => handleDriverNameChange(event.target.value)}
                   className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                 />
               </div>
@@ -728,8 +788,8 @@ function BusDetail() {
                 <input
                   id="driver-id"
                   value={driverDraft.id}
-                  onChange={(event) => setDriverDraft((prev) => ({ ...prev, id: event.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                  readOnly
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#eef1f7] px-3 text-sm text-[#6a7284] outline-none"
                 />
               </div>
               <div>
@@ -761,9 +821,15 @@ function BusDetail() {
             </div>
 
             <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-6 py-4">
+              {driverFormError ? (
+                <p className="mr-auto text-sm font-semibold text-[#d14343]">{driverFormError}</p>
+              ) : null}
               <button
                 type="button"
-                onClick={() => setIsDriverModalOpen(false)}
+                onClick={() => {
+                  setDriverFormError('')
+                  setIsDriverModalOpen(false)
+                }}
                 className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Cancel
@@ -791,7 +857,10 @@ function BusDetail() {
               </div>
               <button
                 type="button"
-                onClick={() => setIsEditBusModalOpen(false)}
+                onClick={() => {
+                  setBusFormError('')
+                  setIsEditBusModalOpen(false)
+                }}
                 className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
                 aria-label="Close bus editor"
               >
@@ -825,7 +894,17 @@ function BusDetail() {
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-6 py-4">
-              <button type="button" onClick={() => setIsEditBusModalOpen(false)} className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]">
+              {busFormError ? (
+                <p className="mr-auto text-sm font-semibold text-[#d14343]">{busFormError}</p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setBusFormError('')
+                  setIsEditBusModalOpen(false)
+                }}
+                className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+              >
                 Cancel
               </button>
               <button type="button" onClick={handleSaveBus} className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]">

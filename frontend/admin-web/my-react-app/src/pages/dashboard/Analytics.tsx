@@ -20,6 +20,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import Navbar from '../../components/layout/Navbar'
 import Sidebar, { type SidebarMenuItem } from '../../components/layout/Sidebar'
+import { logoutToLogin } from '../../utils/authSession'
 
 type StatCard = {
   title: string
@@ -218,6 +219,7 @@ const allRouteRows: RoutePerformanceRow[] = [
 
 function Analytics() {
   const navigate = useNavigate()
+  // UI controls for filters, graph series visibility, and lightweight notifications.
   const [activeRange, setActiveRange] = useState<RangeKey>('30d')
   const [searchQuery, setSearchQuery] = useState('')
   const [showAllRoutes, setShowAllRoutes] = useState(false)
@@ -235,13 +237,10 @@ function Analytics() {
   const [customPeriod, setCustomPeriod] = useState({ from: '2025-10-20', to: '2025-11-03' })
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('admin')
-    sessionStorage.removeItem('authToken')
-    sessionStorage.removeItem('admin')
-    navigate('/login', { replace: true })
+    logoutToLogin(navigate)
   }
 
+  // Derive chart input points only when the selected custom period changes.
   const customPeriodPoints = useMemo(
     () =>
       dailyAnalyticsData.filter((item) => item.date >= customPeriod.from && item.date <= customPeriod.to),
@@ -253,6 +252,7 @@ function Analytics() {
     [customPeriodPoints],
   )
 
+  // Compute range-specific KPI cards from raw daily points.
   const customStats = useMemo(() => {
     const points = customPeriodPoints.length ? customPeriodPoints : dailyAnalyticsData.slice(-14)
     const previousWindow = dailyAnalyticsData.filter(
@@ -358,6 +358,7 @@ function Analytics() {
   }, [searchQuery, showAllRoutes])
 
   const handleMenuAction = (label: string) => {
+    // Placeholder for future route wiring.
     setToastMessage(`${label} page coming soon.`)
   }
 

@@ -28,6 +28,7 @@ function Navbar({
   rightSlot,
 }: NavbarProps) {
   return (
+    // Reusable top bar used across dashboard pages.
     <header
       className="animate-dash-in z-10 flex h-[78px] shrink-0 items-center justify-between border-b border-[#dfe1e8] bg-[#f7f7fa] px-8"
       style={{ animationDelay: '40ms' }}
@@ -50,6 +51,7 @@ function Navbar({
             <FontAwesomeIcon icon={faMagnifyingGlass} />
             <input
               type="text"
+              // Allow both controlled and uncontrolled usage to keep page integration simple.
               {...(onSearchChange
                 ? {
                     value: searchValue,

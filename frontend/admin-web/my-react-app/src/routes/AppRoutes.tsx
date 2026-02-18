@@ -21,7 +21,7 @@ function AppRoutes() {
         <Route path="/dashboard/routes" element={<RoutesPage />} />
         <Route path="/dashboard/analytics" element={<Analytics />} />
         <Route path="/dashboard/users" element={<Users />} />
-        <Route path="/dashboard/corporate-users" element={<Users />} />
+        <Route path="/dashboard/users/corporate-users" element={<Users />} />
         {/* Fallback route keeps unknown URLs inside auth flow */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

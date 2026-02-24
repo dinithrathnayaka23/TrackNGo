@@ -36,6 +36,7 @@ type CorporateAccountFormState = {
   manager: string
   role: string
 }
+type CorporateFilterStatus = 'All' | VerificationStatus
 
 const INITIAL_CORPORATE_CLIENTS: CorporateClient[] = [
   {
@@ -159,7 +160,24 @@ function Corporate() {
   const navigate = useNavigate()
   const [clients, setClients] = useState<CorporateClient[]>(INITIAL_CORPORATE_CLIENTS)
   const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [filterStatus, setFilterStatus] = useState<CorporateFilterStatus>('All')
+  const [filterQuery, setFilterQuery] = useState('')
   const [accountForm, setAccountForm] = useState<CorporateAccountFormState>(initialCorporateForm)
+
+  const filteredClients = useMemo(() => {
+    const normalizedQuery = filterQuery.trim().toLowerCase()
+    return clients.filter((client) => {
+      const matchesStatus = filterStatus === 'All' || client.status === filterStatus
+      const matchesSearch =
+        normalizedQuery.length === 0 ||
+        client.company.toLowerCase().includes(normalizedQuery) ||
+        client.regNo.toLowerCase().includes(normalizedQuery) ||
+        client.manager.toLowerCase().includes(normalizedQuery)
+
+      return matchesStatus && matchesSearch
+    })
+  }, [clients, filterQuery, filterStatus])
 
   const stats = useMemo(
     () => [
@@ -214,7 +232,7 @@ function Corporate() {
             </button>
             <h1 className="text-4xl font-bold tracking-tight text-[#111827] md:text-5xl">Corporate Accounts</h1>
           </div>
-          <p className="ml-11 mt-1 text-sm font-normal text-[#64748b] md:text-[24px]">
+          <p className="ml-11 mt-1 text-sm font-normal text-[#64748b] md:text-lg">
             Manage corporate client contracts, revenue, and verification status.
           </p>
         </div>
@@ -222,7 +240,7 @@ function Corporate() {
         <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 md:w-auto">
           <button
             type="button"
-            onClick={() => navigate('/dashboard/users')}
+            onClick={() => setIsFilterOpen((current) => !current)}
             className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#d6dbe6] bg-white px-5 text-sm font-semibold text-[#111827]"
           >
             <FontAwesomeIcon icon={faFilter} />
@@ -239,13 +257,52 @@ function Corporate() {
         </div>
       </header>
 
+      {isFilterOpen ? (
+        <article className="mb-5 rounded-2xl border border-[#dfe4ef] bg-white p-4">
+          <div className="grid gap-3 md:grid-cols-[1.4fr_0.8fr_auto]">
+            <label className="flex h-11 items-center rounded-xl border border-[#d9dde5] px-3 text-sm text-[#334155]">
+              <input
+                value={filterQuery}
+                onChange={(event) => setFilterQuery(event.target.value)}
+                placeholder="Search by company, registration no, or manager..."
+                className="w-full bg-transparent outline-none placeholder:text-[#94a3b8]"
+              />
+            </label>
+
+            <label className="inline-flex h-11 items-center rounded-xl border border-[#d9dde5] px-3 text-sm text-[#334155]">
+              <select
+                value={filterStatus}
+                onChange={(event) => setFilterStatus(event.target.value as CorporateFilterStatus)}
+                className="w-full bg-transparent outline-none"
+              >
+                <option value="All">All Statuses</option>
+                <option value="Verified">Verified</option>
+                <option value="Pending">Pending</option>
+                <option value="Suspended">Suspended</option>
+              </select>
+            </label>
+
+            <button
+              type="button"
+              onClick={() => {
+                setFilterQuery('')
+                setFilterStatus('All')
+              }}
+              className="h-11 rounded-xl border border-[#d6dbe6] px-4 text-sm font-semibold text-[#475569] transition hover:bg-[#f8fafc]"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </article>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-3">
         {stats.map((item) => (
           <article key={item.label} className="min-h-[122px] rounded-2xl border border-[#dfe4ef] bg-white px-5 py-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-[#64748b]">{item.label}</p>
-                <p className="mt-1 text-5xl font-bold leading-none tracking-tight text-[#111827]">{item.value}</p>
+                <p className="mt-1 text-3xl font-bold leading-none tracking-tight text-[#111827] md:text-4xl">{item.value}</p>
               </div>
               <FontAwesomeIcon icon={item.icon} className="mt-2 text-[22px] text-[#667085]" />
             </div>
@@ -254,7 +311,7 @@ function Corporate() {
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {clients.map((client) => (
+        {filteredClients.map((client) => (
           <article
             key={client.id}
             className="flex h-full flex-col overflow-hidden rounded-2xl border border-[#dfe4ef] bg-white shadow-[0_1px_0_rgba(15,23,42,0.02)]"
@@ -270,7 +327,7 @@ function Corporate() {
                 </span>
               </div>
 
-              <h3 className="mt-4 text-[33px] font-semibold leading-tight text-[#111827] md:text-[39px]">{client.company}</h3>
+              <h3 className="mt-4 text-2xl font-semibold leading-tight text-[#111827] md:text-3xl">{client.company}</h3>
               <p className="mt-1 text-sm font-semibold tracking-wide text-[#667085]">REG: {client.regNo}</p>
 
               <div className="mt-4 border-t border-[#e7ecf5] pt-4">
@@ -280,14 +337,14 @@ function Corporate() {
                       <FontAwesomeIcon icon={faFileLines} className="mr-2" />
                       Contracts
                     </p>
-                    <p className="mt-1 text-[34px] font-bold leading-none text-[#111827]">{client.contracts} Active</p>
+                    <p className="mt-1 text-2xl font-bold leading-none text-[#111827]">{client.contracts} Active</p>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-[#667085]">
                       <FontAwesomeIcon icon={faMoneyBillWave} className="mr-2" />
                       Revenue
                     </p>
-                    <p className="mt-1 text-[34px] font-bold leading-none text-[#0f766e]">{client.revenue}</p>
+                    <p className="mt-1 text-2xl font-bold leading-none text-[#0f766e]">{client.revenue}</p>
                   </div>
                 </div>
               </div>
@@ -317,6 +374,11 @@ function Corporate() {
           </article>
         ))}
       </div>
+      {filteredClients.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-dashed border-[#d6dbe6] bg-white px-4 py-6 text-center text-sm text-[#64748b]">
+          No corporate accounts match the selected filters.
+        </p>
+      ) : null}
 
       {isAddAccountModalOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[#0f172a]/45 p-4">

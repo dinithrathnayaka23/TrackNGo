@@ -24,6 +24,7 @@ function DashboardRoutes() {
         <Route path="passenger" element={<Passenger />} />
         <Route path="driver" element={<Driver />} />
         <Route path="corporate" element={<Corporate />} />
+        <Route path="cooperate" element={<Navigate to="/dashboard/corporate" replace />} />
         <Route path="complaints" element={<Complaints />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

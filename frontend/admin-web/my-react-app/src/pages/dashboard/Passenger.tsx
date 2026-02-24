@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 interface Passenger {
@@ -15,6 +15,17 @@ interface Passenger {
 }
 
 type PassengerStatus = 'Active' | 'Suspended' | 'Inactive' | 'All'
+type PassengerFormStatus = 'Active' | 'Suspended' | 'Inactive'
+
+type PassengerFormState = {
+  name: string
+  email: string
+  phone: string
+  status: PassengerFormStatus
+  registeredDate: string
+  lastRoute: string
+  bookingsCount: string
+}
 
 const ALL_PASSENGERS: Passenger[] = [
   {
@@ -78,6 +89,23 @@ const ALL_PASSENGERS: Passenger[] = [
     bookingsCount: 28,
   },
 ]
+
+const initialPassengerForm: PassengerFormState = {
+  name: '',
+  email: '',
+  phone: '',
+  status: 'Active',
+  registeredDate: '',
+  lastRoute: '',
+  bookingsCount: '0',
+}
+
+function formatRegisteredDate(value: string) {
+  if (!value) return 'N/A'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'N/A'
+  return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+}
 
 type FilterBarProps = {
   searchTerm: string
@@ -329,10 +357,13 @@ function PassengerManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<PassengerStatus>('All')
   const [currentPage, setCurrentPage] = useState(1)
+  const [passengers, setPassengers] = useState<Passenger[]>(ALL_PASSENGERS)
+  const [isAddPassengerModalOpen, setIsAddPassengerModalOpen] = useState(false)
+  const [passengerForm, setPassengerForm] = useState<PassengerFormState>(initialPassengerForm)
   const itemsPerPage = 4
 
   const filteredPassengers = useMemo(() => {
-    return ALL_PASSENGERS.filter((passenger) => {
+    return passengers.filter((passenger) => {
       const matchesSearch =
         passenger.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         passenger.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -342,7 +373,7 @@ function PassengerManagement() {
 
       return matchesSearch && matchesStatus
     })
-  }, [searchTerm, selectedStatus])
+  }, [passengers, searchTerm, selectedStatus])
 
   const totalPages = Math.ceil(filteredPassengers.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -352,6 +383,31 @@ function PassengerManagement() {
     setSearchTerm('')
     setSelectedStatus('All')
     setCurrentPage(1)
+  }
+
+  const closePassengerModal = () => {
+    setIsAddPassengerModalOpen(false)
+    setPassengerForm(initialPassengerForm)
+  }
+
+  const handlePassengerSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const nextId = passengers.length + 1
+    const newPassenger: Passenger = {
+      id: `${Date.now()}`,
+      name: passengerForm.name.trim(),
+      userId: `#PAS-${new Date().getFullYear()}-${String(nextId).padStart(3, '0')}`,
+      email: passengerForm.email.trim(),
+      phone: passengerForm.phone.trim(),
+      status: passengerForm.status,
+      registeredDate: formatRegisteredDate(passengerForm.registeredDate),
+      lastTrip: 'Just Added',
+      lastRoute: passengerForm.lastRoute.trim() || 'Not assigned',
+      bookingsCount: Number(passengerForm.bookingsCount) || 0,
+    }
+    setPassengers((current) => [newPassenger, ...current])
+    setCurrentPage(1)
+    closePassengerModal()
   }
 
   return (
@@ -375,7 +431,11 @@ function PassengerManagement() {
             </p>
           </div>
         </div>
-        <button className="flex items-center gap-2 rounded-xl bg-[#22449d] px-5 py-2.5 font-semibold text-white hover:bg-[#1b357f]">
+        <button
+          type="button"
+          onClick={() => setIsAddPassengerModalOpen(true)}
+          className="flex items-center gap-2 rounded-xl bg-[#22449d] px-5 py-2.5 font-semibold text-white hover:bg-[#1b357f]"
+        >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
@@ -404,8 +464,111 @@ function PassengerManagement() {
           onPageChange={setCurrentPage}
         />
       </article>
+
+      {isAddPassengerModalOpen ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#0f172a]/45 p-4">
+          <div className="w-full max-w-[620px] rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-2xl font-bold text-[#0f172a]">Add Passenger</h2>
+            <p className="mt-1 text-sm text-[#64748b]">Enter passenger details to create a new profile.</p>
+
+            <form onSubmit={handlePassengerSubmit} className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-[#334155]">
+                Full Name
+                <input
+                  required
+                  value={passengerForm.name}
+                  onChange={(event) => setPassengerForm((current) => ({ ...current, name: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#d9dde5] px-3 py-2 outline-none focus:ring-2 focus:ring-[#22449d]"
+                />
+              </label>
+              <label className="text-sm font-medium text-[#334155]">
+                Email
+                <input
+                  required
+                  type="email"
+                  value={passengerForm.email}
+                  onChange={(event) => setPassengerForm((current) => ({ ...current, email: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#d9dde5] px-3 py-2 outline-none focus:ring-2 focus:ring-[#22449d]"
+                />
+              </label>
+              <label className="text-sm font-medium text-[#334155]">
+                Phone
+                <input
+                  required
+                  value={passengerForm.phone}
+                  onChange={(event) => setPassengerForm((current) => ({ ...current, phone: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#d9dde5] px-3 py-2 outline-none focus:ring-2 focus:ring-[#22449d]"
+                />
+              </label>
+              <label className="text-sm font-medium text-[#334155]">
+                Status
+                <select
+                  value={passengerForm.status}
+                  onChange={(event) =>
+                    setPassengerForm((current) => ({
+                      ...current,
+                      status: event.target.value as PassengerFormStatus,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#d9dde5] px-3 py-2 outline-none focus:ring-2 focus:ring-[#22449d]"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Suspended">Suspended</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </label>
+              <label className="text-sm font-medium text-[#334155]">
+                Registration Date
+                <input
+                  required
+                  type="date"
+                  value={passengerForm.registeredDate}
+                  onChange={(event) =>
+                    setPassengerForm((current) => ({ ...current, registeredDate: event.target.value }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#d9dde5] px-3 py-2 outline-none focus:ring-2 focus:ring-[#22449d]"
+                />
+              </label>
+              <label className="text-sm font-medium text-[#334155]">
+                Last Route
+                <input
+                  value={passengerForm.lastRoute}
+                  onChange={(event) => setPassengerForm((current) => ({ ...current, lastRoute: event.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#d9dde5] px-3 py-2 outline-none focus:ring-2 focus:ring-[#22449d]"
+                />
+              </label>
+              <label className="text-sm font-medium text-[#334155] sm:col-span-2">
+                Initial Bookings
+                <input
+                  type="number"
+                  min="0"
+                  value={passengerForm.bookingsCount}
+                  onChange={(event) =>
+                    setPassengerForm((current) => ({ ...current, bookingsCount: event.target.value }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-[#d9dde5] px-3 py-2 outline-none focus:ring-2 focus:ring-[#22449d]"
+                />
+              </label>
+
+              <div className="sm:col-span-2 mt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closePassengerModal}
+                  className="rounded-lg border border-[#d1d5db] px-4 py-2 text-sm font-semibold text-[#334155]"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="rounded-lg bg-[#22449d] px-4 py-2 text-sm font-semibold text-white">
+                  Save Passenger
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
 
 export default PassengerManagement
+

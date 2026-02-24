@@ -21,6 +21,7 @@ import {
   faChevronDown,
   faChevronLeft,
   faChevronRight,
+  faListOl,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
 import mapPreviewImage from '../../assets/images/map.png'
@@ -34,7 +35,7 @@ type RouteRow = {
   type: string
   distance: string
   duration: string
-  stops: number
+  stops: string[]
   activeBuses: number
   baseFare: string
   status: 'Active' | 'Inactive'
@@ -61,7 +62,7 @@ const routeRows: RouteRow[] = [
     type: 'High Way',
     distance: '148 km',
     duration: '3h 15m',
-    stops: 4,
+    stops: ['Colombo Fort', 'Kadawatha', 'Peradeniya', 'Kandy'],
     activeBuses: 12,
     baseFare: 'Rs.450',
     status: 'Active',
@@ -72,7 +73,7 @@ const routeRows: RouteRow[] = [
     type: 'Long Distance',
     distance: '345 km',
     duration: '6h 45m',
-    stops: 8,
+    stops: ['Kadawatha', 'Maharagama', 'Panadura', 'Kalutara', 'Aluthgama', 'Bentota', 'Ambalangoda', 'Moratuwa'],
     activeBuses: 18,
     baseFare: 'Rs.420',
     status: 'Active',
@@ -83,7 +84,7 @@ const routeRows: RouteRow[] = [
     type: 'High Way',
     distance: '233 km',
     duration: '3h 30m',
-    stops: 2,
+    stops: ['Panadura', 'Kegalle', 'Kandy'],
     activeBuses: 0,
     baseFare: 'Rs.500',
     status: 'Inactive',
@@ -94,7 +95,7 @@ const routeRows: RouteRow[] = [
     type: 'Long Distance',
     distance: '275 km',
     duration: '5h 15m',
-    stops: 6,
+    stops: ['Colombo Fort', 'Maharagama', 'Kalutara', 'Aluthgama', 'Galle', 'Matara'],
     activeBuses: 9,
     baseFare: 'Rs.200',
     status: 'Active',
@@ -105,12 +106,22 @@ const routeRows: RouteRow[] = [
     type: 'High Way',
     distance: '395 km',
     duration: '7h 10m',
-    stops: 10,
+    stops: ['Colombo Fort', 'Maharagama', 'Panadura', 'Kalutara', 'Aluthgama', 'Bentota', 'Hikkaduwa', 'Galle'],
     activeBuses: 5,
     baseFare: 'Rs.340',
     status: 'Active',
   },
 ]
+
+const formatStopPriorityLabel = (index: number) => {
+  const position = index + 1
+  const mod10 = position % 10
+  const mod100 = position % 100
+  if (mod10 === 1 && mod100 !== 11) return `${position}st stop`
+  if (mod10 === 2 && mod100 !== 12) return `${position}nd stop`
+  if (mod10 === 3 && mod100 !== 13) return `${position}rd stop`
+  return `${position}th stop`
+}
 
 function SummaryCard({
   icon,
@@ -153,6 +164,7 @@ function Routes() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingRouteCode, setEditingRouteCode] = useState<string | null>(null)
   const [routePendingDelete, setRoutePendingDelete] = useState<RouteRow | null>(null)
+  const [routeStopsPreview, setRouteStopsPreview] = useState<RouteRow | null>(null)
   const [createRouteError, setCreateRouteError] = useState('')
   const [newRoute, setNewRoute] = useState({
     name: '',
@@ -160,7 +172,7 @@ function Routes() {
     type: 'High Way',
     distance: '',
     duration: '',
-    stops: '',
+    stops: ['', ''],
     activeBuses: '',
     baseFare: '',
     status: 'Active' as RouteRow['status'],
@@ -170,14 +182,23 @@ function Routes() {
     logoutToLogin(navigate)
   }
 
-  const resetRouteForm = () => {
+  const getNextRouteCode = (rows: RouteRow[]) => {
+    const maxCodeNumber = rows.reduce((max, route) => {
+      const match = route.code.match(/(\d+)$/)
+      const value = match ? Number(match[1]) : 0
+      return Number.isFinite(value) ? Math.max(max, value) : max
+    }, 0)
+    return `RT-${String(maxCodeNumber + 1).padStart(3, '0')}`
+  }
+
+  const resetRouteForm = (routeCode = '') => {
     setNewRoute({
       name: '',
-      code: '',
+      code: routeCode,
       type: 'High Way',
       distance: '',
       duration: '',
-      stops: '',
+      stops: ['', ''],
       activeBuses: '',
       baseFare: '',
       status: 'Active',
@@ -187,7 +208,7 @@ function Routes() {
   const openCreateRouteModal = () => {
     setEditingRouteCode(null)
     setCreateRouteError('')
-    resetRouteForm()
+    resetRouteForm(getNextRouteCode(routesData))
     setIsCreateModalOpen(true)
   }
 
@@ -246,8 +267,10 @@ function Routes() {
       return
     }
 
-    if (newRoute.stops && Number(newRoute.stops) < 0) {
-      setCreateRouteError('Stops cannot be negative.')
+    const normalizedStops = newRoute.stops.map((stop) => stop.trim()).filter((stop) => stop.length > 0)
+
+    if (normalizedStops.length < 2) {
+      setCreateRouteError('Please add at least two stop names in order.')
       return
     }
 
@@ -275,7 +298,7 @@ function Routes() {
       type: newRoute.type,
       distance: newRoute.distance.trim() || '0 km',
       duration: newRoute.duration.trim() || '0h 0m',
-      stops: Number(newRoute.stops) || 0,
+      stops: normalizedStops,
       activeBuses: Number(newRoute.activeBuses) || 0,
       baseFare: normalizedFare,
       status: newRoute.status,
@@ -320,7 +343,7 @@ function Routes() {
       type: route.type,
       distance: route.distance,
       duration: route.duration,
-      stops: String(route.stops),
+      stops: [...route.stops],
       activeBuses: String(route.activeBuses),
       baseFare: route.baseFare.replace(/^Rs\.?/i, ''),
       status: route.status,
@@ -465,7 +488,7 @@ function Routes() {
                       <th className="px-5 py-4">Route Name & Code</th>
                       <th className="px-5 py-4">Map Preview</th>
                       <th className="px-5 py-4">Details</th>
-                      <th className="px-5 py-4">Stops</th>
+                      <th className="px-5 py-4">Stops (Ordered)</th>
                       <th className="px-5 py-4">Active Buses</th>
                       <th className="px-5 py-4">Base Fare</th>
                       <th className="px-5 py-4">Status</th>
@@ -511,9 +534,14 @@ function Routes() {
                             </p>
                           </td>
                           <td className="px-5 py-4">
-                            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#edf0f6] text-sm font-bold text-[#2f394d]">
-                              {route.stops}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setRouteStopsPreview(route)}
+                              className="inline-flex items-center gap-2 rounded-lg border border-[#d6dce8] bg-[#f2f5fb] px-3 py-2 text-xs font-semibold text-[#31405d] transition duration-200 hover:bg-[#eaf0fb]"
+                            >
+                              <FontAwesomeIcon icon={faListOl} />
+                              Click to view stops
+                            </button>
                           </td>
                           <td className="px-5 py-4 text-lg font-bold text-[#139f66]">
                             <FontAwesomeIcon icon={faBus} className="mr-1 text-sm" />
@@ -647,12 +675,18 @@ function Routes() {
                   </label>
                   <input
                     id="route-code"
-                    required
                     value={newRoute.code}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, code: event.target.value }))}
                     placeholder="RT-200"
-                    className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    readOnly={!editingRouteCode}
+                    className={[
+                      'h-11 w-full rounded-lg border border-[#d7dde9] px-3 text-sm outline-none',
+                      editingRouteCode ? 'bg-[#f9fafd] text-[#273246]' : 'bg-[#eef1f7] text-[#6a7284]',
+                    ].join(' ')}
                   />
+                  {!editingRouteCode ? (
+                    <p className="mt-1 text-xs text-[#6d778e]">Auto-generated for new routes.</p>
+                  ) : null}
                 </div>
 
                 <div>
@@ -717,18 +751,55 @@ function Routes() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="route-stops">
-                    Stops
+                  <label className="mb-1 block text-sm font-semibold text-[#45516b]">
+                    Stop Names (Priority Order)
                   </label>
-                  <input
-                    id="route-stops"
-                    type="number"
-                    min={0}
-                    value={newRoute.stops}
-                    onChange={(event) => setNewRoute((prev) => ({ ...prev, stops: event.target.value }))}
-                    placeholder="6"
-                    className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                  />
+                  <div className="space-y-2">
+                    {newRoute.stops.map((stop, index) => (
+                      <div key={`stop-input-${index}`} className="flex items-center gap-2">
+                        <input
+                          value={stop}
+                          onChange={(event) =>
+                            setNewRoute((prev) => ({
+                              ...prev,
+                              stops: prev.stops.map((item, itemIndex) =>
+                                itemIndex === index ? event.target.value : item,
+                              ),
+                            }))
+                          }
+                          placeholder={`Enter ${formatStopPriorityLabel(index)}`}
+                          className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNewRoute((prev) => ({
+                              ...prev,
+                              stops: prev.stops.length > 2
+                                ? prev.stops.filter((_, itemIndex) => itemIndex !== index)
+                                : prev.stops,
+                            }))
+                          }
+                          disabled={newRoute.stops.length <= 2}
+                          className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewRoute((prev) => ({
+                          ...prev,
+                          stops: [...prev.stops, ''],
+                        }))
+                      }
+                      className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                    >
+                      + Add Next Stop
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -784,6 +855,53 @@ function Routes() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {routeStopsPreview ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101426]/45 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
+            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
+              <div>
+                <h2 className="text-2xl font-extrabold text-[#1f2737]">Route Stops</h2>
+                <p className="text-sm text-[#6d778e]">
+                  {routeStopsPreview.name} ({routeStopsPreview.code})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRouteStopsPreview(null)}
+                className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
+                aria-label="Close route stops popup"
+              >
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
+            </div>
+
+            <div className="max-h-[55vh] space-y-2 overflow-y-auto px-6 py-5">
+              {routeStopsPreview.stops.map((stop, index) => (
+                <div
+                  key={`${routeStopsPreview.code}-popup-stop-${index}`}
+                  className="rounded-lg border border-[#e2e6ef] bg-[#f9fafd] px-4 py-3"
+                >
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#6f7890]">
+                    {formatStopPriorityLabel(index)}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[#2f394d]">{stop}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end border-t border-[#e1e5ef] px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setRouteStopsPreview(null)}
+                className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

@@ -31,11 +31,11 @@ type StatCard = {
   iconWrap: string
 }
 
-type RoutePerformanceRow = {
-  routeName: string
-  totalBookings: string
-  revenue: string
-  rating: string
+type BookingTypeStatusRow = {
+  type: string
+  completed: number
+  pending: number
+  cancelled: number
 }
 
 type RangeKey = '7d' | '30d' | '3m' | 'custom'
@@ -206,23 +206,32 @@ const buildCustomChartConfig = (points: DailyAnalyticsPoint[]): ChartRangeConfig
   }
 }
 
-const allRouteRows: RoutePerformanceRow[] = [
-  { routeName: 'Colombo - Kandy (Express)', totalBookings: '1,245', revenue: 'Rs. 850K', rating: '4.8 *' },
-  { routeName: 'Colombo - Galle (Highway)', totalBookings: '980', revenue: 'Rs. 620K', rating: '4.7 *' },
-  { routeName: 'Jaffna - Colombo', totalBookings: '650', revenue: 'Rs. 950K', rating: '4.5 *' },
-  { routeName: 'Matara - Colombo', totalBookings: '540', revenue: 'Rs. 410K', rating: '4.2 *' },
-  { routeName: 'Kandy - Negombo', totalBookings: '430', revenue: 'Rs. 310K', rating: '4.1 *' },
-  { routeName: 'Colombo - Kurunegala', totalBookings: '390', revenue: 'Rs. 270K', rating: '4.0 *' },
-  { routeName: 'Badulla - Colombo', totalBookings: '360', revenue: 'Rs. 340K', rating: '4.3 *' },
-  { routeName: 'Galle - Matara', totalBookings: '330', revenue: 'Rs. 190K', rating: '3.9 *' },
-]
+const bookingTypeStatusByRange: Record<'7d' | '30d' | '3m', BookingTypeStatusRow[]> = {
+  '7d': [
+    { type: 'Highway', completed: 980, pending: 250, cancelled: 66 },
+    { type: 'Long-distance', completed: 620, pending: 100, cancelled: 58 },
+    { type: 'Trip Bookings', completed: 310, pending: 72, cancelled: 39 },
+    { type: 'Corporate', completed: 230, pending: 38, cancelled: 31 },
+  ],
+  '30d': [
+    { type: 'Highway', completed: 4120, pending: 1060, cancelled: 310 },
+    { type: 'Long-distance', completed: 2680, pending: 400, cancelled: 180 },
+    { type: 'Trip Bookings', completed: 1330, pending: 160, cancelled: 100 },
+    { type: 'Corporate', completed: 980, pending: 120, cancelled: 60 },
+  ],
+  '3m': [
+    { type: 'Highway', completed: 12600, pending: 3150, cancelled: 980 },
+    { type: 'Long-distance', completed: 8240, pending: 1060, cancelled: 540 },
+    { type: 'Trip Bookings', completed: 4080, pending: 610, cancelled: 320 },
+    { type: 'Corporate', completed: 3010, pending: 300, cancelled: 180 },
+  ],
+}
 
 function Analytics() {
   const navigate = useNavigate()
   // UI controls for filters, graph series visibility, and lightweight notifications.
   const [activeRange, setActiveRange] = useState<RangeKey>('30d')
   const [searchQuery, setSearchQuery] = useState('')
-  const [showAllRoutes, setShowAllRoutes] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [visibleSeries, setVisibleSeries] = useState<Record<SeriesKey, boolean>>({
     total: true,
@@ -329,6 +338,26 @@ function Analytics() {
   }, [customPeriodPoints])
 
   const stats = activeRange === 'custom' ? customStats.cards : statByRange[activeRange]
+  const bookingTypeStatusRows = useMemo(() => {
+    if (activeRange !== 'custom') {
+      return bookingTypeStatusByRange[activeRange]
+    }
+
+    const total = customStats.totalBookings
+    const mix = [
+      { type: 'Highway', share: 0.45 },
+      { type: 'Long-distance', share: 0.3 },
+      { type: 'Trip Bookings', share: 0.15 },
+      { type: 'Corporate', share: 0.1 },
+    ]
+    return mix.map((item) => {
+      const typeTotal = Math.round(total * item.share)
+      const completed = Math.round(typeTotal * 0.75)
+      const pending = Math.round(typeTotal * 0.18)
+      const cancelled = Math.max(0, typeTotal - completed - pending)
+      return { type: item.type, completed, pending, cancelled }
+    })
+  }, [activeRange, customStats.totalBookings])
   const chartConfig = activeRange === 'custom' ? customChartConfig : chartConfigByRange[activeRange]
   const chartXStart = 110
   const chartXEnd = 1120
@@ -348,14 +377,6 @@ function Analytics() {
 
   const buildPolylinePoints = (values: number[]) =>
     values.map((value, index) => `${getXPosition(index)},${getYPosition(value)}`).join(' ')
-
-  const filteredRoutes = useMemo(() => {
-    const normalized = searchQuery.trim().toLowerCase()
-    const rows = normalized.length
-      ? allRouteRows.filter((row) => row.routeName.toLowerCase().includes(normalized))
-      : allRouteRows
-    return showAllRoutes ? rows : rows.slice(0, 5)
-  }, [searchQuery, showAllRoutes])
 
   const handleMenuAction = (label: string) => {
     // Placeholder for future route wiring.
@@ -641,76 +662,33 @@ function Analytics() {
               </article>
 
               <article className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '340ms' }}>
-                <h2 className="text-3xl font-bold text-[#1f2737]">Booking Status Distribution</h2>
-                <div className="mt-10 grid grid-cols-2 gap-4 xl:grid-cols-4">
-                  {[
-                    { label: 'Confirmed', value: 83, bar: '#2741a0', bg: '#dfe8fb' },
-                    { label: 'Completed', value: 60, bar: '#1bb37f', bg: '#daf6ea' },
-                    { label: 'Cancelled', value: 10, bar: '#eb4f59', bg: '#f8dfe2' },
-                    { label: 'Pending', value: 24, bar: '#eea006', bg: '#f8efc7' },
-                  ].map((item, index) => (
-                    <div key={item.label} className="animate-dash-in rounded-lg border border-[#e2e6ef] bg-[#f9fafc] p-3" style={{ animationDelay: `${390 + index * 45}ms` }}>
-                      <div className="relative h-28 overflow-hidden rounded-md" style={{ backgroundColor: item.bg }}>
-                        <div
-                          className="absolute bottom-0 left-0 right-0 rounded-md transition-all duration-300"
-                          style={{ height: `${item.value}%`, backgroundColor: item.bar }}
-                        />
-                        <p
-                          className="absolute inset-0 grid place-items-center text-4xl font-extrabold"
-                          style={{ color: item.value < 30 || item.label === 'Pending' ? '#111827' : '#ffffff' }}
-                        >
-                          {item.value}%
-                        </p>
-                      </div>
-                      <p className="mt-2 text-center text-sm font-semibold text-[#5f6b82]">{item.label}</p>
-                    </div>
-                  ))}
+                <h2 className="text-3xl font-bold text-[#1f2737]">Booking Status Overview</h2>
+                <p className="mt-1 text-sm text-[#7f899e]">Completed, pending, and cancelled counts by booking type.</p>
+                <div className="mt-6 overflow-x-auto">
+                  <table className="w-full min-w-[620px]">
+                    <thead>
+                      <tr className="bg-[#f1f4fa] text-left text-sm text-[#616f88]">
+                        <th className="px-4 py-3 font-semibold">Booking Type</th>
+                        <th className="px-4 py-3 font-semibold text-[#1bb37f]">Completed</th>
+                        <th className="px-4 py-3 font-semibold text-[#eea006]">Pending</th>
+                        <th className="px-4 py-3 font-semibold text-[#eb4f59]">Cancelled</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bookingTypeStatusRows.map((row) => (
+                        <tr key={row.type} className="border-b border-[#e8ebf2] text-[#2a3448]">
+                          <td className="px-4 py-4 text-sm font-semibold">{row.type}</td>
+                          <td className="px-4 py-4 text-sm font-bold text-[#1bb37f]">{row.completed.toLocaleString()}</td>
+                          <td className="px-4 py-4 text-sm font-bold text-[#eea006]">{row.pending.toLocaleString()}</td>
+                          <td className="px-4 py-4 text-sm font-bold text-[#eb4f59]">{row.cancelled.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </article>
             </section>
 
-            <section className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '460ms' }}>
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-3xl font-bold text-[#1f2737]">Route Performance</h2>
-                <button
-                  type="button"
-                  onClick={() => setShowAllRoutes((value) => !value)}
-                  className="text-sm font-bold text-[#2642a6] transition duration-200 hover:text-[#203b96]"
-                >
-                  {showAllRoutes ? 'Show Top 5' : 'View All'}
-                </button>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[840px]">
-                  <thead>
-                    <tr className="bg-[#f1f4fa] text-left text-sm text-[#616f88]">
-                      <th className="px-4 py-3 font-semibold">Route Name</th>
-                      <th className="px-4 py-3 font-semibold">Total Bookings</th>
-                      <th className="px-4 py-3 font-semibold">Revenue</th>
-                      <th className="px-4 py-3 font-semibold">Rating</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRoutes.map((row) => (
-                      <tr key={row.routeName} className="border-b border-[#e8ebf2] text-[#2a3448]">
-                        <td className="px-4 py-4 text-sm font-semibold">{row.routeName}</td>
-                        <td className="px-4 py-4 text-sm">{row.totalBookings}</td>
-                        <td className="px-4 py-4 text-sm">{row.revenue}</td>
-                        <td className="px-4 py-4 text-sm font-semibold text-[#e6a20b]">{row.rating}</td>
-                      </tr>
-                    ))}
-                    {filteredRoutes.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-6 text-center text-sm font-semibold text-[#6a7284]">
-                          No routes match your search.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-            </section>
           </div>
         </main>
       </div>

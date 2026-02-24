@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   faArrowLeft,
@@ -42,7 +42,7 @@ type Driver = {
   id: string
   phone: string
   rating: string
-  trips: string
+  trips: number
 }
 
 type BusInfo = {
@@ -56,6 +56,10 @@ type BusInfo = {
 }
 
 type DashboardTab = 'overview' | 'schedule' | 'revenue'
+type BusRevenuePoint = {
+  date: string
+  revenue: number
+}
 
 const mainMenu: SidebarMenuItem[] = [
   { label: 'Dashboard', icon: faChartSimple },
@@ -80,12 +84,39 @@ const initialAmenities: Amenity[] = [
   { name: 'Toilet', icon: faToilet, enabled: false },
 ]
 
+type DriverTripRecord = {
+  tripId: string
+  driverId: string
+}
+
+const driverTripRecords: DriverTripRecord[] = [
+  ...Array.from({ length: 128 }, (_, index) => ({
+    tripId: `TRP-892-${String(index + 1).padStart(3, '0')}`,
+    driverId: 'DRV-892',
+  })),
+  ...Array.from({ length: 97 }, (_, index) => ({
+    tripId: `TRP-415-${String(index + 1).padStart(3, '0')}`,
+    driverId: 'DRV-415',
+  })),
+  ...Array.from({ length: 74 }, (_, index) => ({
+    tripId: `TRP-233-${String(index + 1).padStart(3, '0')}`,
+    driverId: 'DRV-233',
+  })),
+  ...Array.from({ length: 112 }, (_, index) => ({
+    tripId: `TRP-761-${String(index + 1).padStart(3, '0')}`,
+    driverId: 'DRV-761',
+  })),
+]
+
+const getTripCountForDriver = (driverId: string): number =>
+  driverTripRecords.filter((record) => record.driverId === driverId).length
+
 const initialDriver: Driver = {
   name: 'Dinesh Gamage',
   id: 'DRV-892',
   phone: '0711526987',
   rating: '4.9',
-  trips: '128',
+  trips: getTripCountForDriver('DRV-892'),
 }
 
 const driverDirectory: Record<string, string> = {
@@ -104,6 +135,27 @@ const initialBusInfo: BusInfo = {
   insuranceExp: 'Nov 2026',
   status: 'Active',
 }
+
+const busRevenueLast30Days: BusRevenuePoint[] = (() => {
+  const start = new Date('2026-01-26')
+  const weekdayFactor = [0.9, 0.95, 1, 1.05, 1.12, 1.28, 1.18]
+
+  return Array.from({ length: 30 }, (_, index) => {
+    const date = new Date(start)
+    date.setDate(start.getDate() + index)
+
+    const dayFactor = weekdayFactor[date.getDay()]
+    const trend = 7800 + index * 85
+    const seasonal = ((index * 37) % 540) - 220
+    const revenue = Math.round((trend + seasonal) * dayFactor)
+
+    return {
+      date: date.toISOString().slice(0, 10),
+      revenue,
+    }
+  })
+})()
+const revenueChartLabelIndexes = [0, 5, 10, 15, 20, 25, 29]
 
 function BusDetail() {
   const navigate = useNavigate()
@@ -157,14 +209,14 @@ function BusDetail() {
 
   const handleDriverNameChange = (name: string) => {
     const matchedId = driverDirectory[name.trim().toLowerCase()] ?? ''
+    const matchedTrips = matchedId ? getTripCountForDriver(matchedId) : 0
     setDriverFormError('')
-    setDriverDraft((prev) => ({ ...prev, name, id: matchedId }))
+    setDriverDraft((prev) => ({ ...prev, name, id: matchedId, trips: matchedTrips }))
   }
 
   const handleSaveDriver = () => {
     const normalizedName = driverDraft.name.trim()
     const normalizedPhone = driverDraft.phone.trim()
-    const normalizedTrips = driverDraft.trips.trim()
 
     if (!normalizedName || !driverDraft.id) {
       setDriverFormError('Please enter a valid driver name to auto-load a driver ID.')
@@ -176,13 +228,11 @@ function BusDetail() {
       return
     }
 
-    if (!/^\d+$/.test(normalizedTrips) || Number(normalizedTrips) < 0) {
-      setDriverFormError('Trips must be a non-negative whole number.')
-      return
-    }
-
     setDriverFormError('')
-    setAssignedDriver(driverDraft)
+    setAssignedDriver({
+      ...driverDraft,
+      trips: getTripCountForDriver(driverDraft.id),
+    })
     setIsDriverModalOpen(false)
   }
 
@@ -202,7 +252,7 @@ function BusDetail() {
     const normalizedInsuranceExp = busDraft.insuranceExp.trim()
 
     if (!/^[A-Za-z]{2,4}-\d{2,4}$/.test(normalizedCode)) {
-      setBusFormError('Bus code must follow a format like ND-1151.')
+      setBusFormError('Bus Number must follow a format like ND-1151.')
       return
     }
 
@@ -267,6 +317,51 @@ function BusDetail() {
 
   // Overview and Schedule tabs share this same source, but with different limits.
   const visibleScheduleItems = isFullScheduleVisible ? scheduleItems : scheduleItems.slice(0, 2)
+  const revenuePoints = useMemo(() => busRevenueLast30Days, [])
+  const totalRevenueLast30Days = useMemo(
+    () => revenuePoints.reduce((sum, point) => sum + point.revenue, 0),
+    [revenuePoints],
+  )
+  const averageRevenuePerDay = useMemo(
+    () => Math.round(totalRevenueLast30Days / Math.max(revenuePoints.length, 1)),
+    [totalRevenueLast30Days, revenuePoints.length],
+  )
+  const revenueChartLabels = useMemo(
+    () =>
+      revenueChartLabelIndexes
+        .map((index) => ({ index, point: revenuePoints[index] }))
+        .filter((item): item is { index: number; point: BusRevenuePoint } => Boolean(item.point)),
+    [revenuePoints],
+  )
+  const formatShortDate = (isoDate: string) =>
+    new Date(isoDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
+  const formatCurrencyShort = (amount: number) => `Rs.${Math.round(amount / 1000)}k`
+
+  const chartHeight = 300
+  const chartWidth = 760
+  const chartPadding = { top: 24, right: 26, bottom: 44, left: 64 }
+  const plotHeight = chartHeight - chartPadding.top - chartPadding.bottom
+  const plotWidth = chartWidth - chartPadding.left - chartPadding.right
+  const minRevenue = Math.min(...revenuePoints.map((point) => point.revenue))
+  const maxRevenue = Math.max(...revenuePoints.map((point) => point.revenue))
+  const yMin = Math.max(0, Math.floor((minRevenue - 800) / 500) * 500)
+  const yMax = Math.ceil((maxRevenue + 800) / 500) * 500
+  const yRange = Math.max(1, yMax - yMin)
+  const yTicks = Array.from({ length: 5 }, (_, index) =>
+    Math.round(yMin + (index * yRange) / 4),
+  )
+  const getX = (index: number) =>
+    chartPadding.left + (index / Math.max(revenuePoints.length - 1, 1)) * plotWidth
+  const getY = (value: number) =>
+    chartPadding.top + ((yMax - value) / yRange) * plotHeight
+  const revenueLinePoints = revenuePoints
+    .map((point, index) => `${getX(index)},${getY(point.revenue)}`)
+    .join(' ')
+  const revenueAreaPoints = [
+    `${chartPadding.left},${chartPadding.top + plotHeight}`,
+    ...revenuePoints.map((point, index) => `${getX(index)},${getY(point.revenue)}`),
+    `${chartPadding.left + plotWidth},${chartPadding.top + plotHeight}`,
+  ].join(' ')
 
   return (
     <div className="h-screen bg-[#efeff4]" style={{ fontFamily: 'Manrope, Segoe UI, sans-serif' }}>
@@ -358,7 +453,7 @@ function BusDetail() {
             {isBusDeleted ? (
               <section className="dashboard-card rounded-2xl border border-[#f0caca] bg-[#fff5f5] p-6 shadow-sm">
                 <h2 className="text-3xl font-bold text-[#8d1f1f]">Bus deleted</h2>
-                <p className="mt-2 text-sm text-[#9a5555]">This is a dummy delete action for the UI flow.</p>
+                <p className="mt-2 text-sm text-[#9a5555]">This is the delete action for the UI flow.</p>
                 <button
                   type="button"
                   onClick={() => setIsBusDeleted(false)}
@@ -501,64 +596,82 @@ function BusDetail() {
                     <div className="mb-3 flex items-start justify-between">
                       <div>
                         <h3 className="text-3xl font-bold text-[#1f2737]">Revenue Trends</h3>
-                        <p className="text-sm text-[#8a93a4]">Last 30 days performance</p>
+                        <p className="text-sm text-[#8a93a4]">Revenue earned by this bus over the last 30 days</p>
                       </div>
                       <button type="button" className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm text-[#3d4558] transition duration-200 hover:bg-[#f2f5fd]">Last 30 Days</button>
                     </div>
 
-                    <svg viewBox="0 0 760 290" className="h-[300px] w-full rounded-lg bg-[#f9fafd]" role="img" aria-label="Revenue trend line chart">
-                      <line x1="55" y1="24" x2="55" y2="245" stroke="#d8dcea" />
-                      <line x1="55" y1="245" x2="730" y2="245" stroke="#d8dcea" />
-
-                      <polyline
-                        className="chart-line-1"
-                        fill="none"
-                        stroke="#4f7df7"
-                        strokeWidth="2"
-                        points="75,190 145,165 215,178 285,112 355,130 425,70 495,60 565,48 635,20 705,10"
+                    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-[300px] w-full rounded-lg bg-[#f9fafd]" role="img" aria-label="30-day revenue trend for the selected bus">
+                      <line
+                        x1={chartPadding.left}
+                        y1={chartPadding.top}
+                        x2={chartPadding.left}
+                        y2={chartPadding.top + plotHeight}
+                        stroke="#d8dcea"
                       />
-                      <polyline
-                        className="chart-line-2"
-                        fill="none"
-                        stroke="#2f4f9d"
-                        strokeWidth="2"
-                        points="75,135 145,138 215,142 285,145 355,137 425,122 495,108 565,106 635,104 705,98"
-                      />
-                      <polyline
-                        className="chart-line-3"
-                        fill="none"
-                        stroke="#20a49a"
-                        strokeWidth="2"
-                        points="75,210 145,202 215,206 285,195 355,181 425,187 495,175 565,164 635,168 705,155"
+                      <line
+                        x1={chartPadding.left}
+                        y1={chartPadding.top + plotHeight}
+                        x2={chartPadding.left + plotWidth}
+                        y2={chartPadding.top + plotHeight}
+                        stroke="#d8dcea"
                       />
 
-                      <g fill="#7b8394" fontSize="12">
-                        <text x="10" y="28">Rs.140k</text>
-                        <text x="10" y="78">Rs.120k</text>
-                        <text x="10" y="128">Rs.100k</text>
-                        <text x="10" y="178">Rs.80k</text>
-                        <text x="10" y="228">Rs.60k</text>
+                      {yTicks.map((tick) => (
+                        <line
+                          key={tick}
+                          x1={chartPadding.left}
+                          y1={getY(tick)}
+                          x2={chartPadding.left + plotWidth}
+                          y2={getY(tick)}
+                          stroke="#e5e8f0"
+                        />
+                      ))}
+
+                      <polygon
+                        points={revenueAreaPoints}
+                        fill="rgba(79,125,247,0.14)"
+                      />
+                      <polyline
+                        fill="none"
+                        stroke="#3258d6"
+                        strokeWidth="3"
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        points={revenueLinePoints}
+                      />
+
+                      {revenuePoints.map((point, index) =>
+                        index % 5 === 0 || index === revenuePoints.length - 1 ? (
+                          <circle key={point.date} cx={getX(index)} cy={getY(point.revenue)} r="2.7" fill="#3258d6" />
+                        ) : null,
+                      )}
+
+                      <g fill="#7b8394" fontSize="11">
+                        {yTicks.map((tick) => (
+                          <text key={tick} x={chartPadding.left - 8} y={getY(tick) + 4} textAnchor="end">
+                            {formatCurrencyShort(tick)}
+                          </text>
+                        ))}
                       </g>
 
-                      <g fill="#7b8394" fontSize="12">
-                        <text x="70" y="268">Oct 01</text>
-                        <text x="145" y="268">Oct 06</text>
-                        <text x="215" y="268">Oct 11</text>
-                        <text x="285" y="268">Oct 16</text>
-                        <text x="355" y="268">Oct 21</text>
-                        <text x="425" y="268">Oct 26</text>
-                        <text x="495" y="268">Oct 30</text>
+                      <g fill="#7b8394" fontSize="11">
+                        {revenueChartLabels.map(({ index, point }) => (
+                          <text key={point.date} x={getX(index)} y={chartHeight - 14} textAnchor="middle">
+                            {formatShortDate(point.date)}
+                          </text>
+                        ))}
                       </g>
                     </svg>
 
                     <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#eceff5] pt-3 text-center">
                       <div>
                         <p className="text-sm text-[#8a93a4]">Total Revenue</p>
-                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.122,450</p>
+                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.{totalRevenueLast30Days.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-[#8a93a4]">Avg. Per Trip</p>
-                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.8850</p>
+                        <p className="text-sm text-[#8a93a4]">Avg. Per Day</p>
+                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.{averageRevenuePerDay.toLocaleString()}</p>
                       </div>
                     </div>
                   </article>
@@ -626,64 +739,82 @@ function BusDetail() {
                     <div className="mb-3 flex items-start justify-between">
                       <div>
                         <h3 className="text-3xl font-bold text-[#1f2737]">Revenue Trends</h3>
-                        <p className="text-sm text-[#8a93a4]">Last 30 days performance</p>
+                        <p className="text-sm text-[#8a93a4]">Revenue earned by this bus over the last 30 days</p>
                       </div>
                       <button type="button" className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm text-[#3d4558] transition duration-200 hover:bg-[#f2f5fd]">Last 30 Days</button>
                     </div>
 
-                    <svg viewBox="0 0 760 290" className="h-[300px] w-full rounded-lg bg-[#f9fafd]" role="img" aria-label="Revenue trend line chart">
-                      <line x1="55" y1="24" x2="55" y2="245" stroke="#d8dcea" />
-                      <line x1="55" y1="245" x2="730" y2="245" stroke="#d8dcea" />
-
-                      <polyline
-                        className="chart-line-1"
-                        fill="none"
-                        stroke="#4f7df7"
-                        strokeWidth="2"
-                        points="75,190 145,165 215,178 285,112 355,130 425,70 495,60 565,48 635,20 705,10"
+                    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-[300px] w-full rounded-lg bg-[#f9fafd]" role="img" aria-label="30-day revenue trend for the selected bus">
+                      <line
+                        x1={chartPadding.left}
+                        y1={chartPadding.top}
+                        x2={chartPadding.left}
+                        y2={chartPadding.top + plotHeight}
+                        stroke="#d8dcea"
                       />
-                      <polyline
-                        className="chart-line-2"
-                        fill="none"
-                        stroke="#2f4f9d"
-                        strokeWidth="2"
-                        points="75,135 145,138 215,142 285,145 355,137 425,122 495,108 565,106 635,104 705,98"
-                      />
-                      <polyline
-                        className="chart-line-3"
-                        fill="none"
-                        stroke="#20a49a"
-                        strokeWidth="2"
-                        points="75,210 145,202 215,206 285,195 355,181 425,187 495,175 565,164 635,168 705,155"
+                      <line
+                        x1={chartPadding.left}
+                        y1={chartPadding.top + plotHeight}
+                        x2={chartPadding.left + plotWidth}
+                        y2={chartPadding.top + plotHeight}
+                        stroke="#d8dcea"
                       />
 
-                      <g fill="#7b8394" fontSize="12">
-                        <text x="10" y="28">Rs.140k</text>
-                        <text x="10" y="78">Rs.120k</text>
-                        <text x="10" y="128">Rs.100k</text>
-                        <text x="10" y="178">Rs.80k</text>
-                        <text x="10" y="228">Rs.60k</text>
+                      {yTicks.map((tick) => (
+                        <line
+                          key={tick}
+                          x1={chartPadding.left}
+                          y1={getY(tick)}
+                          x2={chartPadding.left + plotWidth}
+                          y2={getY(tick)}
+                          stroke="#e5e8f0"
+                        />
+                      ))}
+
+                      <polygon
+                        points={revenueAreaPoints}
+                        fill="rgba(79,125,247,0.14)"
+                      />
+                      <polyline
+                        fill="none"
+                        stroke="#3258d6"
+                        strokeWidth="3"
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        points={revenueLinePoints}
+                      />
+
+                      {revenuePoints.map((point, index) =>
+                        index % 5 === 0 || index === revenuePoints.length - 1 ? (
+                          <circle key={point.date} cx={getX(index)} cy={getY(point.revenue)} r="2.7" fill="#3258d6" />
+                        ) : null,
+                      )}
+
+                      <g fill="#7b8394" fontSize="11">
+                        {yTicks.map((tick) => (
+                          <text key={tick} x={chartPadding.left - 8} y={getY(tick) + 4} textAnchor="end">
+                            {formatCurrencyShort(tick)}
+                          </text>
+                        ))}
                       </g>
 
-                      <g fill="#7b8394" fontSize="12">
-                        <text x="70" y="268">Oct 01</text>
-                        <text x="145" y="268">Oct 06</text>
-                        <text x="215" y="268">Oct 11</text>
-                        <text x="285" y="268">Oct 16</text>
-                        <text x="355" y="268">Oct 21</text>
-                        <text x="425" y="268">Oct 26</text>
-                        <text x="495" y="268">Oct 30</text>
+                      <g fill="#7b8394" fontSize="11">
+                        {revenueChartLabels.map(({ index, point }) => (
+                          <text key={point.date} x={getX(index)} y={chartHeight - 14} textAnchor="middle">
+                            {formatShortDate(point.date)}
+                          </text>
+                        ))}
                       </g>
                     </svg>
 
                     <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#eceff5] pt-3 text-center">
                       <div>
                         <p className="text-sm text-[#8a93a4]">Total Revenue</p>
-                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.122,450</p>
+                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.{totalRevenueLast30Days.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-[#8a93a4]">Avg. Per Trip</p>
-                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.8850</p>
+                        <p className="text-sm text-[#8a93a4]">Avg. Per Day</p>
+                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.{averageRevenuePerDay.toLocaleString()}</p>
                       </div>
                     </div>
                   </article>
@@ -810,13 +941,12 @@ function BusDetail() {
                 </div>
               </div>
               <div className="md:col-span-2">
-                <label htmlFor="driver-trips" className="mb-1 block text-sm font-semibold text-[#45516b]">Trips</label>
-                <input
-                  id="driver-trips"
-                  value={driverDraft.trips}
-                  onChange={(event) => setDriverDraft((prev) => ({ ...prev, trips: event.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                />
+                <p className="mb-1 block text-sm font-semibold text-[#45516b]">Trips</p>
+                <div
+                  className="flex h-11 w-full items-center rounded-lg border border-[#d7dde9] bg-[#eef1f7] px-3 text-sm text-[#6a7284]"
+                >
+                  {driverDraft.trips} (auto-calculated)
+                </div>
               </div>
             </div>
 
@@ -869,7 +999,7 @@ function BusDetail() {
             </div>
             <div className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2">
               <div>
-                <label htmlFor="bus-code" className="mb-1 block text-sm font-semibold text-[#45516b]">Bus Code</label>
+                <label htmlFor="bus-code" className="mb-1 block text-sm font-semibold text-[#45516b]">Bus Number</label>
                 <input id="bus-code" value={busDraft.code} onChange={(event) => setBusDraft((prev) => ({ ...prev, code: event.target.value }))} className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
               </div>
               <div>

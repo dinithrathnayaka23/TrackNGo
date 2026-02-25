@@ -663,14 +663,13 @@ function Analytics() {
 
               <article className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '340ms' }}>
                 <h2 className="text-3xl font-bold text-[#1f2737]">Booking Status Overview</h2>
-                <p className="mt-1 text-sm text-[#7f899e]">Completed, pending, and cancelled counts by booking type.</p>
+                <p className="mt-1 text-sm text-[#7f899e]">Completed and cancelled counts by booking type.</p>
                 <div className="mt-6 overflow-x-auto">
                   <table className="w-full min-w-[620px]">
                     <thead>
                       <tr className="bg-[#f1f4fa] text-left text-sm text-[#616f88]">
                         <th className="px-4 py-3 font-semibold">Booking Type</th>
                         <th className="px-4 py-3 font-semibold text-[#1bb37f]">Completed</th>
-                        <th className="px-4 py-3 font-semibold text-[#eea006]">Pending</th>
                         <th className="px-4 py-3 font-semibold text-[#eb4f59]">Cancelled</th>
                       </tr>
                     </thead>
@@ -679,7 +678,6 @@ function Analytics() {
                         <tr key={row.type} className="border-b border-[#e8ebf2] text-[#2a3448]">
                           <td className="px-4 py-4 text-sm font-semibold">{row.type}</td>
                           <td className="px-4 py-4 text-sm font-bold text-[#1bb37f]">{row.completed.toLocaleString()}</td>
-                          <td className="px-4 py-4 text-sm font-bold text-[#eea006]">{row.pending.toLocaleString()}</td>
                           <td className="px-4 py-4 text-sm font-bold text-[#eb4f59]">{row.cancelled.toLocaleString()}</td>
                         </tr>
                       ))}

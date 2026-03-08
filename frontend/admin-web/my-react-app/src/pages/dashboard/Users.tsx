@@ -61,7 +61,7 @@ const mainMenu: SidebarMenuItem[] = [
 const systemMenu: SidebarMenuItem[] = [
   { label: 'Complaints', icon: faTriangleExclamation },
   { label: 'Analytics', icon: faChartColumn, path: '/dashboard/analytics' },
-  { label: 'Chat', icon: faComment },
+  { label: 'Chat', icon: faComment, path: '/dashboard/chat' },
 ]
 
 const initialContracts: Contract[] = [

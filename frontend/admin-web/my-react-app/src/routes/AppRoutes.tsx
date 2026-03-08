@@ -5,6 +5,7 @@ import BusDetail from '../pages/dashboard/BusDetail'
 import RoutesPage from '../pages/dashboard/Routes'
 import Analytics from '../pages/dashboard/Analytics'
 import Users from '../pages/dashboard/Users'
+import Chat from '../pages/dashboard/Chat'
 
 function AppRoutes() {
   return (
@@ -22,6 +23,7 @@ function AppRoutes() {
         <Route path="/dashboard/analytics" element={<Analytics />} />
         <Route path="/dashboard/users" element={<Users />} />
         <Route path="/dashboard/users/corporate-users" element={<Users />} />
+        <Route path="/dashboard/chat" element={<Chat />} />
         {/* Fallback route keeps unknown URLs inside auth flow */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

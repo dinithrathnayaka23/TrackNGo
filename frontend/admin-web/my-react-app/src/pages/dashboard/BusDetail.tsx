@@ -72,7 +72,7 @@ const mainMenu: SidebarMenuItem[] = [
 const systemMenu: SidebarMenuItem[] = [
   { label: 'Complaints', icon: faTriangleExclamation },
   { label: 'Analytics', icon: faChartColumn },
-  { label: 'Chat', icon: faComment },
+  { label: 'Chat', icon: faComment, path: '/dashboard/chat' },
 ]
 
 const initialAmenities: Amenity[] = [

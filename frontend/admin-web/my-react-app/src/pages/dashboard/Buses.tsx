@@ -131,7 +131,6 @@ function Buses() {
   const [capacity, setCapacity] = useState(30);
   const [showAddBus, setShowAddBus] = useState(false);
   const [newBus, setNewBus] = useState(emptyBusForm);
-
   const [showExportModal, setShowExportModal] = useState(false);
 
   const filteredBuses = useMemo(() => {
@@ -521,8 +520,8 @@ function Buses() {
       {showExportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
           <div className="bg-white p-6 rounded w-80">
-            <h2 className="mb-4 font-semibold">Export</h2>
-            <button className="w-full bg-[#1d3a8a] text-white py-2 rounded mb-3"
+            <h2 className="mb-4 font-semibold">Export Report</h2>
+            <button className="w-full bg-[#1d3a8a] text-black py-2 rounded mb-3"
               onClick={() => alert("Downloading...")}>
               Download Preview
             </button>
@@ -532,6 +531,7 @@ function Buses() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

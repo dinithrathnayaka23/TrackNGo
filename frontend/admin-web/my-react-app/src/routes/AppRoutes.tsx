@@ -3,6 +3,7 @@ import Login from "../pages/auth/Login";
 import Signup from "../pages/auth/Signup";
 import Buses from "../pages/dashboard/Buses";
 import Complaints from "../pages/dashboard/Complaints";
+import Driver from "../pages/dashboard/Driver";
 import DashboardLayout from "../components/layout/DashboardLayout";
 
 function AppRoutes() {
@@ -28,6 +29,17 @@ function AppRoutes() {
               breadcrumb={["Home", "Complaints"]}
             >
               <Complaints />
+            </DashboardLayout>
+          }
+        />
+        <Route
+          path="/driver"
+          element={
+            <DashboardLayout
+              title="Driver"
+              breadcrumb={["Home", "Driver"]}
+            >
+              <Driver />
             </DashboardLayout>
           }
         />

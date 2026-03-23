@@ -132,6 +132,8 @@ function Buses() {
   const [showAddBus, setShowAddBus] = useState(false);
   const [newBus, setNewBus] = useState(emptyBusForm);
 
+  const [showExportModal, setShowExportModal] = useState(false);
+
   const filteredBuses = useMemo(() => {
     return buses.filter((bus) => {
       const matchSearch =
@@ -512,6 +514,21 @@ function Buses() {
                 Save Bus
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+          <div className="bg-white p-6 rounded w-80">
+            <h2 className="mb-4 font-semibold">Export</h2>
+            <button className="w-full bg-[#1d3a8a] text-white py-2 rounded mb-3"
+              onClick={() => alert("Downloading...")}>
+              Download Preview
+            </button>
+            <button className="w-full bg-gray-200 py-2 rounded" onClick={() => setShowExportModal(false)}>
+              Cancel
+            </button>
           </div>
         </div>
       )}

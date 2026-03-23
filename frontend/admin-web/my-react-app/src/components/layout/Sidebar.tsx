@@ -16,6 +16,7 @@ const mainMenu = [
   { label: "Buses", to: "/buses", icon: FaBus },
   { label: "Routes", to: "/routes", icon: FiMapPin },
   { label: "Bookings", to: "/bookings", icon: FiCreditCard },
+  { label: "Drivers", to: "/driver", icon: FiUsers },
 ];
 
 const systemMenu = [

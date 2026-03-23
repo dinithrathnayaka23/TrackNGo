@@ -121,7 +121,7 @@ const DriverManagement = () => {
 
           <button
             onClick={() => setShowAddDriver(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            className="bg-[#1d3a8a] text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
             + Add Driver
           </button>
@@ -309,7 +309,7 @@ const DriverManagement = () => {
 
               <button
                 onClick={() => setShowAddDriver(false)}
-                className="bg-blue-600 text-white px-3 py-2 rounded"
+                className="bg-[#1d3a8a] text-white px-3 py-2 rounded"
               >
                 Save Driver
               </button>
@@ -322,13 +322,14 @@ const DriverManagement = () => {
       {showActions && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
           <div className="bg-white p-6 rounded-lg w-[300px]">
-            <button className="w-full bg-red-500 text-white py-2 rounded mb-2">
+            <button className="w-full bg-red-500 text-white py-2 rounded mb-2"
+            onClick={() => alert("Driver Removed")}>
               Remove Driver
             </button>
 
             <button
               onClick={() => setUpdateStatus(true)}
-              className="w-full bg-blue-500 text-white py-2 rounded mb-2"
+              className="w-full bg-[#1d3a8a] text-white py-2 rounded mb-2"
             >
               Update Status
             </button>
@@ -347,11 +348,13 @@ const DriverManagement = () => {
       {updateStatus && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
           <div className="bg-white p-6 rounded-lg w-[300px]">
-            <button className="w-full bg-blue-500 text-white py-2 rounded mb-2">
+            <button className="w-full bg-[#1d3a8a] text-white py-2 rounded mb-2"
+            onClick={() => alert("Set to be verified")}>
               Verified
             </button>
 
-            <button className="w-full bg-blue-500 text-white py-2 rounded mb-2">
+            <button className="w-full bg-[#1d3a8a] text-white py-2 rounded mb-2"
+            onClick={() => alert("Updated")}>
               Not Verified
             </button>
 

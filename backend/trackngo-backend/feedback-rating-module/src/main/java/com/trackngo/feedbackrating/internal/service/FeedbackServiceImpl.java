@@ -1,4 +1,4 @@
-﻿package com.trackngo.feedbackrating.internal.service;
+package com.trackngo.feedbackrating.internal.service;
 
 import com.trackngo.feedbackrating.api.FeedbackService;
 import com.trackngo.feedbackrating.api.dto.FeedbackDto;

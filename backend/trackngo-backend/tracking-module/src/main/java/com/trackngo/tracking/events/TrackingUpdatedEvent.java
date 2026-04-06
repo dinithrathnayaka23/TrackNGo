@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.tracking.events;
 
 import com.trackngo.commons.events.BaseEvent;

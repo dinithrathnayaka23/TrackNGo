@@ -1,4 +1,4 @@
-﻿package com.trackngo.payment.internal.repository;
+package com.trackngo.payment.internal.repository;
 
 import com.trackngo.payment.internal.entity.Invoice;
 import org.springframework.data.jpa.repository.JpaRepository;

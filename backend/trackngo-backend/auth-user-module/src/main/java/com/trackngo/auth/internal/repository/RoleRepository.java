@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.auth.internal.repository;
 
 import com.trackngo.auth.internal.entity.Role;

@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.auth.internal.controller;
 
 import com.trackngo.auth.api.AuthService;

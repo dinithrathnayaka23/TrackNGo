@@ -1,4 +1,4 @@
-﻿package com.trackngo.booking.internal.service;
+package com.trackngo.booking.internal.service;
 
 import com.trackngo.booking.api.TripService;
 import com.trackngo.booking.api.dto.TripDto;

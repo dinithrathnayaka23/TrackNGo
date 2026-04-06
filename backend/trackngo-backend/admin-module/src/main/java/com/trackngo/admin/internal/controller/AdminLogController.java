@@ -1,4 +1,4 @@
-﻿package com.trackngo.admin.internal.controller;
+package com.trackngo.admin.internal.controller;
 
 import com.trackngo.admin.api.AdminLogService;
 import com.trackngo.admin.api.dto.AdminLogDto;

@@ -1,4 +1,4 @@
-﻿package com.trackngo.booking.api;
+package com.trackngo.booking.api;
 
 import com.trackngo.booking.api.dto.BookingDto;
 

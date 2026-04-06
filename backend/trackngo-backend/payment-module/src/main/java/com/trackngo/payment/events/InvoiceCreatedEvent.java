@@ -1,4 +1,4 @@
-﻿package com.trackngo.payment.events;
+package com.trackngo.payment.events;
 
 import com.trackngo.commons.events.BaseEvent;
 import lombok.AllArgsConstructor;

@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.commons;
 
 import lombok.AllArgsConstructor;

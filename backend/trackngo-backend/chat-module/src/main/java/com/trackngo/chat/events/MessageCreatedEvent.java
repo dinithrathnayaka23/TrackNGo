@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.chat.events;
 
 import com.trackngo.commons.events.BaseEvent;

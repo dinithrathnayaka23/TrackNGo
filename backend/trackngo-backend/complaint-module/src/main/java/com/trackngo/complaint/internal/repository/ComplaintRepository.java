@@ -1,4 +1,4 @@
-﻿package com.trackngo.complaint.internal.repository;
+package com.trackngo.complaint.internal.repository;
 
 import com.trackngo.complaint.internal.entity.Complaint;
 import org.springframework.data.jpa.repository.JpaRepository;

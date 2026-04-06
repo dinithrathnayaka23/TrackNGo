@@ -1,4 +1,4 @@
-﻿package com.trackngo.booking.internal.controller;
+package com.trackngo.booking.internal.controller;
 
 import com.trackngo.booking.api.SeatService;
 import com.trackngo.booking.api.dto.SeatDto;

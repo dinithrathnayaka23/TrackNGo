@@ -1,4 +1,4 @@
-﻿package com.trackngo.payment.internal.service;
+package com.trackngo.payment.internal.service;
 
 import com.trackngo.payment.api.PaymentService;
 import com.trackngo.payment.api.dto.PaymentDto;

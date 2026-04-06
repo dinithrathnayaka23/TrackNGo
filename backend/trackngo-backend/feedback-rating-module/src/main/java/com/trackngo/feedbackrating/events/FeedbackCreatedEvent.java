@@ -1,4 +1,4 @@
-﻿package com.trackngo.feedbackrating.events;
+package com.trackngo.feedbackrating.events;
 
 import com.trackngo.commons.events.BaseEvent;
 import lombok.AllArgsConstructor;

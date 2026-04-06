@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.commons.constants;
 
 public final class Roles {

@@ -1,4 +1,4 @@
-﻿package com.trackngo.driverfleet.internal.controller;
+package com.trackngo.driverfleet.internal.controller;
 
 import com.trackngo.driverfleet.api.DriverService;
 import com.trackngo.driverfleet.api.dto.DriverDto;

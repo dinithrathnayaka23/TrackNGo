@@ -1,4 +1,4 @@
-﻿package com.trackngo.feedbackrating.api.dto;
+package com.trackngo.feedbackrating.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

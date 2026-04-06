@@ -1,4 +1,4 @@
-﻿package com.trackngo.notification.api.dto;
+package com.trackngo.notification.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

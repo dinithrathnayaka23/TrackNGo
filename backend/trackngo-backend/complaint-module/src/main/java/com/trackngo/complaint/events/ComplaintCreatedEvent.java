@@ -1,4 +1,4 @@
-﻿package com.trackngo.complaint.events;
+package com.trackngo.complaint.events;
 
 import com.trackngo.commons.events.BaseEvent;
 import lombok.AllArgsConstructor;

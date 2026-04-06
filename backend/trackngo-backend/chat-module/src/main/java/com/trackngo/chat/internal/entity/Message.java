@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.chat.internal.entity;
 
 import jakarta.persistence.*;

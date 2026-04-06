@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.tracking.internal.repository;
 
 import com.trackngo.tracking.internal.entity.Route;

@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.auth.internal.security;
 
 import com.trackngo.auth.internal.entity.User;

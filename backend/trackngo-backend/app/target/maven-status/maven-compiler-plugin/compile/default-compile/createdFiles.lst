@@ -1,0 +1,7 @@
+com\trackngo\app\TrackNGoApplication.class
+com\trackngo\app\config\JpaConfig.class
+com\trackngo\app\controller\HealthController.class
+com\trackngo\app\config\SecurityConfig.class
+com\trackngo\app\config\WebConfig.class
+com\trackngo\app\config\WebSocketConfig.class
+com\trackngo\app\config\JwtConfig.class

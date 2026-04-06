@@ -1,0 +1,14 @@
+com\trackngo\chat\internal\repository\ConversationRepository.class
+com\trackngo\chat\internal\entity\Message.class
+com\trackngo\chat\internal\entity\Conversation.class
+com\trackngo\chat\internal\controller\ConversationController.class
+com\trackngo\chat\internal\service\MessageServiceImpl.class
+com\trackngo\chat\api\ConversationService.class
+com\trackngo\chat\api\MessageService.class
+com\trackngo\chat\internal\controller\MessageController.class
+com\trackngo\chat\events\MessageCreatedEvent.class
+com\trackngo\chat\api\dto\MessageDto.class
+com\trackngo\chat\internal\service\ConversationServiceImpl.class
+com\trackngo\chat\internal\websocket\ChatWebSocketHandler.class
+com\trackngo\chat\api\dto\ConversationDto.class
+com\trackngo\chat\internal\repository\MessageRepository.class

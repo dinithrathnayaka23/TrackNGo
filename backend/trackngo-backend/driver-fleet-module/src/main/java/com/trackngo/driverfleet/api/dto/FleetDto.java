@@ -1,4 +1,4 @@
-﻿package com.trackngo.driverfleet.api.dto;
+package com.trackngo.driverfleet.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

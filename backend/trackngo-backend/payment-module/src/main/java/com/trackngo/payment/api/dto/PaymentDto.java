@@ -1,4 +1,4 @@
-﻿package com.trackngo.payment.api.dto;
+package com.trackngo.payment.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

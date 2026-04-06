@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.commons.exception;
 
 public class ResourceNotFoundException extends RuntimeException {

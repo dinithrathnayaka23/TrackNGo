@@ -1,4 +1,4 @@
-﻿package com.trackngo.driverfleet.internal.entity;
+package com.trackngo.driverfleet.internal.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

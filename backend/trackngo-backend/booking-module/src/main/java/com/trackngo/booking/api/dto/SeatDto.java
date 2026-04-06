@@ -1,4 +1,4 @@
-﻿package com.trackngo.booking.api.dto;
+package com.trackngo.booking.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

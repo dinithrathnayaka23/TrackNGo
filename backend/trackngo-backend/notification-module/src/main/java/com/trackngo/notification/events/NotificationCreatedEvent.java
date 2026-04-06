@@ -1,4 +1,4 @@
-﻿package com.trackngo.notification.events;
+package com.trackngo.notification.events;
 
 import com.trackngo.commons.events.BaseEvent;
 import lombok.AllArgsConstructor;

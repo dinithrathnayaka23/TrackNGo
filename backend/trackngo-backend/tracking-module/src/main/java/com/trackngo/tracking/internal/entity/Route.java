@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.tracking.internal.entity;
 
 import jakarta.persistence.*;

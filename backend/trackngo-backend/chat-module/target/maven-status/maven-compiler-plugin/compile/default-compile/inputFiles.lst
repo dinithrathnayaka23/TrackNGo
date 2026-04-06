@@ -1,0 +1,14 @@
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\ConversationService.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\ConversationDto.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\MessageDto.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\MessageService.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\events\MessageCreatedEvent.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\controller\ConversationController.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\controller\MessageController.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\Conversation.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\Message.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\repository\ConversationRepository.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\repository\MessageRepository.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\service\ConversationServiceImpl.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\service\MessageServiceImpl.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\websocket\ChatWebSocketHandler.java

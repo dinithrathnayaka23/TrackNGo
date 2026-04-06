@@ -1,4 +1,4 @@
-﻿package com.trackngo.notification.internal.service;
+package com.trackngo.notification.internal.service;
 
 import com.trackngo.notification.api.NotificationService;
 import com.trackngo.notification.api.dto.NotificationDto;

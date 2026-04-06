@@ -1,4 +1,4 @@
-﻿package com.trackngo.driverfleet.events;
+package com.trackngo.driverfleet.events;
 
 import com.trackngo.commons.events.BaseEvent;
 import lombok.AllArgsConstructor;

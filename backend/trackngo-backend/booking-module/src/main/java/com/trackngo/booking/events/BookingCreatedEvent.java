@@ -1,4 +1,4 @@
-﻿package com.trackngo.booking.events;
+package com.trackngo.booking.events;
 
 import com.trackngo.commons.events.BaseEvent;
 import lombok.AllArgsConstructor;

@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.commons.exception;
 
 public class BusinessException extends RuntimeException {

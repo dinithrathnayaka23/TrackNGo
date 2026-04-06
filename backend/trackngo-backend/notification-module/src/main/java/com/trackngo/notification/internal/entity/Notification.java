@@ -1,4 +1,4 @@
-﻿package com.trackngo.notification.internal.entity;
+package com.trackngo.notification.internal.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

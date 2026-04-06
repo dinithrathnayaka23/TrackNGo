@@ -1,4 +1,4 @@
-﻿package com.trackngo.feedbackrating.internal.entity;
+package com.trackngo.feedbackrating.internal.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

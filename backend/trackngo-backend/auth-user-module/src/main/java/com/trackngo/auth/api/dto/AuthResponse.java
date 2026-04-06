@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.auth.api.dto;
 
 import lombok.AllArgsConstructor;

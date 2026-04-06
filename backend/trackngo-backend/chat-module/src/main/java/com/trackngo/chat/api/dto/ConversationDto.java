@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.chat.api.dto;
 
 import jakarta.validation.constraints.NotBlank;

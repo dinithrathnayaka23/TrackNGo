@@ -1,4 +1,4 @@
-﻿
+
 package com.trackngo.auth.internal.security;
 
 import com.trackngo.commons.util.JwtUtil;

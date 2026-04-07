@@ -203,9 +203,17 @@ public class MessageServiceImpl implements MessageService {
         if (dto.getConversationId() == null && dto.getRecipientId() == null) {
             throw new BusinessException("conversationId or recipientId is required");
         }
-        if ((dto.getContent() == null || dto.getContent().isBlank())
-                && (dto.getMediaUrl() == null || dto.getMediaUrl().isBlank())) {
-            throw new BusinessException("Either content or mediaUrl is required");
+
+        boolean isLocation = "LOCATION".equalsIgnoreCase(dto.getMessageType());
+        boolean hasContent = dto.getContent() != null && !dto.getContent().isBlank();
+        boolean hasMedia = dto.getMediaUrl() != null && !dto.getMediaUrl().isBlank();
+        boolean hasCoords = dto.getLatitude() != null && dto.getLongitude() != null;
+
+        if (!hasContent && !hasMedia && !hasCoords) {
+            throw new BusinessException("Either content, mediaUrl, or location coordinates is required");
+        }
+        if (isLocation && !hasCoords) {
+            throw new BusinessException("latitude and longitude are required for location messages");
         }
     }
 

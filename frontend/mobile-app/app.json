@@ -8,11 +8,24 @@
     "assetBundlePatterns": ["**/*"],
     "android": {
       "package": "com.trackngo.chat",
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "TrackNGo needs your location to share it in chat."
+      }
     },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "TrackNGo needs your location to share it in chat.",
+          "locationWhenInUsePermission": "TrackNGo needs your location to share it in chat."
+        }
+      ]
+    ],
     "web": {
       "bundler": "metro"
     }

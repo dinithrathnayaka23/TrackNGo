@@ -15,12 +15,14 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import { Audio } from "expo-av";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { MessageBubble } from "../components/MessageBubble";
+import { ImageViewerModal } from "../components/ImageViewerModal";
 import type { RootStackParamList } from "../navigation/types";
 import {
   deleteMessage,
@@ -61,7 +63,7 @@ function buildOutgoingMessage(params: {
   senderType: "PASSENGER" | "DRIVER" | "ADMIN" | "CORPORATE_USER";
   recipientId: number;
   content: string;
-  messageType: "TEXT" | "IMAGE" | "VOICE";
+  messageType: "TEXT" | "IMAGE" | "VOICE" | "LOCATION";
   media?: {
     mediaUrl: string;
     fileName: string;
@@ -69,6 +71,8 @@ function buildOutgoingMessage(params: {
     mediaSizeBytes: number;
   };
   durationSeconds?: number;
+  latitude?: number;
+  longitude?: number;
 }) {
   const now = new Date().toISOString();
   return {
@@ -87,8 +91,8 @@ function buildOutgoingMessage(params: {
     mediaSizeBytes: params.media?.mediaSizeBytes ?? null,
     compressedSizeBytes: null,
     durationSeconds: params.durationSeconds ?? null,
-    latitude: null,
-    longitude: null,
+    latitude: params.latitude ?? null,
+    longitude: params.longitude ?? null,
     createdAt: now,
   };
 }
@@ -109,11 +113,14 @@ export function ChatRoomScreen({ route, navigation }: Props) {
   const [recordingActive, setRecordingActive] = useState(false);
   const [sending, setSending] = useState(false);
   const [otherProfile, setOtherProfile] = useState<UserProfile | null>(null);
+  const [playingAudioUrl, setPlayingAudioUrl] = useState<string | null>(null);
+  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localTypingActiveRef = useRef(false);
   const unsubscribeRef = useRef<() => void>(() => undefined);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   const loadPage = useCallback(
     async (targetPage: number, reset = false) => {
@@ -230,6 +237,10 @@ export function ChatRoomScreen({ route, navigation }: Props) {
       chatSocket.disconnect();
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
+      }
+      if (soundRef.current) {
+        void soundRef.current.unloadAsync();
+        soundRef.current = null;
       }
     };
   }, [conversationId, currentUser, loadPage, markReadDelivered]);
@@ -461,6 +472,11 @@ export function ChatRoomScreen({ route, navigation }: Props) {
         throw new Error("Missing recording URI.");
       }
 
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+
       const durationSeconds =
         status && "durationMillis" in status
           ? Math.round((status.durationMillis ?? 0) / 1000)
@@ -509,16 +525,177 @@ export function ChatRoomScreen({ route, navigation }: Props) {
     }
   };
 
+  const sendLocation = async () => {
+    if (!currentUser || sending) {
+      return;
+    }
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission needed",
+          "Location permission is required to share your location.",
+        );
+        return;
+      }
+
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) {
+        Alert.alert(
+          "Location services disabled",
+          "Please enable location services in your device settings and try again.",
+        );
+        return;
+      }
+
+      setSending(true);
+
+      // Try cached position first
+      let loc = await Location.getLastKnownPositionAsync();
+
+      // If no cached position, get a fresh one using watchPositionAsync
+      // (more reliable than getCurrentPositionAsync on many Android devices)
+      if (!loc) {
+        loc = await new Promise<Location.LocationObject | null>((resolve) => {
+          let resolved = false;
+          let sub: Location.LocationSubscription | null = null;
+
+          const timer = setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              sub?.remove();
+              resolve(null);
+            }
+          }, 15000);
+
+          Location.watchPositionAsync(
+            { accuracy: Location.Accuracy.Balanced, distanceInterval: 0 },
+            (position) => {
+              if (!resolved) {
+                resolved = true;
+                clearTimeout(timer);
+                sub?.remove();
+                resolve(position);
+              }
+            },
+          )
+            .then((subscription) => {
+              sub = subscription;
+              if (resolved) {
+                subscription.remove();
+              }
+            })
+            .catch(() => {
+              if (!resolved) {
+                resolved = true;
+                clearTimeout(timer);
+                resolve(null);
+              }
+            });
+        });
+      }
+
+      if (!loc) {
+        Alert.alert(
+          "Location unavailable",
+          "Could not determine your location. Make sure GPS is turned on and try again in an open area.",
+        );
+        return;
+      }
+
+      const message = buildOutgoingMessage({
+        conversationId,
+        senderId: currentUser.userId,
+        senderType: currentUser.userType,
+        recipientId: otherUserId,
+        content: "",
+        messageType: "LOCATION",
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+
+      await persistOutgoingMessage(
+        message,
+        "Location send failed",
+        "Could not send your location.",
+      );
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "Unknown error";
+      Alert.alert(
+        "Location failed",
+        `Could not get your current location.\n\n${detail}`,
+      );
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const stopAudioPlayback = useCallback(async () => {
+    const currentSound = soundRef.current;
+    soundRef.current = null;
+    setPlayingAudioUrl(null);
+
+    if (!currentSound) {
+      return;
+    }
+
+    try {
+      await currentSound.stopAsync();
+    } catch {
+      // Ignore cleanup errors if playback has already stopped.
+    }
+
+    try {
+      await currentSound.unloadAsync();
+    } catch {
+      // Ignore unload errors during cleanup.
+    }
+  }, []);
+
   const playAudio = async (url: string) => {
     try {
-      const { sound } = await Audio.Sound.createAsync({ uri: url });
-      await sound.playAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+
+      if (playingAudioUrl === url && soundRef.current) {
+        const status = await soundRef.current.getStatusAsync();
+        if (status.isLoaded && status.isPlaying) {
+          await soundRef.current.pauseAsync();
+          setPlayingAudioUrl(null);
+          return;
+        }
+
+        await soundRef.current.playAsync();
+        setPlayingAudioUrl(url);
+        return;
+      }
+
+      await stopAudioPlayback();
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: url },
+        { shouldPlay: true },
+      );
+
+      soundRef.current = sound;
+      setPlayingAudioUrl(url);
       sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
+        if (!status.isLoaded) {
+          return;
+        }
+
+        if (status.didJustFinish) {
+          setPlayingAudioUrl(null);
+          if (soundRef.current === sound) {
+            soundRef.current = null;
+          }
           void sound.unloadAsync();
         }
       });
     } catch {
+      await stopAudioPlayback();
       Alert.alert("Playback failed", "Could not play this audio.");
     }
   };
@@ -696,7 +873,13 @@ export function ChatRoomScreen({ route, navigation }: Props) {
                     item.message.deleted !== true &&
                     !!item.message.messageId
                   }
+                  isAudioPlaying={
+                    item.message.messageType === "VOICE" &&
+                    !!item.message.mediaUrl &&
+                    playingAudioUrl === item.message.mediaUrl
+                  }
                   onPressAudio={playAudio}
+                  onPressImage={setViewerImageUrl}
                   onLongPressDelete={() => onDeleteMessage(item.message)}
                 />
               )
@@ -737,6 +920,9 @@ export function ChatRoomScreen({ route, navigation }: Props) {
           <Pressable style={styles.iconBtn} onPress={pickAndSendImage}>
             <Text style={styles.iconText}>+</Text>
           </Pressable>
+          <Pressable style={styles.iconBtn} onPress={sendLocation}>
+            <Text style={styles.iconText}>📍</Text>
+          </Pressable>
           <TextInput
             style={styles.input}
             value={input}
@@ -764,6 +950,12 @@ export function ChatRoomScreen({ route, navigation }: Props) {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      <ImageViewerModal
+        visible={!!viewerImageUrl}
+        imageUrl={viewerImageUrl ?? ""}
+        onClose={() => setViewerImageUrl(null)}
+      />
     </SafeAreaView>
   );
 }

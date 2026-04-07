@@ -1,4 +1,5 @@
 com\trackngo\app\TrackNGoApplication.class
+com\trackngo\app\config\StompWebSocketConfig.class
 com\trackngo\app\config\JpaConfig.class
 com\trackngo\app\controller\HealthController.class
 com\trackngo\app\config\SecurityConfig.class

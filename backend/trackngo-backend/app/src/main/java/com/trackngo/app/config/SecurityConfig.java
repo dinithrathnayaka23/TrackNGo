@@ -28,6 +28,13 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/health").permitAll()
+                .requestMatchers("/ws/**").permitAll()
+                .requestMatchers("/chat/**").permitAll()
+                .requestMatchers("/api/users/*/conversations/**").permitAll()
+                .requestMatchers("/api/conversations/**").permitAll()
+                .requestMatchers("/api/messages/**").permitAll()
+                .requestMatchers("/api/media/**").permitAll()
+                .requestMatchers("/uploads/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

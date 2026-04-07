@@ -23,6 +23,7 @@ export function MessageBubble({
     !isDeleted && message.messageType === "IMAGE" && !!message.mediaUrl;
   const isAudio =
     !isDeleted && message.messageType === "VOICE" && !!message.mediaUrl;
+  const hasCaption = isImage && !!message.content;
   const resolvedMediaUrl = resolveAssetUrl(message.mediaUrl);
   const ticks = statusTick(message.status);
 
@@ -35,6 +36,7 @@ export function MessageBubble({
           style={[
             styles.bubble,
             isOutgoing ? styles.outgoing : styles.incoming,
+            isImage ? styles.imageBubble : null,
           ]}
           disabled={!canDelete}
           onLongPress={onLongPressDelete}
@@ -90,6 +92,7 @@ export function MessageBubble({
               style={[
                 styles.content,
                 isOutgoing ? styles.contentOut : styles.contentIn,
+                hasCaption ? styles.imageCaption : null,
               ]}
             >
               {message.content}
@@ -134,11 +137,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  imageBubble: {
+    borderRadius: 18,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
   outgoing: {
     backgroundColor: "#1d82e8",
   },
   incoming: {
-    backgroundColor: "#f0f3f7",
+    backgroundColor: "#dfe1e2",
   },
   content: {
     fontSize: 14,
@@ -158,8 +166,13 @@ const styles = StyleSheet.create({
   image: {
     width: 230,
     height: 180,
-    borderRadius: 10,
-    marginBottom: 7,
+    borderRadius: 14,
+    marginBottom: 0,
+  },
+  imageCaption: {
+    paddingHorizontal: 8,
+    paddingTop: 6,
+    paddingBottom: 4,
   },
   audioRow: {
     borderRadius: 10,

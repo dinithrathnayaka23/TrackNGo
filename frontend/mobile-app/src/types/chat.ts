@@ -90,5 +90,7 @@ export interface UserProfile {
   phoneNumber: string | null;
   email: string | null;
   profilePhoto: string | null;
+  companyName?: string | null;
+  contactPersonName?: string | null;
   userType: UserType;
 }

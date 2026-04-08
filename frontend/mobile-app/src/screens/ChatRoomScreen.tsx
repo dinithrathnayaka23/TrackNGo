@@ -5,14 +5,16 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
-  ToastAndroid,
   StyleSheet,
   Text,
   TextInput,
+  ToastAndroid,
   View,
 } from "react-native";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
@@ -21,7 +23,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { MessageBubble } from "../components/MessageBubble";
 import { ImageViewerModal } from "../components/ImageViewerModal";
 import type { RootStackParamList } from "../navigation/types";
 import {
@@ -35,10 +36,14 @@ import {
 import { chatSocket } from "../services/chatSocket";
 import { getUserProfile } from "../services/userProfileApi";
 import { useSession } from "../store/sessionStore";
-import type { ChatMessage, UserProfile } from "../types/chat";
+import type { ChatMessage, UserProfile, UserType } from "../types/chat";
+import { resolveAssetUrl } from "../utils/media";
 import {
   applyStatusUpdates,
   formatDayLabel,
+  formatTime,
+  getParticipantAvatarFallback,
+  getParticipantAvatarUri,
   getParticipantTitle,
   mergeMessage,
 } from "../utils/chat";
@@ -56,6 +61,23 @@ type ChatRoomListItem =
       key: string;
       label: string;
     };
+
+function formatDuration(seconds?: number | null) {
+  const totalSeconds = Math.max(0, Math.round(seconds ?? 0));
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+function getImageTag(message: ChatMessage) {
+  if (message.fileName?.trim()) {
+    return message.fileName.trim();
+  }
+  if (message.content.trim()) {
+    return message.content.trim();
+  }
+  return "Photo";
+}
 
 function buildOutgoingMessage(params: {
   conversationId: number;
@@ -97,9 +119,208 @@ function buildOutgoingMessage(params: {
   };
 }
 
+type MessageRowProps = {
+  avatarFallback: string;
+  avatarUri: string | null;
+  canDelete: boolean;
+  isAudioPlaying: boolean;
+  isOutgoing: boolean;
+  message: ChatMessage;
+  onLongPressDelete: () => void;
+  onOpenImage: (url: string) => void;
+  onOpenLocation: (message: ChatMessage) => void;
+  onPressAudio: (url: string) => void;
+};
+
+function MessageRow({
+  avatarFallback,
+  avatarUri,
+  canDelete,
+  isAudioPlaying,
+  isOutgoing,
+  message,
+  onLongPressDelete,
+  onOpenImage,
+  onOpenLocation,
+  onPressAudio,
+}: MessageRowProps) {
+  const isDeleted = message.deleted === true;
+  const resolvedMediaUrl = resolveAssetUrl(message.mediaUrl);
+  const isImage =
+    !isDeleted && message.messageType === "IMAGE" && !!resolvedMediaUrl;
+  const isVoice =
+    !isDeleted && message.messageType === "VOICE" && !!resolvedMediaUrl;
+  const isLocation =
+    !isDeleted &&
+    message.messageType === "LOCATION" &&
+    message.latitude != null &&
+    message.longitude != null;
+
+  const deleteProps = canDelete
+    ? { delayLongPress: 250 as const, onLongPress: onLongPressDelete }
+    : undefined;
+
+  const renderOutgoingMeta = () => (
+    <View style={styles.timeRightRow}>
+      <Text style={styles.timeRight}>{formatTime(message.createdAt)}</Text>
+      <MaterialCommunityIcons
+        name={
+          message.status === "READ" || message.status === "DELIVERED"
+            ? "check-all"
+            : "check"
+        }
+        size={14}
+        color={message.status === "READ" ? "#60A5FA" : "#9AA4B2"}
+      />
+    </View>
+  );
+
+  const renderIncomingMeta = () => (
+    <Text style={styles.timeLeft}>{formatTime(message.createdAt)}</Text>
+  );
+
+  const renderTextBubble = () => {
+    const bubbleStyle = isOutgoing ? styles.bubbleRight : styles.bubbleLeft;
+    const textStyle = isOutgoing
+      ? styles.bubbleRightText
+      : styles.bubbleLeftText;
+
+    return (
+      <View>
+        <Pressable style={bubbleStyle} {...deleteProps}>
+          <Text style={[textStyle, isDeleted ? styles.deletedText : null]}>
+            {isDeleted ? "Message deleted" : message.content || " "}
+          </Text>
+        </Pressable>
+        {isOutgoing ? renderOutgoingMeta() : renderIncomingMeta()}
+      </View>
+    );
+  };
+
+  const renderVoiceBubble = () => {
+    const bubbleStyle = isOutgoing
+      ? [styles.voiceBubble, styles.voiceBubbleOutgoing]
+      : [styles.voiceBubble, styles.voiceBubbleIncoming];
+    const playStyle = isOutgoing
+      ? [styles.voicePlay, styles.voicePlayOutgoing]
+      : [styles.voicePlay, styles.voicePlayIncoming];
+    const iconColor = isOutgoing ? "#FFFFFF" : "#1A73E8";
+
+    return (
+      <View>
+        <Pressable
+          style={bubbleStyle}
+          onPress={() => resolvedMediaUrl && onPressAudio(resolvedMediaUrl)}
+          {...deleteProps}
+        >
+          <Pressable style={playStyle} pointerEvents="none">
+            <MaterialCommunityIcons
+              name={isAudioPlaying ? "pause" : "play"}
+              size={14}
+              color={iconColor}
+            />
+          </Pressable>
+          <View
+            style={[
+              styles.voiceWave,
+              isOutgoing ? styles.voiceWaveOutgoing : null,
+            ]}
+          />
+          <Text
+            style={[
+              styles.voiceTime,
+              isOutgoing ? styles.voiceTimeOutgoing : null,
+            ]}
+          >
+            {formatDuration(message.durationSeconds)}
+          </Text>
+        </Pressable>
+        {isOutgoing ? renderOutgoingMeta() : renderIncomingMeta()}
+      </View>
+    );
+  };
+
+  const renderImageBubble = () => (
+    <View>
+      <Pressable style={styles.imageBubble} {...deleteProps}>
+        <Pressable
+          onPress={() => resolvedMediaUrl && onOpenImage(resolvedMediaUrl)}
+          disabled={!resolvedMediaUrl}
+        >
+          <Image
+            source={{ uri: resolvedMediaUrl! }}
+            style={styles.messageImage}
+          />
+          <View style={styles.imageTag}>
+            <Text style={styles.imageTagText}>{getImageTag(message)}</Text>
+          </View>
+        </Pressable>
+      </Pressable>
+      {isOutgoing ? renderOutgoingMeta() : renderIncomingMeta()}
+    </View>
+  );
+
+  const renderLocationBubble = () => {
+    const bubbleStyle = isOutgoing ? styles.bubbleRight : styles.bubbleLeft;
+    const textStyle = isOutgoing
+      ? styles.bubbleRightText
+      : styles.bubbleLeftText;
+
+    return (
+      <View>
+        <Pressable
+          style={bubbleStyle}
+          onPress={() => onOpenLocation(message)}
+          {...deleteProps}
+        >
+          <Text style={textStyle}>Shared location</Text>
+          <Text style={[textStyle, styles.locationSubtitle]}>
+            {message.latitude?.toFixed(5)}, {message.longitude?.toFixed(5)}
+          </Text>
+        </Pressable>
+        {isOutgoing ? renderOutgoingMeta() : renderIncomingMeta()}
+      </View>
+    );
+  };
+
+  if (isOutgoing) {
+    return (
+      <View style={styles.messageRowRight}>
+        {isVoice
+          ? renderVoiceBubble()
+          : isImage
+            ? renderImageBubble()
+            : isLocation
+              ? renderLocationBubble()
+              : renderTextBubble()}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.messageRow}>
+      {avatarUri ? (
+        <Image source={{ uri: avatarUri }} style={styles.avatar} />
+      ) : (
+        <View style={styles.avatarFallback}>
+          <Text style={styles.avatarFallbackText}>{avatarFallback}</Text>
+        </View>
+      )}
+      {isVoice
+        ? renderVoiceBubble()
+        : isImage
+          ? renderImageBubble()
+          : isLocation
+            ? renderLocationBubble()
+            : renderTextBubble()}
+    </View>
+  );
+}
+
 export function ChatRoomScreen({ route, navigation }: Props) {
   const { conversationId, otherUserId, otherUserType } = route.params;
   const { currentUser } = useSession();
+  const insets = useSafeAreaInsets();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [page, setPage] = useState(0);
@@ -115,12 +336,61 @@ export function ChatRoomScreen({ route, navigation }: Props) {
   const [otherProfile, setOtherProfile] = useState<UserProfile | null>(null);
   const [playingAudioUrl, setPlayingAudioUrl] = useState<string | null>(null);
   const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
-  const insets = useSafeAreaInsets();
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localTypingActiveRef = useRef(false);
   const unsubscribeRef = useRef<() => void>(() => undefined);
   const soundRef = useRef<Audio.Sound | null>(null);
+
+  const headerTitle = getParticipantTitle(
+    otherUserType,
+    otherUserId,
+    otherProfile,
+  );
+  const avatarUri = getParticipantAvatarUri(otherProfile);
+  const avatarFallback = getParticipantAvatarFallback(
+    otherUserType,
+    otherProfile,
+  );
+
+  const listItems = useMemo<ChatRoomListItem[]>(() => {
+    const items: ChatRoomListItem[] = [];
+
+    messages.forEach((message, index) => {
+      const messageKey = String(
+        message.messageId ?? message.clientMessageId ?? `message-${index}`,
+      );
+
+      items.push({
+        type: "message",
+        key: `message-${messageKey}`,
+        message,
+      });
+
+      const currentLabel = formatDayLabel(message.createdAt);
+      const nextLabel = formatDayLabel(messages[index + 1]?.createdAt);
+
+      if (currentLabel && currentLabel !== nextLabel) {
+        items.push({
+          type: "separator",
+          key: `separator-${messageKey}-${currentLabel}`,
+          label: currentLabel,
+        });
+      }
+    });
+
+    return items;
+  }, [messages]);
+
+  const openLocation = useCallback((message: ChatMessage) => {
+    if (message.latitude == null || message.longitude == null) {
+      return;
+    }
+
+    void Linking.openURL(
+      `https://www.google.com/maps?q=${message.latitude},${message.longitude}`,
+    );
+  }, []);
 
   const loadPage = useCallback(
     async (targetPage: number, reset = false) => {
@@ -170,7 +440,7 @@ export function ChatRoomScreen({ route, navigation }: Props) {
         userId: currentUser.userId,
       });
     } catch {
-      // No-op to keep chat responsive when status endpoint has transient failures.
+      // Keep chat responsive if status updates fail transiently.
     }
   }, [conversationId, currentUser]);
 
@@ -550,11 +820,8 @@ export function ChatRoomScreen({ route, navigation }: Props) {
 
       setSending(true);
 
-      // Try cached position first
       let loc = await Location.getLastKnownPositionAsync();
 
-      // If no cached position, get a fresh one using watchPositionAsync
-      // (more reliable than getCurrentPositionAsync on many Android devices)
       if (!loc) {
         loc = await new Promise<Location.LocationObject | null>((resolve) => {
           let resolved = false;
@@ -628,6 +895,14 @@ export function ChatRoomScreen({ route, navigation }: Props) {
     } finally {
       setSending(false);
     }
+  };
+
+  const openAttachmentMenu = () => {
+    Alert.alert("Share", "Choose what to send", [
+      { text: "Photo", onPress: () => void pickAndSendImage() },
+      { text: "Location", onPress: () => void sendLocation() },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const stopAudioPlayback = useCallback(async () => {
@@ -772,100 +1047,82 @@ export function ChatRoomScreen({ route, navigation }: Props) {
     return null;
   }
 
-  const headerTitle = getParticipantTitle(
-    otherUserType,
-    otherUserId,
-    otherProfile?.fullName,
-  );
-
-  const listItems = useMemo<ChatRoomListItem[]>(() => {
-    const items: ChatRoomListItem[] = [];
-
-    messages.forEach((message, index) => {
-      const messageKey = String(
-        message.messageId ?? message.clientMessageId ?? `message-${index}`,
-      );
-
-      items.push({
-        type: "message",
-        key: `message-${messageKey}`,
-        message,
-      });
-
-      const currentLabel = formatDayLabel(message.createdAt);
-      const nextLabel = formatDayLabel(messages[index + 1]?.createdAt);
-
-      if (currentLabel && currentLabel !== nextLabel) {
-        items.push({
-          type: "separator",
-          key: `separator-${messageKey}-${currentLabel}`,
-          label: currentLabel,
-        });
-      }
-    });
-
-    return items;
-  }, [messages]);
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      edges={["left", "right"]}
+      style={[styles.safeArea, { paddingTop: insets.top }]}
+    >
       <KeyboardAvoidingView
-        style={styles.container}
+        style={styles.safeArea}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : insets.top}
       >
-        <View style={[styles.header, { paddingTop: -10 + insets.top }]}>
-          <Pressable style={styles.backBtn} onPress={navigation.goBack}>
-            <Text style={styles.backText}>{"<"}</Text>
+        <View style={styles.headerRow}>
+          <Pressable style={styles.backButton} onPress={navigation.goBack}>
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={22}
+              color="#1F2937"
+            />
           </Pressable>
-          <View style={styles.headerAvatarWrap}>
-            {otherProfile?.profilePhoto ? (
-              <Image
-                source={{ uri: otherProfile.profilePhoto }}
-                style={styles.headerAvatarImage}
-              />
-            ) : (
-              <View style={styles.headerAvatar}>
-                <Text style={styles.headerAvatarText}>
-                  {String(
-                    (otherProfile?.fullName ?? headerTitle)[0],
-                  ).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <View style={styles.onlineDot} />
+          <View style={styles.headerCenter}>
+            <View style={styles.headerAvatarWrap}>
+              {avatarUri ? (
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={styles.headerAvatar}
+                />
+              ) : (
+                <View style={styles.headerAvatarFallback}>
+                  <Text style={styles.headerAvatarFallbackText}>
+                    {avatarFallback}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.headerStatus} />
+            </View>
+            <View>
+              <Text style={styles.headerTitle}>{headerTitle}</Text>
+              <Text style={styles.headerStatusText}>
+                {otherTyping ? "typing..." : "Online"}
+              </Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.headerTitle}>{headerTitle}</Text>
-            <Text style={styles.headerSub}>
-              {otherTyping ? "typing..." : "Online"}
-            </Text>
-          </View>
+          <View style={styles.headerSpacer} />
         </View>
 
         {loading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="small" color="#1f8fff" />
+            <ActivityIndicator size="small" color="#1A73E8" />
           </View>
         ) : (
           <FlatList
             data={listItems}
             inverted
             keyExtractor={(item) => item.key}
-            contentContainerStyle={styles.list}
+            style={styles.messageList}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: 12 + insets.bottom },
+            ]}
             onEndReached={() => {
               if (!loadingMore && !last) {
                 loadPage(page + 1);
               }
             }}
             onEndReachedThreshold={0.2}
+            keyboardShouldPersistTaps="handled"
             renderItem={({ item }) =>
               item.type === "separator" ? (
                 <View style={styles.dayPillWrap}>
-                  <Text style={styles.dayPill}>{item.label}</Text>
+                  <View style={styles.dayPill}>
+                    <Text style={styles.dayText}>{item.label}</Text>
+                  </View>
                 </View>
               ) : (
-                <MessageBubble
+                <MessageRow
+                  avatarFallback={avatarFallback}
+                  avatarUri={avatarUri}
                   message={item.message}
                   isOutgoing={item.message.senderId === currentUser.userId}
                   canDelete={
@@ -879,7 +1136,8 @@ export function ChatRoomScreen({ route, navigation }: Props) {
                     playingAudioUrl === item.message.mediaUrl
                   }
                   onPressAudio={playAudio}
-                  onPressImage={setViewerImageUrl}
+                  onOpenImage={setViewerImageUrl}
+                  onOpenLocation={openLocation}
                   onLongPressDelete={() => onDeleteMessage(item.message)}
                 />
               )
@@ -904,50 +1162,49 @@ export function ChatRoomScreen({ route, navigation }: Props) {
             ListFooterComponent={
               loadingMore ? (
                 <View style={styles.footerLoading}>
-                  <ActivityIndicator size="small" color="#1f8fff" />
+                  <ActivityIndicator size="small" color="#1A73E8" />
                 </View>
               ) : null
             }
           />
         )}
 
-        <View
-          style={[
-            styles.inputBar,
-            { paddingBottom: Math.max(insets.bottom, 8) },
-          ]}
-        >
-          <Pressable style={styles.iconBtn} onPress={pickAndSendImage}>
-            <Text style={styles.iconText}>+</Text>
+        <View style={[styles.inputBar, { paddingBottom: 10 + insets.bottom }]}>
+          <Pressable style={styles.inputIcon} onPress={openAttachmentMenu}>
+            <MaterialCommunityIcons name="plus" size={20} color="#64748B" />
           </Pressable>
-          <Pressable style={styles.iconBtn} onPress={sendLocation}>
-            <Text style={styles.iconText}>📍</Text>
+          <View style={styles.inputField}>
+            <TextInput
+              style={styles.inputText}
+              value={input}
+              placeholder="Type a message..."
+              placeholderTextColor="#A6B0C3"
+              onChangeText={onInputChange}
+            />
+          </View>
+          <Pressable
+            style={styles.sendButton}
+            onPress={
+              input.trim().length > 0
+                ? sendText
+                : recordingActive
+                  ? stopRecordingAndSend
+                  : startRecording
+            }
+            disabled={sending}
+          >
+            <MaterialCommunityIcons
+              name={
+                input.trim().length > 0
+                  ? "send"
+                  : recordingActive
+                    ? "stop"
+                    : "microphone"
+              }
+              size={18}
+              color="#FFFFFF"
+            />
           </Pressable>
-          <TextInput
-            style={styles.input}
-            value={input}
-            placeholder="Type a message..."
-            onChangeText={onInputChange}
-          />
-          {input.trim().length > 0 ? (
-            <Pressable
-              style={styles.sendBtn}
-              onPress={sendText}
-              disabled={sending}
-            >
-              <Text style={styles.sendTxt}>Send</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              style={[styles.sendBtn, recordingActive && styles.recordingBtn]}
-              onPress={recordingActive ? stopRecordingAndSend : startRecording}
-              disabled={sending}
-            >
-              <Text style={styles.sendTxt}>
-                {recordingActive ? "Stop" : "Mic"}
-              </Text>
-            </Pressable>
-          )}
         </View>
       </KeyboardAvoidingView>
 
@@ -961,163 +1218,324 @@ export function ChatRoomScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: "#F5F7F8",
+    backgroundColor: "#F7F9FC",
   },
-  header: {
+  headerRow: {
+    minHeight: 56,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#d3dae1",
-    backgroundColor: "#F5F7F8",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E6ECF3",
   },
-  backBtn: {
+  backButton: {
     width: 34,
     height: 34,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
   },
-  backText: {
-    fontSize: 26,
-    color: "#111827",
+  headerCenter: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   headerAvatarWrap: {
-    marginRight: 10,
     position: "relative",
   },
   headerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#6fa8b6",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#DDE5F0",
+  },
+  headerAvatarFallback: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#DDE5F0",
     alignItems: "center",
     justifyContent: "center",
   },
-  headerAvatarText: {
-    color: "#fff",
-    fontWeight: "700",
+  headerAvatarFallbackText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#475569",
   },
-  headerAvatarImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  onlineDot: {
+  headerStatus: {
     position: "absolute",
-    right: -1,
-    bottom: -1,
-    width: 13,
-    height: 13,
-    borderRadius: 6.5,
-    backgroundColor: "#22c55e",
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#22C55E",
     borderWidth: 2,
-    borderColor: "#F5F7F8",
+    borderColor: "#FFFFFF",
+    bottom: 0,
+    right: 0,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#172330",
-  },
-  headerSub: {
-    marginTop: 1,
-    color: "#1f8fff",
     fontSize: 14,
+    fontWeight: "800",
+    color: "#1F2937",
+  },
+  headerStatusText: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#22C55E",
+  },
+  headerSpacer: {
+    width: 34,
+  },
+  scrollContent: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    gap: 12,
+  },
+  messageList: {
+    flex: 1,
   },
   dayPillWrap: {
     alignItems: "center",
-    paddingTop: 10,
   },
   dayPill: {
-    backgroundColor: "#E2E8F0",
-    color: "#64748B",
+    alignSelf: "center",
+    backgroundColor: "#E9EEF7",
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  dayText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#8A94A6",
+  },
+  messageRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+  },
+  messageRowRight: {
+    alignItems: "flex-end",
+  },
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  avatarFallback: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#DDE5F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarFallbackText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#475569",
+  },
+  bubbleLeft: {
+    maxWidth: 230,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderTopLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: "#E6ECF3",
+  },
+  bubbleLeftText: {
+    fontSize: 12,
     fontWeight: "600",
-    fontSize: 13,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 999,
+    color: "#4B5563",
+  },
+  timeLeft: {
+    marginTop: 4,
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#9AA4B2",
+  },
+  bubbleRight: {
+    maxWidth: 240,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#1A73E8",
+    borderRadius: 14,
+    borderTopRightRadius: 4,
+  },
+  bubbleRightText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  deletedText: {
+    fontStyle: "italic",
+  },
+  timeRightRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-end",
+  },
+  timeRight: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#9AA4B2",
+  },
+  voiceBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  voiceBubbleIncoming: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E6ECF3",
+  },
+  voiceBubbleOutgoing: {
+    backgroundColor: "#1A73E8",
+  },
+  voicePlay: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  voicePlayIncoming: {
+    backgroundColor: "#EAF1FF",
+  },
+  voicePlayOutgoing: {
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  voiceWave: {
+    width: 90,
+    height: 18,
+    backgroundColor: "#E5ECF7",
+    borderRadius: 10,
+  },
+  voiceWaveOutgoing: {
+    backgroundColor: "rgba(255,255,255,0.34)",
+  },
+  voiceTime: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#64748B",
+  },
+  voiceTimeOutgoing: {
+    color: "#FFFFFF",
+  },
+  imageBubble: {
+    width: 220,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#1A73E8",
+    overflow: "hidden",
+  },
+  messageImage: {
+    width: "100%",
+    height: 130,
+  },
+  imageTag: {
+    position: "absolute",
+    right: 8,
+    bottom: 8,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    maxWidth: 160,
+  },
+  imageTagText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  locationSubtitle: {
+    marginTop: 4,
+    opacity: 0.92,
   },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  list: {
-    paddingVertical: 10,
-    backgroundColor: "#F5F7F8",
-  },
   footerLoading: {
     paddingVertical: 8,
   },
   errorText: {
     textAlign: "center",
-    color: "#d9534f",
+    color: "#D9534F",
     marginBottom: 12,
     fontSize: 14,
   },
   retryButton: {
-    backgroundColor: "#1f8fff",
+    backgroundColor: "#1A73E8",
     borderRadius: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   retryText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "600",
   },
   emptyText: {
     textAlign: "center",
-    color: "#6c8195",
+    color: "#6C8195",
     fontSize: 14,
   },
   inputBar: {
-    backgroundColor: "#f4f7fb",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#ced7e0",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    backgroundColor: "#F7F9FC",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#E6ECF3",
+  },
+  inputIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E6ECF3",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inputField: {
+    flex: 1,
+    height: 38,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E6ECF3",
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  iconText: {
-    fontSize: 24,
-    color: "#587087",
-  },
-  input: {
+  inputText: {
     flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    color: "#203243",
-  },
-  sendBtn: {
-    height: 34,
-    minWidth: 50,
-    borderRadius: 17,
-    backgroundColor: "#1f8fff",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 10,
-  },
-  recordingBtn: {
-    backgroundColor: "#e55050",
-  },
-  sendTxt: {
-    color: "#fff",
-    fontWeight: "700",
     fontSize: 12,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  sendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#1A73E8",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

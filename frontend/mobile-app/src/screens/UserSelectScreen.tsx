@@ -6,14 +6,23 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View
+  View,
 } from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../navigation/types";
 import type { UserType } from "../types/chat";
 import { useSession } from "../store/sessionStore";
 
-const userTypes: UserType[] = ["PASSENGER", "DRIVER", "ADMIN", "CORPORATE_USER"];
+const userTypes: UserType[] = [
+  "PASSENGER",
+  "DRIVER",
+  "ADMIN",
+  "CORPORATE_USER",
+];
 
-export function UserSelectScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, "UserSelect">;
+
+export function UserSelectScreen({ navigation }: Props) {
   const { setCurrentUser } = useSession();
   const [selectedType, setSelectedType] = useState<UserType>("PASSENGER");
   const [userId, setUserId] = useState("1");
@@ -28,6 +37,7 @@ export function UserSelectScreen() {
     setLoading(true);
     try {
       await setCurrentUser({ userId: parsed, userType: selectedType });
+      navigation.replace("ChatList");
     } finally {
       setLoading(false);
     }
@@ -55,13 +65,16 @@ export function UserSelectScreen() {
           {userTypes.map((type) => (
             <Pressable
               key={type}
-              style={[styles.typeChip, selectedType === type && styles.typeChipSelected]}
+              style={[
+                styles.typeChip,
+                selectedType === type && styles.typeChipSelected,
+              ]}
               onPress={() => setSelectedType(type)}
             >
               <Text
                 style={[
                   styles.typeText,
-                  selectedType === type && styles.typeTextSelected
+                  selectedType === type && styles.typeTextSelected,
                 ]}
               >
                 {type}
@@ -70,8 +83,14 @@ export function UserSelectScreen() {
           ))}
         </View>
 
-        <Pressable style={styles.button} onPress={onContinue} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? "Saving..." : "Continue"}</Text>
+        <Pressable
+          style={styles.button}
+          onPress={onContinue}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>
+            {loading ? "Saving..." : "Continue"}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -83,28 +102,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#edf2f6",
     justifyContent: "center",
-    padding: 16
+    padding: 16,
   },
   card: {
     backgroundColor: "#fff",
     borderRadius: 14,
-    padding: 16
+    padding: 16,
   },
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#1d2a37"
+    color: "#1d2a37",
   },
   subtitle: {
     marginTop: 6,
     color: "#5c6d7e",
-    lineHeight: 20
+    lineHeight: 20,
   },
   label: {
     marginTop: 14,
     marginBottom: 6,
     color: "#42566a",
-    fontWeight: "600"
+    fontWeight: "600",
   },
   input: {
     borderWidth: 1,
@@ -113,41 +132,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    color: "#1a2631"
+    color: "#1a2631",
   },
   typeWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8
+    gap: 8,
   },
   typeChip: {
     borderWidth: 1,
     borderColor: "#c8d4e0",
     borderRadius: 20,
     paddingHorizontal: 10,
-    paddingVertical: 7
+    paddingVertical: 7,
   },
   typeChipSelected: {
     backgroundColor: "#1f8fff",
-    borderColor: "#1f8fff"
+    borderColor: "#1f8fff",
   },
   typeText: {
     color: "#4c6074",
     fontSize: 12,
-    fontWeight: "600"
+    fontWeight: "600",
   },
   typeTextSelected: {
-    color: "#fff"
+    color: "#fff",
   },
   button: {
     marginTop: 18,
     backgroundColor: "#1f8fff",
     borderRadius: 11,
     alignItems: "center",
-    paddingVertical: 12
+    paddingVertical: 12,
   },
   buttonText: {
     color: "#fff",
-    fontWeight: "700"
-  }
+    fontWeight: "700",
+  },
 });

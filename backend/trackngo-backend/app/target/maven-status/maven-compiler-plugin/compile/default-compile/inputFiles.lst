@@ -5,4 +5,7 @@ D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\app\src\main\java\com\trackngo\app\config\WebConfig.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\app\src\main\java\com\trackngo\app\config\WebSocketConfig.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\app\src\main\java\com\trackngo\app\controller\HealthController.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\app\src\main\java\com\trackngo\app\controller\UserProfileController.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\app\src\main\java\com\trackngo\app\dto\UserProfileDto.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\app\src\main\java\com\trackngo\app\service\UserProfileService.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\app\src\main\java\com\trackngo\app\TrackNGoApplication.java

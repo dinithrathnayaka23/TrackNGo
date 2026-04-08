@@ -144,7 +144,7 @@ export default function SearchBusesScreen() {
       return;
     }
 
-    router.push('/bus-selection');
+    router.push('/booking/bus-selection');
   };
 
   const startX = sliderWidth * range.start;

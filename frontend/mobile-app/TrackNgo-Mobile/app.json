@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "trackNGo Chat",
+    "slug": "trackngo-chat",
+    "scheme": "trackngo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "com.trackngo.chat",
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "TrackNGo needs your location to share it in chat."
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "TrackNGo needs your location to share it in chat.",
+          "locationWhenInUsePermission": "TrackNGo needs your location to share it in chat."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow TrackNGo to access your photos and videos.",
+          "savePhotosPermission": "Allow TrackNGo to save photos and videos.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
+    ],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

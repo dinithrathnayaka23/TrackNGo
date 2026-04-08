@@ -1,26 +1,27 @@
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\ConversationService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\ConversationDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\MediaUploadResponseDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\MessageDeleteEventDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\MessageDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\MessageStatusUpdateDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\PagedResponseDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\TypingIndicatorDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\MessageService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\events\MessageCreatedEvent.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\controller\ChatStompController.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\controller\ConversationController.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\controller\MediaController.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\controller\MessageController.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\ChatMessage.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\Conversation.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\converter\MessageTypeConverter.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\converter\ParticipantTypeConverter.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\enums\MessageType.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\enums\ParticipantType.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\Message.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\repository\ConversationRepository.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\repository\MessageRepository.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\service\ConversationServiceImpl.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\service\MessageServiceImpl.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\websocket\ChatWebSocketHandler.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\ConversationService.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\ConversationDto.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\MediaUploadResponseDto.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\MessageDeleteEventDto.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\MessageDto.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\MessageStatusUpdateDto.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\PagedResponseDto.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\dto\TypingIndicatorDto.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\api\MessageService.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\events\MessageCreatedEvent.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\controller\ChatStompController.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\controller\ConversationController.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\controller\MediaController.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\controller\MessageController.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\ChatMessage.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\Conversation.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\converter\MessageTypeConverter.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\converter\ParticipantTypeConverter.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\converters\ParticipantTypeConverter.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\enums\MessageType.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\enums\ParticipantType.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\entity\Message.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\repository\ConversationRepository.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\repository\MessageRepository.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\service\ConversationServiceImpl.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\service\MessageServiceImpl.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\chat-module\src\main\java\com\trackngo\chat\internal\websocket\ChatWebSocketHandler.java

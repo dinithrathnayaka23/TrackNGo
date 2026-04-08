@@ -18,30 +18,23 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     /**
      * Finds the unique conversation between two users regardless of participant order.
      */
-    @Query(value = """
-            SELECT * FROM conversation
-            WHERE (participant_1_id = :user1 AND participant_2_id = :user2)
-               OR (participant_1_id = :user2 AND participant_2_id = :user1)
-            LIMIT 1
-            """, nativeQuery = true)
+    @Query("""
+            SELECT c FROM Conversation c
+            WHERE (c.participant1Id = :user1 AND c.participant2Id = :user2)
+               OR (c.participant1Id = :user2 AND c.participant2Id = :user1)
+            """)
     Optional<Conversation> findBetweenUsers(@Param("user1") Long user1,
                                             @Param("user2") Long user2);
 
     /**
      * Retrieves paginated conversations for a user (no search filter).
      */
-    @Query(value = """
-            SELECT * FROM conversation
-            WHERE (participant_1_id = :userId OR participant_2_id = :userId)
-              AND participant_1_id <> participant_2_id
-            ORDER BY updated_at DESC
-            """,
-            countQuery = """
-            SELECT COUNT(*) FROM conversation
-            WHERE (participant_1_id = :userId OR participant_2_id = :userId)
-              AND participant_1_id <> participant_2_id
-            """,
-            nativeQuery = true)
+    @Query("""
+            SELECT c FROM Conversation c
+            WHERE (c.participant1Id = :userId OR c.participant2Id = :userId)
+              AND c.participant1Id <> c.participant2Id
+            ORDER BY c.updatedAt DESC
+            """)
     Page<Conversation> findUserConversations(@Param("userId") Long userId,
                                              Pageable pageable);
 
@@ -49,20 +42,13 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
      * Retrieves paginated conversations for a user filtered by search keyword
      * matching against the last message text.
      */
-    @Query(value = """
-            SELECT * FROM conversation
-            WHERE (participant_1_id = :userId OR participant_2_id = :userId)
-                                                        AND participant_1_id <> participant_2_id
-              AND LOWER(COALESCE(last_message, '')) LIKE LOWER(CONCAT('%', :q, '%'))
-            ORDER BY updated_at DESC
-            """,
-            countQuery = """
-            SELECT COUNT(*) FROM conversation
-            WHERE (participant_1_id = :userId OR participant_2_id = :userId)
-                                                        AND participant_1_id <> participant_2_id
-              AND LOWER(COALESCE(last_message, '')) LIKE LOWER(CONCAT('%', :q, '%'))
-            """,
-            nativeQuery = true)
+    @Query("""
+            SELECT c FROM Conversation c
+            WHERE (c.participant1Id = :userId OR c.participant2Id = :userId)
+              AND c.participant1Id <> c.participant2Id
+              AND LOWER(COALESCE(c.lastMessage, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+            ORDER BY c.updatedAt DESC
+            """)
     Page<Conversation> findUserConversationsWithSearch(@Param("userId") Long userId,
                                                        @Param("q") String q,
                                                        Pageable pageable);

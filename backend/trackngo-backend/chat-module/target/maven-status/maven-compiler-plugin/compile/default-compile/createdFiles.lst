@@ -26,6 +26,7 @@ com\trackngo\chat\api\dto\PagedResponseDto$PagedResponseDtoBuilder.class
 com\trackngo\chat\api\dto\MediaUploadResponseDto$MediaUploadResponseDtoBuilder.class
 com\trackngo\chat\events\MessageCreatedEvent.class
 com\trackngo\chat\api\dto\MessageDto.class
+com\trackngo\chat\internal\entity\converters\ParticipantTypeConverter.class
 com\trackngo\chat\internal\entity\enums\MessageType.class
 com\trackngo\chat\internal\websocket\ChatWebSocketHandler.class
 com\trackngo\chat\api\dto\MediaUploadResponseDto.class

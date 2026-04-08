@@ -1,6 +1,7 @@
 
 package com.trackngo.chat.internal.entity;
 
+import com.trackngo.chat.internal.entity.converters.ParticipantTypeConverter;
 import com.trackngo.chat.internal.entity.enums.ParticipantType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -27,12 +28,14 @@ public class Conversation {
     @Column(name = "participant_1_id", nullable = false)
     private Long participant1Id;
 
+    @Convert(converter = ParticipantTypeConverter.class)
     @Column(name = "participant_1_type", nullable = false)
     private ParticipantType participant1Type;
 
     @Column(name = "participant_2_id", nullable = false)
     private Long participant2Id;
 
+    @Convert(converter = ParticipantTypeConverter.class)
     @Column(name = "participant_2_type", nullable = false)
     private ParticipantType participant2Type;
 
@@ -47,19 +50,6 @@ public class Conversation {
 
     @Column(name = "last_message_timestamp")
     private LocalDateTime lastMessageTimestamp;
-
-    // --- Stored generated columns (read-only, computed by MySQL) ---
-    @Column(name = "participant_min_id", insertable = false, updatable = false)
-    private Long participantMinId;
-
-    @Column(name = "participant_max_id", insertable = false, updatable = false)
-    private Long participantMaxId;
-
-    @Column(name = "participant_min_type", insertable = false, updatable = false)
-    private String participantMinType;
-
-    @Column(name = "participant_max_type", insertable = false, updatable = false)
-    private String participantMaxType;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

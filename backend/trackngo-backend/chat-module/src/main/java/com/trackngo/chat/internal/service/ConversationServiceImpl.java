@@ -10,6 +10,7 @@ import com.trackngo.chat.internal.repository.ConversationRepository;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ConversationServiceImpl implements ConversationService {
 
     private final ConversationRepository conversationRepository;
@@ -61,14 +63,34 @@ public class ConversationServiceImpl implements ConversationService {
     @Transactional(readOnly = true)
     public PagedResponseDto<ConversationDto> getUserConversations(Long userId, int page,
                                                                    int size, String query) {
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Conversation> result;
-        if (query != null && !query.isBlank()) {
-            result = conversationRepository.findUserConversationsWithSearch(userId, query, pageable);
-        } else {
-            result = conversationRepository.findUserConversations(userId, pageable);
+        if (userId == null || userId <= 0) {
+            throw new BusinessException("Invalid user ID: " + userId);
         }
-        return toPagedResponse(result.map(this::toDto));
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+            Page<Conversation> result;
+            if (query != null && !query.isBlank()) {
+                result = conversationRepository.findUserConversationsWithSearch(userId, query, pageable);
+            } else {
+                result = conversationRepository.findUserConversations(userId, pageable);
+            }
+            
+            if (result == null) {
+                return PagedResponseDto.<ConversationDto>builder()
+                        .content(new java.util.ArrayList<>())
+                        .page(page)
+                        .size(size)
+                        .totalElements(0)
+                        .totalPages(0)
+                        .last(true)
+                        .build();
+            }
+            
+            return toPagedResponse(result.map(this::toDto));
+        } catch (Exception ex) {
+            log.error("Failed to load conversations for user {}", userId, ex);
+            throw new BusinessException("Failed to load conversations: " + ex.getMessage());
+        }
     }
 
     /**

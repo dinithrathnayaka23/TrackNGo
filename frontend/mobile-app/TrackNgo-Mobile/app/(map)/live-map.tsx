@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -6,10 +6,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 
 const routeCoords = [
   { latitude: 6.929, longitude: 79.861 },
@@ -18,8 +19,24 @@ const routeCoords = [
   { latitude: 7.08, longitude: 80.08 },
 ];
 
-const busLocation = { latitude: 6.99, longitude: 79.96 };
-const userLocation = { latitude: 7.05, longitude: 80.04 };
+const defaultRegion = {
+  latitude: 6.99,
+  longitude: 79.95,
+  latitudeDelta: 0.35,
+  longitudeDelta: 0.35,
+};
+
+const randomPointOnRoute = (points: { latitude: number; longitude: number }[]) => {
+  if (points.length < 2) return points[0] ?? defaultRegion;
+  const segmentIndex = Math.floor(Math.random() * (points.length - 1));
+  const start = points[segmentIndex];
+  const end = points[segmentIndex + 1];
+  const t = Math.random();
+  return {
+    latitude: start.latitude + (end.latitude - start.latitude) * t,
+    longitude: start.longitude + (end.longitude - start.longitude) * t,
+  };
+};
 
 const blueMapStyle = [
   { elementType: 'geometry', stylers: [{ color: '#1f3b73' }] },
@@ -40,41 +57,106 @@ const blueMapStyle = [
 export default function LiveMapScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const mapRef = useRef<MapView>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [destination, setDestination] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [searching, setSearching] = useState(false);
+  const busLocation = useMemo(() => randomPointOnRoute(routeCoords), []);
+
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
+    const startLocation = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Location permission denied');
+        return;
+      }
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 3000,
+          distanceInterval: 5,
+        },
+        (loc) => {
+          const next = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          };
+          setUserLocation(next);
+          mapRef.current?.animateToRegion(
+            {
+              ...next,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            },
+            600
+          );
+        }
+      );
+    };
+    startLocation();
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
+
+  const handleSearch = async () => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    setSearching(true);
+    try {
+      const results = await Location.geocodeAsync(trimmed);
+      if (!results.length) {
+        setDestination(null);
+        return;
+      }
+      const next = {
+        latitude: results[0].latitude,
+        longitude: results[0].longitude,
+      };
+      setDestination(next);
+      mapRef.current?.animateToRegion(
+        {
+          ...next,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08,
+        },
+        700
+      );
+    } finally {
+      setSearching(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <MapView
+          ref={mapRef}
           style={styles.map}
-          initialRegion={{
-            latitude: 6.99,
-            longitude: 79.95,
-            latitudeDelta: 0.35,
-            longitudeDelta: 0.35,
-          }}
+          initialRegion={defaultRegion}
           customMapStyle={blueMapStyle}
           showsCompass={false}
           showsTraffic={false}
           showsUserLocation={false}
           toolbarEnabled={false}
         >
-          <Polyline
-            coordinates={routeCoords}
-            strokeColor="#22C55E"
-            strokeWidth={4}
-          />
-          <Marker coordinate={routeCoords[0]} pinColor="#FCD34D" />
-          <Marker coordinate={routeCoords[2]} pinColor="#FCD34D" />
           <Marker coordinate={busLocation}>
             <View style={styles.busMarker}>
               <Ionicons name="bus" size={16} color="#FFFFFF" />
             </View>
           </Marker>
-          <Marker coordinate={userLocation}>
-            <View style={styles.userMarker}>
-              <View style={styles.userMarkerInner} />
-            </View>
-          </Marker>
+          {userLocation && (
+            <Marker coordinate={userLocation}>
+              <View style={styles.userMarker}>
+                <View style={styles.userMarkerInner} />
+              </View>
+            </Marker>
+          )}
+          {destination && <Marker coordinate={destination} pinColor="#60A5FA" />}
         </MapView>
 
         <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}> 
@@ -87,11 +169,31 @@ export default function LiveMapScreen() {
               placeholder="Where to?"
               placeholderTextColor="#94A3B8"
               style={styles.searchInput}
+              value={query}
+              onChangeText={setQuery}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
+              editable={!searching}
             />
           </View>
+          <Pressable style={styles.searchAction} onPress={handleSearch} disabled={searching}>
+            <Ionicons name="navigate" size={18} color="#FFFFFF" />
+          </Pressable>
         </View>
 
-        <Pressable style={styles.locationButton}>
+        <Pressable
+          style={styles.locationButton}
+          onPress={() => {
+            if (!userLocation) return;
+            mapRef.current?.animateToRegion(
+              {
+                ...userLocation,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+              },
+              600
+            );
+          }}>
           <MaterialCommunityIcons name="crosshairs-gps" size={18} color="#2F6BFF" />
         </Pressable>
 
@@ -120,7 +222,9 @@ export default function LiveMapScreen() {
               </View>
               <View>
                 <Text style={styles.metricLabel}>Current</Text>
-                <Text style={styles.metricValue}>Pettah Terminal</Text>
+                <Text style={styles.metricValue}>
+                  {locationError ? 'Location off' : userLocation ? 'Live location' : 'Locating...'}
+                </Text>
               </View>
             </View>
             <View style={styles.metricItem}>
@@ -209,6 +313,19 @@ const styles = StyleSheet.create({
     padding: 0,
     fontSize: 13,
     color: '#111827',
+  },
+  searchAction: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#2F6BFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
   },
   busMarker: {
     width: 32,

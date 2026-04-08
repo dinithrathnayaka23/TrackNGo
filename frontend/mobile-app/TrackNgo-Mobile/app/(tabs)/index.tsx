@@ -232,8 +232,7 @@ export default function HomeScreen() {
               <View style={styles.cardBottomRow}>
                 <Text style={styles.timeText}>{booking.time}</Text>
                 <View style={styles.cardActions}>
-                  <PressScale
-                    onPress={() => Alert.alert('Track Live', `Tracking booking #${booking.id}.`)}>
+                  <PressScale onPress={() => router.push('/live-map')}>
                     <View style={styles.smallButton}>
                       <Ionicons name="location" size={13} color={booking.base} />
                       <Text style={[styles.smallButtonText, { color: booking.base }]}>Track Live</Text>

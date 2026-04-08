@@ -2,13 +2,15 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Alert,
   Animated,
+  Dimensions,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const quickActions = [
@@ -52,6 +54,11 @@ const recentBookings = [
     base: '#8A2BE2',
   },
 ];
+
+const CARD_GAP = 12;
+const H_PADDING = 20;
+const screenWidth = Dimensions.get('window').width;
+const cardWidth = (screenWidth - H_PADDING * 2 - CARD_GAP) / 2;
 
 function useEntranceAnimation(delay: number) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -105,12 +112,24 @@ export default function HomeScreen() {
   const greetingAnim = useEntranceAnimation(80);
   const gridAnim = useEntranceAnimation(160);
   const recentAnim = useEntranceAnimation(240);
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const actionColor = useMemo(() => '#2F6BFF', []);
+  const todayLabel = useMemo(() => {
+    const now = new Date();
+    return now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'short',
+    });
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}
+        showsVerticalScrollIndicator={false}>
         <Animated.View
           style={[
             styles.header,
@@ -146,7 +165,7 @@ export default function HomeScreen() {
             styles.greetingBlock,
             { opacity: greetingAnim.opacity, transform: [{ translateY: greetingAnim.translateY }] },
           ]}>
-          <Text style={styles.dateText}>Monday, 24 Oct</Text>
+          <Text style={styles.dateText}>{todayLabel}</Text>
           <Text style={styles.greetingText}>Good Morning, Chamara</Text>
         </Animated.View>
 
@@ -158,7 +177,13 @@ export default function HomeScreen() {
           {quickActions.map((action) => (
             <PressScale
               key={action.key}
-              onPress={() => Alert.alert(action.label, `Opening ${action.label}...`)}>
+              onPress={() => {
+                if (action.key === 'highway' || action.key === 'long-distance') {
+                  router.push('/search-buses');
+                  return;
+                }
+                Alert.alert(action.label, `Opening ${action.label}...`);
+              }}>
               <View style={styles.actionCard}>
                 <View style={styles.actionIconWrap}>{action.icon(actionColor)}</View>
                 <Text style={styles.actionLabel}>{action.label}</Text>
@@ -175,7 +200,8 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Recent Bookings</Text>
 
           {recentBookings.map((booking) => (
-            <View key={booking.id} style={[styles.bookingCard, { backgroundColor: booking.base }]}>
+            <View key={booking.id} style={[styles.bookingCard, { backgroundColor: booking.base }]}
+              >
               <View style={styles.cardTopRow}>
                 <View style={styles.badgeRow}>
                   <View style={styles.badge}>
@@ -235,8 +261,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F7F9',
   },
   container: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: H_PADDING,
     paddingBottom: 32,
     backgroundColor: '#F6F7F9',
   },
@@ -247,7 +272,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   divider: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
     backgroundColor: '#E9EDF3',
     marginBottom: 18,
   },
@@ -307,11 +332,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
     marginBottom: 20,
   },
   actionCard: {
-    width: '48%',
+    width: cardWidth,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     paddingVertical: 18,
@@ -325,6 +349,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 2,
+    marginBottom: CARD_GAP,
   },
   actionIconWrap: {
     width: 40,
@@ -338,6 +363,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#1F2937',
+    textAlign: 'center',
   },
   recentBlock: {
     gap: 14,
@@ -410,17 +436,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 12,
   },
   timeText: {
     fontSize: 11,
     color: 'rgba(255,255,255,0.85)',
     fontWeight: '600',
+    flex: 1,
   },
   cardActions: {
     flexDirection: 'row',
     gap: 8,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   smallButton: {
     flexDirection: 'row',
@@ -430,6 +458,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
+    height: 28,
   },
   smallButtonText: {
     fontSize: 11,

@@ -77,7 +77,7 @@ export function ImageViewerModal({ visible, imageUrl, onClose }: Props) {
             {saving ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.downloadTxt}>⬇ Save</Text>
+              <Text style={styles.downloadTxt}>Save</Text>
             )}
           </Pressable>
         </View>

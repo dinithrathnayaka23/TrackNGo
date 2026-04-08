@@ -2,17 +2,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useFocusEffect } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { ConversationListItem } from "../components/ConversationListItem";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { ADMIN_SUPPORT_USER_ID } from "../config/env";
+import type { RootStackParamList } from "../navigation/types";
 import {
   createConversation,
   getUserConversations,
@@ -21,13 +26,29 @@ import {
 import { getUserProfile } from "../services/userProfileApi";
 import { useSession } from "../store/sessionStore";
 import type { ConversationDto, SessionUser, UserProfile } from "../types/chat";
-import type { RootStackParamList } from "../navigation/types";
-import { getOtherParticipant } from "../utils/chat";
+import {
+  getParticipantAvatarFallback,
+  getParticipantAvatarUri,
+  formatConversationPreview,
+  formatDayLabel,
+  formatTime,
+  getOtherParticipant,
+  getParticipantTitle,
+} from "../utils/chat";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ChatList">;
 
+function getConversationTimeLabel(timestamp?: string | null) {
+  const dayLabel = formatDayLabel(timestamp);
+  if (dayLabel === "Today") {
+    return formatTime(timestamp) || dayLabel;
+  }
+  return dayLabel || "";
+}
+
 export function ChatListScreen({ navigation }: Props) {
   const { currentUser, clearCurrentUser } = useSession();
+  const { top: topInset } = useSafeAreaInsets();
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<ConversationDto[]>([]);
   const [page, setPage] = useState(0);
@@ -288,6 +309,7 @@ export function ChatListScreen({ navigation }: Props) {
     if (!currentUser) {
       return;
     }
+
     setItems((prev) =>
       prev.map((item) => {
         if (item.conversationId !== conversation.conversationId) {
@@ -299,6 +321,7 @@ export function ChatListScreen({ navigation }: Props) {
         return { ...item, participant2Unread: 0 };
       }),
     );
+
     const other = getOtherParticipant(conversation, currentUser);
     navigation.navigate("ChatRoom", {
       conversationId: conversation.conversationId,
@@ -307,52 +330,103 @@ export function ChatListScreen({ navigation }: Props) {
     });
   };
 
+  const onBack = useCallback(async () => {
+    await clearCurrentUser();
+    navigation.replace("Dashboard");
+  }, [clearCurrentUser, navigation]);
+
   if (!currentUser) {
     return null;
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.screenTitle}>Messages</Text>
-          <Text style={styles.userTag}>
-            {currentUser.userType} #{currentUser.userId}
-          </Text>
-        </View>
-        <Pressable onPress={clearCurrentUser}>
-          <Text style={styles.switchText}>Switch User</Text>
+    <SafeAreaView
+      edges={["left", "right"]}
+      style={[styles.safeArea, { paddingTop: topInset }]}
+    >
+      <View style={styles.headerRow}>
+        <Pressable style={styles.backButton} onPress={onBack}>
+          <MaterialCommunityIcons name="arrow-left" size={22} color="#1F2937" />
         </Pressable>
+        <Text style={styles.headerTitle}>Messages</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <View style={styles.searchWrap}>
+      <View style={styles.searchBar}>
+        <MaterialCommunityIcons name="magnify" size={18} color="#94A3B8" />
         <TextInput
+          style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
           placeholder="Search messages..."
-          style={styles.search}
+          placeholderTextColor="#A6B0C3"
           returnKeyType="search"
         />
       </View>
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="small" color="#1f8fff" />
+          <ActivityIndicator size="small" color="#1A73E8" />
         </View>
       ) : (
         <FlatList
           data={items}
           keyExtractor={(item) => String(item.conversationId)}
-          renderItem={({ item }) => (
-            <ConversationListItem
-              item={item}
-              currentUser={currentUser}
-              otherProfile={
-                profilesById[getOtherParticipant(item, currentUser).userId]
-              }
-              onPress={onOpenConversation}
-            />
-          )}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+          renderItem={({ item }) => {
+            const other = getOtherParticipant(item, currentUser);
+            const otherProfile = profilesById[other.userId];
+            const unread =
+              item.participant1Id === currentUser.userId
+                ? item.participant1Unread
+                : item.participant2Unread;
+            const title = getParticipantTitle(
+              other.userType,
+              other.userId,
+              otherProfile,
+            );
+            const avatarUri = getParticipantAvatarUri(otherProfile);
+            const avatarFallback = getParticipantAvatarFallback(
+              other.userType,
+              otherProfile,
+            );
+
+            return (
+              <Pressable
+                style={styles.chatItem}
+                onPress={() => onOpenConversation(item)}
+              >
+                <View style={styles.avatarWrap}>
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={styles.avatar} />
+                  ) : (
+                    <View style={styles.avatarFallback}>
+                      <Text style={styles.avatarFallbackText}>
+                        {avatarFallback}
+                      </Text>
+                    </View>
+                  )}
+                  {unread > 0 ? <View style={styles.statusDot} /> : null}
+                </View>
+
+                <View style={styles.chatBody}>
+                  <Text style={styles.chatTitle} numberOfLines={1}>
+                    {title}
+                  </Text>
+                  <Text style={styles.chatSubtitle} numberOfLines={1}>
+                    {formatConversationPreview(item)}
+                  </Text>
+                </View>
+
+                <Text style={styles.chatTime}>
+                  {getConversationTimeLabel(item.lastMessageTimestamp)}
+                </Text>
+              </Pressable>
+            );
+          }}
           onEndReached={() => {
             if (!loadingMore && !last) {
               loadPage(page + 1, false);
@@ -371,13 +445,15 @@ export function ChatListScreen({ navigation }: Props) {
                 </Pressable>
               </View>
             ) : (
-              <Text style={styles.empty}>No conversations found.</Text>
+              <View style={styles.centered}>
+                <Text style={styles.emptyText}>No conversations found.</Text>
+              </View>
             )
           }
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.footerLoading}>
-                <ActivityIndicator size="small" color="#1f8fff" />
+                <ActivityIndicator size="small" color="#1A73E8" />
               </View>
             ) : null
           }
@@ -388,42 +464,119 @@ export function ChatListScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: "#f1f4f8",
+    backgroundColor: "#F7F9FC",
   },
-  header: {
+  headerRow: {
+    minHeight: 52,
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 8,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
   },
-  screenTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1f2a34",
+  backButton: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  userTag: {
-    marginTop: 2,
-    color: "#63788d",
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#1F2937",
+  },
+  headerSpacer: {
+    width: 34,
+  },
+  searchBar: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E6ECF3",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
     fontSize: 12,
+    fontWeight: "600",
+    color: "#1F2937",
   },
-  switchText: {
-    color: "#1f8fff",
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    flexGrow: 1,
+  },
+  itemSeparator: {
+    height: 12,
+  },
+  chatItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E6ECF3",
+    padding: 12,
+    gap: 10,
+  },
+  avatarWrap: {
+    position: "relative",
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#DDE5F0",
+  },
+  avatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#DDE5F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarFallbackText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#475569",
+  },
+  statusDot: {
+    position: "absolute",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#22C55E",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    bottom: 2,
+    right: 2,
+  },
+  chatBody: {
+    flex: 1,
+  },
+  chatTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#1F2937",
+  },
+  chatSubtitle: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#8A94A6",
+  },
+  chatTime: {
+    fontSize: 10,
     fontWeight: "700",
-  },
-  searchWrap: {
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-  },
-  search: {
-    backgroundColor: "#e7edf3",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: "#2e4254",
+    color: "#94A3B8",
   },
   centered: {
     flex: 1,
@@ -431,27 +584,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   footerLoading: {
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
-  empty: {
+  emptyText: {
     textAlign: "center",
-    marginTop: 30,
-    color: "#6c8195",
+    color: "#6C8195",
+    fontSize: 14,
   },
   errorText: {
     textAlign: "center",
-    color: "#d9534f",
+    color: "#D9534F",
     marginBottom: 12,
     fontSize: 14,
   },
   retryButton: {
-    backgroundColor: "#1f8fff",
+    backgroundColor: "#1A73E8",
     borderRadius: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   retryText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "600",
   },
 });

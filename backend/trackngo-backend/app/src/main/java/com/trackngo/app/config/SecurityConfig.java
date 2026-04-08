@@ -31,6 +31,7 @@ public class SecurityConfig {
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/chat/**").permitAll()
                 .requestMatchers("/api/users/*/conversations/**").permitAll()
+                .requestMatchers("/api/users/*/profile").permitAll()
                 .requestMatchers("/api/conversations/**").permitAll()
                 .requestMatchers("/api/messages/**").permitAll()
                 .requestMatchers("/api/media/**").permitAll()

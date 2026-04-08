@@ -3,7 +3,40 @@ import type {
   ConversationDto,
   MessageStatus,
   SessionUser,
+  UserProfile,
 } from "../types/chat";
+
+type ParticipantProfileFields = {
+  fullName?: string | null;
+  profilePhoto?: string | null;
+  companyName?: string | null;
+  contactPersonName?: string | null;
+  userType?: SessionUser["userType"] | null;
+};
+
+type ParticipantProfileLike =
+  | ParticipantProfileFields
+  | string
+  | null
+  | undefined;
+
+function cleanValue(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function toProfileLike(profile?: ParticipantProfileLike) {
+  if (typeof profile === "string") {
+    return {
+      fullName: profile,
+      profilePhoto: null,
+      companyName: null,
+      contactPersonName: null,
+      userType: null,
+    };
+  }
+  return profile ?? null;
+}
 
 export function getOtherParticipant(
   conversation: ConversationDto,
@@ -34,23 +67,86 @@ export function getRoleLabel(userType: SessionUser["userType"]) {
   return "Passenger";
 }
 
+export function resolveParticipantUserType(
+  userType: SessionUser["userType"],
+  profile?: ParticipantProfileLike,
+): SessionUser["userType"] {
+  const profileLike = toProfileLike(profile);
+  const profileUserType = profileLike?.userType;
+
+  if (profileUserType === "ADMIN") {
+    return "ADMIN";
+  }
+  if (profileUserType === "DRIVER") {
+    return "DRIVER";
+  }
+  if (profileUserType === "CORPORATE_USER") {
+    return "CORPORATE_USER";
+  }
+  if (profileUserType === "PASSENGER") {
+    return "PASSENGER";
+  }
+
+  return userType;
+}
+
 export function getParticipantTitle(
   userType: SessionUser["userType"],
   userId: number,
-  fullName?: string | null,
+  profile?: ParticipantProfileLike,
 ) {
-  const role = getRoleLabel(userType);
-  const fallbackName =
-    userType === "ADMIN" ? "Customer Support" : `User ${userId}`;
-  const name = fullName?.trim() ? fullName : fallbackName;
+  const profileLike = toProfileLike(profile);
+  const resolvedUserType = resolveParticipantUserType(userType, profileLike);
+  const fullName = cleanValue(profileLike?.fullName);
+  const companyName = cleanValue(profileLike?.companyName);
+  const contactPersonName = cleanValue(profileLike?.contactPersonName);
+  const personName = fullName ?? `User ${userId}`;
+  const corporateContactName =
+    contactPersonName ?? fullName ?? `User ${userId}`;
+  const corporateCompanyName = companyName ?? "Company";
 
-  if (userType === "ADMIN") {
-    return `${role} - ${name}`;
+  if (resolvedUserType === "ADMIN") {
+    return "Customer Support - Admin";
   }
-  if (userType === "CORPORATE_USER") {
-    return `${role} - ${name}`;
+
+  if (resolvedUserType === "PASSENGER") {
+    return `${personName} - Passenger`;
   }
-  return `${role} - ${name}`;
+
+  if (resolvedUserType === "DRIVER") {
+    return `${personName} - Driver`;
+  }
+
+  if (resolvedUserType === "CORPORATE_USER") {
+    return `${corporateContactName} - ${corporateCompanyName}`;
+  }
+
+  return `${personName} - ${getRoleLabel(resolvedUserType)}`;
+}
+
+export function getParticipantAvatarFallback(
+  userType: SessionUser["userType"],
+  profile?: ParticipantProfileLike,
+) {
+  const resolvedUserType = resolveParticipantUserType(userType, profile);
+
+  if (resolvedUserType === "ADMIN") {
+    return "A";
+  }
+  if (resolvedUserType === "DRIVER") {
+    return "D";
+  }
+  if (resolvedUserType === "CORPORATE_USER") {
+    return "C";
+  }
+
+  return "P";
+}
+
+export function getParticipantAvatarUri(
+  profile?: Pick<UserProfile, "profilePhoto"> | null,
+) {
+  return cleanValue(profile?.profilePhoto) ?? null;
 }
 
 export function formatConversationPreview(conversation: ConversationDto) {

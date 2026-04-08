@@ -14,14 +14,14 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="search-buses" options={{ headerShown: false }} />
-        <Stack.Screen name="bus-selection" options={{ headerShown: false }} />
-        <Stack.Screen name="bus-details" options={{ headerShown: false }} />
-        <Stack.Screen name="seat-selection" options={{ headerShown: false }} />
-        <Stack.Screen name="live-map" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="search-buses" />
+        <Stack.Screen name="bus-selection" />
+        <Stack.Screen name="bus-details" />
+        <Stack.Screen name="seat-selection" />
+        <Stack.Screen name="live-map" />
+        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

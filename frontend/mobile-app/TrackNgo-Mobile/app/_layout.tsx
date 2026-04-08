@@ -6,7 +6,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: 'tabs',
 };
 
 export default function RootLayout() {
@@ -15,12 +15,12 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="search-buses" />
-        <Stack.Screen name="bus-selection" />
-        <Stack.Screen name="bus-details" />
-        <Stack.Screen name="seat-selection" />
-        <Stack.Screen name="live-map" />
+        <Stack.Screen name="tabs" />
+        <Stack.Screen name="booking/search-buses" />
+        <Stack.Screen name="booking/bus-selection" />
+        <Stack.Screen name="booking/bus-details" />
+        <Stack.Screen name="booking/seat-selection" />
+        <Stack.Screen name="map/live-map" />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
       <StatusBar style="auto" />

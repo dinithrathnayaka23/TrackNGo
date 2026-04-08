@@ -179,7 +179,7 @@ export default function HomeScreen() {
               key={action.key}
               onPress={() => {
                 if (action.key === 'highway' || action.key === 'long-distance') {
-                  router.push('/search-buses');
+                  router.push('/booking/search-buses');
                   return;
                 }
                 Alert.alert(action.label, `Opening ${action.label}...`);
@@ -232,7 +232,7 @@ export default function HomeScreen() {
               <View style={styles.cardBottomRow}>
                 <Text style={styles.timeText}>{booking.time}</Text>
                 <View style={styles.cardActions}>
-                  <PressScale onPress={() => router.push('/live-map')}>
+                  <PressScale onPress={() => router.push('/map/live-map')}>
                     <View style={styles.smallButton}>
                       <Ionicons name="location" size={13} color={booking.base} />
                       <Text style={[styles.smallButtonText, { color: booking.base }]}>Track Live</Text>

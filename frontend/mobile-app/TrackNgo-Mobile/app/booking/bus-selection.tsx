@@ -159,7 +159,7 @@ export default function BusSelectionScreen() {
                   style={styles.selectButton}
                   onPress={() =>
                     router.push({
-                      pathname: '/bus-details',
+                      pathname: '/booking/bus-details',
                       params: {
                         id: bus.id,
                         type: bus.type,

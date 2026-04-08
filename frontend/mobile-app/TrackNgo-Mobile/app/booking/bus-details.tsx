@@ -171,7 +171,7 @@ export default function BusDetailsScreen() {
           style={styles.bookButton}
           onPress={() =>
             router.push({
-              pathname: '/seat-selection',
+              pathname: '/booking/seat-selection',
               params: {
                 from,
                 to,

@@ -1,29 +1,56 @@
-import { Link } from 'expo-router';
-import { StyleSheet } from 'react-native';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import React from "react";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 export default function ModalScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">This is a modal</ThemedText>
-      <Link href="/" dismissTo style={styles.link}>
-        <ThemedText type="link">Go to home screen</ThemedText>
-      </Link>
-    </ThemedView>
+    <Modal transparent animationType="fade">
+      <View style={styles.overlay}>
+        <View style={styles.card}>
+          <Text style={styles.title}>Modal</Text>
+          <Text style={styles.body}>This is a placeholder modal.</Text>
+          <Pressable style={styles.button}>
+            <Text style={styles.buttonText}>Close</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
   },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    width: "100%",
+    maxWidth: 360,
+    gap: 10,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  body: {
+    fontSize: 14,
+    color: "#64748B",
+  },
+  button: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: "#2563EB",
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
 });

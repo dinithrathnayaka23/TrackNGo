@@ -110,6 +110,9 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>com.trackngo.app.TrackNGoApplication</mainClass>
+        </configuration>
       </plugin>
     </plugins>
   </build>

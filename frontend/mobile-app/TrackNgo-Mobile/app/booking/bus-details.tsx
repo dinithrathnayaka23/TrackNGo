@@ -47,9 +47,9 @@ export default function BusDetailsScreen() {
   const priceNumber = Number((price || '0').replace(/[^0-9.]/g, '')) || 0;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -69,7 +69,7 @@ export default function BusDetailsScreen() {
               <Text style={styles.busType}>{busType}</Text>
               <Text style={styles.busId}>{busId}</Text>
               <Text style={styles.busRoute}>
-                {from}  ->  {to}
+                {from}  {'->'} {to}
               </Text>
             </View>
             <View style={styles.busBadge}>

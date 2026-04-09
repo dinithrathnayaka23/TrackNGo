@@ -12,4 +12,3 @@ public class TrackNGoApplication {
         SpringApplication.run(TrackNGoApplication.class, args);
     }
 }
-

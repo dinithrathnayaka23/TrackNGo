@@ -1,24 +1,6 @@
-import React from 'react';
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
+import React from "react";
+import PassengerProfileScreen from "../profile/passenger-profile";
 
-export default function ProfileScreen() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.text}>Profile</Text>
-    </SafeAreaView>
-  );
+export default function ProfileTab() {
+  return <PassengerProfileScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F6F7F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-});

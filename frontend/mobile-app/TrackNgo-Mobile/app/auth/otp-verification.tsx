@@ -1,11 +1,11 @@
 import React from "react";
-import { SafeAreaView, StyleSheet, Text } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 
 export default function PlaceholderScreen() {
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.text}>Coming Soon</Text>
-    </SafeAreaView>
+    </View>
   );
 }
 

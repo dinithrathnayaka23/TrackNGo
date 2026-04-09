@@ -157,7 +157,7 @@ export default function LiveMapScreen() {
           {destination && <Marker coordinate={destination} pinColor="#60A5FA" />}
         </MapView>
 
-        <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
+        <View style={styles.topBar}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </Pressable>

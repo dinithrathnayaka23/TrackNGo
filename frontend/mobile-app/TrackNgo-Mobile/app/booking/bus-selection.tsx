@@ -67,9 +67,9 @@ export default function BusSelectionScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>

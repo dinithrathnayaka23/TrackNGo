@@ -19,8 +19,23 @@ function getDevHost(): string | null {
 
 const devHost = getDevHost();
 
-export const API_BASE_URL =
-  env.EXPO_PUBLIC_API_BASE_URL ?? "http://192.168.8.183:8080";
+// Dynamically determine API URL based on environment
+function getAPIBaseUrl(): string {
+  // If explicitly set in env
+  if (env.EXPO_PUBLIC_API_BASE_URL) {
+    return env.EXPO_PUBLIC_API_BASE_URL;
+  }
+  
+  // If dev host detected (running from Expo Go), use same host
+  if (devHost) {
+    return `http://${devHost}:8080`;
+  }
+  
+  // Fallback to localhost for dev/testing
+  return "http://localhost:8080";
+}
+
+export const API_BASE_URL = getAPIBaseUrl();
 export const ADMIN_SUPPORT_USER_ID = Number(
   env.EXPO_PUBLIC_ADMIN_SUPPORT_USER_ID ?? "1",
 );

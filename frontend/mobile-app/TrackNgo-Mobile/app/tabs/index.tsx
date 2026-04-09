@@ -128,9 +128,9 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View

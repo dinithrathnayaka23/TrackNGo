@@ -199,7 +199,9 @@ export function ChatListScreen({ navigation }: Props) {
 
   const loadPage = useCallback(
     async (targetPage: number, reset = false) => {
+      console.log(`[ChatListScreen] loadPage called: page=${targetPage}, reset=${reset}, currentUser=${currentUser?.userId}`);
       if (!currentUser) {
+        console.log("[ChatListScreen] No current user, skipping");
         return;
       }
 
@@ -266,10 +268,10 @@ export function ChatListScreen({ navigation }: Props) {
               ),
         );
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load conversations";
+        console.error("[ChatListScreen] Error loading conversations:", err);
         if (reset) {
-          setError(
-            err instanceof Error ? err.message : "Failed to load conversations",
-          );
+          setError(errorMessage);
         }
       } finally {
         setLoading(false);
@@ -341,8 +343,8 @@ export function ChatListScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView
-      edges={["left", "right"]}
-      style={[styles.safeArea, { paddingTop: topInset }]}
+      edges={["top", "left", "right"]}
+      style={styles.safeArea}
     >
       <View style={styles.headerRow}>
         <Pressable style={styles.backButton} onPress={onBack}>

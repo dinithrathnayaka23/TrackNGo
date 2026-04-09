@@ -151,9 +151,9 @@ export default function SearchBusesScreen() {
   const endX = sliderWidth * range.end;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!dragging}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>

@@ -8,6 +8,7 @@ type AuthLayoutProps = {
 
 function AuthLayout({ children }: AuthLayoutProps) {
   return (
+    // Shared shell for login/signup screens with a branded left panel.
     <div className="min-h-screen bg-[#ececec] px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
       <div className="animate-auth-card mx-auto flex min-h-[660px] w-full max-w-[1040px] overflow-hidden rounded-[28px] border border-[#1f2f8d]/60 bg-[#f7f7f7] shadow-[0_12px_35px_rgba(15,23,42,0.08)]">
         <div className="animate-auth-left hidden w-[42%] flex-col items-center justify-center bg-gradient-to-b from-[#01050f] via-[#0f2059] to-[#2642a6] p-8 text-white md:flex">

@@ -1,5 +1,4 @@
-﻿
-server:
+﻿server:
   port: 8080
 
 spring:
@@ -7,6 +6,10 @@ spring:
     url: jdbc:mysql://localhost:3306/trackngo?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
     password: dinithmora2003
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
   jpa:
     hibernate:
       ddl-auto: update
@@ -19,4 +22,3 @@ trackngo:
   jwt:
     secret: "change-this-secret-change-this-secret"
     expiration-ms: 86400000
-

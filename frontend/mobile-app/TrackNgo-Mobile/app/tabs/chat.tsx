@@ -1,24 +1,30 @@
-import React from 'react';
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
+import React from "react";
+import { ChatListScreen } from "../../screens/chat/ChatListScreen";
+import { UserSelectScreen } from "../../screens/auth/UserSelectScreen";
+import { useNavigationAdapter } from "../../navigation/navigationAdapter";
+import { useSession } from "../../store/sessionStore";
 
-export default function ChatScreen() {
+export default function ChatTab() {
+  const navigation = useNavigationAdapter();
+  const { currentUser, loading } = useSession();
+
+  if (loading) {
+    return null;
+  }
+
+  if (!currentUser) {
+    return (
+      <UserSelectScreen
+        navigation={navigation as any}
+        route={{ name: "UserSelect", params: undefined } as any}
+      />
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.text}>Chat</Text>
-    </SafeAreaView>
+    <ChatListScreen
+      navigation={navigation as any}
+      route={{ name: "ChatList", params: undefined } as any}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F6F7F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-});

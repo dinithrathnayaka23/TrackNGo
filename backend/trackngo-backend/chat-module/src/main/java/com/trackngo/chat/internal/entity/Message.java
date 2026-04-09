@@ -1,18 +1,12 @@
 
 package com.trackngo.chat.internal.entity;
 
-import jakarta.persistence.*;
-import lombok.Data;
-
-@Entity
-@Data
-@Table(name = "messages")
+/**
+ * @deprecated This placeholder has been replaced by {@link ChatMessage}.
+ *             Do not use this class directly.
+ */
+@Deprecated
 public class Message {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false)
-    private String name;
+    // Replaced by ChatMessage entity — see ChatMessage.java
 }
 

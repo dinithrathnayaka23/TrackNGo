@@ -1,24 +1,13 @@
 import React from "react";
-import { SafeAreaView, StyleSheet, Text } from "react-native";
+import { NotificationScreen } from "../../screens/notifications/NotificationScreen";
+import { useNavigationAdapter } from "../../navigation/navigationAdapter";
 
-export default function PlaceholderScreen() {
+export default function NotificationsRoute() {
+  const navigation = useNavigationAdapter();
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.text}>Coming Soon</Text>
-    </SafeAreaView>
+    <NotificationScreen
+      navigation={navigation as any}
+      route={{ name: "Notification", params: undefined } as any}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F6F7F9",
-  },
-  text: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-});

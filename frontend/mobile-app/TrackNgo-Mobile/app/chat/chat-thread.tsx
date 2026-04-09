@@ -1,24 +1,15 @@
-import React from "react";
-import { SafeAreaView, StyleSheet, Text } from "react-native";
+import { Redirect, useLocalSearchParams } from "expo-router";
 
-export default function PlaceholderScreen() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.text}>Coming Soon</Text>
-    </SafeAreaView>
-  );
+export default function ChatThreadRoute() {
+  const params = useLocalSearchParams();
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => query.append(key, String(item)));
+    } else if (value !== undefined) {
+      query.set(key, String(value));
+    }
+  });
+  const suffix = query.toString();
+  return <Redirect href={`/chat/chat-room${suffix ? `?${suffix}` : ""}`} />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F6F7F9",
-  },
-  text: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-});

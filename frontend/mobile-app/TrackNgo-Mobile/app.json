@@ -34,7 +34,8 @@
           "savePhotosPermission": "Allow TrackNGo to save photos and videos.",
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "web": {
       "bundler": "metro"

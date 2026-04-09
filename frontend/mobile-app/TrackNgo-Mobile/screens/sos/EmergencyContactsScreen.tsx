@@ -19,8 +19,8 @@ export function EmergencyContactsScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView
-      edges={["left", "right"]}
-      style={[styles.safeArea, { paddingTop: top }]}
+      edges={["top", "left", "right"]}
+      style={styles.safeArea}
     >
       <View style={styles.headerRow}>
         <Pressable

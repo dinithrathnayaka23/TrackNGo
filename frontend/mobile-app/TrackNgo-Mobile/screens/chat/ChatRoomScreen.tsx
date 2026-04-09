@@ -1049,8 +1049,8 @@ export function ChatRoomScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView
-      edges={["left", "right"]}
-      style={[styles.safeArea, { paddingTop: insets.top }]}
+      edges={["top", "left", "right"]}
+      style={styles.safeArea}
     >
       <KeyboardAvoidingView
         style={styles.safeArea}

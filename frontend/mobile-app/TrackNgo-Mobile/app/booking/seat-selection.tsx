@@ -68,10 +68,10 @@ export default function SeatSelectionScreen() {
   const totalPrice = useMemo(() => selectedSeats.length * pricePerSeat, [selectedSeats, pricePerSeat]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <View style={styles.content}>
         <ScrollView
-          contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}
+          contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} style={styles.backButton}>

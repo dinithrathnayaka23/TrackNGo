@@ -371,7 +371,6 @@ function BusDetail() {
         <Navbar
           breadcrumbs={['Home', 'Buses', 'Bus Detail']}
           onLogout={handleLogout}
-          showSearch={false}
           unreadCount={1}
         />
 

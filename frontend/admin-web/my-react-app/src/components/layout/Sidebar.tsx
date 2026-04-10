@@ -1,28 +1,36 @@
 import { NavLink } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
-  FiGrid,
-  FiUsers,
-  FiMapPin,
-  FiCreditCard,
-  FiAlertTriangle,
-  FiBarChart2,
-  FiMessageCircle,
-} from "react-icons/fi";
-import { FaBus } from "react-icons/fa";
+  faChartSimple,
+  faUsers,
+  faBus,
+  faLocationDot,
+  faBook,
+  faTriangleExclamation,
+  faChartColumn,
+  faComment,
+} from "@fortawesome/free-solid-svg-icons";
 
-const mainMenu = [
-  { label: "Dashboard", to: "/dashboard", icon: FiGrid },
-  { label: "Users", to: "/users", icon: FiUsers },
-  { label: "Buses", to: "/buses", icon: FaBus },
-  { label: "Routes", to: "/routes", icon: FiMapPin },
-  { label: "Bookings", to: "/bookings", icon: FiCreditCard },
-  { label: "Drivers", to: "/driver", icon: FiUsers },
+type MenuItem = {
+  label: string;
+  to: string;
+  icon: IconDefinition;
+};
+
+const mainMenu: MenuItem[] = [
+  { label: "Dashboard", to: "/dashboard", icon: faChartSimple },
+  { label: "Users", to: "/users", icon: faUsers },
+  { label: "Buses", to: "/buses", icon: faBus },
+  { label: "Routes", to: "/routes", icon: faLocationDot },
+  { label: "Bookings", to: "/bookings", icon: faBook },
+  { label: "Drivers", to: "/driver", icon: faUsers },
 ];
 
-const systemMenu = [
-  { label: "Complaints", to: "/complaints", icon: FiAlertTriangle },
-  { label: "Analytics", to: "/analytics", icon: FiBarChart2 },
-  { label: "Chat", to: "/chat", icon: FiMessageCircle },
+const systemMenu: MenuItem[] = [
+  { label: "Complaints", to: "/complaints", icon: faTriangleExclamation },
+  { label: "Analytics", to: "/analytics", icon: faChartColumn },
+  { label: "Chat", to: "/chat", icon: faComment },
 ];
 
 const linkBase =
@@ -33,7 +41,7 @@ function Sidebar() {
     <aside className="flex w-64 flex-col border-r border-slate-800/40 bg-[#1d263a] text-white">
       <div className="flex items-center gap-3 px-6 py-5 text-lg font-semibold">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2e4ba6] text-white shadow-sm">
-          <FaBus />
+          <FontAwesomeIcon icon={faBus} />
         </div>
         TrackNGo
       </div>
@@ -55,7 +63,7 @@ function Sidebar() {
                 }`
               }
             >
-              <item.icon className="text-base" />
+              <FontAwesomeIcon icon={item.icon} className="text-base" />
               {item.label}
             </NavLink>
           ))}
@@ -77,7 +85,7 @@ function Sidebar() {
                 }`
               }
             >
-              <item.icon className="text-base" />
+              <FontAwesomeIcon icon={item.icon} className="text-base" />
               {item.label}
             </NavLink>
           ))}

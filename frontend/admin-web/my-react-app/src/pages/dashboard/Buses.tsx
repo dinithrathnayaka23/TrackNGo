@@ -521,7 +521,7 @@ function Buses() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
           <div className="bg-white p-6 rounded w-80">
             <h2 className="mb-4 font-semibold">Export Report</h2>
-            <button className="w-full bg-[#1d3a8a] text-black py-2 rounded mb-3"
+            <button className="w-full bg-[#1d3a8a] text-white py-2 rounded mb-3"
               onClick={() => alert("Downloading...")}>
               Download Preview
             </button>

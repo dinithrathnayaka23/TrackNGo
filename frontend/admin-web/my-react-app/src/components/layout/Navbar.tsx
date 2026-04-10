@@ -1,56 +1,96 @@
-import { useNavigate } from "react-router-dom";
-import { FiBell, FiChevronRight, FiLogOut, FiSearch } from "react-icons/fi";
+import { faBell, faMagnifyingGlass, faSignOutAlt } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import type { ChangeEvent, ReactNode } from 'react'
 
 type NavbarProps = {
-  title: string;
-  breadcrumb?: string[];
-};
+  breadcrumbs: string[]
+  onLogout: () => void
+  showSearch?: boolean
+  searchValue?: string
+  onSearchChange?: (value: string) => void
+  searchPlaceholder?: string
+  unreadCount?: number
+  onToggleNotifications?: () => void
+  notificationPanel?: ReactNode
+  rightSlot?: ReactNode
+}
 
-function Navbar({ title, breadcrumb }: NavbarProps) {
-  const crumbs = breadcrumb ?? ["Home", title];
-  const navigate = useNavigate();
-
+function Navbar({
+  breadcrumbs,
+  onLogout,
+  showSearch = true,
+  searchValue = '',
+  onSearchChange,
+  searchPlaceholder = 'Search buses, drivers, or routes...',
+  unreadCount = 0,
+  onToggleNotifications,
+  notificationPanel,
+  rightSlot,
+}: NavbarProps) {
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="flex items-center justify-between gap-6 px-6 py-4">
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          {crumbs.map((item, index) => (
-            <span key={`${item}-${index}`} className="flex items-center gap-1.5">
-              <span>{item}</span>
-              {index < crumbs.length - 1 ? (
-                <FiChevronRight className="text-xs text-slate-400" />
-              ) : null}
-            </span>
-          ))}
-        </div>
+    // Reusable top bar used across dashboard pages.
+    <header
+      className="animate-dash-in z-10 flex h-[78px] shrink-0 items-center justify-between border-b border-[#dfe1e8] bg-[#f7f7fa] px-8"
+      style={{ animationDelay: '40ms' }}
+    >
+      <div className="flex flex-nowrap items-center gap-3 text-sm text-[#6a7284] whitespace-nowrap">
+        {breadcrumbs.map((item, index) => {
+          const isLast = index === breadcrumbs.length - 1
+          return (
+            <div key={`${item}-${index}`} className="flex items-center gap-3">
+              <span className={isLast ? 'whitespace-nowrap font-bold text-[#2b3448]' : 'whitespace-nowrap'}>{item}</span>
+              {!isLast ? <span>{'>'}</span> : null}
+            </div>
+          )
+        })}
+      </div>
 
-        <div className="flex flex-1 items-center justify-center">
-          <div className="flex w-full max-w-[420px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <FiSearch className="text-slate-400 text-sm" />
+      {showSearch ? (
+        <div className="w-full max-w-[560px] px-6">
+          <div className="flex h-12 items-center gap-3 rounded-xl bg-[#eef0f5] px-4 text-[#7d8798]">
+            <FontAwesomeIcon icon={faMagnifyingGlass} />
             <input
               type="text"
-              placeholder="Search buses, drivers, or routes..."
-              className="w-full bg-transparent text-sm text-slate-600 outline-none"
+              // Allow both controlled and uncontrolled usage to keep page integration simple.
+              {...(onSearchChange
+                ? {
+                    value: searchValue,
+                    onChange: (event: ChangeEvent<HTMLInputElement>) => onSearchChange(event.target.value),
+                  }
+                : { defaultValue: searchValue })}
+              className="w-full bg-transparent text-sm text-[#2f394d] outline-none"
+              placeholder={searchPlaceholder}
             />
           </div>
         </div>
+      ) : (
+        <div className="w-full" />
+      )}
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/login")}
-            className="flex items-center gap-2 rounded-lg bg-[#1d3a8a] px-4 py-2 text-sm font-semibold text-white shadow-sm"
-          >
-            <FiLogOut className="text-sm" />
-            Logout
-          </button>
-          <button className="relative flex h-8 w-8 items-center justify-center text-slate-500">
-            <FiBell className="text-base" />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500" />
-          </button>
-        </div>
+      <div className="relative flex items-center gap-8">
+        {rightSlot}
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
+        >
+          <FontAwesomeIcon icon={faSignOutAlt} />
+          Logout
+        </button>
+        <button
+          type="button"
+          onClick={onToggleNotifications}
+          className="relative text-lg text-[#3b4253] transition duration-200 hover:scale-105"
+          aria-label="Notifications"
+        >
+          <FontAwesomeIcon icon={faBell} />
+          {unreadCount > 0 ? <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#f24f4f]" /> : null}
+        </button>
+
+        {notificationPanel}
       </div>
     </header>
-  );
+  )
 }
 
-export default Navbar;
+export default Navbar

@@ -11,6 +11,7 @@ import {
 import AuthLayout from '../../components/layout/AuthLayout'
 
 function Login() {
+  // Local UI state only; auth API wiring can be added without changing layout structure.
   const [showPassword, setShowPassword] = useState(false)
   const [rememberDevice, setRememberDevice] = useState(false)
 
@@ -22,6 +23,7 @@ function Login() {
           Access your centralized transport control panel.
         </p>
 
+        {/* Demo form intentionally prevents submit until backend integration is connected. */}
         <form className="mt-10 space-y-6" onSubmit={(event) => event.preventDefault()}>
           <div className="animate-auth-fade-up" style={{ animationDelay: '160ms' }}>
             <label htmlFor="login-email" className="mb-2 block text-lg font-semibold text-[#4d5564]">
@@ -92,7 +94,7 @@ function Login() {
           <p className="text-xl font-semibold text-[#4d5564]">
             New administrator profile required?{' '}
             <Link to="/signup" className="text-[#129a8f]">
-              Request Access
+              Sign Up
             </Link>
           </p>
 

@@ -1,0 +1,11 @@
+com\trackngo\app\TrackNGoApplication.class
+com\trackngo\app\config\StompWebSocketConfig.class
+com\trackngo\app\controller\UserProfileController.class
+com\trackngo\app\config\SecurityConfig.class
+com\trackngo\app\dto\UserProfileDto.class
+com\trackngo\app\config\JpaConfig.class
+com\trackngo\app\controller\HealthController.class
+com\trackngo\app\config\WebConfig.class
+com\trackngo\app\service\UserProfileService.class
+com\trackngo\app\config\WebSocketConfig.class
+com\trackngo\app\config\JwtConfig.class

@@ -1,0 +1,45 @@
+{
+  "name": "trackngo-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "~15.0.3",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "8.4.4",
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/native-stack": "^6.11.0",
+    "@stomp/stompjs": "^7.1.0",
+    "expo": "^54.0.0",
+    "expo-av": "~16.0.0",
+    "expo-file-system": "~19.0.21",
+    "expo-image-picker": "~17.0.0",
+    "expo-linking": "~8.0.11",
+    "expo-location": "~19.0.8",
+    "expo-media-library": "~18.2.1",
+    "expo-router": "~6.0.23",
+    "expo-status-bar": "~3.0.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-maps": "1.20.1",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "sockjs-client": "^1.6.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~19.1.0",
+    "@types/react-native": "^0.73.0",
+    "@types/sockjs-client": "^1.5.4",
+    "babel-preset-expo": "^54.0.0",
+    "typescript": "^5.6.3"
+  }
+}

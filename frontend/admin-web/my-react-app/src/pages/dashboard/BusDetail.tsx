@@ -364,10 +364,10 @@ function BusDetail() {
   ].join(' ')
 
   return (
-    <div className="h-screen bg-[#efeff4]" style={{ fontFamily: 'Manrope, Segoe UI, sans-serif' }}>
+    <div className="h-screen bg-[#efeff4]">
       <Sidebar mainMenu={mainMenu} systemMenu={systemMenu} />
 
-      <div className="ml-[314px] flex h-screen flex-col">
+      <div className="ml-0 flex h-screen flex-col lg:ml-60">
         <Navbar
           breadcrumbs={['Home', 'Buses', 'Bus Detail']}
           onLogout={handleLogout}
@@ -375,18 +375,18 @@ function BusDetail() {
           unreadCount={1}
         />
 
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="mx-auto max-w-[1400px] space-y-5">
+        <main className="flex-1 overflow-y-auto p-5">
+          <div className="mx-auto max-w-7xl space-y-3">
             <button
               type="button"
-              className="flex items-center gap-2 text-lg text-[#202535] transition duration-200 hover:-translate-x-0.5"
+              className="flex items-center gap-2 text-sm text-[#202535] transition duration-200 hover:-translate-x-0.5"
               aria-label="Go back"
             >
               <FontAwesomeIcon icon={faArrowLeft} />
               <span className="font-semibold">Back</span>
             </button>
 
-            <section className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '80ms' }}>
+            <section className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '80ms' }}>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <img
@@ -410,9 +410,9 @@ function BusDetail() {
                       />
                       {busInfo.status}
                     </span>
-                    <h1 className="mt-1 text-5xl font-extrabold tracking-tight text-[#1f2737]">{busInfo.code}</h1>
-                    <p className="mt-1 text-2xl text-[#5d677e]">
-                      <FontAwesomeIcon icon={faUsers} className="mr-2 text-base" />
+                    <h1 className="mt-1 text-base font-extrabold tracking-tight text-[#1f2737]">{busInfo.code}</h1>
+                    <p className="mt-1 text-sm text-[#5d677e]">
+                      <FontAwesomeIcon icon={faUsers} className="mr-2 text-sm" />
                       {busInfo.seats} Seats
                     </p>
                   </div>
@@ -423,7 +423,7 @@ function BusDetail() {
                     type="button"
                     onClick={openEditBusModal}
                     disabled={isBusDeleted}
-                    className="rounded-lg border border-[#d5d9e3] bg-white px-6 py-2.5 text-base font-bold text-[#2f394d] transition duration-200 hover:-translate-y-0.5"
+                    className="rounded-lg border border-[#d5d9e3] bg-white px-4 py-2 text-sm font-bold text-[#2f394d] transition duration-200 hover:-translate-y-0.5"
                   >
                     <FontAwesomeIcon icon={faPen} className="mr-2" />
                     Edit
@@ -432,7 +432,7 @@ function BusDetail() {
                     type="button"
                     onClick={handleToggleMaintenance}
                     disabled={isBusDeleted}
-                    className="rounded-lg border border-[#e2cf8f] bg-[#fff7db] px-6 py-2.5 text-base font-bold text-[#99680b] transition duration-200 hover:-translate-y-0.5"
+                    className="rounded-lg border border-[#e2cf8f] bg-[#fff7db] px-4 py-2 text-sm font-bold text-[#99680b] transition duration-200 hover:-translate-y-0.5"
                   >
                     <FontAwesomeIcon icon={faScrewdriverWrench} className="mr-2" />
                     {busInfo.status === 'Maintenance' ? 'Mark Active' : 'Maintenance'}
@@ -440,7 +440,7 @@ function BusDetail() {
                   <button
                     type="button"
                     onClick={() => setIsDeleteModalOpen(true)}
-                    className="rounded-lg bg-[#f25555] px-5 py-2.5 text-base font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#e64747]"
+                    className="rounded-lg bg-[#f25555] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#e64747]"
                     aria-label="Delete bus"
                     disabled={isBusDeleted}
                   >
@@ -452,7 +452,7 @@ function BusDetail() {
 
             {isBusDeleted ? (
               <section className="dashboard-card rounded-2xl border border-[#f0caca] bg-[#fff5f5] p-6 shadow-sm">
-                <h2 className="text-3xl font-bold text-[#8d1f1f]">Bus deleted</h2>
+                <h2 className="text-sm font-bold text-[#8d1f1f]">Bus deleted</h2>
                 <p className="mt-2 text-sm text-[#9a5555]">This is the delete action for the UI flow.</p>
                 <button
                   type="button"
@@ -464,9 +464,9 @@ function BusDetail() {
               </section>
             ) : (
               <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1.2fr_1.2fr_1fr]">
-              <article className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '130ms' }}>
+              <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '130ms' }}>
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-3xl font-bold text-[#1f2737]">Vehicle Specs</h2>
+                  <h2 className="text-sm font-bold text-[#1f2737]">Vehicle Specs</h2>
                   <FontAwesomeIcon icon={faEllipsis} className="text-[#6f7788]" />
                 </div>
                 <div className="space-y-3 text-[15px]">
@@ -486,9 +486,9 @@ function BusDetail() {
                 </div>
               </article>
 
-              <article className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '170ms' }}>
+              <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '170ms' }}>
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-3xl font-bold text-[#1f2737]">Assigned Driver</h2>
+                  <h2 className="text-sm font-bold text-[#1f2737]">Assigned Driver</h2>
                   <button
                     type="button"
                     onClick={openDriverModal}
@@ -504,7 +504,7 @@ function BusDetail() {
                     className="h-16 w-16 rounded-full object-cover"
                   />
                   <div>
-                    <p className="text-[28px] font-bold text-[#1f2737]">{assignedDriver.name}</p>
+                    <p className="text-sm font-bold text-[#1f2737]">{assignedDriver.name}</p>
                     <p className="text-sm text-[#8a93a4]">ID: {assignedDriver.id}</p>
                     <p className="text-sm font-semibold text-[#efaf00]"><FontAwesomeIcon icon={faStar} className="mr-1" />{assignedDriver.rating} <span className="text-[#8a93a4]">({assignedDriver.trips} trips)</span></p>
                   </div>
@@ -530,16 +530,16 @@ function BusDetail() {
                 <div className="flex items-end justify-between p-4">
                   <div>
                     <p className="text-sm font-semibold text-[#8a93a4]">Current Location</p>
-                    <p className="text-[26px] font-bold text-[#232c3f]">NH44, Near Electronic City</p>
+                    <p className="text-sm font-bold text-[#232c3f]">NH44, Near Electronic City</p>
                     <p className="text-sm text-[#8a93a4]">Last updated: 2 min ago</p>
                   </div>
-                  <FontAwesomeIcon icon={faLocationDot} className="pb-2 text-xl text-[#263247]" />
+                  <FontAwesomeIcon icon={faLocationDot} className="pb-2 text-sm text-[#263247]" />
                 </div>
               </article>
 
-              <article className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '250ms' }}>
+              <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '250ms' }}>
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-3xl font-bold text-[#1f2737]">Amenities</h2>
+                  <h2 className="text-sm font-bold text-[#1f2737]">Amenities</h2>
                   <button
                     type="button"
                     onClick={openAmenityModal}
@@ -570,7 +570,7 @@ function BusDetail() {
 
             {!isBusDeleted ? (
               <section className="dashboard-card animate-dash-in overflow-hidden rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm" style={{ animationDelay: '300ms' }}>
-              <div className="flex gap-6 border-b border-[#dee1e8] px-5 pt-3">
+              <div className="flex gap-4 border-b border-[#dee1e8] px-5 pt-3">
                 {[
                   { label: 'Overview', value: 'overview' as DashboardTab },
                   { label: 'Schedule', value: 'schedule' as DashboardTab },
@@ -581,7 +581,7 @@ function BusDetail() {
                     type="button"
                     onClick={() => setActiveTab(tab.value)}
                     className={[
-                      'border-b-2 pb-3 text-lg font-semibold transition duration-200',
+                      'border-b-2 pb-3 text-sm font-semibold transition duration-200',
                       activeTab === tab.value ? 'border-[#2642a6] text-[#2642a6]' : 'border-transparent text-[#6f7788] hover:text-[#50586a]',
                     ].join(' ')}
                   >
@@ -595,13 +595,13 @@ function BusDetail() {
                   <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
                     <div className="mb-3 flex items-start justify-between">
                       <div>
-                        <h3 className="text-3xl font-bold text-[#1f2737]">Revenue Trends</h3>
+                        <h3 className="text-sm font-bold text-[#1f2737]">Revenue Trends</h3>
                         <p className="text-sm text-[#8a93a4]">Revenue earned by this bus over the last 30 days</p>
                       </div>
                       <button type="button" className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm text-[#3d4558] transition duration-200 hover:bg-[#f2f5fd]">Last 30 Days</button>
                     </div>
 
-                    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-[300px] w-full rounded-lg bg-[#f9fafd]" role="img" aria-label="30-day revenue trend for the selected bus">
+                    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-[220px] w-full rounded-lg bg-[#f9fafd]" role="img" aria-label="30-day revenue trend for the selected bus">
                       <line
                         x1={chartPadding.left}
                         y1={chartPadding.top}
@@ -667,22 +667,22 @@ function BusDetail() {
                     <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#eceff5] pt-3 text-center">
                       <div>
                         <p className="text-sm text-[#8a93a4]">Total Revenue</p>
-                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.{totalRevenueLast30Days.toLocaleString()}</p>
+                        <p className="text-sm font-extrabold text-[#1f2737]">Rs.{totalRevenueLast30Days.toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-sm text-[#8a93a4]">Avg. Per Day</p>
-                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.{averageRevenuePerDay.toLocaleString()}</p>
+                        <p className="text-sm font-extrabold text-[#1f2737]">Rs.{averageRevenuePerDay.toLocaleString()}</p>
                       </div>
                     </div>
                   </article>
 
                   <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
-                    <h3 className="text-3xl font-bold text-[#1f2737]">Upcoming Schedule</h3>
+                    <h3 className="text-sm font-bold text-[#1f2737]">Upcoming Schedule</h3>
                     <div className="mt-4 space-y-4">
                       {visibleScheduleItems.map((item) => (
                         <div key={`${item.time}-${item.route}`} className={item.highlighted ? 'border-l-2 border-[#2642a6] pl-4' : 'border-l-2 border-[#d0d5e0] pl-4'}>
                           <p className={item.highlighted ? 'text-sm font-bold text-[#2642a6]' : 'text-sm font-bold text-[#6e7587]'}>{item.time}</p>
-                          <p className="text-[28px] font-extrabold text-[#1f2737]">{item.route}</p>
+                          <p className="text-sm font-extrabold text-[#1f2737]">{item.route}</p>
                           <p className="text-sm text-[#8a93a4]">Driver: {item.driver}</p>
                           <p className="mt-1 inline-block rounded bg-[#edf2ff] px-2 py-0.5 text-sm font-semibold text-[#2642a6]">
                             {item.bookedText}
@@ -696,7 +696,7 @@ function BusDetail() {
                         setActiveTab('schedule')
                         setIsFullScheduleVisible(true)
                       }}
-                      className="mt-4 w-full rounded-lg border border-[#d9dde7] bg-[#f5f7fb] py-2 text-lg font-semibold text-[#495162] transition duration-200 hover:bg-[#eef2fa]"
+                      className="mt-4 w-full rounded-lg border border-[#d9dde7] bg-[#f5f7fb] py-2 text-sm font-semibold text-[#495162] transition duration-200 hover:bg-[#eef2fa]"
                     >
                       View Full Schedule
                     </button>
@@ -708,7 +708,7 @@ function BusDetail() {
                 <div className="p-4">
                   <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
                     <div className="mb-3 flex items-center justify-between">
-                      <h3 className="text-3xl font-bold text-[#1f2737]">Bus Schedule</h3>
+                      <h3 className="text-sm font-bold text-[#1f2737]">Bus Schedule</h3>
                       <button
                         type="button"
                         onClick={() => setIsFullScheduleVisible((value) => !value)}
@@ -721,7 +721,7 @@ function BusDetail() {
                       {visibleScheduleItems.map((item) => (
                         <div key={`${item.time}-${item.route}`} className={item.highlighted ? 'rounded-lg border-l-4 border-[#2642a6] bg-[#f3f6ff] px-4 py-3' : 'rounded-lg border-l-4 border-[#d0d5e0] bg-[#f8f9fd] px-4 py-3'}>
                           <p className={item.highlighted ? 'text-sm font-bold text-[#2642a6]' : 'text-sm font-bold text-[#6e7587]'}>{item.time}</p>
-                          <p className="text-[28px] font-extrabold text-[#1f2737]">{item.route}</p>
+                          <p className="text-sm font-extrabold text-[#1f2737]">{item.route}</p>
                           <p className="text-sm text-[#8a93a4]">Driver: {item.driver}</p>
                           <p className="mt-1 inline-block rounded bg-[#edf2ff] px-2 py-0.5 text-sm font-semibold text-[#2642a6]">
                             {item.bookedText}
@@ -738,13 +738,13 @@ function BusDetail() {
                   <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
                     <div className="mb-3 flex items-start justify-between">
                       <div>
-                        <h3 className="text-3xl font-bold text-[#1f2737]">Revenue Trends</h3>
+                        <h3 className="text-sm font-bold text-[#1f2737]">Revenue Trends</h3>
                         <p className="text-sm text-[#8a93a4]">Revenue earned by this bus over the last 30 days</p>
                       </div>
                       <button type="button" className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm text-[#3d4558] transition duration-200 hover:bg-[#f2f5fd]">Last 30 Days</button>
                     </div>
 
-                    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-[300px] w-full rounded-lg bg-[#f9fafd]" role="img" aria-label="30-day revenue trend for the selected bus">
+                    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-[220px] w-full rounded-lg bg-[#f9fafd]" role="img" aria-label="30-day revenue trend for the selected bus">
                       <line
                         x1={chartPadding.left}
                         y1={chartPadding.top}
@@ -810,11 +810,11 @@ function BusDetail() {
                     <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#eceff5] pt-3 text-center">
                       <div>
                         <p className="text-sm text-[#8a93a4]">Total Revenue</p>
-                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.{totalRevenueLast30Days.toLocaleString()}</p>
+                        <p className="text-sm font-extrabold text-[#1f2737]">Rs.{totalRevenueLast30Days.toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-sm text-[#8a93a4]">Avg. Per Day</p>
-                        <p className="text-4xl font-extrabold text-[#1f2737]">Rs.{averageRevenuePerDay.toLocaleString()}</p>
+                        <p className="text-sm font-extrabold text-[#1f2737]">Rs.{averageRevenuePerDay.toLocaleString()}</p>
                       </div>
                     </div>
                   </article>
@@ -830,9 +830,9 @@ function BusDetail() {
         // Amenity editor modal works on draft values until Save Changes is clicked.
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
+            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-4 py-3">
               <div>
-                <h2 className="text-2xl font-extrabold text-[#1f2737]">Edit Amenities</h2>
+                <h2 className="text-sm font-extrabold text-[#1f2737]">Edit Amenities</h2>
                 <p className="text-sm text-[#6d778e]">Enable or disable amenities for this bus.</p>
               </div>
               <button
@@ -845,7 +845,7 @@ function BusDetail() {
               </button>
             </div>
 
-            <div className="space-y-3 px-6 py-5">
+            <div className="space-y-3 px-4 py-3">
               {amenityDraft.map((amenity) => (
                 <label
                   key={amenity.name}
@@ -865,7 +865,7 @@ function BusDetail() {
               ))}
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-6 py-4">
+            <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-4 py-3">
               <button
                 type="button"
                 onClick={() => setIsAmenityModalOpen(false)}
@@ -889,9 +889,9 @@ function BusDetail() {
         // Driver editor modal keeps form edits isolated from main UI state.
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
+            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-4 py-3">
               <div>
-                <h2 className="text-2xl font-extrabold text-[#1f2737]">Change Driver</h2>
+                <h2 className="text-sm font-extrabold text-[#1f2737]">Change Driver</h2>
                 <p className="text-sm text-[#6d778e]">Update assigned driver details.</p>
               </div>
               <button
@@ -904,7 +904,7 @@ function BusDetail() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 px-4 py-3 md:grid-cols-2">
               <div>
                 <label htmlFor="driver-name" className="mb-1 block text-sm font-semibold text-[#45516b]">Driver Name</label>
                 <input
@@ -950,7 +950,7 @@ function BusDetail() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-6 py-4">
+            <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-4 py-3">
               {driverFormError ? (
                 <p className="mr-auto text-sm font-semibold text-[#d14343]">{driverFormError}</p>
               ) : null}
@@ -980,9 +980,9 @@ function BusDetail() {
         // Bus profile editor modal follows the same draft -> save pattern.
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
+            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-4 py-3">
               <div>
-                <h2 className="text-2xl font-extrabold text-[#1f2737]">Edit Bus</h2>
+                <h2 className="text-sm font-extrabold text-[#1f2737]">Edit Bus</h2>
                 <p className="text-sm text-[#6d778e]">Update basic bus details.</p>
               </div>
               <button
@@ -997,7 +997,7 @@ function BusDetail() {
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 px-4 py-3 md:grid-cols-2">
               <div>
                 <label htmlFor="bus-code" className="mb-1 block text-sm font-semibold text-[#45516b]">Bus Number</label>
                 <input id="bus-code" value={busDraft.code} onChange={(event) => setBusDraft((prev) => ({ ...prev, code: event.target.value }))} className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
@@ -1023,7 +1023,7 @@ function BusDetail() {
                 <input id="bus-insurance" value={busDraft.insuranceExp} onChange={(event) => setBusDraft((prev) => ({ ...prev, insuranceExp: event.target.value }))} className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-6 py-4">
+            <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-4 py-3">
               {busFormError ? (
                 <p className="mr-auto text-sm font-semibold text-[#d14343]">{busFormError}</p>
               ) : null}
@@ -1049,11 +1049,11 @@ function BusDetail() {
         // Delete confirmation is intentionally non-destructive for this demo flow.
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-md rounded-2xl border border-[#f0d6d6] bg-[#fff7f7] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="border-b border-[#efdcdc] px-6 py-4">
-              <h2 className="text-2xl font-extrabold text-[#8d1f1f]">Delete Bus</h2>
+            <div className="border-b border-[#efdcdc] px-4 py-3">
+              <h2 className="text-sm font-extrabold text-[#8d1f1f]">Delete Bus</h2>
               <p className="text-sm text-[#9a5555]">Are you sure you want to delete {busInfo.code}?</p>
             </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4">
+            <div className="flex items-center justify-end gap-3 px-4 py-3">
               <button type="button" onClick={() => setIsDeleteModalOpen(false)} className="rounded-lg border border-[#d3d9e6] bg-white px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#f5f7fc]">
                 Cancel
               </button>

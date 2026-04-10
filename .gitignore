@@ -41,3 +41,9 @@ backend/trackngo-backend/target/
 backend/trackngo-backend/**/target/
 backend/trackngo-backend/.idea/
 backend/trackngo-backend/**/.idea/
+
+# Configuration with secrets (local only)
+backend/trackngo-backend/app/src/main/resources/application.yml
+backend/trackngo-backend/app/src/main/resources/application.properties
+backend/trackngo-backend/app/src/main/resources/application-*.yml
+backend/trackngo-backend/app/src/main/resources/application-*.properties

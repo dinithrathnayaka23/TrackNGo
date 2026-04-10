@@ -432,10 +432,10 @@ function Analytics() {
   }
 
   return (
-    <div className="h-screen bg-[#efeff4]" style={{ fontFamily: 'Manrope, Segoe UI, sans-serif' }}>
+    <div className="h-screen bg-[#efeff4]">
       <Sidebar mainMenu={mainMenu} systemMenu={systemMenu} onMenuAction={handleMenuAction} />
 
-      <div className="ml-[314px] flex h-screen flex-col">
+      <div className="ml-0 flex h-screen flex-col lg:ml-60">
         <Navbar
           breadcrumbs={['Home', 'Analytics']}
           onLogout={handleLogout}
@@ -463,10 +463,10 @@ function Analytics() {
           ) : null}
         />
 
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="mx-auto max-w-[1700px] space-y-5">
+        <main className="flex-1 overflow-y-auto p-5">
+          <div className="mx-auto max-w-7xl space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h1 className="animate-dash-in text-[48px] font-extrabold tracking-tight text-[#1f2737]" style={{ animationDelay: '70ms' }}>
+              <h1 className="animate-dash-in text-base font-extrabold tracking-tight text-[#1f2737]" style={{ animationDelay: '70ms' }}>
                 Analytics & Insights
               </h1>
 
@@ -498,7 +498,7 @@ function Analytics() {
                 <button
                   type="button"
                   onClick={handleExport}
-                  className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2.5 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]"
+                  className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]"
                 >
                   <FontAwesomeIcon icon={faDownload} />
                   Export All Data
@@ -517,7 +517,7 @@ function Analytics() {
                     type="date"
                     value={customFrom}
                     onChange={(event) => setCustomFrom(event.target.value)}
-                    className="h-10 rounded-lg border border-[#d8deea] bg-white px-3 text-sm text-[#2f394d] outline-none"
+                    className="h-8 rounded-lg border border-[#d8deea] bg-white px-3 text-sm text-[#2f394d] outline-none"
                   />
                 </div>
                 <div>
@@ -529,34 +529,34 @@ function Analytics() {
                     type="date"
                     value={customTo}
                     onChange={(event) => setCustomTo(event.target.value)}
-                    className="h-10 rounded-lg border border-[#d8deea] bg-white px-3 text-sm text-[#2f394d] outline-none"
+                    className="h-8 rounded-lg border border-[#d8deea] bg-white px-3 text-sm text-[#2f394d] outline-none"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={applyCustomPeriod}
-                  className="h-10 rounded-lg bg-[#2642a6] px-4 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]"
+                  className="h-8 rounded-lg bg-[#2642a6] px-4 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]"
                 >
                   Apply Period
                 </button>
               </div>
             ) : null}
 
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
               {stats.map((card, index) => (
                 <article
                   key={card.title}
-                  className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm"
+                  className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
                   style={{ animationDelay: `${120 + index * 40}ms` }}
                 >
-                  <div className="mb-3 flex items-start justify-between">
-                    <p className="text-sm font-semibold text-[#758098]">{card.title}</p>
-                    <div className={['grid h-9 w-9 place-items-center rounded-lg text-sm', card.iconWrap].join(' ')}>
+                  <div className="mb-2 flex items-start justify-between">
+                    <p className="text-xs font-semibold text-[#758098]">{card.title}</p>
+                    <div className={['grid h-7 w-7 place-items-center rounded-md text-xs', card.iconWrap].join(' ')}>
                       <FontAwesomeIcon icon={card.icon} />
                     </div>
                   </div>
-                  <p className="text-[40px] font-extrabold leading-none text-[#1f2737]">{card.value}</p>
-                  <p className={['mt-2 text-sm font-semibold', card.trendUp ? 'text-[#11a765]' : 'text-[#d74949]'].join(' ')}>
+                  <p className="text-sm font-extrabold leading-none text-[#1f2737]">{card.value}</p>
+                  <p className={['mt-1.5 text-xs font-semibold', card.trendUp ? 'text-[#11a765]' : 'text-[#d74949]'].join(' ')}>
                     <FontAwesomeIcon icon={card.trendUp ? faArrowUp : faArrowDown} className="mr-1 text-xs" />
                     {card.trend}
                   </p>
@@ -564,10 +564,10 @@ function Analytics() {
               ))}
             </section>
 
-            <section className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '260ms' }}>
+            <section className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '260ms' }}>
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-[#1f2737]">Revenue Trends</h2>
+                  <h2 className="text-sm font-bold text-[#1f2737]">Revenue Trends</h2>
                   <p className="text-sm text-[#7f899e]">Breakdown of revenue streams over time</p>
                 </div>
 
@@ -602,7 +602,7 @@ function Analytics() {
                 </div>
               </div>
 
-              <svg viewBox="0 0 1200 360" className="h-[330px] w-full rounded-xl bg-[#fafbff]" role="img" aria-label="Revenue trends chart">
+              <svg viewBox="0 0 1200 360" className="h-[240px] w-full rounded-xl bg-[#fafbff]" role="img" aria-label="Revenue trends chart">
                 <line x1="70" y1="40" x2="70" y2="300" stroke="#d6dce8" />
                 <line x1="70" y1="300" x2="1140" y2="300" stroke="#d6dce8" />
                 {chartConfig.yTicks
@@ -633,13 +633,13 @@ function Analytics() {
               </svg>
             </section>
 
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <article className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '300ms' }}>
-                <h2 className="text-3xl font-bold text-[#1f2737]">Bookings by Category</h2>
-                <div className="mt-4 flex flex-wrap items-center gap-10">
-                  <div className="animate-analytics-ring grid h-48 w-48 place-items-center rounded-full bg-[conic-gradient(#2741a0_0deg_162deg,#19a19a_162deg_270deg,#f1a21a_270deg_324deg,#5b64e5_324deg_360deg)]">
-                    <div className="grid h-24 w-24 place-items-center rounded-full bg-[#f7f8fc] text-center">
-                      <p className="text-[28px] font-extrabold leading-none text-[#1f2737]">
+            <section className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+              <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '300ms' }}>
+                <h2 className="text-sm font-bold text-[#1f2737]">Bookings by Category</h2>
+                <div className="mt-3 flex flex-wrap items-center gap-4">
+                <div className="animate-analytics-ring grid h-36 w-36 place-items-center rounded-full bg-[conic-gradient(#2741a0_0deg_162deg,#19a19a_162deg_270deg,#f1a21a_270deg_324deg,#5b64e5_324deg_360deg)]">
+                    <div className="grid h-20 w-20 place-items-center rounded-full bg-[#f7f8fc] text-center">
+                      <p className="text-sm font-extrabold leading-none text-[#1f2737]">
                         {activeRange === '3m'
                           ? '47.9K'
                           : activeRange === '7d'
@@ -661,8 +661,8 @@ function Analytics() {
                 </div>
               </article>
 
-              <article className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '340ms' }}>
-                <h2 className="text-3xl font-bold text-[#1f2737]">Booking Status Overview</h2>
+              <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '340ms' }}>
+                <h2 className="text-sm font-bold text-[#1f2737]">Booking Status Overview</h2>
                 <p className="mt-1 text-sm text-[#7f899e]">Completed and cancelled counts by booking type.</p>
                 <div className="mt-6 overflow-x-auto">
                   <table className="w-full min-w-[620px]">
@@ -676,9 +676,9 @@ function Analytics() {
                     <tbody>
                       {bookingTypeStatusRows.map((row) => (
                         <tr key={row.type} className="border-b border-[#e8ebf2] text-[#2a3448]">
-                          <td className="px-4 py-4 text-sm font-semibold">{row.type}</td>
-                          <td className="px-4 py-4 text-sm font-bold text-[#1bb37f]">{row.completed.toLocaleString()}</td>
-                          <td className="px-4 py-4 text-sm font-bold text-[#eb4f59]">{row.cancelled.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm font-semibold">{row.type}</td>
+                          <td className="px-4 py-3 text-sm font-bold text-[#1bb37f]">{row.completed.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm font-bold text-[#eb4f59]">{row.cancelled.toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -21,6 +21,7 @@ type FieldProps = {
 }
 
 function Field({ id, label, type = 'text', icon, placeholder }: FieldProps) {
+  // Reusable input row keeps registration form markup consistent.
   return (
     <div>
       <label htmlFor={id} className="mb-2 block text-lg font-semibold text-[#4d5564]">
@@ -40,6 +41,7 @@ function Field({ id, label, type = 'text', icon, placeholder }: FieldProps) {
 }
 
 function Signup() {
+  // UI-only state for password visibility and policy consent.
   const [showPasswords, setShowPasswords] = useState(false)
   const [agreePolicy, setAgreePolicy] = useState(true)
 
@@ -51,6 +53,7 @@ function Signup() {
           Access your centralized transport control panel.
         </p>
 
+        {/* Submission is currently mocked while backend registration is pending. */}
         <form className="mt-8 space-y-6" onSubmit={(event) => event.preventDefault()}>
           <div className="animate-auth-fade-up grid grid-cols-1 gap-5 sm:grid-cols-2" style={{ animationDelay: '160ms' }}>
             <Field id="full-name" label="Full Name" icon={faUser} placeholder="John Doe" />

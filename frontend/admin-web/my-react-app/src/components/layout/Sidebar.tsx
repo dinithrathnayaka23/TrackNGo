@@ -1,118 +1,110 @@
-import { faBus } from '@fortawesome/free-solid-svg-icons'
-import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Link } from 'react-router-dom'
-import adminProfileImage from '../../assets/images/adminProfile.png'
+import { NavLink } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import {
+  faChartSimple,
+  faUsers,
+  faBus,
+  faLocationDot,
+  faBook,
+  faTriangleExclamation,
+  faChartColumn,
+  faComment,
+} from "@fortawesome/free-solid-svg-icons";
 
-export type SidebarMenuItem = {
-  label: string
-  icon: IconDefinition
-  active?: boolean
-  path?: string
-}
+type MenuItem = {
+  label: string;
+  to: string;
+  icon: IconDefinition;
+};
 
-type SidebarProps = {
-  mainMenu: SidebarMenuItem[]
-  systemMenu: SidebarMenuItem[]
-  onMenuAction?: (label: string) => void
-  profileName?: string
-  profileRole?: string
-}
+const mainMenu: MenuItem[] = [
+  { label: "Dashboard", to: "/dashboard", icon: faChartSimple },
+  { label: "Users", to: "/users", icon: faUsers },
+  { label: "Buses", to: "/buses", icon: faBus },
+  { label: "Routes", to: "/routes", icon: faLocationDot },
+  { label: "Bookings", to: "/bookings", icon: faBook },
+  { label: "Drivers", to: "/driver", icon: faUsers },
+];
 
-function MenuSection({
-  title,
-  items,
-  onMenuAction,
-}: {
-  title: string
-  items: SidebarMenuItem[]
-  onMenuAction?: (label: string) => void
-}) {
+const systemMenu: MenuItem[] = [
+  { label: "Complaints", to: "/complaints", icon: faTriangleExclamation },
+  { label: "Analytics", to: "/analytics", icon: faChartColumn },
+  { label: "Chat", to: "/chat", icon: faComment },
+];
+
+const linkBase =
+  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition";
+
+function Sidebar() {
   return (
-    <div>
-      <p className="mb-3 px-4 text-xs font-semibold uppercase tracking-wide text-[#9aa5bc]">{title}</p>
-      <div className="space-y-1">
-        {items.map((item) => {
-          const itemClass = [
-            'flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left text-[15px] font-semibold transition duration-200',
-            item.active
-              ? 'bg-[#2642a6] text-white shadow-[0_8px_16px_rgba(23,38,96,0.35)]'
-              : 'text-[#d6dded] hover:bg-[#243456]',
-          ].join(' ')
-
-          if (item.path) {
-            // Routed items navigate directly via react-router.
-            return (
-              <Link key={item.label} to={item.path} className={itemClass}>
-                <FontAwesomeIcon icon={item.icon} className="text-sm" />
-                <span>{item.label}</span>
-              </Link>
-            )
-          }
-
-          return (
-            <button
-              type="button"
-              key={item.label}
-              className={itemClass}
-              // Non-routed items bubble actions to parent pages for toasts/placeholders.
-              onClick={() => onMenuAction?.(item.label)}
-            >
-              <FontAwesomeIcon icon={item.icon} className="text-sm" />
-              <span>{item.label}</span>
-            </button>
-          )
-        })}
+    <aside className="flex w-64 flex-col border-r border-slate-800/40 bg-[#1d263a] text-white">
+      <div className="flex items-center gap-3 px-6 py-5 text-lg font-semibold">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2e4ba6] text-white shadow-sm">
+          <FontAwesomeIcon icon={faBus} />
+        </div>
+        TrackNGo
       </div>
-    </div>
-  )
-}
 
-function Sidebar({
-  mainMenu,
-  systemMenu,
-  onMenuAction,
-  profileName = 'Dinith Rathnayaka',
-  profileRole = 'Admin',
-}: SidebarProps) {
-  return (
-    // Left navigation shell shared across dashboard screens.
-    <aside className="fixed inset-y-0 left-0 z-20 w-[314px] border-r border-[#2f3f61] bg-[#1c2a44]">
-      <div className="flex h-full flex-col">
-        <div className="animate-dash-in border-b border-[#2f3f61] px-6 py-5" style={{ animationDelay: '20ms' }}>
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-md bg-[#2b4cad] text-white">
-              <FontAwesomeIcon icon={faBus} className="text-lg" />
-            </div>
-            <span className="text-[32px] font-extrabold tracking-tight text-white">TrackNGo</span>
-          </div>
+      <div className="flex-1 px-4">
+        <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-wide text-white/60">
+          Main Menu
+        </p>
+        <div className="space-y-1">
+          {mainMenu.map((item) => (
+            <NavLink
+              key={item.label}
+              to={item.to}
+              className={({ isActive }) =>
+                `${linkBase} ${
+                  isActive
+                    ? "bg-[#2c3f7a] text-white"
+                    : "text-white/80 hover:bg-[#2c3f7a]"
+                }`
+              }
+            >
+              <FontAwesomeIcon icon={item.icon} className="text-base" />
+              {item.label}
+            </NavLink>
+          ))}
         </div>
 
-        <div className="flex-1 space-y-8 overflow-y-auto px-4 py-5">
-          <div className="animate-dash-in" style={{ animationDelay: '80ms' }}>
-            <MenuSection title="Main Menu" items={mainMenu} onMenuAction={onMenuAction} />
-          </div>
-          <div className="animate-dash-in" style={{ animationDelay: '120ms' }}>
-            <MenuSection title="System" items={systemMenu} onMenuAction={onMenuAction} />
-          </div>
+        <p className="mb-3 mt-6 text-xs font-semibold uppercase tracking-wide text-white/60">
+          System
+        </p>
+        <div className="space-y-1">
+          {systemMenu.map((item) => (
+            <NavLink
+              key={item.label}
+              to={item.to}
+              className={({ isActive }) =>
+                `${linkBase} ${
+                  isActive
+                    ? "bg-[#2c3f7a] text-white"
+                    : "text-white/80 hover:bg-[#2c3f7a]"
+                }`
+              }
+            >
+              <FontAwesomeIcon icon={item.icon} className="text-base" />
+              {item.label}
+            </NavLink>
+          ))}
         </div>
+      </div>
 
-        <div className="animate-dash-in border-t border-[#2f3f61] p-4" style={{ animationDelay: '150ms' }}>
-          <div className="flex items-center gap-3 rounded-lg bg-[#c8cdd8] px-3 py-2">
-            <img
-              src={adminProfileImage}
-              alt="Administrator profile avatar"
-              className="h-12 w-12 rounded-full object-cover"
-            />
-            <div>
-              <p className="text-sm font-bold text-[#222a3b]">{profileName}</p>
-              <p className="text-sm text-[#5c6679]">{profileRole}</p>
-            </div>
+      <div className="m-4 rounded-xl bg-white/10 p-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1f3f9] text-sm font-semibold text-[#1d263a]">
+            DR
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Dinith Rathnayaka</p>
+            <p className="text-xs text-white/70">Admin</p>
           </div>
         </div>
       </div>
     </aside>
-  )
+  );
 }
 
-export default Sidebar
+export default Sidebar;

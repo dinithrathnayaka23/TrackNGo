@@ -1,8 +1,7 @@
-
 package com.trackngo.chat.internal.websocket;
 
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.chat.api.MessageService;
 import com.trackngo.chat.api.dto.MessageDto;
 import com.trackngo.chat.api.dto.TypingIndicatorDto;
@@ -284,4 +283,3 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
     }
 }
-

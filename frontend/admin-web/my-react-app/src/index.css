@@ -2,7 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Cross-browser normalization ───────────────────────────────── */
 @layer base {
   *,
   *::before,

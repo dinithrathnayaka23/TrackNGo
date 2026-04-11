@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faArrowRight,
@@ -10,10 +10,51 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import AuthLayout from '../../components/layout/AuthLayout'
 
+type LoginForm = {
+  email: string
+  password: string
+}
+
+type LoginErrors = Partial<Record<keyof LoginForm, string>>
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function validateLogin(form: LoginForm): LoginErrors {
+  const errors: LoginErrors = {}
+
+  if (!form.email.trim()) {
+    errors.email = 'Email is required.'
+  } else if (!isValidEmail(form.email.trim())) {
+    errors.email = 'Enter a valid email address.'
+  }
+
+  if (!form.password) {
+    errors.password = 'Password is required.'
+  } else if (form.password.length < 8) {
+    errors.password = 'Password must be at least 8 characters.'
+  }
+
+  return errors
+}
+
 function Login() {
-  // Local UI state only; auth API wiring can be added without changing layout structure.
   const [showPassword, setShowPassword] = useState(false)
   const [rememberDevice, setRememberDevice] = useState(false)
+  const [form, setForm] = useState<LoginForm>({ email: '', password: '' })
+  const [errors, setErrors] = useState<LoginErrors>({})
+  const navigate = useNavigate()
+
+  const updateField = (field: keyof LoginForm, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }))
+    setErrors((current) => ({ ...current, [field]: undefined }))
+  }
+
+  const validateField = (field: keyof LoginForm) => {
+    const fieldErrors = validateLogin(form)
+    setErrors((current) => ({ ...current, [field]: fieldErrors[field] }))
+  }
 
   return (
     <AuthLayout>
@@ -23,8 +64,17 @@ function Login() {
           Access your centralized transport control panel.
         </p>
 
-        {/* Demo form intentionally prevents submit until backend integration is connected. */}
-        <form className="mt-6 space-y-5" onSubmit={(event) => event.preventDefault()}>
+        <form
+          className="mt-6 space-y-5"
+          onSubmit={(event) => {
+            event.preventDefault()
+            const validationErrors = validateLogin(form)
+            setErrors(validationErrors)
+            if (Object.keys(validationErrors).length > 0) return
+            navigate('/dashboard')
+          }}
+          noValidate
+        >
           <div className="animate-auth-fade-up" style={{ animationDelay: '160ms' }}>
             <label htmlFor="login-email" className="mb-2 block text-sm font-semibold text-[#4d5564]">
               Email Address
@@ -35,9 +85,20 @@ function Login() {
                 id="login-email"
                 type="email"
                 placeholder="admin@smartbus-system.com"
+                value={form.email}
+                onChange={(event) => updateField('email', event.target.value)}
+                onBlur={() => validateField('email')}
+                autoComplete="email"
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? 'login-email-error' : undefined}
                 className="w-full bg-transparent text-sm text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
               />
             </div>
+            {errors.email ? (
+              <p id="login-email-error" className="mt-2 text-sm font-medium text-[#dc2626]">
+                {errors.email}
+              </p>
+            ) : null}
           </div>
 
           <div className="animate-auth-fade-up" style={{ animationDelay: '230ms' }}>
@@ -53,6 +114,12 @@ function Login() {
                 id="login-password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Enter Password"
+                value={form.password}
+                onChange={(event) => updateField('password', event.target.value)}
+                onBlur={() => validateField('password')}
+                autoComplete="current-password"
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={errors.password ? 'login-password-error' : undefined}
                 className="w-full bg-transparent text-sm text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
               />
               <button
@@ -63,6 +130,11 @@ function Login() {
                 <FontAwesomeIcon icon={showPassword ? faEye : faEyeSlash} />
               </button>
             </div>
+            {errors.password ? (
+              <p id="login-password-error" className="mt-2 text-sm font-medium text-[#dc2626]">
+                {errors.password}
+              </p>
+            ) : null}
           </div>
 
           <div className="animate-auth-fade-up flex items-center justify-between text-sm" style={{ animationDelay: '300ms' }}>

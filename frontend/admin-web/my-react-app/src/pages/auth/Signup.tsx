@@ -12,16 +12,42 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import AuthLayout from '../../components/layout/AuthLayout'
 
+type SignupForm = {
+  fullName: string
+  employeeId: string
+  email: string
+  phone: string
+  password: string
+  confirmPassword: string
+}
+
+type SignupErrors = Partial<Record<keyof SignupForm | 'agreePolicy', string>>
+
 type FieldProps = {
   id: string
+  name: keyof SignupForm
   label: string
   type?: string
   icon: typeof faUser
   placeholder?: string
+  value: string
+  error?: string
+  onChange: (field: keyof SignupForm, value: string) => void
+  onBlur: (field: keyof SignupForm) => void
 }
 
-function Field({ id, label, type = 'text', icon, placeholder }: FieldProps) {
-  // Reusable input row keeps registration form markup consistent.
+function Field({
+  id,
+  name,
+  label,
+  type = 'text',
+  icon,
+  placeholder,
+  value,
+  error,
+  onChange,
+  onBlur,
+}: FieldProps) {
   return (
     <div>
       <label htmlFor={id} className="mb-2 block text-sm font-semibold text-[#4d5564]">
@@ -31,19 +57,116 @@ function Field({ id, label, type = 'text', icon, placeholder }: FieldProps) {
         <FontAwesomeIcon icon={icon} className="mr-3 text-[#8b92a1]" />
         <input
           id={id}
+          name={name}
           type={type}
           placeholder={placeholder}
+          value={value}
+          onChange={(event) => onChange(name, event.target.value)}
+          onBlur={() => onBlur(name)}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-error` : undefined}
           className="w-full bg-transparent text-sm text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
         />
       </div>
+      {error ? (
+        <p id={`${id}-error`} className="mt-2 text-sm font-medium text-[#dc2626]">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function isValidPhone(phone: string) {
+  const normalized = phone.replace(/[^\d+]/g, '')
+  const digits = normalized.replace('+', '')
+  return /^\+?[\d\s()-]+$/.test(phone) && digits.length >= 10 && digits.length <= 15
+}
+
+function getPasswordStrength(password: string) {
+  let score = 0
+  if (password.length >= 8) score += 1
+  if (/[A-Z]/.test(password)) score += 1
+  if (/[a-z]/.test(password)) score += 1
+  if (/\d/.test(password)) score += 1
+  if (/[^A-Za-z0-9]/.test(password)) score += 1
+  return score
+}
+
+function validateSignup(form: SignupForm, agreePolicy: boolean): SignupErrors {
+  const errors: SignupErrors = {}
+
+  if (!form.fullName.trim()) {
+    errors.fullName = 'Full name is required.'
+  }
+
+  if (!form.employeeId.trim()) {
+    errors.employeeId = 'Employee ID is required.'
+  } else if (!/^[A-Za-z0-9-]{4,20}$/.test(form.employeeId.trim())) {
+    errors.employeeId = 'Employee ID must be 4-20 characters (letters, numbers, hyphens).'
+  }
+
+  if (!form.email.trim()) {
+    errors.email = 'Email is required.'
+  } else if (!isValidEmail(form.email.trim())) {
+    errors.email = 'Enter a valid email address.'
+  }
+
+  if (!form.phone.trim()) {
+    errors.phone = 'Phone number is required.'
+  } else if (!isValidPhone(form.phone.trim())) {
+    errors.phone = 'Enter a valid phone number.'
+  }
+
+  if (!form.password) {
+    errors.password = 'Password is required.'
+  } else if (getPasswordStrength(form.password) < 4) {
+    errors.password = 'Use at least 8 chars with upper, lower, number, and symbol.'
+  }
+
+  if (!form.confirmPassword) {
+    errors.confirmPassword = 'Confirm password is required.'
+  } else if (form.confirmPassword !== form.password) {
+    errors.confirmPassword = 'Passwords do not match.'
+  }
+
+  if (!agreePolicy) {
+    errors.agreePolicy = 'You must agree to the policy to continue.'
+  }
+
+  return errors
+}
+
 function Signup() {
-  // UI-only state for password visibility and policy consent.
   const [showPasswords, setShowPasswords] = useState(false)
   const [agreePolicy, setAgreePolicy] = useState(true)
+  const [form, setForm] = useState<SignupForm>({
+    fullName: '',
+    employeeId: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+  })
+  const [errors, setErrors] = useState<SignupErrors>({})
+
+  const passwordStrength = getPasswordStrength(form.password)
+  const securityLabel =
+    passwordStrength >= 4 ? 'Strong' : passwordStrength >= 3 ? 'Medium' : passwordStrength >= 1 ? 'Weak' : 'None'
+
+  const updateField = (field: keyof SignupForm, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }))
+    setErrors((current) => ({ ...current, [field]: undefined }))
+  }
+
+  const validateField = (field: keyof SignupForm) => {
+    const fieldErrors = validateSignup(form, agreePolicy)
+    setErrors((current) => ({ ...current, [field]: fieldErrors[field] }))
+  }
 
   return (
     <AuthLayout>
@@ -53,24 +176,62 @@ function Signup() {
           Access your centralized transport control panel.
         </p>
 
-        {/* Submission is currently mocked while backend registration is pending. */}
-        <form className="mt-8 space-y-6" onSubmit={(event) => event.preventDefault()}>
+        <form
+          className="mt-8 space-y-6"
+          onSubmit={(event) => {
+            event.preventDefault()
+            const validationErrors = validateSignup(form, agreePolicy)
+            setErrors(validationErrors)
+            if (Object.keys(validationErrors).length > 0) return
+          }}
+          noValidate
+        >
           <div className="animate-auth-fade-up grid grid-cols-1 gap-5 sm:grid-cols-2" style={{ animationDelay: '160ms' }}>
-            <Field id="full-name" label="Full Name" icon={faUser} placeholder="John Doe" />
-            <Field id="employee-id" label="Employee ID" icon={faFingerprint} placeholder="EMP-00123" />
+            <Field
+              id="full-name"
+              name="fullName"
+              label="Full Name"
+              icon={faUser}
+              placeholder="John Doe"
+              value={form.fullName}
+              onChange={updateField}
+              onBlur={validateField}
+              error={errors.fullName}
+            />
+            <Field
+              id="employee-id"
+              name="employeeId"
+              label="Employee ID"
+              icon={faFingerprint}
+              placeholder="EMP-00123"
+              value={form.employeeId}
+              onChange={updateField}
+              onBlur={validateField}
+              error={errors.employeeId}
+            />
             <Field
               id="signup-email"
+              name="email"
               label="Email Address"
               icon={faEnvelope}
               type="email"
               placeholder="j.doe@smartbus.com"
+              value={form.email}
+              onChange={updateField}
+              onBlur={validateField}
+              error={errors.email}
             />
             <Field
               id="phone-number"
+              name="phone"
               label="Phone Number"
               icon={faPhone}
               type="tel"
               placeholder="+1 (555) 000-0000"
+              value={form.phone}
+              onChange={updateField}
+              onBlur={validateField}
+              error={errors.phone}
             />
           </div>
 
@@ -86,6 +247,12 @@ function Signup() {
                     id="signup-password"
                     type={showPasswords ? 'text' : 'password'}
                     placeholder="Enter Password"
+                    value={form.password}
+                    onChange={(event) => updateField('password', event.target.value)}
+                    onBlur={() => validateField('password')}
+                    autoComplete="new-password"
+                    aria-invalid={Boolean(errors.password)}
+                    aria-describedby={errors.password ? 'signup-password-error' : undefined}
                     className="w-full bg-transparent text-sm text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
                   />
                   <button
@@ -96,20 +263,27 @@ function Signup() {
                     <FontAwesomeIcon icon={faEye} />
                   </button>
                 </div>
+                {errors.password ? (
+                  <p id="signup-password-error" className="mt-2 text-sm font-medium text-[#dc2626]">
+                    {errors.password}
+                  </p>
+                ) : null}
 
                 <div className="mt-3">
                   <div className="mb-2 grid grid-cols-4 gap-2">
                     {Array.from({ length: 4 }).map((_, index) => (
                       <span
                         key={`security-${index}`}
-                        className="h-1.5 rounded bg-[#12a39a]"
+                        className={`h-1.5 rounded ${
+                          index < Math.min(passwordStrength, 4) ? 'bg-[#12a39a]' : 'bg-[#d1d5db]'
+                        }`}
                         aria-hidden="true"
                       />
                     ))}
                   </div>
                   <div className="flex items-center justify-between text-sm font-semibold">
                     <span className="text-[#93a0af]">Security Level</span>
-                    <span className="text-[#12a39a]">Strong</span>
+                    <span className={passwordStrength >= 4 ? 'text-[#12a39a]' : 'text-[#f59e0b]'}>{securityLabel}</span>
                   </div>
                 </div>
               </div>
@@ -127,6 +301,12 @@ function Signup() {
                     id="confirm-password"
                     type={showPasswords ? 'text' : 'password'}
                     placeholder="Confirm Password"
+                    value={form.confirmPassword}
+                    onChange={(event) => updateField('confirmPassword', event.target.value)}
+                    onBlur={() => validateField('confirmPassword')}
+                    autoComplete="new-password"
+                    aria-invalid={Boolean(errors.confirmPassword)}
+                    aria-describedby={errors.confirmPassword ? 'confirm-password-error' : undefined}
                     className="w-full bg-transparent text-sm text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
                   />
                   <button
@@ -137,6 +317,11 @@ function Signup() {
                     <FontAwesomeIcon icon={faEye} />
                   </button>
                 </div>
+                {errors.confirmPassword ? (
+                  <p id="confirm-password-error" className="mt-2 text-sm font-medium text-[#dc2626]">
+                    {errors.confirmPassword}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -145,7 +330,10 @@ function Signup() {
             <input
               type="checkbox"
               checked={agreePolicy}
-              onChange={(event) => setAgreePolicy(event.target.checked)}
+              onChange={(event) => {
+                setAgreePolicy(event.target.checked)
+                setErrors((current) => ({ ...current, agreePolicy: undefined }))
+              }}
               className="mt-1 h-5 w-5 rounded border-[#d4d8e3] text-[#2342a6] focus:ring-[#2342a6]"
             />
             <span>
@@ -156,6 +344,9 @@ function Signup() {
               and confirm the accuracy of my details.
             </span>
           </label>
+          {errors.agreePolicy ? (
+            <p className="mt-1 text-sm font-medium text-[#dc2626]">{errors.agreePolicy}</p>
+          ) : null}
 
           <button
             type="submit"

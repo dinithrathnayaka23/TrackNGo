@@ -30,7 +30,7 @@ function Navbar({
   return (
     // Reusable top bar used across dashboard pages.
     <header
-      className="animate-dash-in z-10 flex h-[78px] shrink-0 items-center justify-between border-b border-[#dfe1e8] bg-[#f7f7fa] px-8"
+      className="animate-dash-in z-10 flex h-16 shrink-0 items-center justify-between border-b border-[#dfe1e8] bg-[#f7f7fa] px-6"
       style={{ animationDelay: '40ms' }}
     >
       <div className="flex flex-nowrap items-center gap-3 text-sm text-[#6a7284] whitespace-nowrap">
@@ -72,7 +72,7 @@ function Navbar({
         <button
           type="button"
           onClick={onLogout}
-          className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
+          className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-1.5 text-xs font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
         >
           <FontAwesomeIcon icon={faSignOutAlt} />
           Logout
@@ -80,7 +80,7 @@ function Navbar({
         <button
           type="button"
           onClick={onToggleNotifications}
-          className="relative text-lg text-[#3b4253] transition duration-200 hover:scale-105"
+          className="relative text-sm text-[#3b4253] transition duration-200 hover:scale-105"
           aria-label="Notifications"
         >
           <FontAwesomeIcon icon={faBell} />

@@ -1,6 +1,13 @@
-com\trackngo\sos\internal\service\EmergencyNumberServiceImpl.class
-com\trackngo\sos\internal\repository\EmergencyNumberRepository.class
+com\trackngo\sos\internal\entity\EmergencyContact.class
 com\trackngo\sos\api\dto\EmergencyNumberDto.class
 com\trackngo\sos\api\EmergencyNumberService.class
-com\trackngo\sos\internal\controller\EmergencyNumberController.class
+com\trackngo\sos\api\dto\CreateEmergencyContactRequest.class
+com\trackngo\sos\api\dto\EmergencyContactDto.class
+com\trackngo\sos\internal\controller\EmergencyContactController.class
+com\trackngo\sos\api\EmergencyContactService.class
 com\trackngo\sos\internal\entity\EmergencyNumber.class
+com\trackngo\sos\internal\service\EmergencyNumberServiceImpl.class
+com\trackngo\sos\internal\repository\EmergencyNumberRepository.class
+com\trackngo\sos\internal\repository\EmergencyContactRepository.class
+com\trackngo\sos\internal\service\EmergencyContactServiceImpl.class
+com\trackngo\sos\internal\controller\EmergencyNumberController.class

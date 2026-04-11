@@ -1,23 +1,11 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
-  faBook,
-  faBus,
-  faChartColumn,
-  faChartSimple,
-  faComment,
   faFaceSmile,
-  faLocationDot,
   faMicrophone,
   faPaperPlane,
   faPlus,
-  faTriangleExclamation,
-  faUsers,
 } from '@fortawesome/free-solid-svg-icons'
-import Navbar from '../../components/layout/Navbar'
-import Sidebar, { type SidebarMenuItem } from '../../components/layout/Sidebar'
-import { logoutToLogin } from '../../utils/authSession'
 
 type ChatPreview = {
   id: string
@@ -64,20 +52,6 @@ function ReadReceipt() {
     </svg>
   )
 }
-
-const mainMenu: SidebarMenuItem[] = [
-  { label: 'Dashboard', icon: faChartSimple },
-  { label: 'Users', icon: faUsers, path: '/dashboard/users' },
-  { label: 'Buses', icon: faBus, path: '/dashboard/buses' },
-  { label: 'Routes', icon: faLocationDot, path: '/dashboard/routes' },
-  { label: 'Bookings', icon: faBook },
-]
-
-const systemMenu: SidebarMenuItem[] = [
-  { label: 'Complaints', icon: faTriangleExclamation },
-  { label: 'Analytics', icon: faChartColumn, path: '/dashboard/analytics' },
-  { label: 'Chat', icon: faComment, active: true, path: '/dashboard/chat' },
-]
 
 const initialConversations: Conversation[] = [
   {
@@ -137,7 +111,6 @@ const formatTime = () =>
   })
 
 function Chat() {
-  const navigate = useNavigate()
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
   const [activeChatId, setActiveChatId] = useState(initialConversations[0].user.id)
   const [searchText, setSearchText] = useState('')
@@ -206,14 +179,8 @@ function Chat() {
   }
 
   return (
-    <div className="h-screen bg-[#efeff4]">
-      <Sidebar mainMenu={mainMenu} systemMenu={systemMenu} />
-
-      <div className="ml-0 flex h-screen flex-col lg:ml-60">
-        <Navbar breadcrumbs={['Home', 'Chat']} onLogout={() => logoutToLogin(navigate)} unreadCount={1} />
-
-        <main className="flex min-h-0 flex-1">
-          <section className="flex w-[420px] min-w-[360px] flex-col border-r border-[#dce0e9] bg-[#f3f4f8]">
+    <div className="flex min-h-0 flex-1" style={{ height: 'calc(100vh - 4rem)' }}>
+      <section className="flex w-[420px] min-w-[360px] flex-col border-r border-[#dce0e9] bg-[#f3f4f8]">
             <div className="border-b border-[#e1e5ee] px-4 py-3">
               <input
                 type="text"
@@ -370,9 +337,7 @@ function Chat() {
               </div>
             </div>
           </section>
-        </main>
-      </div>
-    </div>
+        </div>
   )
 }
 

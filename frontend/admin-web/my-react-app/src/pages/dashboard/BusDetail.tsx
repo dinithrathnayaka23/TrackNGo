@@ -1,13 +1,10 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   faArrowLeft,
-  faBook,
   faBus,
-  faChartColumn,
-  faChartSimple,
   faChargingStation,
+  faCircleUser,
   faComment,
   faEllipsis,
   faLocationDot,
@@ -18,19 +15,14 @@ import {
   faStar,
   faToilet,
   faTrash,
-  faTriangleExclamation,
   faTv,
   faUsers,
   faWifi,
   faXmark,
-  faCircleUser,
 } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import adminProfileImage from "../../assets/images/adminProfile.png";
 import mapImage from "../../assets/images/map.png";
-import Navbar from "../../components/layout/Navbar";
-import Sidebar, { type SidebarMenuItem } from "../../components/layout/Sidebar";
-import { logoutToLogin } from "../../utils/authSession";
 
 type Amenity = {
   name: string;
@@ -127,20 +119,6 @@ const buildSeatLayoutRows = (config: LayoutConfig): SeatLayoutRow[] => {
   return rows;
 };
 
-const mainMenu: SidebarMenuItem[] = [
-  { label: "Dashboard", icon: faChartSimple },
-  { label: "Users", icon: faUsers },
-  { label: "Buses", icon: faBus, active: true },
-  { label: "Routes", icon: faLocationDot, path: "/dashboard/routes" },
-  { label: "Bookings", icon: faBook },
-];
-
-const systemMenu: SidebarMenuItem[] = [
-  { label: "Complaints", icon: faTriangleExclamation },
-  { label: "Analytics", icon: faChartColumn },
-  { label: "Chat", icon: faComment, path: "/dashboard/chat" },
-];
-
 const initialAmenities: Amenity[] = [
   { name: "Wi-Fi", icon: faWifi, enabled: true },
   { name: "AC", icon: faSnowflake, enabled: true },
@@ -224,7 +202,6 @@ const busRevenueLast30Days: BusRevenuePoint[] = (() => {
 const revenueChartLabelIndexes = [0, 5, 10, 15, 20, 25, 29];
 
 function BusDetail() {
-  const navigate = useNavigate();
   // Persisted view state displayed on the page.
   const [amenities, setAmenities] = useState<Amenity[]>(initialAmenities);
   // Draft state lets users edit in modals without mutating live data until Save.
@@ -249,10 +226,6 @@ function BusDetail() {
     useState<LayoutConfig>(defaultLayoutConfig);
   const [layoutConfigError, setLayoutConfigError] = useState("");
   const [blockedSeats, setBlockedSeats] = useState<Set<number>>(new Set());
-
-  const handleLogout = () => {
-    logoutToLogin(navigate);
-  };
 
   const openAmenityModal = () => {
     // Reset draft from latest saved values every time the editor opens.
@@ -624,20 +597,8 @@ function BusDetail() {
   ].join(" ");
 
   return (
-    <div
-      className="h-screen bg-[#efeff4]"
-    >
-      <Sidebar mainMenu={mainMenu} systemMenu={systemMenu} />
-
-      <div className="ml-0 flex h-screen flex-col lg:ml-60">
-        <Navbar
-          breadcrumbs={["Home", "Buses", "Bus Detail"]}
-          onLogout={handleLogout}
-          unreadCount={1}
-        />
-
-        <main className="flex-1 overflow-y-auto p-5">
-          <div className="mx-auto max-w-7xl space-y-3">
+    <>
+      <div className="mx-auto max-w-7xl space-y-3">
             <button
               type="button"
               className="flex items-center gap-2 text-sm text-[#202535] transition duration-200 hover:-translate-x-0.5"
@@ -1288,8 +1249,6 @@ function BusDetail() {
               </section>
             ) : null}
           </div>
-        </main>
-      </div>
 
       {isAmenityModalOpen ? (
         // Amenity editor modal works on draft values until Save Changes is clicked.
@@ -2003,7 +1962,7 @@ function BusDetail() {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
 

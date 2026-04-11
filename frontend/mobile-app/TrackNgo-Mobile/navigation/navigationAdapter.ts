@@ -13,9 +13,6 @@ export function useNavigationAdapter(): NavigationAdapter {
 
   const navigate: NavigateFn = (name, params) => {
     switch (name) {
-      case "UserSelect":
-        router.push("/auth/user-select");
-        return;
       case "Notification":
         router.push("/notifications/notifications");
         return;
@@ -44,9 +41,6 @@ export function useNavigationAdapter(): NavigationAdapter {
     goBack: () => router.back(),
     replace: (name, params) => {
       switch (name) {
-        case "UserSelect":
-          router.replace("/auth/user-select");
-          return;
         case "Notification":
           router.replace("/notifications/notifications");
           return;

@@ -1,5 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type { PropsWithChildren } from "react";
 import type { SessionUser } from "../types/chat";
 
@@ -21,9 +28,6 @@ export function SessionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     (async () => {
       try {
-        // TEMPORARY: Clear session for testing
-        await AsyncStorage.removeItem(STORAGE_KEY);
-
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
           setCurrentUserState(JSON.parse(raw));
@@ -49,12 +53,14 @@ export function SessionProvider({ children }: PropsWithChildren) {
       currentUser,
       loading,
       setCurrentUser,
-      clearCurrentUser
+      clearCurrentUser,
     }),
-    [currentUser, loading, setCurrentUser, clearCurrentUser]
+    [currentUser, loading, setCurrentUser, clearCurrentUser],
   );
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  return (
+    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+  );
 }
 
 export function useSession() {

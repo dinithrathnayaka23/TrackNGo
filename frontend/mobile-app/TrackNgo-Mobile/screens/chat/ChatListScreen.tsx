@@ -25,7 +25,11 @@ import {
 } from "../../services/chatApi";
 import { getUserProfile } from "../../services/userProfileApi";
 import { useSession } from "../../store/sessionStore";
-import type { ConversationDto, SessionUser, UserProfile } from "../../types/chat";
+import type {
+  ConversationDto,
+  SessionUser,
+  UserProfile,
+} from "../../types/chat";
 import {
   getParticipantAvatarFallback,
   getParticipantAvatarUri,
@@ -47,7 +51,7 @@ function getConversationTimeLabel(timestamp?: string | null) {
 }
 
 export function ChatListScreen({ navigation }: Props) {
-  const { currentUser, clearCurrentUser } = useSession();
+  const { currentUser } = useSession();
   const { top: topInset } = useSafeAreaInsets();
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<ConversationDto[]>([]);
@@ -199,7 +203,9 @@ export function ChatListScreen({ navigation }: Props) {
 
   const loadPage = useCallback(
     async (targetPage: number, reset = false) => {
-      console.log(`[ChatListScreen] loadPage called: page=${targetPage}, reset=${reset}, currentUser=${currentUser?.userId}`);
+      console.log(
+        `[ChatListScreen] loadPage called: page=${targetPage}, reset=${reset}, currentUser=${currentUser?.userId}`,
+      );
       if (!currentUser) {
         console.log("[ChatListScreen] No current user, skipping");
         return;
@@ -268,7 +274,8 @@ export function ChatListScreen({ navigation }: Props) {
               ),
         );
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to load conversations";
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to load conversations";
         console.error("[ChatListScreen] Error loading conversations:", err);
         if (reset) {
           setError(errorMessage);
@@ -332,20 +339,16 @@ export function ChatListScreen({ navigation }: Props) {
     });
   };
 
-  const onBack = useCallback(async () => {
-    await clearCurrentUser();
+  const onBack = useCallback(() => {
     navigation.replace("Dashboard");
-  }, [clearCurrentUser, navigation]);
+  }, [navigation]);
 
   if (!currentUser) {
     return null;
   }
 
   return (
-    <SafeAreaView
-      edges={["top", "left", "right"]}
-      style={styles.safeArea}
-    >
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <View style={styles.headerRow}>
         <Pressable style={styles.backButton} onPress={onBack}>
           <MaterialCommunityIcons name="arrow-left" size={22} color="#1F2937" />

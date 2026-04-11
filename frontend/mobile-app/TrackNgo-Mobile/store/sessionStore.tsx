@@ -21,6 +21,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     (async () => {
       try {
+        // TEMPORARY: Clear session for testing
+        await AsyncStorage.removeItem(STORAGE_KEY);
+
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
           setCurrentUserState(JSON.parse(raw));

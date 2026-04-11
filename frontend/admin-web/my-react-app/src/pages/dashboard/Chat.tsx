@@ -1,23 +1,11 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
-  faBook,
-  faBus,
-  faChartColumn,
-  faChartSimple,
-  faComment,
   faFaceSmile,
-  faLocationDot,
   faMicrophone,
   faPaperPlane,
   faPlus,
-  faTriangleExclamation,
-  faUsers,
 } from '@fortawesome/free-solid-svg-icons'
-import Navbar from '../../components/layout/Navbar'
-import Sidebar, { type SidebarMenuItem } from '../../components/layout/Sidebar'
-import { logoutToLogin } from '../../utils/authSession'
 
 type ChatPreview = {
   id: string
@@ -64,20 +52,6 @@ function ReadReceipt() {
     </svg>
   )
 }
-
-const mainMenu: SidebarMenuItem[] = [
-  { label: 'Dashboard', icon: faChartSimple },
-  { label: 'Users', icon: faUsers, path: '/dashboard/users' },
-  { label: 'Buses', icon: faBus, path: '/dashboard/buses' },
-  { label: 'Routes', icon: faLocationDot, path: '/dashboard/routes' },
-  { label: 'Bookings', icon: faBook },
-]
-
-const systemMenu: SidebarMenuItem[] = [
-  { label: 'Complaints', icon: faTriangleExclamation },
-  { label: 'Analytics', icon: faChartColumn, path: '/dashboard/analytics' },
-  { label: 'Chat', icon: faComment, active: true, path: '/dashboard/chat' },
-]
 
 const initialConversations: Conversation[] = [
   {
@@ -137,7 +111,6 @@ const formatTime = () =>
   })
 
 function Chat() {
-  const navigate = useNavigate()
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
   const [activeChatId, setActiveChatId] = useState(initialConversations[0].user.id)
   const [searchText, setSearchText] = useState('')
@@ -206,15 +179,9 @@ function Chat() {
   }
 
   return (
-    <div className="h-screen bg-[#efeff4]" style={{ fontFamily: 'Manrope, Segoe UI, sans-serif' }}>
-      <Sidebar mainMenu={mainMenu} systemMenu={systemMenu} />
-
-      <div className="ml-[314px] flex h-screen flex-col">
-        <Navbar breadcrumbs={['Home', 'Chat']} onLogout={() => logoutToLogin(navigate)} unreadCount={1} />
-
-        <main className="flex min-h-0 flex-1">
-          <section className="flex w-[420px] min-w-[360px] flex-col border-r border-[#dce0e9] bg-[#f3f4f8]">
-            <div className="border-b border-[#e1e5ee] px-4 py-4">
+    <div className="flex min-h-0 flex-1" style={{ height: 'calc(100vh - 4rem)' }}>
+      <section className="flex w-[420px] min-w-[360px] flex-col border-r border-[#dce0e9] bg-[#f3f4f8]">
+            <div className="border-b border-[#e1e5ee] px-4 py-3">
               <input
                 type="text"
                 value={searchText}
@@ -239,7 +206,7 @@ function Chat() {
                       isSelected ? 'border-r-[3px] border-r-[#2f63e6] bg-[#e9edf5]' : 'bg-transparent hover:bg-[#eef1f7]',
                     ].join(' ')}
                   >
-                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[#d7dce8] bg-[#eeeeee] shadow-[0_4px_10px_rgba(38,53,87,0.12)]">
+                    <div className="relative h-8 w-10 shrink-0 overflow-hidden rounded-full border border-[#d7dce8] bg-[#eeeeee] shadow-[0_4px_10px_rgba(38,53,87,0.12)]">
                       <img
                         src={conversation.user.avatar}
                         alt={`${conversation.user.name} profile`}
@@ -255,7 +222,7 @@ function Chat() {
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-[34px] font-extrabold leading-none text-[#1f2737]">
+                        <p className="truncate text-sm font-extrabold leading-none text-[#1f2737]">
                           {conversation.user.name}
                         </p>
                         <span className="whitespace-nowrap text-xs text-[#7f8798]">{latestMessage?.time ?? ''}</span>
@@ -281,9 +248,9 @@ function Chat() {
           </section>
 
           <section className="flex min-w-0 flex-1 flex-col bg-[#eef0f5]">
-            <div className="flex h-[76px] items-center justify-between border-b border-[#dce0e9] bg-[#f7f8fb] px-7">
+            <div className="flex h-14 items-center justify-between border-b border-[#dce0e9] bg-[#f7f8fb] px-5">
               <div className="flex items-center gap-4">
-                <div className="relative h-10 w-10 overflow-hidden rounded-full border border-[#d7dce8] bg-[#d8d1b4] shadow-[0_3px_8px_rgba(38,53,87,0.12)]">
+                <div className="relative h-8 w-10 overflow-hidden rounded-full border border-[#d7dce8] bg-[#d8d1b4] shadow-[0_3px_8px_rgba(38,53,87,0.12)]">
                   <img
                     src={activeConversation?.user.avatar}
                     alt={`${activeConversation?.user.name ?? 'Selected user'} profile`}
@@ -297,7 +264,7 @@ function Chat() {
                   />
                 </div>
                 <div>
-                  <p className="text-[34px] font-extrabold leading-none text-[#1f2737]">
+                  <p className="text-sm font-extrabold leading-none text-[#1f2737]">
                     {activeConversation?.user.name ?? 'No chat selected'}
                   </p>
                   <p className="mt-1 text-sm text-[#657089]">
@@ -313,7 +280,7 @@ function Chat() {
               </div>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col px-6 py-4">
+            <div className="flex min-h-0 flex-1 flex-col px-4 py-3">
               <div className="mb-4 flex justify-center">
                 <span className="rounded-full bg-[#dce1eb] px-4 py-1 text-xs font-semibold text-[#66728c]">TODAY</span>
               </div>
@@ -321,8 +288,8 @@ function Chat() {
               <div ref={messagesContainerRef} className="space-y-4 overflow-y-auto">
                 {activeConversation?.messages.map((message) => (
                   <div key={message.id} className={message.mine ? 'ml-auto max-w-[64%]' : 'max-w-[56%]'}>
-                    <div className={message.mine ? 'rounded-3xl rounded-br-xl bg-[#2f63e6] px-5 py-4 text-white' : 'rounded-3xl rounded-bl-xl border border-[#dce1eb] bg-[#f8f9fc] px-5 py-4 text-[#2f374b]'}>
-                      <p className="text-[29px] leading-relaxed">{message.text}</p>
+                    <div className={message.mine ? 'rounded-3xl rounded-br-xl bg-[#2f63e6] px-4 py-3 text-white' : 'rounded-3xl rounded-bl-xl border border-[#dce1eb] bg-[#f8f9fc] px-4 py-3 text-[#2f374b]'}>
+                      <p className="text-sm leading-relaxed">{message.text}</p>
                     </div>
                     <div className={['mt-2 flex items-center gap-2 text-xs text-[#8a93a5]', message.mine ? 'justify-end' : 'justify-start'].join(' ')}>
                       <span>{message.time}</span>
@@ -334,8 +301,8 @@ function Chat() {
             </div>
 
             <div className="border-t border-[#dce0e9] bg-[#f3f4f8] px-4 py-3">
-              <div className="flex h-14 items-center gap-3 rounded-2xl border border-[#d7dce7] bg-[#e9ecf3] px-4">
-                <button type="button" className="text-xl text-[#8290a8]">
+              <div className="flex h-11 items-center gap-3 rounded-2xl border border-[#d7dce7] bg-[#e9ecf3] px-4">
+                <button type="button" className="text-sm text-[#8290a8]">
                   <FontAwesomeIcon icon={faPlus} />
                 </button>
                 <input
@@ -349,30 +316,28 @@ function Chat() {
                 <button
                   type="button"
                   onClick={() => setDraftMessage((current) => `${current}🙂`)}
-                  className="text-xl text-[#8390a8]"
+                  className="text-sm text-[#8390a8]"
                 >
                   <FontAwesomeIcon icon={faFaceSmile} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setDraftMessage("I'm checking and will update in a minute.")}
-                  className="grid h-10 w-10 place-items-center rounded-full bg-[#1f78f0] text-white"
+                  className="grid h-8 w-10 place-items-center rounded-full bg-[#1f78f0] text-white"
                 >
                   <FontAwesomeIcon icon={faMicrophone} />
                 </button>
                 <button
                   type="button"
                   onClick={handleSendMessage}
-                  className="grid h-10 w-14 place-items-center rounded-xl bg-[#2f63e6] text-xl text-white"
+                  className="grid h-8 w-14 place-items-center rounded-xl bg-[#2f63e6] text-sm text-white"
                 >
                   <FontAwesomeIcon icon={faPaperPlane} />
                 </button>
               </div>
             </div>
           </section>
-        </main>
-      </div>
-    </div>
+        </div>
   )
 }
 

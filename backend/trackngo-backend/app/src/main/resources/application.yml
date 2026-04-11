@@ -3,9 +3,9 @@
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/trackngo?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: root
-    password: dinithmora2003
+    url: ${DB_URL:jdbc:mysql://localhost:3306/trackngo?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
   servlet:
     multipart:
       max-file-size: 15MB
@@ -20,5 +20,5 @@ spring:
 
 trackngo:
   jwt:
-    secret: "change-this-secret-change-this-secret"
+    secret: ${JWT_SECRET:change-this-secret-change-this-secret}
     expiration-ms: 86400000

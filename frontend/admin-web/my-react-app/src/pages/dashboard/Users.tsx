@@ -181,7 +181,7 @@ function Users() {
             type="button"
             onClick={() => navigate('/dashboard/corporate')}
             className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
-              location.pathname === '/dashboard/corporate'
+              location.pathname === '/dashboard/corporate' || location.pathname === '/dashboard/users/corporate-users'
                 ? 'border-[#7e22ce] bg-[#faf5ff] text-[#7e22ce]'
                 : 'border-[#cfd8ea] bg-white text-[#7e22ce]'
             }`}

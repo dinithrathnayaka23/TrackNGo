@@ -23,11 +23,21 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
     buses: 'Buses',
     booking: 'Bookings',
     complaints: 'Complaints',
+    routes: 'Routes',
   }
+  const subSegment = location.pathname.split('/')[3] || ''
   const breadcrumbTrail =
-    segment === 'passenger' || segment === 'driver' || segment === 'corporate'
+    segment === 'passenger' || segment === 'driver'
       ? ['Users', labelBySegment[segment] ?? 'Dashboard']
-      : [labelBySegment[segment] ?? 'Dashboard']
+      : segment === 'corporate' && subSegment
+        ? ['Users', 'Corporate', 'Details']
+        : segment === 'corporate'
+          ? ['Users', 'Corporate']
+        : segment === 'users' && subSegment === 'corporate-users'
+          ? ['Users', 'Corporate Users']
+          : segment === 'buses' && subSegment
+            ? ['Buses', 'Bus Details']
+            : [labelBySegment[segment] ?? 'Dashboard']
 
   return (
     <div className="min-h-screen bg-[#f3f4f8] text-[#111827]">

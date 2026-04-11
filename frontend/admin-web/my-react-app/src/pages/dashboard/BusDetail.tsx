@@ -1,5 +1,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   faArrowLeft,
   faBus,
@@ -150,6 +151,18 @@ const driverTripRecords: DriverTripRecord[] = [
     tripId: `TRP-761-${String(index + 1).padStart(3, "0")}`,
     driverId: "DRV-761",
   })),
+  ...Array.from({ length: 95 }, (_, index) => ({
+    tripId: `TRP-501-${String(index + 1).padStart(3, "0")}`,
+    driverId: "DRV-501",
+  })),
+  ...Array.from({ length: 83 }, (_, index) => ({
+    tripId: `TRP-602-${String(index + 1).padStart(3, "0")}`,
+    driverId: "DRV-602",
+  })),
+  ...Array.from({ length: 105 }, (_, index) => ({
+    tripId: `TRP-710-${String(index + 1).padStart(3, "0")}`,
+    driverId: "DRV-710",
+  })),
 ];
 
 const getTripCountForDriver = (driverId: string): number =>
@@ -168,6 +181,9 @@ const driverDirectory: Record<string, string> = {
   "kasun perera": "DRV-415",
   "nimal silva": "DRV-233",
   "amila fernando": "DRV-761",
+  "lahiru mudalige": "DRV-501",
+  "ashen senarathna": "DRV-602",
+  "david ross": "DRV-710",
 };
 
 const initialBusInfo: BusInfo = {
@@ -180,7 +196,7 @@ const initialBusInfo: BusInfo = {
   status: "Active",
 };
 
-const busRevenueLast30Days: BusRevenuePoint[] = (() => {
+const generateBusRevenue = (seed: number): BusRevenuePoint[] => {
   const start = new Date("2026-01-26");
   const weekdayFactor = [0.9, 0.95, 1, 1.05, 1.12, 1.28, 1.18];
 
@@ -189,8 +205,8 @@ const busRevenueLast30Days: BusRevenuePoint[] = (() => {
     date.setDate(start.getDate() + index);
 
     const dayFactor = weekdayFactor[date.getDay()];
-    const trend = 7800 + index * 85;
-    const seasonal = ((index * 37) % 540) - 220;
+    const trend = 7800 + seed * 200 + index * 85;
+    const seasonal = (((index * 37 + seed * 13) % 540) - 220);
     const revenue = Math.round((trend + seasonal) * dayFactor);
 
     return {
@@ -198,22 +214,88 @@ const busRevenueLast30Days: BusRevenuePoint[] = (() => {
       revenue,
     };
   });
-})();
+};
 const revenueChartLabelIndexes = [0, 5, 10, 15, 20, 25, 29];
 
+type BusDetailEntry = {
+  busInfo: BusInfo;
+  driver: Driver;
+  image: string;
+  revenueSeed: number;
+};
+
+const BUS_DETAIL_MAP: Record<string, BusDetailEntry> = {
+  "nd-1151": {
+    busInfo: { code: "ND-1151", seats: "42", brand: "Ashok Leyland", condition: "Semi-Luxury", type: "Highway", insuranceExp: "Nov 2026", status: "Active" },
+    driver: { name: "Lahiru Mudalige", id: "DRV-501", phone: "0712345678", rating: "4.7", trips: getTripCountForDriver("DRV-501") },
+    image: "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=480&q=80&fit=crop",
+    revenueSeed: 0,
+  },
+  "nc-2344": {
+    busInfo: { code: "NC-2344", seats: "54", brand: "Ashok Leyland", condition: "Normal", type: "City", insuranceExp: "Mar 2027", status: "Active" },
+    driver: { name: "Lahiru Mudalige", id: "DRV-501", phone: "0712345678", rating: "4.7", trips: getTripCountForDriver("DRV-501") },
+    image: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=480&q=80&fit=crop",
+    revenueSeed: 1,
+  },
+  "nj-1539": {
+    busInfo: { code: "NJ-1539", seats: "36", brand: "Volvo 9600", condition: "Super-Luxury", type: "Highway", insuranceExp: "Jul 2026", status: "Active" },
+    driver: { name: "Ashen Senarathna", id: "DRV-602", phone: "0719876543", rating: "4.8", trips: getTripCountForDriver("DRV-602") },
+    image: "https://images.unsplash.com/photo-1557223562-6c77ef16210f?w=480&q=80&fit=crop",
+    revenueSeed: 2,
+  },
+  "nc-1212": {
+    busInfo: { code: "NC-1212", seats: "40", brand: "Volvo 9600", condition: "Luxury", type: "Highway", insuranceExp: "Sep 2026", status: "Active" },
+    driver: { name: "David Ross", id: "DRV-710", phone: "0714567890", rating: "4.6", trips: getTripCountForDriver("DRV-710") },
+    image: "https://images.unsplash.com/photo-1494515843206-f3117d3f51b7?w=480&q=80&fit=crop",
+    revenueSeed: 3,
+  },
+  "nb-3301": {
+    busInfo: { code: "NB-3301", seats: "50", brand: "Tata Marcopolo", condition: "Semi-Luxury", type: "Expressway", insuranceExp: "Jan 2027", status: "Maintenance" },
+    driver: { name: "Kasun Perera", id: "DRV-415", phone: "0776543210", rating: "4.5", trips: getTripCountForDriver("DRV-415") },
+    image: "https://images.unsplash.com/photo-1561361513-2d000a50f0dc?w=480&q=80&fit=crop",
+    revenueSeed: 4,
+  },
+  "nd-4420": {
+    busInfo: { code: "ND-4420", seats: "45", brand: "King Long", condition: "Normal", type: "City", insuranceExp: "May 2026", status: "Maintenance" },
+    driver: { name: "Nimal Silva", id: "DRV-233", phone: "0723456789", rating: "4.3", trips: getTripCountForDriver("DRV-233") },
+    image: "https://images.unsplash.com/photo-1464219789935-c2d9d9aba644?w=480&q=80&fit=crop",
+    revenueSeed: 5,
+  },
+  "nc-5501": {
+    busInfo: { code: "NC-5501", seats: "38", brand: "Ashok Leyland", condition: "Luxury", type: "Expressway", insuranceExp: "Aug 2026", status: "Active" },
+    driver: { name: "Amila Fernando", id: "DRV-761", phone: "0718765432", rating: "4.8", trips: getTripCountForDriver("DRV-761") },
+    image: "https://images.unsplash.com/photo-1622631601750-b9ef0ecc69f7?w=480&q=80&fit=crop",
+    revenueSeed: 6,
+  },
+  "nj-6610": {
+    busInfo: { code: "NJ-6610", seats: "44", brand: "Volvo 9600", condition: "Super-Luxury", type: "Highway", insuranceExp: "Dec 2026", status: "Active" },
+    driver: { name: "Dinesh Gamage", id: "DRV-892", phone: "0711526987", rating: "4.9", trips: getTripCountForDriver("DRV-892") },
+    image: "https://images.unsplash.com/photo-1587036325238-17e478fa5248?w=480&q=80&fit=crop",
+    revenueSeed: 7,
+  },
+};
+
 function BusDetail() {
+  const { busId } = useParams<{ busId: string }>();
+  const navigate = useNavigate();
+  const busEntry = busId ? BUS_DETAIL_MAP[busId] : undefined;
+
+  const entryBusInfo = busEntry?.busInfo ?? initialBusInfo;
+  const entryDriver = busEntry?.driver ?? initialDriver;
+  const busImage = busEntry?.image ?? "https://images.unsplash.com/photo-1570125909517-53cb21c89ff2?auto=format&fit=crop&w=280&q=80";
+
   // Persisted view state displayed on the page.
   const [amenities, setAmenities] = useState<Amenity[]>(initialAmenities);
   // Draft state lets users edit in modals without mutating live data until Save.
   const [isAmenityModalOpen, setIsAmenityModalOpen] = useState(false);
   const [amenityDraft, setAmenityDraft] = useState<Amenity[]>(initialAmenities);
-  const [assignedDriver, setAssignedDriver] = useState<Driver>(initialDriver);
+  const [assignedDriver, setAssignedDriver] = useState<Driver>(entryDriver);
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
-  const [driverDraft, setDriverDraft] = useState<Driver>(initialDriver);
-  const [busInfo, setBusInfo] = useState<BusInfo>(initialBusInfo);
+  const [driverDraft, setDriverDraft] = useState<Driver>(entryDriver);
+  const [busInfo, setBusInfo] = useState<BusInfo>(entryBusInfo);
   const [isEditBusModalOpen, setIsEditBusModalOpen] = useState(false);
   const [isEditLayoutModalOpen, setIsEditLayoutModalOpen] = useState(false);
-  const [busDraft, setBusDraft] = useState<BusInfo>(initialBusInfo);
+  const [busDraft, setBusDraft] = useState<BusInfo>(entryBusInfo);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isBusDeleted, setIsBusDeleted] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
@@ -540,7 +622,10 @@ function BusDetail() {
   const visibleScheduleItems = isFullScheduleVisible
     ? scheduleItems
     : scheduleItems.slice(0, 2);
-  const revenuePoints = useMemo(() => busRevenueLast30Days, []);
+  const revenuePoints = useMemo(
+    () => generateBusRevenue(busEntry?.revenueSeed ?? 0),
+    [busEntry],
+  );
   const totalRevenueLast30Days = useMemo(
     () => revenuePoints.reduce((sum, point) => sum + point.revenue, 0),
     [revenuePoints],
@@ -598,9 +683,24 @@ function BusDetail() {
 
   return (
     <>
+      {!busEntry ? (
+        <div className="mx-auto max-w-7xl space-y-4 py-12 text-center">
+          <h1 className="text-xl font-extrabold text-[#111827]">Bus Not Found</h1>
+          <p className="text-sm text-[#64748b]">The bus you are looking for does not exist.</p>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/buses')}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#203b96]"
+          >
+            <FontAwesomeIcon icon={faArrowLeft} />
+            Back to Buses
+          </button>
+        </div>
+      ) : (
       <div className="mx-auto max-w-7xl space-y-3">
             <button
               type="button"
+              onClick={() => navigate('/dashboard/buses')}
               className="flex items-center gap-2 text-sm text-[#202535] transition duration-200 hover:-translate-x-0.5"
               aria-label="Go back"
             >
@@ -615,8 +715,8 @@ function BusDetail() {
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <img
-                    src="https://images.unsplash.com/photo-1570125909517-53cb21c89ff2?auto=format&fit=crop&w=280&q=80"
-                    alt="Red luxury coach bus parked outdoors"
+                    src={busImage}
+                    alt={`Bus ${busInfo.code}`}
                     className="h-28 w-44 rounded-lg object-cover"
                   />
                   <div>
@@ -1249,6 +1349,7 @@ function BusDetail() {
               </section>
             ) : null}
           </div>
+      )}
 
       {isAmenityModalOpen ? (
         // Amenity editor modal works on draft values until Save Changes is clicked.

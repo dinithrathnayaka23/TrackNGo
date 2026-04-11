@@ -20,10 +20,10 @@ const navItems = [
     label: 'Users',
     icon: faUsers,
     section: 'Main Menu',
-    activeOn: ['/dashboard/users', '/dashboard/passenger', '/dashboard/driver', '/dashboard/corporate'],
+    activeOn: ['/dashboard/users', '/dashboard/passenger', '/dashboard/driver', '/dashboard/corporate', '/dashboard/users/corporate-users'],
   },
-  { to: '/dashboard/buses', label: 'Buses', icon: faBus, section: 'Main Menu' },
-  { to: '/dashboard/booking?view=routes', label: 'Routes', icon: faLocationDot, section: 'Main Menu' },
+  { to: '/dashboard/buses', label: 'Buses', icon: faBus, section: 'Main Menu', activeOn: ['/dashboard/buses'] },
+  { to: '/dashboard/routes', label: 'Routes', icon: faLocationDot, section: 'Main Menu' },
   { to: '/dashboard/booking?view=bookings', label: 'Bookings', icon: faBook, section: 'Main Menu' },
   { to: '/dashboard/complaints', label: 'Complaints', icon: faTriangleExclamation, section: 'System' },
   { to: '/dashboard/analytics', label: 'Analytics', icon: faChartColumn, section: 'System' },
@@ -46,7 +46,7 @@ function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     }`
 
   const isItemActive = (to: string, activeOn?: string[]) => {
-    if (activeOn && activeOn.includes(location.pathname)) return true
+    if (activeOn && activeOn.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'))) return true
 
     const [path, search = ''] = to.split('?')
     if (location.pathname !== path) return false

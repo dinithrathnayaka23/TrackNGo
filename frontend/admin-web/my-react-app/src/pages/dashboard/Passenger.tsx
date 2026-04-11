@@ -1,5 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faArrowLeft } from '@fortawesome/free-solid-svg-icons'
 
 interface Passenger {
   id: string
@@ -412,25 +414,21 @@ function PassengerManagement() {
 
   return (
     <section className="mx-auto w-full max-w-[1320px]">
+      <button
+        type="button"
+        onClick={() => navigate('/dashboard/users')}
+        className="mb-5 grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#475569] transition hover:bg-[#f1f5f9]"
+      >
+        <FontAwesomeIcon icon={faArrowLeft} />
+      </button>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard/users')}
-            className="rounded-lg p-2 text-[#111827] hover:bg-gray-100"
-          >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
+        <div>
             <h1 className="text-base font-extrabold tracking-tight text-[#111827]">Passenger Management</h1>
             <p className="mt-1 text-sm font-semibold text-[#475569]">
               Total Passengers: <span className="text-[#0f172a]">142</span> | Active:{' '}
               <span className="text-[#10b981]">132</span>
             </p>
           </div>
-        </div>
         <button
           type="button"
           onClick={() => setIsAddPassengerModalOpen(true)}

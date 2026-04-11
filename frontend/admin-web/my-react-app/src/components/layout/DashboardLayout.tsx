@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faBars, faBell, faChevronRight, faMagnifyingGlass, faRightFromBracket } from '@fortawesome/free-solid-svg-icons'
+import { faBars, faBell, faMagnifyingGlass, faSignOutAlt } from '@fortawesome/free-solid-svg-icons'
 import Sidebar from './Sidebar'
 
 type DashboardLayoutProps = {
@@ -35,49 +35,55 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
         <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
 
         <div className="min-h-screen flex-1 min-w-0">
-          <header className="sticky top-0 z-10 border-b border-[#dfe3ea] bg-[#f9fafc]">
-            <div className="flex flex-wrap items-center justify-between gap-3 px-6">
-              <div className="flex items-center gap-2 text-sm text-[#6b7280]">
-                <button
-                  type="button"
-                  onClick={() => setMobileMenuOpen(true)}
-                  className="mr-1 grid h-9 w-9 place-items-center rounded-lg text-[#374151] hover:bg-[#eef2ff] lg:hidden"
-                >
-                  <FontAwesomeIcon icon={faBars} />
-                </button>
-                <span className="hidden sm:inline">Home</span>
-                {breadcrumbTrail.map((crumb) => (
-                  <div key={crumb} className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faChevronRight} className="text-[10px]" />
-                    <span className="font-semibold text-[#374151]">{crumb}</span>
+          <header
+            className="animate-dash-in z-10 flex h-16 shrink-0 items-center justify-between border-b border-[#dfe1e8] bg-[#f7f7fa] px-6"
+            style={{ animationDelay: '40ms' }}
+          >
+            <div className="flex flex-nowrap items-center gap-3 text-sm text-[#6a7284] whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                className="mr-1 grid h-9 w-9 place-items-center rounded-lg text-[#374151] hover:bg-[#eef2ff] lg:hidden"
+              >
+                <FontAwesomeIcon icon={faBars} />
+              </button>
+              {['Home', ...breadcrumbTrail].map((crumb, index, arr) => {
+                const isLast = index === arr.length - 1
+                return (
+                  <div key={`${crumb}-${index}`} className="flex items-center gap-3">
+                    <span className={isLast ? 'whitespace-nowrap font-bold text-[#2b3448]' : 'whitespace-nowrap'}>{crumb}</span>
+                    {!isLast ? <span>{'>'}</span> : null}
                   </div>
-                ))}
-              </div>
+                )
+              })}
+            </div>
 
-              <label className="order-last flex h-12 w-full items-center gap-2 rounded-lg border border-[#e5e7eb] bg-[#f1f3f7] px-3 text-sm text-[#9ca3af] sm:order-none sm:w-auto sm:max-w-[560px] sm:flex-1">
+            <div className="w-full max-w-[560px] px-6">
+              <div className="flex h-12 items-center gap-3 rounded-xl bg-[#eef0f5] px-4 text-[#7d8798]">
                 <FontAwesomeIcon icon={faMagnifyingGlass} />
                 <input
                   type="text"
                   placeholder="Search buses, drivers, or routes..."
-                  className="w-full bg-transparent text-[#4b5563] placeholder:text-[#9ca3af] outline-none"
+                  className="w-full bg-transparent text-sm text-[#2f394d] outline-none"
                 />
-              </label>
-
-              <div className="flex items-center gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#21409a] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-[#1b357f]"
-                >
-                  <FontAwesomeIcon icon={faRightFromBracket} />
-                  Logout
-                </button>
-                <button
-                  type="button"
-                  className="relative text-sm text-[#6b7280] transition hover:scale-105"
-                >
-                  <FontAwesomeIcon icon={faBell} />
-                </button>
               </div>
+            </div>
+
+            <div className="relative flex items-center gap-8">
+              <button
+                type="button"
+                className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-1.5 text-xs font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
+              >
+                <FontAwesomeIcon icon={faSignOutAlt} />
+                Logout
+              </button>
+              <button
+                type="button"
+                className="relative text-sm text-[#3b4253] transition duration-200 hover:scale-105"
+                aria-label="Notifications"
+              >
+                <FontAwesomeIcon icon={faBell} />
+              </button>
             </div>
           </header>
 

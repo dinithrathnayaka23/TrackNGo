@@ -1,13 +1,33 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { SessionProvider } from "../store/sessionStore";
+import { SessionProvider, useSession } from "../store/sessionStore";
+
+function RootLayoutNav() {
+  const { currentUser, loading } = useSession();
+
+  if (loading) {
+    return null; // or a loading spinner
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      {currentUser == null ? (
+        // Show login screen if not authenticated
+        <Stack.Screen name="auth/login" />
+      ) : (
+        // Show app navigation if authenticated
+        <Stack.Screen name="navigation/AppNavigation" />
+      )}
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SessionProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <RootLayoutNav />
         <StatusBar style="dark" />
       </SessionProvider>
     </SafeAreaProvider>

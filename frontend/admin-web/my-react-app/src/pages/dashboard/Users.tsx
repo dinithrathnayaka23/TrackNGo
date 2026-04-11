@@ -226,10 +226,10 @@ function Users() {
   }
 
   return (
-    <div className="h-screen bg-[#efeff4]" style={{ fontFamily: 'Manrope, Segoe UI, sans-serif' }}>
+    <div className="h-screen bg-[#efeff4]">
       <Sidebar mainMenu={mainMenu} systemMenu={systemMenu} onMenuAction={showToast} />
 
-      <div className="ml-[314px] flex h-screen flex-col">
+      <div className="ml-0 flex h-screen flex-col lg:ml-60">
         <Navbar
           breadcrumbs={['Co-operate', 'Co-operate Details']}
           onLogout={handleLogout}
@@ -250,13 +250,13 @@ function Users() {
           ) : null}
         />
 
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="mx-auto max-w-[1700px] space-y-5">
-            <section className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '80ms' }}>
+        <main className="flex-1 overflow-y-auto p-5">
+          <div className="mx-auto max-w-7xl space-y-3">
+            <section className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '80ms' }}>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h1 className="text-[48px] font-extrabold tracking-tight text-[#1f2737]">MAS Holdings</h1>
+                    <h1 className="text-base font-extrabold tracking-tight text-[#1f2737]">MAS Holdings</h1>
                     <span className={['rounded-full px-3 py-1 text-xs font-bold', isSuspended ? 'bg-[#fde8e8] text-[#e04747]' : 'bg-[#def7eb] text-[#149f69]'].join(' ')}>
                       {isSuspended ? 'Suspended' : 'Active'}
                     </span>
@@ -287,7 +287,7 @@ function Users() {
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-6 border-b border-[#e5e8ef]">
+              <div className="mt-4 flex items-center gap-4 border-b border-[#e5e8ef]">
                 {[
                   ['overview', 'Overview'],
                   ['contracts', 'Contracts'],
@@ -312,37 +312,37 @@ function Users() {
               <>
                 <section className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr]">
                   <article className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm" style={{ animationDelay: '120ms' }}>
-                    <div className="flex items-center justify-between border-b border-[#e3e7f0] px-5 py-4">
-                      <h2 className="text-3xl font-bold text-[#1f2737]">Company Information</h2>
+                    <div className="flex items-center justify-between border-b border-[#e3e7f0] px-4 py-3">
+                      <h2 className="text-sm font-bold text-[#1f2737]">Company Information</h2>
                       <button type="button" className="text-sm font-semibold text-[#2642a6]" onClick={() => showToast('Opened full profile (dummy).')}>View Full Profile</button>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6 px-5 py-5 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 px-5 py-3 md:grid-cols-2">
                       <div>
                         <p className="text-sm text-[#7a8498]">Registered Name</p>
-                        <p className="mt-1 text-xl font-bold text-[#1f2737]">MAS Holdings</p>
+                        <p className="mt-1 text-sm font-bold text-[#1f2737]">MAS Holdings</p>
                       </div>
                       <div>
                         <p className="text-sm text-[#7a8498]">Industry</p>
-                        <p className="mt-1 text-xl font-bold text-[#1f2737]">Textile and Apparel Industry</p>
+                        <p className="mt-1 text-sm font-bold text-[#1f2737]">Textile and Apparel Industry</p>
                       </div>
                       <div>
                         <p className="text-sm text-[#7a8498]">Address</p>
-                        <p className="mt-1 text-xl font-bold text-[#1f2737]"><FontAwesomeIcon icon={faLocationDot} className="mr-2 text-sm" />Bambalapitiya, Colombo</p>
+                        <p className="mt-1 text-sm font-bold text-[#1f2737]"><FontAwesomeIcon icon={faLocationDot} className="mr-2 text-sm" />Bambalapitiya, Colombo</p>
                       </div>
                       <div>
                         <p className="text-sm text-[#7a8498]">Total Passenger Count</p>
-                        <p className="mt-1 text-xl font-bold text-[#1f2737]">500</p>
+                        <p className="mt-1 text-sm font-bold text-[#1f2737]">500</p>
                       </div>
                     </div>
 
-                    <div className="border-t border-[#e3e7f0] px-5 py-5">
-                      <p className="text-lg font-bold text-[#1f2737]">Primary Contact</p>
+                    <div className="border-t border-[#e3e7f0] px-5 py-3">
+                      <p className="text-sm font-bold text-[#1f2737]">Primary Contact</p>
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <img src={oshadiImage} alt="Primary contact avatar" className="h-12 w-12 rounded-md object-cover" />
                           <div>
-                            <p className="text-xl font-bold text-[#1f2737]">Oshadi Liyanage</p>
+                            <p className="text-sm font-bold text-[#1f2737]">Oshadi Liyanage</p>
                             <p className="text-sm text-[#7a8498]">Management Lead</p>
                           </div>
                         </div>
@@ -354,8 +354,8 @@ function Users() {
                     </div>
                   </article>
 
-                  <article className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '160ms' }}>
-                    <h2 className="text-3xl font-bold text-[#1f2737]">Contracts Summary</h2>
+                  <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '160ms' }}>
+                    <h2 className="text-sm font-bold text-[#1f2737]">Contracts Summary</h2>
                     <div className="mt-4 space-y-3">
                       <div className="flex items-center gap-3 rounded-xl border border-[#e3e7f0] bg-[#f9fafd] p-4">
                         <div className="grid h-12 w-12 place-items-center rounded-lg bg-[#e8eeff] text-[#2f4fb5]">
@@ -363,7 +363,7 @@ function Users() {
                         </div>
                         <div>
                           <p className="text-sm text-[#7a8498]">Active Contracts</p>
-                          <p className="text-4xl font-extrabold text-[#1f2737]">{contracts.length}</p>
+                          <p className="text-sm font-extrabold text-[#1f2737]">{contracts.length}</p>
                         </div>
                       </div>
                       <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e3e7f0] bg-[#f9fafd] p-4">
@@ -373,7 +373,7 @@ function Users() {
                           </div>
                           <div>
                             <p className="text-sm text-[#7a8498]">Buses Allocated</p>
-                            <p className="text-4xl font-extrabold text-[#1f2737]">12</p>
+                            <p className="text-sm font-extrabold text-[#1f2737]">12</p>
                           </div>
                         </div>
                         <button type="button" className="text-sm font-semibold text-[#2642a6]" onClick={() => showToast('Opened bus allocation details.')}>
@@ -386,7 +386,7 @@ function Users() {
                         </div>
                         <div>
                           <p className="text-sm text-[#7a8498]">Monthly Value</p>
-                          <p className="text-4xl font-extrabold text-[#1f2737]">Rs.45,000</p>
+                          <p className="text-sm font-extrabold text-[#1f2737]">Rs.45,000</p>
                         </div>
                       </div>
                     </div>
@@ -395,7 +395,7 @@ function Users() {
 
                 <section className="animate-dash-in" style={{ animationDelay: '200ms' }}>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-3xl font-bold text-[#1f2737]">Active Contracts</h2>
+                    <h2 className="text-sm font-bold text-[#1f2737]">Active Contracts</h2>
                     <button type="button" className="rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white" onClick={openContractModal}>
                       <FontAwesomeIcon icon={faPlus} className="mr-2" />
                       New Contract
@@ -411,7 +411,7 @@ function Users() {
                             {contract.status}
                           </span>
                         </div>
-                        <h3 className="mt-2 text-[28px] font-extrabold text-[#1f2737]">{contract.name}</h3>
+                        <h3 className="mt-2 text-sm font-extrabold text-[#1f2737]">{contract.name}</h3>
                         <div className="mt-3 space-y-2 text-sm text-[#546078]">
                           <p><FontAwesomeIcon icon={faBus} className="mr-2" />Buses <span className="float-right font-semibold text-[#1f2737]">{contract.buses}</span></p>
                           <p><FontAwesomeIcon icon={faCalendar} className="mr-2" />Valid <span className="float-right font-semibold text-[#1f2737]">{contract.validity}</span></p>
@@ -436,9 +436,9 @@ function Users() {
                   ) : null}
                 </section>
 
-                <section className="dashboard-card animate-dash-in rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm" style={{ animationDelay: '240ms' }}>
+                <section className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '240ms' }}>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-3xl font-bold text-[#1f2737]">Latest Invoices</h2>
+                    <h2 className="text-sm font-bold text-[#1f2737]">Latest Invoices</h2>
                     <button type="button" className="text-sm font-bold text-[#2642a6]" onClick={() => setShowAllInvoices((value) => !value)}>
                       {showAllInvoices ? 'Show Less' : 'View All'}
                     </button>
@@ -457,13 +457,13 @@ function Users() {
                       <tbody>
                         {visibleInvoices.map((invoice) => (
                           <tr key={invoice.id} className="border-b border-[#e8ebf2] text-[#2a3448]">
-                            <td className="px-4 py-4 text-sm font-semibold">{invoice.id}</td>
-                            <td className="px-4 py-4 text-sm">{invoice.date}</td>
-                            <td className="px-4 py-4 text-sm">{invoice.amount}</td>
-                            <td className="px-4 py-4 text-sm">
+                            <td className="px-4 py-3 text-sm font-semibold">{invoice.id}</td>
+                            <td className="px-4 py-3 text-sm">{invoice.date}</td>
+                            <td className="px-4 py-3 text-sm">{invoice.amount}</td>
+                            <td className="px-4 py-3 text-sm">
                               <span className="rounded-full bg-[#def7eb] px-2 py-1 text-xs font-bold text-[#149f69]">{invoice.status}</span>
                             </td>
-                            <td className="px-4 py-4 text-sm">
+                            <td className="px-4 py-3 text-sm">
                               <button type="button" className="text-[#6f7890]" onClick={() => downloadInvoice(invoice)}><FontAwesomeIcon icon={faDownload} /></button>
                             </td>
                           </tr>
@@ -478,7 +478,7 @@ function Users() {
             {activeTab === 'contracts' ? (
               <section className="dashboard-card rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-8 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-4xl font-extrabold text-[#1f2737]">Contracts</h2>
+                  <h2 className="text-sm font-extrabold text-[#1f2737]">Contracts</h2>
                   <button type="button" className="rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white" onClick={openContractModal}>
                     <FontAwesomeIcon icon={faPlus} className="mr-2" />
                     Add Contract
@@ -499,11 +499,11 @@ function Users() {
                     <tbody>
                       {filteredContracts.map((contract) => (
                         <tr key={contract.id} className="border-b border-[#e8ebf2] text-[#2a3448]">
-                          <td className="px-4 py-4 text-sm font-semibold">{contract.id}</td>
-                          <td className="px-4 py-4 text-sm">{contract.name}</td>
-                          <td className="px-4 py-4 text-sm">{contract.status}</td>
-                          <td className="px-4 py-4 text-sm">{contract.monthly}</td>
-                          <td className="px-4 py-4 text-sm">
+                          <td className="px-4 py-3 text-sm font-semibold">{contract.id}</td>
+                          <td className="px-4 py-3 text-sm">{contract.name}</td>
+                          <td className="px-4 py-3 text-sm">{contract.status}</td>
+                          <td className="px-4 py-3 text-sm">{contract.monthly}</td>
+                          <td className="px-4 py-3 text-sm">
                             <button type="button" className="mr-3 text-[#2642a6]" onClick={() => showToast(`Opened ${contract.id}.`)}>Open</button>
                             <button type="button" className="text-[#d74949]" onClick={() => deleteContract(contract.id)}>Delete</button>
                           </td>
@@ -518,7 +518,7 @@ function Users() {
             {activeTab === 'billing' ? (
               <section className="dashboard-card rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] p-8 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-4xl font-extrabold text-[#1f2737]">Billing</h2>
+                  <h2 className="text-sm font-extrabold text-[#1f2737]">Billing</h2>
                   <button type="button" className="rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white" onClick={generateInvoice}>
                     <FontAwesomeIcon icon={faFileInvoice} className="mr-2" />
                     Generate Invoice
@@ -539,11 +539,11 @@ function Users() {
                     <tbody>
                       {invoices.map((invoice) => (
                         <tr key={invoice.id} className="border-b border-[#e8ebf2] text-[#2a3448]">
-                          <td className="px-4 py-4 text-sm font-semibold">{invoice.id}</td>
-                          <td className="px-4 py-4 text-sm">{invoice.date}</td>
-                          <td className="px-4 py-4 text-sm">{invoice.amount}</td>
-                          <td className="px-4 py-4 text-sm">{invoice.status}</td>
-                          <td className="px-4 py-4 text-sm">
+                          <td className="px-4 py-3 text-sm font-semibold">{invoice.id}</td>
+                          <td className="px-4 py-3 text-sm">{invoice.date}</td>
+                          <td className="px-4 py-3 text-sm">{invoice.amount}</td>
+                          <td className="px-4 py-3 text-sm">{invoice.status}</td>
+                          <td className="px-4 py-3 text-sm">
                             <button type="button" className="text-[#2642a6]" onClick={() => downloadInvoice(invoice)}>Download</button>
                           </td>
                         </tr>
@@ -560,9 +560,9 @@ function Users() {
       {isContractModalOpen ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-2xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
+            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-4 py-3">
               <div>
-                <h2 className="text-2xl font-extrabold text-[#1f2737]">New Contract</h2>
+                <h2 className="text-sm font-extrabold text-[#1f2737]">New Contract</h2>
                 <p className="text-sm text-[#6d778e]">Create a contract with dummy details.</p>
               </div>
               <button
@@ -574,7 +574,7 @@ function Users() {
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
-            <form onSubmit={createContract} className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2">
+            <form onSubmit={createContract} className="grid grid-cols-1 gap-4 px-4 py-3 md:grid-cols-2">
               <div className="md:col-span-2">
                 <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="contract-name">
                   Contract Name

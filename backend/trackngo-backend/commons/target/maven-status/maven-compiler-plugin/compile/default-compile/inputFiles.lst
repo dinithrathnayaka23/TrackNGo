@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\ApiResponse.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\util\JwtUtil.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\events\BaseEvent.java
@@ -8,3 +9,15 @@ C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\commons\src\mai
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\util\DateUtil.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\constants\AppConstants.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\exception\ResourceNotFoundException.java
+=======
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\ApiResponse.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\constants\AppConstants.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\constants\Roles.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\events\BaseEvent.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\events\EventPublisher.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\exception\BusinessException.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\exception\GlobalExceptionHandler.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\exception\ResourceNotFoundException.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\util\DateUtil.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\commons\src\main\java\com\trackngo\commons\util\JwtUtil.java
+>>>>>>> 61f4151 (feat: implement emergency_numbers)

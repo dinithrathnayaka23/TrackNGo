@@ -275,14 +275,42 @@ INSERT INTO complaint (complaint_id, complaint_type, priority, description, stat
 
 
 -- =============================================
--- SOS RECORDS (3 records)
+-- SOS RECORDS (3 Tables )
 -- =============================================
 
-INSERT INTO sos (sos_id, shared_location, fire_brigade, ambulance_number, police_number, emergency_contact, admin_id, passenger_id) VALUES
-(1, '7.0621, 80.0001 - Near Warakapola, Colombo-Kandy Road', '011-2422222', '1990', '119', '+94715551001', 1, 4),
-(2, '6.1417, 80.1000 - Near Hikkaduwa Beach Road',            '091-2222222', '1990', '119', '+94715552002', 2, 8),
-(3, '6.9336, 79.8486 - Colombo Fort Bus Station',             '011-2422222', '1990', '119', '+94715553003', 1, 6);
+INSERT INTO emergency_numbers (emergency_id, label, fire_brigade, ambulance, police, help_center, is_active) VALUES
+(1, 'Sri Lanka National', '011-2422222', '1990',        '119', '+94117654321', true),
+(2, 'Western Province',   '011-2696333', '011-2691111', '119', '+94117654321', false),
+(3, 'Central Province',   '081-2222222', '1990',        '119', '+94117654321', false);
 
+INSERT INTO emergency_contact (owner_id, owner_type, name, tele_number, relationship) VALUES
+-- Passengers
+(4,  'passenger', 'Kumari Silva',          '+94712345601', 'Mother'),
+(4,  'passenger', 'Niroshan Silva',        '+94712345602', 'Brother'),
+(5,  'passenger', 'Priya Rajapaksa',       '+94712345603', 'Spouse'),
+(5,  'passenger', 'Rohan Rajapaksa',       '+94712345604', 'Father'),
+(6,  'passenger', 'Dinesh Wickramasinghe', '+94712345605', 'Spouse'),
+(7,  'passenger', 'Sunethra Bandara',      '+94712345606', 'Mother'),
+(8,  'passenger', 'Kamal Dissanayake',     '+94712345607', 'Father'),
+(8,  'passenger', 'Dilini Perera',         '+94712345608', 'Friend'),
+(9,  'passenger', 'Renuka Kumara',         '+94712345609', 'Spouse'),
+(11, 'passenger', 'Mala Rathnayake',       '+94712345610', 'Mother'),
+-- Drivers
+(14, 'driver',    'Chamari Mendis',        '+94712345701', 'Spouse'),
+(14, 'driver',    'Sunil Mendis',          '+94712345702', 'Father'),
+(15, 'driver',    'Niluka Samarasinghe',   '+94712345703', 'Spouse'),
+(16, 'driver',    'Kanthi Herath',         '+94712345704', 'Mother'),
+(16, 'driver',    'Lasith Herath',         '+94712345705', 'Brother'),
+(18, 'driver',    'Shanthi Weerasinghe',   '+94712345706', 'Spouse'),
+(21, 'driver',    'Kamala Dharmasiri',     '+94712345707', 'Spouse'),
+(21, 'driver',    'Anura Dharmasiri',      '+94712345708', 'Son');
+ 
+INSERT INTO sos_alert (shared_location, audio_recorded, status, passenger_id, driver_id, admin_id, resolved_at) VALUES
+('6.9500, 80.0001 - Near Warakapola, A1 Highway', NULL, 'resolved', 4, NULL, 1, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+('6.1417, 80.1000 - Near Hikkaduwa Beach Road', NULL, 'resolved', 8, NULL, 2, DATE_SUB(NOW(), INTERVAL 3 DAY)),
+('6.9336, 79.8486 - Colombo Fort Bus Station', NULL, 'false_alarm', 6, NULL, 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+('7.2911, 80.6333 - Kandy City Centre', NULL, 'acknowledged',NULL, 14,   2, NULL),
+('7.0433, 79.9514 - Kadawatha Junction', NULL, 'triggered', 5, NULL, NULL, NULL);
 
 -- =============================================
 -- NOTIFICATIONS (15 records)

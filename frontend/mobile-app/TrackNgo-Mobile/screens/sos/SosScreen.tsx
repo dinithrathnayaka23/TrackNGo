@@ -1,32 +1,72 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import type { RootStackParamList } from "../../navigation/types";
+import {
+  EmergencyNumberDto,
+  getActiveEmergencyNumbers,
+} from "../../services/sosApi";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Sos">;
 
 const RED = "#EF4444";
 
-const quickActions = [
-  { icon: "medical-bag", title: "Ambulance", subtitle: "1990" },
-  { icon: "shield", title: "Police", subtitle: "119" },
-  { icon: "phone", title: "Help center", subtitle: "0765624985" },
-  { icon: "fire-truck", title: "Fire brigade", subtitle: "110" },
+type QuickAction = {
+  icon: "medical-bag" | "shield" | "phone" | "fire-truck" | "microphone";
+  title: string;
+  subtitle: string;
+};
+
+const staticActions: QuickAction[] = [
   { icon: "microphone", title: "Record", subtitle: "Audio" },
-] as const;
+];
+
+function buildQuickActions(data: EmergencyNumberDto | null): QuickAction[] {
+  if (!data) return staticActions;
+  return [
+    { icon: "medical-bag", title: "Ambulance", subtitle: data.ambulance },
+    { icon: "shield", title: "Police", subtitle: data.police },
+    { icon: "phone", title: "Help center", subtitle: data.helpCenter },
+    { icon: "fire-truck", title: "Fire brigade", subtitle: data.fireBrigade },
+    ...staticActions,
+  ];
+}
 
 export function SosScreen({ navigation }: Props) {
   const { top, bottom } = useSafeAreaInsets();
+  const [emergencyData, setEmergencyData] = useState<EmergencyNumberDto | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getActiveEmergencyNumbers()
+      .then(setEmergencyData)
+      .catch((err) => console.error("Failed to fetch emergency numbers:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const quickActions = buildQuickActions(emergencyData);
+
+  const handleCall = (number: string) => {
+    const cleaned = number.replace(/[^0-9+]/g, "");
+    Linking.openURL(`tel:${cleaned}`);
+  };
 
   return (
-    <SafeAreaView
-      edges={["top", "left", "right"]}
-      style={styles.safeArea}
-    >
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.headerRow}>
           <Pressable
@@ -63,19 +103,34 @@ export function SosScreen({ navigation }: Props) {
         </Pressable>
 
         <View style={styles.grid}>
-          {quickActions.map((item) => (
-            <View key={item.title} style={styles.gridItem}>
-              <View style={styles.gridIcon}>
-                <MaterialCommunityIcons
-                  name={item.icon}
-                  size={18}
-                  color={RED}
-                />
-              </View>
-              <Text style={styles.gridTitle}>{item.title}</Text>
-              <Text style={styles.gridSubtitle}>{item.subtitle}</Text>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={RED} />
+              <Text style={styles.loadingText}>
+                Loading emergency numbers...
+              </Text>
             </View>
-          ))}
+          ) : (
+            quickActions.map((item) => (
+              <Pressable
+                key={item.title}
+                style={styles.gridItem}
+                onPress={() => {
+                  if (item.title !== "Record") handleCall(item.subtitle);
+                }}
+              >
+                <View style={styles.gridIcon}>
+                  <MaterialCommunityIcons
+                    name={item.icon}
+                    size={18}
+                    color={RED}
+                  />
+                </View>
+                <Text style={styles.gridTitle}>{item.title}</Text>
+                <Text style={styles.gridSubtitle}>{item.subtitle}</Text>
+              </Pressable>
+            ))
+          )}
 
           <Pressable
             style={styles.gridItem}
@@ -216,5 +271,17 @@ const styles = StyleSheet.create({
   },
   stopText: {
     color: RED,
+  },
+  loadingContainer: {
+    width: "100%",
+    paddingVertical: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#8A94A6",
   },
 });

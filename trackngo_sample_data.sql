@@ -2,6 +2,7 @@
 -- =============================================
 -- SEED DATA - SRI LANKAN SAMPLE DATA
 -- All passwords are hashed bcrypt of 'Test@1234'
+-- Hash: $2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK
 -- =============================================
 
 -- =============================================
@@ -9,32 +10,32 @@
 -- =============================================
 
 INSERT INTO user (user_id, first_name, last_name, email, password, user_type, is_email_verified, is_active, language_preference, theme_preference, last_login) VALUES
-(1,  'Suresh',  'Perera',       'suresh.perera@trackngo.lk',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'admin',     true,  true,  'en', 'light', NOW()),
-(2,  'Nimali',  'Fernando',     'nimali.fernando@trackngo.lk', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'admin',     true,  true,  'si', 'dark',  NOW()),
-(3,  'Kasun',   'Jayawardena',  'kasun.jayawardena@trackngo.lk','$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'admin',     true,  true,  'en', 'auto',  NOW()),
-(4,  'Amara',   'Silva',        'amara.silva@gmail.com',       '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'passenger', true,  true,  'en', 'light', NULL),
-(5,  'Dilan',   'Rajapaksa',    'dilan.rajapaksa@gmail.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'passenger', true,  true,  'si', 'dark',  NULL),
-(6,  'Sanduni', 'Wickramasinghe','sanduni.wick@yahoo.com',     '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'passenger', false, true,  'en', 'light', NULL),
-(7,  'Chathura','Bandara',      'chathura.b@hotmail.com',      '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'passenger', true,  true,  'si', 'auto',  NULL),
-(8,  'Hiruni',  'Dissanayake',  'hiruni.d@gmail.com',          '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'passenger', true,  true,  'en', 'light', NULL),
-(9,  'Nuwan',   'Kumara',       'nuwan.kumara@gmail.com',      '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'passenger', true,  true,  'en', 'dark',  NULL),
-(10, 'Tharushi','Gunasekara',   'tharushi.g@gmail.com',        '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'passenger', false, true,  'si', 'light', NULL),
-(11, 'Prasad',  'Rathnayake',   'prasad.r@gmail.com',          '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'passenger', true,  true,  'en', 'auto',  NULL),
-(12, 'Malsha',  'Seneviratne',  'malsha.s@gmail.com',          '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'passenger', true,  true,  'si', 'dark',  NULL),
-(13, 'Lahiru',  'Pathirana',    'lahiru.p@gmail.com',          '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'passenger', true,  false, 'en', 'light', NULL),
-(14, 'Roshan',  'Mendis',       'roshan.mendis@gmail.com',     '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'driver',    true,  true,  'en', 'light', NULL),
-(15, 'Thilina', 'Samarasinghe', 'thilina.s@gmail.com',         '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'driver',    true,  true,  'si', 'dark',  NULL),
-(16, 'Chamara', 'Herath',       'chamara.h@gmail.com',         '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'driver',    false, true,  'en', 'auto',  NULL),
-(17, 'Asanka',  'Priyantha',    'asanka.p@gmail.com',          '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'driver',    true,  true,  'si', 'light', NULL),
-(18, 'Nimal',   'Weerasinghe',  'nimal.w@gmail.com',           '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'driver',    true,  true,  'en', 'dark',  NULL),
-(19, 'Isuru',   'Liyanage',     'isuru.l@gmail.com',           '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'driver',    true,  true,  'si', 'light', NULL),
-(20, 'Ruwan',   'Karunaratne',  'ruwan.k@gmail.com',           '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'driver',    false, true,  'en', 'auto',  NULL),
-(21, 'Sanjeewa','Dharmasiri',   'sanjeewa.d@gmail.com',        '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'driver',    true,  true,  'si', 'dark',  NULL),
-(22, 'Sachini', 'Amaratunga',   'admin@dialogaxiata.lk',       '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'corporate', true,  true,  'en', 'light', NULL),
-(23, 'Ruwan',   'Abeysekara',   'hr@johnkeellsgroup.lk',       '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'corporate', true,  true,  'si', 'auto',  NULL),
-(24, 'Thilini', 'Ratnayake',    'transport@hayleys.lk',        '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'corporate', true,  true,  'en', 'dark',  NULL),
-(25, 'Pradeep', 'Gunawardena',  'admin@virtusatech.lk',        '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'corporate', false, true,  'en', 'light', NULL),
-(26, 'Nalika',  'Jayasuriya',   'staff@sltelecom.lk',          '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMXEGwNYpM5aFtE8XuZqB3K2Hy', 'corporate', true,  true,  'si', 'light', NULL);
+(1,  'Suresh',  'Perera',       'suresh.perera@trackngo.lk',   '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'admin',     true,  true,  'en', 'light', NOW()),
+(2,  'Nimali',  'Fernando',     'nimali.fernando@trackngo.lk', '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'admin',     true,  true,  'si', 'dark',  NOW()),
+(3,  'Kasun',   'Jayawardena',  'kasun.jayawardena@trackngo.lk','$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'admin',     true,  true,  'en', 'auto',  NOW()),
+(4,  'Amara',   'Silva',        'amara.silva@gmail.com',       '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'passenger', true,  true,  'en', 'light', NULL),
+(5,  'Dilan',   'Rajapaksa',    'dilan.rajapaksa@gmail.com',   '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'passenger', true,  true,  'si', 'dark',  NULL),
+(6,  'Sanduni', 'Wickramasinghe','sanduni.wick@yahoo.com',     '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'passenger', false, true,  'en', 'light', NULL),
+(7,  'Chathura','Bandara',      'chathura.b@hotmail.com',      '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'passenger', true,  true,  'si', 'auto',  NULL),
+(8,  'Hiruni',  'Dissanayake',  'hiruni.d@gmail.com',          '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'passenger', true,  true,  'en', 'light', NULL),
+(9,  'Nuwan',   'Kumara',       'nuwan.kumara@gmail.com',      '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'passenger', true,  true,  'en', 'dark',  NULL),
+(10, 'Tharushi','Gunasekara',   'tharushi.g@gmail.com',        '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'passenger', false, true,  'si', 'light', NULL),
+(11, 'Prasad',  'Rathnayake',   'prasad.r@gmail.com',          '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'passenger', true,  true,  'en', 'auto',  NULL),
+(12, 'Malsha',  'Seneviratne',  'malsha.s@gmail.com',          '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'passenger', true,  true,  'si', 'dark',  NULL),
+(13, 'Lahiru',  'Pathirana',    'lahiru.p@gmail.com',          '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'passenger', true,  false, 'en', 'light', NULL),
+(14, 'Roshan',  'Mendis',       'roshan.mendis@gmail.com',     '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'en', 'light', NULL),
+(15, 'Thilina', 'Samarasinghe', 'thilina.s@gmail.com',         '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'si', 'dark',  NULL),
+(16, 'Chamara', 'Herath',       'chamara.h@gmail.com',         '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    false, true,  'en', 'auto',  NULL),
+(17, 'Asanka',  'Priyantha',    'asanka.p@gmail.com',          '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'si', 'light', NULL),
+(18, 'Nimal',   'Weerasinghe',  'nimal.w@gmail.com',           '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'en', 'dark',  NULL),
+(19, 'Isuru',   'Liyanage',     'isuru.l@gmail.com',           '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'si', 'light', NULL),
+(20, 'Ruwan',   'Karunaratne',  'ruwan.k@gmail.com',           '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    false, true,  'en', 'auto',  NULL),
+(21, 'Sanjeewa','Dharmasiri',   'sanjeewa.d@gmail.com',        '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'si', 'dark',  NULL),
+(22, 'Sachini', 'Amaratunga',   'admin@dialogaxiata.lk',       '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'corporate', true,  true,  'en', 'light', NULL),
+(23, 'Ruwan',   'Abeysekara',   'hr@johnkeellsgroup.lk',       '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'corporate', true,  true,  'si', 'auto',  NULL),
+(24, 'Thilini', 'Ratnayake',    'transport@hayleys.lk',        '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'corporate', true,  true,  'en', 'dark',  NULL),
+(25, 'Pradeep', 'Gunawardena',  'admin@virtusatech.lk',        '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'corporate', false, true,  'en', 'light', NULL),
+(26, 'Nalika',  'Jayasuriya',   'staff@sltelecom.lk',          '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'corporate', true,  true,  'si', 'light', NULL);
 
 -- =============================================
 -- ADMINS (3 records)

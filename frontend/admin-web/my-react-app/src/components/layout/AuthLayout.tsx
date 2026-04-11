@@ -24,8 +24,8 @@ function AuthLayout({ children }: AuthLayoutProps) {
               </div>
             </div>
           </div>
-          <h1 className="text-5xl font-bold tracking-tight">TrackNGo</h1>
-          <p className="mt-3 text-2xl text-white/90">Your Journey, Simplified</p>
+          <h1 className="text-2xl font-bold tracking-tight">TrackNGo</h1>
+          <p className="mt-1 text-sm text-white/90">Your Journey, Simplified</p>
         </div>
 
         <div className="animate-auth-fade-up flex w-full items-center justify-center p-6 md:w-[58%] md:p-10">

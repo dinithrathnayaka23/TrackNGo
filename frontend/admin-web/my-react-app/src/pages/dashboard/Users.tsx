@@ -150,15 +150,15 @@ function Users() {
     <section className="mx-auto w-full max-w-[1320px]">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-4 md:items-center">
         <div>
-          <h1 className="text-5xl font-bold tracking-tight text-[#111827]">Users Management</h1>
-          <p className="mt-1 text-lg font-normal text-[#64748b]">Manage passenger, driver, and corporate accounts.</p>
+          <h1 className="text-base font-extrabold tracking-tight text-[#111827]">Users Management</h1>
+          <p className="mt-1 text-sm font-normal text-[#64748b]">Manage passenger, driver, and corporate accounts.</p>
         </div>
 
         <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 md:w-auto md:gap-3">
           <button
             type="button"
             onClick={() => navigate('/dashboard/passenger')}
-            className={`h-10 rounded-lg border px-4 text-base font-semibold ${
+            className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
               location.pathname === '/dashboard/passenger'
                 ? 'border-[#3156c2] bg-[#eef2ff] text-[#3156c2]'
                 : 'border-[#cfd8ea] bg-white text-[#3156c2]'
@@ -169,7 +169,7 @@ function Users() {
           <button
             type="button"
             onClick={() => navigate('/dashboard/driver')}
-            className={`h-10 rounded-lg border px-4 text-base font-semibold ${
+            className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
               location.pathname === '/dashboard/driver'
                 ? 'border-[#0f766e] bg-[#ecfdf5] text-[#0f766e]'
                 : 'border-[#cfd8ea] bg-white text-[#0f766e]'
@@ -180,7 +180,7 @@ function Users() {
           <button
             type="button"
             onClick={() => navigate('/dashboard/corporate')}
-            className={`h-10 rounded-lg border px-4 text-base font-semibold ${
+            className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
               location.pathname === '/dashboard/corporate'
                 ? 'border-[#7e22ce] bg-[#faf5ff] text-[#7e22ce]'
                 : 'border-[#cfd8ea] bg-white text-[#7e22ce]'
@@ -275,7 +275,7 @@ function Users() {
             </span>
             items selected
           </p>
-          <div className="flex items-center gap-6 text-sm">
+          <div className="flex flex-wrap items-center gap-6 text-sm">
             <button
               type="button"
               onClick={() => navigate('/dashboard/complaints')}

@@ -4,9 +4,9 @@ function Driver() {
   const navigate = useNavigate()
 
   return (
-    <section className="mx-auto w-full max-w-[1320px] rounded-2xl border border-[#dfe4ef] bg-white p-6">
-      <h1 className="text-4xl font-bold text-[#111827]">Driver Accounts</h1>
-      <p className="mt-2 text-[#64748b]">
+    <section className="mx-auto w-full max-w-[1320px] rounded-2xl border border-[#dfe4ef] bg-white p-4">
+      <h1 className="text-base font-extrabold text-[#111827]">Driver Accounts</h1>
+      <p className="mt-2 text-sm text-[#64748b]">
         Dedicated driver content page. Use the Users page dropdown filters for in-table filtering.
       </p>
 

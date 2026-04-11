@@ -219,20 +219,17 @@ function Corporate() {
 
   return (
     <section className="mx-auto w-full max-w-[1340px]">
+      <button
+        type="button"
+        onClick={() => navigate('/dashboard/users')}
+        className="mb-5 grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#475569] transition hover:bg-[#f1f5f9]"
+      >
+        <FontAwesomeIcon icon={faArrowLeft} />
+      </button>
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4 md:items-center">
         <div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard/users')}
-              className="rounded-lg p-2 text-[#0f172a] transition hover:bg-[#eef2f8]"
-              aria-label="Back to Users"
-            >
-              <FontAwesomeIcon icon={faArrowLeft} />
-            </button>
             <h1 className="text-base font-extrabold tracking-tight text-[#111827]">Corporate Accounts</h1>
-          </div>
-          <p className="ml-11 mt-1 text-sm font-normal text-[#64748b]">
+          <p className="mt-1 text-sm font-normal text-[#64748b]">
             Manage corporate client contracts, revenue, and verification status.
           </p>
         </div>
@@ -365,7 +362,7 @@ function Corporate() {
             <div className="mt-auto border-t border-[#e7ecf5] px-5 py-4 md:px-6">
               <button
                 type="button"
-                onClick={() => navigate('/dashboard/users')}
+                onClick={() => navigate(`/dashboard/corporate/${client.id}`)}
                 className="text-sm font-semibold text-[#22449d] hover:text-[#1b357f]"
               >
                 View Details

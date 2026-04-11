@@ -9,6 +9,7 @@ import { EmergencyContactsScreen } from "../screens/sos/EmergencyContactsScreen"
 import { NotificationScreen } from "../screens/notifications/NotificationScreen";
 import { SosScreen } from "../screens/sos/SosScreen";
 import { UserSelectScreen } from "../screens/auth/UserSelectScreen";
+import LoginScreen from "../app/auth/login";
 import type { RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -27,19 +28,31 @@ export function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Dashboard"
+        initialRouteName={currentUser ? "Dashboard" : "Login"}
         screenOptions={{ headerShown: false }}
       >
-        <Stack.Screen name="Dashboard" component={DashboardScreen} />
-        <Stack.Screen name="UserSelect" component={UserSelectScreen} />
-        <Stack.Screen name="Notification" component={NotificationScreen} />
-        <Stack.Screen name="Sos" component={SosScreen} />
-        <Stack.Screen
-          name="EmergencyContacts"
-          component={EmergencyContactsScreen}
-        />
-        <Stack.Screen name="ChatList" component={ChatListScreen} />
-        <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
+        {/* Auth Screens - Only show if NOT logged in */}
+        {!currentUser && (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="UserSelect" component={UserSelectScreen} />
+          </>
+        )}
+
+        {/* App Screens - Only show if logged in */}
+        {currentUser && (
+          <>
+            <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="Notification" component={NotificationScreen} />
+            <Stack.Screen name="Sos" component={SosScreen} />
+            <Stack.Screen
+              name="EmergencyContacts"
+              component={EmergencyContactsScreen}
+            />
+            <Stack.Screen name="ChatList" component={ChatListScreen} />
+            <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

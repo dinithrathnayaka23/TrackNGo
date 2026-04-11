@@ -13,10 +13,13 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       {currentUser == null ? (
-        // Show login screen if not authenticated
-        <Stack.Screen name="auth/login" />
+        <>
+          <Stack.Screen name="auth/welcome" />
+          <Stack.Screen name="auth/login" />
+          <Stack.Screen name="auth/registration" />
+          <Stack.Screen name="auth/otp-verification" />
+        </>
       ) : (
-        // Show app navigation if authenticated
         <Stack.Screen name="navigation/AppNavigation" />
       )}
     </Stack>

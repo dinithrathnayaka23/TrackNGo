@@ -50,10 +50,10 @@ function Field({
 }: FieldProps) {
   return (
     <div>
-      <label htmlFor={id} className="mb-2 block text-lg font-semibold text-[#4d5564]">
+      <label htmlFor={id} className="mb-2 block text-sm font-semibold text-[#4d5564]">
         {label}
       </label>
-      <div className="flex h-14 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+      <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
         <FontAwesomeIcon icon={icon} className="mr-3 text-[#8b92a1]" />
         <input
           id={id}
@@ -65,7 +65,7 @@ function Field({
           onBlur={() => onBlur(name)}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
-          className="w-full bg-transparent text-[23px] text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
+          className="w-full bg-transparent text-sm text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
         />
       </div>
       {error ? (
@@ -171,8 +171,8 @@ function Signup() {
   return (
     <AuthLayout>
       <div className="w-full max-w-[680px]">
-        <h2 className="animate-auth-fade-up text-[52px] font-bold leading-tight text-[#121b33]">Admin Registration</h2>
-        <p className="animate-auth-fade-up mt-2 text-[23px] text-[#5b6476]" style={{ animationDelay: '90ms' }}>
+        <h2 className="animate-auth-fade-up text-sm font-bold leading-tight text-[#121b33]">Admin Registration</h2>
+        <p className="animate-auth-fade-up mt-2 text-sm text-[#5b6476]" style={{ animationDelay: '90ms' }}>
           Access your centralized transport control panel.
         </p>
 
@@ -238,10 +238,10 @@ function Signup() {
           <div className="animate-auth-fade-up border-t border-[#dde0e7] pt-6" style={{ animationDelay: '240ms' }}>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <label htmlFor="signup-password" className="mb-2 block text-lg font-semibold text-[#4d5564]">
+                <label htmlFor="signup-password" className="mb-2 block text-sm font-semibold text-[#4d5564]">
                   Password
                 </label>
-                <div className="flex h-14 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+                <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
                   <FontAwesomeIcon icon={faLock} className="mr-3 text-[#8b92a1]" />
                   <input
                     id="signup-password"
@@ -253,7 +253,7 @@ function Signup() {
                     autoComplete="new-password"
                     aria-invalid={Boolean(errors.password)}
                     aria-describedby={errors.password ? 'signup-password-error' : undefined}
-                    className="w-full bg-transparent text-[23px] text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
+                    className="w-full bg-transparent text-sm text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
                   />
                   <button
                     type="button"
@@ -291,11 +291,11 @@ function Signup() {
               <div>
                 <label
                   htmlFor="confirm-password"
-                  className="mb-2 block text-lg font-semibold text-[#4d5564]"
+                  className="mb-2 block text-sm font-semibold text-[#4d5564]"
                 >
                   Confirm Password
                 </label>
-                <div className="flex h-14 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+                <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
                   <FontAwesomeIcon icon={faLock} className="mr-3 text-[#8b92a1]" />
                   <input
                     id="confirm-password"
@@ -307,7 +307,7 @@ function Signup() {
                     autoComplete="new-password"
                     aria-invalid={Boolean(errors.confirmPassword)}
                     aria-describedby={errors.confirmPassword ? 'confirm-password-error' : undefined}
-                    className="w-full bg-transparent text-[23px] text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
+                    className="w-full bg-transparent text-sm text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none"
                   />
                   <button
                     type="button"
@@ -326,7 +326,7 @@ function Signup() {
             </div>
           </div>
 
-          <label className="animate-auth-fade-up flex cursor-pointer items-start gap-3 text-xl font-semibold text-[#4d5564]" style={{ animationDelay: '320ms' }}>
+          <label className="animate-auth-fade-up flex cursor-pointer items-start gap-3 text-sm font-semibold text-[#4d5564]" style={{ animationDelay: '320ms' }}>
             <input
               type="checkbox"
               checked={agreePolicy}
@@ -350,14 +350,14 @@ function Signup() {
 
           <button
             type="submit"
-            className="animate-auth-fade-up flex h-16 w-full items-center justify-center gap-4 rounded-xl bg-[#2342a6] text-[25px] font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#1f3a93] hover:shadow-[0_12px_26px_rgba(35,66,166,0.34)]"
+            className="animate-auth-fade-up flex h-10 w-full items-center justify-center gap-4 rounded-xl bg-[#2342a6] text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#1f3a93] hover:shadow-[0_12px_26px_rgba(35,66,166,0.34)]"
             style={{ animationDelay: '380ms' }}
           >
             Submit Registration
             <FontAwesomeIcon icon={faArrowRight} />
           </button>
 
-          <p className="animate-auth-fade-up text-center text-xl font-medium text-[#666f80]" style={{ animationDelay: '440ms' }}>
+          <p className="animate-auth-fade-up text-center text-sm font-medium text-[#666f80]" style={{ animationDelay: '440ms' }}>
             Already registered?{' '}
             <Link to="/login" className="font-semibold text-[#1f3c93]">
               Login to Dashboard

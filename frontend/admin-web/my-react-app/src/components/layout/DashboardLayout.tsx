@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faBell, faChevronRight, faMagnifyingGlass, faRightFromBracket } from '@fortawesome/free-solid-svg-icons'
+import { faBars, faBell, faChevronRight, faMagnifyingGlass, faRightFromBracket } from '@fortawesome/free-solid-svg-icons'
 import Sidebar from './Sidebar'
 
 type DashboardLayoutProps = {
@@ -10,6 +10,7 @@ type DashboardLayoutProps = {
 
 function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const segment = location.pathname.split('/')[2] || 'dashboard'
   const labelBySegment: Record<string, string> = {
     dashboard: 'Dashboard',
@@ -31,13 +32,20 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-[#f3f4f8] text-[#111827]">
       <div className="flex w-full">
-        <Sidebar />
+        <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
 
-        <div className="min-h-screen flex-1">
+        <div className="min-h-screen flex-1 min-w-0">
           <header className="sticky top-0 z-10 border-b border-[#dfe3ea] bg-[#f9fafc]">
-            <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 md:px-8">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-6">
               <div className="flex items-center gap-2 text-sm text-[#6b7280]">
-                <span>Home</span>
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="mr-1 grid h-9 w-9 place-items-center rounded-lg text-[#374151] hover:bg-[#eef2ff] lg:hidden"
+                >
+                  <FontAwesomeIcon icon={faBars} />
+                </button>
+                <span className="hidden sm:inline">Home</span>
                 {breadcrumbTrail.map((crumb) => (
                   <div key={crumb} className="flex items-center gap-2">
                     <FontAwesomeIcon icon={faChevronRight} className="text-[10px]" />
@@ -46,7 +54,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
                 ))}
               </div>
 
-              <label className="flex h-10 w-full max-w-[560px] items-center gap-2 rounded-lg border border-[#e5e7eb] bg-[#f1f3f7] px-3 text-sm text-[#9ca3af]">
+              <label className="order-last flex h-12 w-full items-center gap-2 rounded-lg border border-[#e5e7eb] bg-[#f1f3f7] px-3 text-sm text-[#9ca3af] sm:order-none sm:w-auto sm:max-w-[560px] sm:flex-1">
                 <FontAwesomeIcon icon={faMagnifyingGlass} />
                 <input
                   type="text"
@@ -55,17 +63,17 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
                 />
               </label>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <button
                   type="button"
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#21409a] px-4 text-sm font-semibold text-white transition hover:bg-[#1b357f]"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#21409a] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-[#1b357f]"
                 >
                   <FontAwesomeIcon icon={faRightFromBracket} />
                   Logout
                 </button>
                 <button
                   type="button"
-                  className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] transition hover:bg-[#eef2ff]"
+                  className="relative text-sm text-[#6b7280] transition hover:scale-105"
                 >
                   <FontAwesomeIcon icon={faBell} />
                 </button>
@@ -73,7 +81,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </header>
 
-          <main className="p-4 md:p-8">{children}</main>
+          <main className="p-5">{children}</main>
         </div>
       </div>
     </div>

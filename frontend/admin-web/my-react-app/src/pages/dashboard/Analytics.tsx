@@ -156,7 +156,7 @@ function Analytics() {
   return (
     <section className="mx-auto w-full max-w-[1320px]">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-5xl font-bold tracking-tight text-[#171923]">Dashboard</h1>
+        <h1 className="text-base font-extrabold tracking-tight text-[#171923]">Dashboard</h1>
         <div className="flex flex-wrap items-center gap-3">
           <label className="inline-flex h-10 items-center rounded-lg border border-[#d9dde5] bg-white px-3 text-sm font-medium text-[#374151]">
             <select
@@ -189,7 +189,7 @@ function Analytics() {
       </header>
       <p className="mb-4 text-sm text-[#6b7280]">Last refreshed: {formatTime(lastRefreshedAt)}</p>
 
-      <div className="grid gap-4 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (
           <article key={kpi.title} className="rounded-2xl border border-[#eceef2] bg-[#f9fafc] p-5">
             <div className="flex items-start justify-between">
@@ -198,7 +198,7 @@ function Analytics() {
                 <FontAwesomeIcon icon={kpi.icon} />
               </div>
             </div>
-            <p className="mt-1 text-5xl font-bold text-[#111827]">{kpi.value}</p>
+            <p className="mt-1 text-sm font-extrabold text-[#111827]">{kpi.value}</p>
             <div className="mt-4 flex items-center gap-2 text-sm">
               <span className={`rounded-md px-2 py-0.5 font-semibold ${kpi.trendBox}`}>{kpi.trend}</span>
               {kpi.subtitle ? <span className="text-[#6b7280]">{kpi.subtitle}</span> : null}
@@ -209,9 +209,9 @@ function Analytics() {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.58fr_1fr]">
         <article className="rounded-2xl border border-[#e8ebf2] bg-white p-5">
-          <h2 className="text-4xl font-bold text-[#111827]">Booking Trends</h2>
+          <h2 className="text-sm font-bold text-[#111827]">Booking Trends</h2>
           <p className="text-sm text-[#667085]">{trend.description}</p>
-          <div className="mt-4 h-[360px] rounded-xl border border-[#edf0f6] bg-[#fbfcff] p-4">
+          <div className="mt-4 h-[240px] rounded-xl border border-[#edf0f6] bg-[#fbfcff] p-4">
             <svg viewBox="0 0 740 300" className="h-full w-full">
               <line x1="60" y1="15" x2="60" y2="255" stroke="#d7deea" />
               <line x1="60" y1="255" x2="705" y2="255" stroke="#d7deea" />
@@ -257,7 +257,7 @@ function Analytics() {
         </article>
 
         <article className="rounded-2xl border border-[#e8ebf2] bg-white p-5">
-          <h2 className="text-4xl font-bold text-[#111827]">Revenue by Category</h2>
+          <h2 className="text-sm font-bold text-[#111827]">Revenue by Category</h2>
           <div className="mt-6 grid place-items-center">
             <div className="relative h-56 w-56">
               <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
@@ -280,28 +280,28 @@ function Analytics() {
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#22449d]" />
                 Corporate
               </p>
-              <p className="text-2xl font-semibold text-[#111827]">35%</p>
+              <p className="text-sm font-semibold text-[#111827]">35%</p>
             </div>
             <div className="rounded-lg bg-[#f4f6fa] px-3 py-3">
               <p className="text-sm text-[#6b7280]">
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#0f8f84]" />
                 Trip
               </p>
-              <p className="text-2xl font-semibold text-[#111827]">25%</p>
+              <p className="text-sm font-semibold text-[#111827]">25%</p>
             </div>
             <div className="rounded-lg bg-[#f4f6fa] px-3 py-3">
               <p className="text-sm text-[#6b7280]">
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#3b82f6]" />
                 Highway
               </p>
-              <p className="text-2xl font-semibold text-[#111827]">25%</p>
+              <p className="text-sm font-semibold text-[#111827]">25%</p>
             </div>
             <div className="rounded-lg bg-[#f4f6fa] px-3 py-3">
               <p className="text-sm text-[#6b7280]">
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#f59e0b]" />
                 Long-distance
               </p>
-              <p className="text-2xl font-semibold text-[#111827]">15%</p>
+              <p className="text-sm font-semibold text-[#111827]">15%</p>
             </div>
           </div>
         </article>
@@ -309,7 +309,7 @@ function Analytics() {
 
       <article className="mt-4 overflow-hidden rounded-2xl border border-[#e8ebf2] bg-white">
         <div className="flex items-center justify-between px-5 py-4">
-          <h2 className="text-4xl font-bold text-[#111827]">Recent Bookings</h2>
+          <h2 className="text-sm font-bold text-[#111827]">Recent Bookings</h2>
           <button
             type="button"
             onClick={() => navigate('/dashboard/booking')}

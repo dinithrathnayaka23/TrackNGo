@@ -322,7 +322,7 @@ function Pagination({
   const endItem = Math.min(currentPage * itemsPerPage, totalItems)
 
   return (
-    <div className="mt-4 flex items-center justify-between rounded-lg border border-[#e5eaf3] bg-white p-4">
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e5eaf3] bg-white p-4">
       <div className="text-sm text-[#64748b]">
         Showing <span className="font-medium">{startItem}</span> to <span className="font-medium">{endItem}</span>{' '}
         of <span className="font-medium">{totalItems}</span> passengers
@@ -412,7 +412,7 @@ function PassengerManagement() {
 
   return (
     <section className="mx-auto w-full max-w-[1320px]">
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-start gap-4">
           <button
             type="button"
@@ -424,8 +424,8 @@ function PassengerManagement() {
             </svg>
           </button>
           <div>
-            <h1 className="text-5xl font-bold tracking-tight text-[#111827]">Passenger Management</h1>
-            <p className="mt-1 text-[26px] font-semibold text-[#475569]">
+            <h1 className="text-base font-extrabold tracking-tight text-[#111827]">Passenger Management</h1>
+            <p className="mt-1 text-sm font-semibold text-[#475569]">
               Total Passengers: <span className="text-[#0f172a]">142</span> | Active:{' '}
               <span className="text-[#10b981]">132</span>
             </p>
@@ -434,7 +434,7 @@ function PassengerManagement() {
         <button
           type="button"
           onClick={() => setIsAddPassengerModalOpen(true)}
-          className="flex items-center gap-2 rounded-xl bg-[#22449d] px-5 py-2.5 font-semibold text-white hover:bg-[#1b357f]"
+          className="flex items-center gap-2 rounded-xl bg-[#22449d] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1b357f]"
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

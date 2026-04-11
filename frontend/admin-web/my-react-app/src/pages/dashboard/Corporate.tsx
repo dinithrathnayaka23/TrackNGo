@@ -230,9 +230,9 @@ function Corporate() {
             >
               <FontAwesomeIcon icon={faArrowLeft} />
             </button>
-            <h1 className="text-4xl font-bold tracking-tight text-[#111827] md:text-5xl">Corporate Accounts</h1>
+            <h1 className="text-base font-extrabold tracking-tight text-[#111827]">Corporate Accounts</h1>
           </div>
-          <p className="ml-11 mt-1 text-sm font-normal text-[#64748b] md:text-lg">
+          <p className="ml-11 mt-1 text-sm font-normal text-[#64748b]">
             Manage corporate client contracts, revenue, and verification status.
           </p>
         </div>
@@ -302,7 +302,7 @@ function Corporate() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-[#64748b]">{item.label}</p>
-                <p className="mt-1 text-3xl font-bold leading-none tracking-tight text-[#111827] md:text-4xl">{item.value}</p>
+                <p className="mt-1 text-sm font-extrabold leading-none tracking-tight text-[#111827]">{item.value}</p>
               </div>
               <FontAwesomeIcon icon={item.icon} className="mt-2 text-[22px] text-[#667085]" />
             </div>
@@ -327,7 +327,7 @@ function Corporate() {
                 </span>
               </div>
 
-              <h3 className="mt-4 text-2xl font-semibold leading-tight text-[#111827] md:text-3xl">{client.company}</h3>
+              <h3 className="mt-4 text-sm font-semibold leading-tight text-[#111827]">{client.company}</h3>
               <p className="mt-1 text-sm font-semibold tracking-wide text-[#667085]">REG: {client.regNo}</p>
 
               <div className="mt-4 border-t border-[#e7ecf5] pt-4">
@@ -337,14 +337,14 @@ function Corporate() {
                       <FontAwesomeIcon icon={faFileLines} className="mr-2" />
                       Contracts
                     </p>
-                    <p className="mt-1 text-2xl font-bold leading-none text-[#111827]">{client.contracts} Active</p>
+                    <p className="mt-1 text-sm font-bold leading-none text-[#111827]">{client.contracts} Active</p>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-[#667085]">
                       <FontAwesomeIcon icon={faMoneyBillWave} className="mr-2" />
                       Revenue
                     </p>
-                    <p className="mt-1 text-2xl font-bold leading-none text-[#0f766e]">{client.revenue}</p>
+                    <p className="mt-1 text-sm font-bold leading-none text-[#0f766e]">{client.revenue}</p>
                   </div>
                 </div>
               </div>

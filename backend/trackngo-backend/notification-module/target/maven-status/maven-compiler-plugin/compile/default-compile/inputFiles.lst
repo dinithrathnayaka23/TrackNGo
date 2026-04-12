@@ -1,17 +1,7 @@
-<<<<<<< HEAD
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\internal\repository\NotificationRepository.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\internal\entity\Notification.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\api\dto\NotificationDto.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\events\NotificationCreatedEvent.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\internal\service\NotificationServiceImpl.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\api\NotificationService.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\internal\controller\NotificationController.java
-=======
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\api\dto\NotificationDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\api\NotificationService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\events\NotificationCreatedEvent.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\internal\controller\NotificationController.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\internal\entity\Notification.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\internal\repository\NotificationRepository.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\internal\controller\NotificationController.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\api\dto\NotificationDto.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\events\NotificationCreatedEvent.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\api\NotificationService.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\internal\service\NotificationServiceImpl.java
->>>>>>> 61f4151 (feat: implement emergency_numbers)
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\notification-module\src\main\java\com\trackngo\notification\internal\entity\Notification.java

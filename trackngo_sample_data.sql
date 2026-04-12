@@ -305,12 +305,22 @@ INSERT INTO emergency_contact (owner_id, owner_type, name, tele_number, relation
 (21, 'driver',    'Kamala Dharmasiri',     '+94712345707', 'Spouse'),
 (21, 'driver',    'Anura Dharmasiri',      '+94712345708', 'Son');
  
-INSERT INTO sos_alert (shared_location, audio_recorded, status, passenger_id, driver_id, admin_id, resolved_at) VALUES
-('6.9500, 80.0001 - Near Warakapola, A1 Highway', NULL, 'resolved', 4, NULL, 1, DATE_SUB(NOW(), INTERVAL 5 DAY)),
-('6.1417, 80.1000 - Near Hikkaduwa Beach Road', NULL, 'resolved', 8, NULL, 2, DATE_SUB(NOW(), INTERVAL 3 DAY)),
-('6.9336, 79.8486 - Colombo Fort Bus Station', NULL, 'false_alarm', 6, NULL, 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
-('7.2911, 80.6333 - Kandy City Centre', NULL, 'acknowledged',NULL, 14,   2, NULL),
-('7.0433, 79.9514 - Kadawatha Junction', NULL, 'triggered', 5, NULL, NULL, NULL);
+INSERT INTO sos_alert (
+	shared_location,
+	status,
+	passenger_id,
+	driver_id,
+	bus_id,
+	bus_number,
+	start_location,
+	end_location,
+	admin_id,
+	resolved_at
+) VALUES
+('6.9500, 80.0001 - Near Warakapola, A1 Highway', 'resolved',    4, NULL, 1, 'NB-0012', 'Colombo Fort', 'Kandy',  1, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+('6.1417, 80.1000 - Near Hikkaduwa Beach Road',   'resolved',    8, NULL, 2, 'NB-0034', 'Colombo Fort', 'Galle',  2, DATE_SUB(NOW(), INTERVAL 3 DAY)),
+('6.9336, 79.8486 - Colombo Fort Bus Station',    'false_alarm', 6, NULL, 3, 'NB-0056', 'Colombo Fort', 'Jaffna', 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+('7.0433, 79.9514 - Kadawatha Junction',          'triggered',   5, NULL, 1, 'NB-0012', 'Colombo Fort', 'Kandy',  NULL, NULL);
 
 -- =============================================
 -- NOTIFICATIONS (15 records)
@@ -367,7 +377,7 @@ INSERT INTO payment (payment_id, transaction_id, payment_method, payment_status,
 -- =============================================
 
 INSERT INTO seat_booking (seat_booking_id, booking_reference, journey_date, journey_time, seat_number, special_request, total_amount, status, passenger_id, bus_id, route_id, payment_id) VALUES
-(1, 'SB-20250115-001', '2025-01-15', '06:00:00', 'A1,A2',    'Window seats please',         900.00,  'completed', 4,  1, 1, 1),
+(1, 'SB-20250115-001', '2026-04-15', '06:00:00', 'A1,A2',    'Window seats please',         900.00,  'completed', 4,  1, 1, 1),
 (2, 'SB-20250115-002', '2025-01-15', '06:00:00', 'B3',       NULL,                          450.00,  'completed', 5,  1, 1, 3),
 (3, 'SB-20250116-001', '2025-01-16', '07:00:00', 'A5',       'Front seat preferred',        400.00,  'completed', 6,  2, 2, 4),
 (4, 'SB-20250120-001', '2025-01-20', '04:30:00', 'C1,C2,C3', 'Traveling with family',      5400.00,  'completed', 8,  3, 3, 5),

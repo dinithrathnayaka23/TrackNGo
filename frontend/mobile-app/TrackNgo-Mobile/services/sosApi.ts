@@ -1,4 +1,4 @@
-import { httpGet } from "./http";
+import { httpGet, httpPost } from "./http";
 
 export interface EmergencyNumberDto {
   emergencyId: number;
@@ -7,6 +7,15 @@ export interface EmergencyNumberDto {
   ambulance: string;
   police: string;
   helpCenter: string;
+}
+
+export interface TriggerSosAlertRequest {
+  passengerId?: number;
+  driverId?: number;
+  sharedLocation?: string;
+  busNumber?: string;
+  startLocation?: string;
+  endLocation?: string;
 }
 
 interface ApiResponse<T> {
@@ -20,4 +29,14 @@ export async function getActiveEmergencyNumbers(): Promise<EmergencyNumberDto> {
     "/api/emergency-numbers/active",
   );
   return res.data;
+}
+
+export async function triggerSosAlert(
+  payload: TriggerSosAlertRequest,
+): Promise<void> {
+  await httpPost<ApiResponse<unknown>>(
+    "/api/sos-alerts/trigger",
+    undefined,
+    payload,
+  );
 }

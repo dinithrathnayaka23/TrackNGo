@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 
@@ -20,7 +23,9 @@ const defaultRegion = {
   longitudeDelta: 0.35,
 };
 
-const randomPointOnRoute = (points: { latitude: number; longitude: number }[]) => {
+const randomPointOnRoute = (
+  points: { latitude: number; longitude: number }[],
+) => {
   if (points.length < 2) return points[0] ?? defaultRegion;
   const segmentIndex = Math.floor(Math.random() * (points.length - 1));
   const start = points[segmentIndex];
@@ -36,32 +41,82 @@ const blueMapStyle = [
   { elementType: "geometry", stylers: [{ color: "#1f3b73" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#8fb5ff" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#12224b" }] },
-  { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#2b4f8a" }] },
-  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#1a2e5c" }] },
-  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#7aa2ff" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#2f5fb3" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#1b376e" }] },
-  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#c2d6ff" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3a78ff" }] },
-  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#1a2e5c" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0b1b3a" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#4e7bd8" }] },
+  {
+    featureType: "administrative",
+    elementType: "geometry",
+    stylers: [{ color: "#2b4f8a" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "geometry",
+    stylers: [{ color: "#1a2e5c" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#7aa2ff" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#2f5fb3" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#1b376e" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#c2d6ff" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#3a78ff" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry",
+    stylers: [{ color: "#1a2e5c" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#0b1b3a" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#4e7bd8" }],
+  },
 ];
 
 export default function LiveMapScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    busNumber?: string;
+    startLocation?: string;
+    endLocation?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(
-    null,
-  );
+  const [userLocation, setUserLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [destination, setDestination] = useState<{ latitude: number; longitude: number } | null>(
-    null,
-  );
+  const [destination, setDestination] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [searching, setSearching] = useState(false);
   const busLocation = useMemo(() => randomPointOnRoute(routeCoords), []);
+  const busNumber = params.busNumber ?? "ND-4589";
+  const startLocation = params.startLocation ?? "Colombo Port";
+  const endLocation = params.endLocation ?? "Kandy";
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -154,7 +209,9 @@ export default function LiveMapScreen() {
               </View>
             </Marker>
           )}
-          {destination && <Marker coordinate={destination} pinColor="#60A5FA" />}
+          {destination && (
+            <Marker coordinate={destination} pinColor="#60A5FA" />
+          )}
         </MapView>
 
         <View style={styles.topBar}>
@@ -174,7 +231,11 @@ export default function LiveMapScreen() {
               editable={!searching}
             />
           </View>
-          <Pressable style={styles.searchAction} onPress={handleSearch} disabled={searching}>
+          <Pressable
+            style={styles.searchAction}
+            onPress={handleSearch}
+            disabled={searching}
+          >
             <Ionicons name="navigate" size={18} color="#FFFFFF" />
           </Pressable>
         </View>
@@ -193,18 +254,47 @@ export default function LiveMapScreen() {
             );
           }}
         >
-          <MaterialCommunityIcons name="crosshairs-gps" size={18} color="#2F6BFF" />
+          <MaterialCommunityIcons
+            name="crosshairs-gps"
+            size={18}
+            color="#2F6BFF"
+          />
         </Pressable>
 
-        <View style={[styles.bottomSheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View
+          style={[
+            styles.bottomSheet,
+            { paddingBottom: Math.max(insets.bottom, 16) },
+          ]}
+        >
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHeader}>
             <View>
-              <Text style={styles.sheetTitle}>ND-4589</Text>
-              <Text style={styles.sheetSubtitle}>Route 120</Text>
+              <Text style={styles.sheetTitle}>{busNumber}</Text>
+              <Text style={styles.sheetSubtitle}>
+                {startLocation} - {endLocation}
+              </Text>
             </View>
             <View style={styles.sheetActions}>
-              <Pressable style={styles.sosButton} onPress={() => router.push("/sos/sos")}>
+              <Pressable
+                style={styles.sosButton}
+                onPress={() =>
+                  router.push({
+                    pathname: "/sos/sos",
+                    params: {
+                      busNumber,
+                      startLocation,
+                      endLocation,
+                      userLatitude: userLocation
+                        ? String(userLocation.latitude)
+                        : undefined,
+                      userLongitude: userLocation
+                        ? String(userLocation.longitude)
+                        : undefined,
+                    },
+                  })
+                }
+              >
                 <Ionicons name="warning" size={14} color="#FFFFFF" />
                 <Text style={styles.sosText}>SOS</Text>
               </Pressable>
@@ -222,7 +312,11 @@ export default function LiveMapScreen() {
               <View>
                 <Text style={styles.metricLabel}>Current</Text>
                 <Text style={styles.metricValue}>
-                  {locationError ? "Location off" : userLocation ? "Live location" : "Locating..."}
+                  {locationError
+                    ? "Location off"
+                    : userLocation
+                      ? "Live location"
+                      : "Locating..."}
                 </Text>
               </View>
             </View>
@@ -250,7 +344,10 @@ export default function LiveMapScreen() {
             <Pressable style={styles.outlineButton}>
               <Text style={styles.outlineButtonText}>View Details</Text>
             </Pressable>
-            <Pressable style={styles.primaryButton} onPress={() => router.push("/chat/chat-list")}>
+            <Pressable
+              style={styles.primaryButton}
+              onPress={() => router.push("/chat/chat-list")}
+            >
               <Ionicons name="chatbubble" size={16} color="#FFFFFF" />
               <Text style={styles.primaryButtonText}>Message Driver</Text>
             </Pressable>

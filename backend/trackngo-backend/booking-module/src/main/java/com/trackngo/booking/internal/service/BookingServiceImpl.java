@@ -2,6 +2,7 @@ package com.trackngo.booking.internal.service;
 
 import com.trackngo.booking.api.BookingService;
 import com.trackngo.booking.api.dto.BookingDto;
+import com.trackngo.booking.api.dto.RecentBookingDto;
 import com.trackngo.booking.events.BookingCreatedEvent;
 import com.trackngo.booking.internal.entity.Booking;
 import com.trackngo.booking.internal.repository.BookingRepository;
@@ -49,6 +50,24 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public void delete(Long id) {
         repository.deleteById(id);
+    }
+
+    @Override
+    public List<RecentBookingDto> getUpcomingForUser(String email) {
+        return repository.findUpcomingRecentByEmail(email)
+            .stream()
+            .map(item -> {
+                RecentBookingDto dto = new RecentBookingDto();
+                dto.setBusNumber(item.getBusNumber());
+                dto.setBusType(item.getBusType());
+                dto.setBookingReference(item.getBookingReference());
+                dto.setStartLocation(item.getStartLocation());
+                dto.setEndLocation(item.getEndLocation());
+                dto.setJourneyDate(item.getJourneyDate());
+                dto.setJourneyTime(item.getJourneyTime());
+                return dto;
+            })
+            .toList();
     }
 
     private BookingDto toDto(Booking entity) {

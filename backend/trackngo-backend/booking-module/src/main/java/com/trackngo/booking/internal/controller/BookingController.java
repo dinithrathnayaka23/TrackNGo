@@ -2,9 +2,12 @@ package com.trackngo.booking.internal.controller;
 
 import com.trackngo.booking.api.BookingService;
 import com.trackngo.booking.api.dto.BookingDto;
+import com.trackngo.booking.api.dto.RecentBookingDto;
 import com.trackngo.commons.ApiResponse;
+import com.trackngo.commons.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +31,14 @@ public class BookingController {
     @GetMapping
     public ApiResponse<List<BookingDto>> getAll() {
         return ApiResponse.ok("Fetched", service.getAll());
+    }
+
+    @GetMapping("/recent")
+    public ApiResponse<List<RecentBookingDto>> getRecentUpcoming(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            throw new BusinessException("Unauthorized request");
+        }
+        return ApiResponse.ok("Fetched", service.getUpcomingForUser(authentication.getName()));
     }
 
     @PutMapping("/{id}")

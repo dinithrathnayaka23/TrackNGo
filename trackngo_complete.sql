@@ -173,17 +173,20 @@ CREATE TABLE emergency_numbers (
 CREATE TABLE sos_alert (
     sos_id          BIGINT PRIMARY KEY AUTO_INCREMENT,
     shared_location VARCHAR(255) COMMENT 'GPS coordinates at time of trigger',
-    audio_recorded  TEXT         COMMENT 'URL to recorded audio clip',
-    status          ENUM('triggered', 'acknowledged', 'resolved', 'false_alarm') DEFAULT 'triggered',
+    status          ENUM('triggered', 'resolved', 'false_alarm') DEFAULT 'triggered',
     triggered_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
     resolved_at     TIMESTAMP    NULL,
- 
     passenger_id    BIGINT       NULL COMMENT 'Set if triggered by passenger',
     driver_id       BIGINT       NULL COMMENT 'Set if triggered by driver',
-    admin_id        BIGINT       NULL COMMENT 'Admin who acknowledged/resolved',
+    bus_id          BIGINT       NULL COMMENT 'Bus identified at trigger time',
+    bus_number      VARCHAR(255) NULL COMMENT 'Bus number captured at trigger time',
+    start_location  VARCHAR(255) NULL COMMENT 'Journey start location at trigger time',
+    end_location    VARCHAR(255) NULL COMMENT 'Journey end location at trigger time',
+    admin_id        BIGINT       NULL COMMENT 'Admin who resolved',
  
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
     FOREIGN KEY (driver_id)    REFERENCES driver(driver_id)       ON DELETE CASCADE,
+    FOREIGN KEY (bus_id)       REFERENCES bus(bus_id)             ON DELETE SET NULL,
     FOREIGN KEY (admin_id)     REFERENCES admin(admin_id)         ON DELETE SET NULL,
  
     CONSTRAINT chk_sos_triggered_by CHECK (
@@ -192,6 +195,7 @@ CREATE TABLE sos_alert (
  
     INDEX idx_passenger  (passenger_id, status),
     INDEX idx_driver     (driver_id, status),
+    INDEX idx_bus        (bus_id),
     INDEX idx_admin      (admin_id),
     INDEX idx_status     (status),
     INDEX idx_triggered  (triggered_at DESC)

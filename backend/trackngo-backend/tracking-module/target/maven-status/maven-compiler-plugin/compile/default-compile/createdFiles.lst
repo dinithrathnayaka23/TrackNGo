@@ -6,8 +6,10 @@ com\trackngo\tracking\internal\entity\BusLocation.class
 com\trackngo\tracking\api\dto\BusLocationDto.class
 com\trackngo\tracking\internal\controller\BusLocationController.class
 com\trackngo\tracking\api\BusLocationService.class
+com\trackngo\tracking\internal\entity\RouteStop.class
 com\trackngo\tracking\internal\repository\RouteRepository.class
 com\trackngo\tracking\internal\entity\Route.class
+com\trackngo\tracking\internal\entity\RouteStopId.class
 com\trackngo\tracking\internal\service\BusLocationServiceImpl.class
 com\trackngo\tracking\internal\repository\BusLocationRepository.class
 com\trackngo\tracking\internal\websocket\TrackingWebSocketHandler.class

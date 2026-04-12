@@ -12,3 +12,5 @@ C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\tracking-module
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\tracking-module\src\main\java\com\trackngo\tracking\internal\controller\RouteController.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\tracking-module\src\main\java\com\trackngo\tracking\events\TrackingUpdatedEvent.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\tracking-module\src\main\java\com\trackngo\tracking\api\dto\BusLocationDto.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\tracking-module\src\main\java\com\trackngo\tracking\internal\entity\RouteStop.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\tracking-module\src\main\java\com\trackngo\tracking\internal\entity\RouteStopId.java

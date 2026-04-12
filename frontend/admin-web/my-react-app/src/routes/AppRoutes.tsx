@@ -1,7 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Login from '../pages/auth/Login'
 import Signup from '../pages/auth/Signup'
-import DashboardRoutes from '../pages/dashboard/Routes'
+import DashboardRoutes from './Routes'
 
 function AppRoutes() {
   return (

@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**", "/health").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/chat/**").permitAll()
+                .requestMatchers("/api/routes/**").permitAll()
                 .requestMatchers("/api/users/*/conversations/**").permitAll()
                 .requestMatchers("/api/users/*/profile").permitAll()
                 .requestMatchers("/api/conversations/**").permitAll()

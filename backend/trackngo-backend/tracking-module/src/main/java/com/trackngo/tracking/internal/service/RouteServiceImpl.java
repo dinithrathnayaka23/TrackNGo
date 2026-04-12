@@ -9,6 +9,7 @@ import com.trackngo.tracking.internal.entity.Route;
 import com.trackngo.tracking.internal.entity.RouteStop;
 import com.trackngo.tracking.internal.entity.RouteStopId;
 import com.trackngo.tracking.internal.repository.RouteRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class RouteServiceImpl implements RouteService {
     private final RouteRepository repository;
+    private final EntityManager entityManager;
 
     @Override
     @Transactional
@@ -101,10 +103,13 @@ public class RouteServiceImpl implements RouteService {
         }
 
         entity.getStops().clear();
+        if (entity.getId() != null) {
+            entityManager.flush();
+        }
         if (stopNames != null) {
             for (int i = 0; i < stopNames.size(); i++) {
                 RouteStop stop = new RouteStop();
-                stop.setId(new RouteStopId(null, i + 1));
+                stop.setId(new RouteStopId(entity.getId(), i + 1));
                 stop.setRoute(entity);
                 stop.setName(stopNames.get(i));
                 entity.getStops().add(stop);
@@ -153,7 +158,7 @@ public class RouteServiceImpl implements RouteService {
 
     private BigDecimal parseFare(String fare) {
         if (fare == null || fare.isBlank()) return BigDecimal.ZERO;
-        String cleaned = fare.replaceAll("[^\\d.]", "");
+        String cleaned = fare.replaceAll("(?i)^rs\\.?", "").replaceAll("[^\\d.]", "");
         return cleaned.isEmpty() ? BigDecimal.ZERO : new BigDecimal(cleaned);
     }
 

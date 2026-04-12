@@ -1,45 +1,21 @@
-<<<<<<< HEAD
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\events\DriverCreatedEvent.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\repository\DriverRepository.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\BusService.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\service\FleetServiceImpl.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\DriverService.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\controller\FleetController.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\events\FleetCreatedEvent.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\service\BusServiceImpl.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\controller\BusController.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\controller\DriverController.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\entity\Driver.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\events\BusCreatedEvent.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\repository\FleetRepository.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\dto\DriverDto.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\entity\Bus.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\dto\FleetDto.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\repository\BusRepository.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\service\DriverServiceImpl.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\FleetService.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\entity\Fleet.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\dto\BusDto.java
-=======
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\BusService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\DriverService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\dto\BusDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\dto\DriverDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\dto\FleetDto.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\FleetService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\events\BusCreatedEvent.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\events\DriverCreatedEvent.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\service\BusServiceImpl.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\service\FleetServiceImpl.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\events\FleetCreatedEvent.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\controller\BusController.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\dto\DriverDto.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\entity\Fleet.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\entity\Bus.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\repository\BusRepository.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\BusService.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\controller\DriverController.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\controller\FleetController.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\entity\Bus.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\entity\Driver.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\entity\Fleet.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\repository\BusRepository.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\repository\DriverRepository.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\events\BusCreatedEvent.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\dto\BusDto.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\events\DriverCreatedEvent.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\repository\FleetRepository.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\service\BusServiceImpl.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\DriverService.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\api\dto\FleetDto.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\controller\BusController.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\entity\Driver.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\repository\DriverRepository.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\service\DriverServiceImpl.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\driver-fleet-module\src\main\java\com\trackngo\driverfleet\internal\service\FleetServiceImpl.java
->>>>>>> 61f4151 (feat: implement emergency_numbers)

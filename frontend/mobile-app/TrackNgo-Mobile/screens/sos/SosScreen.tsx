@@ -3,53 +3,64 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import type { RootStackParamList } from "../../navigation/types";
+import { useSession } from "../../store/sessionStore";
 import {
   EmergencyNumberDto,
   getActiveEmergencyNumbers,
+  triggerSosAlert,
 } from "../../services/sosApi";
+import * as Location from "expo-location";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Sos">;
 
 const RED = "#EF4444";
+const GREEN = "#22C55E";
 
 type QuickAction = {
-  icon: "medical-bag" | "shield" | "phone" | "fire-truck" | "microphone";
+  icon: "medical-bag" | "shield" | "phone" | "fire-truck";
   title: string;
   subtitle: string;
 };
 
-const staticActions: QuickAction[] = [
-  { icon: "microphone", title: "Record", subtitle: "Audio" },
-];
-
 function buildQuickActions(data: EmergencyNumberDto | null): QuickAction[] {
-  if (!data) return staticActions;
+  if (!data) return [];
   return [
     { icon: "medical-bag", title: "Ambulance", subtitle: data.ambulance },
     { icon: "shield", title: "Police", subtitle: data.police },
     { icon: "phone", title: "Help center", subtitle: data.helpCenter },
     { icon: "fire-truck", title: "Fire brigade", subtitle: data.fireBrigade },
-    ...staticActions,
   ];
 }
 
 export function SosScreen({ navigation }: Props) {
-  const { top, bottom } = useSafeAreaInsets();
+  const { currentUser } = useSession();
+  const params = useLocalSearchParams<{
+    busNumber?: string;
+    startLocation?: string;
+    endLocation?: string;
+    userLatitude?: string;
+    userLongitude?: string;
+  }>();
+  const { bottom } = useSafeAreaInsets();
   const [emergencyData, setEmergencyData] = useState<EmergencyNumberDto | null>(
     null,
   );
   const [loading, setLoading] = useState(true);
+  const [triggering, setTriggering] = useState(false);
+  const [sosSent, setSosSent] = useState(false);
 
   useEffect(() => {
     getActiveEmergencyNumbers()
@@ -63,6 +74,83 @@ export function SosScreen({ navigation }: Props) {
   const handleCall = (number: string) => {
     const cleaned = number.replace(/[^0-9+]/g, "");
     Linking.openURL(`tel:${cleaned}`);
+  };
+
+  const parseCoordinate = (value?: string): number | null => {
+    if (!value) {
+      return null;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const getLoggedUserLocation = async (): Promise<{
+    latitude: number;
+    longitude: number;
+  } | null> => {
+    const latFromParams = parseCoordinate(params.userLatitude);
+    const lngFromParams = parseCoordinate(params.userLongitude);
+
+    if (latFromParams !== null && lngFromParams !== null) {
+      return {
+        latitude: latFromParams,
+        longitude: lngFromParams,
+      };
+    }
+
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      return null;
+    }
+
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
+    });
+
+    return {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+    };
+  };
+
+  const handleTriggerSos = async () => {
+    if (!currentUser) {
+      Alert.alert("Login required", "Please log in before sending SOS alerts.");
+      return;
+    }
+
+    setTriggering(true);
+    try {
+      const currentLocation = await getLoggedUserLocation();
+      if (!currentLocation) {
+        Alert.alert(
+          "Location required",
+          "Enable location services to send SOS with your live location.",
+        );
+        return;
+      }
+
+      const sharedLocation = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)} - Logged user location`;
+
+      await triggerSosAlert({
+        passengerId:
+          currentUser.userType === "PASSENGER" ? currentUser.userId : undefined,
+        driverId:
+          currentUser.userType === "DRIVER" ? currentUser.userId : undefined,
+        sharedLocation,
+        busNumber: params.busNumber,
+        startLocation: params.startLocation,
+        endLocation: params.endLocation,
+      });
+
+      setSosSent(true);
+      Alert.alert("SOS sent", "Emergency alert has been sent to admin.");
+    } catch (error) {
+      console.error("Failed to trigger SOS alert", error);
+      Alert.alert("Error", "Failed to send SOS alert. Please try again.");
+    } finally {
+      setTriggering(false);
+    }
   };
 
   return (
@@ -83,13 +171,46 @@ export function SosScreen({ navigation }: Props) {
           <View style={styles.headerSpacer} />
         </View>
 
-        <Text style={styles.subtitle}>Tap in case of emergency</Text>
+        <Text style={styles.subtitle}>
+          {sosSent
+            ? "Help is on the way, please be calm."
+            : triggering
+              ? "Sending emergency alert..."
+              : "Tap in case of emergency"}
+        </Text>
 
-        <View style={styles.sosRing}>
-          <View style={styles.sosCore}>
-            <MaterialCommunityIcons name="bell" size={28} color="#FFFFFF" />
+        <Pressable
+          style={[
+            styles.sosRing,
+            sosSent ? styles.sosRingSuccess : undefined,
+            triggering ? styles.sosRingDisabled : undefined,
+          ]}
+          onPress={handleTriggerSos}
+          disabled={triggering || sosSent}
+        >
+          <View
+            style={[
+              styles.sosCore,
+              sosSent ? styles.sosCoreSuccess : undefined,
+            ]}
+          >
+            {triggering ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <MaterialCommunityIcons
+                name={sosSent ? "shield-check" : "bell"}
+                size={28}
+                color="#FFFFFF"
+              />
+            )}
           </View>
-        </View>
+        </Pressable>
+
+        {sosSent && (
+          <Text style={styles.calmText}>
+            Help is on the way, please be calm.
+          </Text>
+        )}
 
         <View style={styles.checkboxRow}>
           <View style={styles.checkbox}>
@@ -115,9 +236,7 @@ export function SosScreen({ navigation }: Props) {
               <Pressable
                 key={item.title}
                 style={styles.gridItem}
-                onPress={() => {
-                  if (item.title !== "Record") handleCall(item.subtitle);
-                }}
+                onPress={() => handleCall(item.subtitle)}
               >
                 <View style={styles.gridIcon}>
                   <MaterialCommunityIcons
@@ -131,16 +250,6 @@ export function SosScreen({ navigation }: Props) {
               </Pressable>
             ))
           )}
-
-          <Pressable
-            style={styles.gridItem}
-            onPress={() => navigation.goBack()}
-          >
-            <View style={[styles.gridIcon, styles.stopIcon]}>
-              <MaterialCommunityIcons name="close" size={18} color="#FFFFFF" />
-            </View>
-            <Text style={[styles.gridTitle, styles.stopText]}>Stop SOS</Text>
-          </Pressable>
         </View>
 
         <View style={{ height: bottom + 16 }} />
@@ -195,6 +304,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  sosRingDisabled: {
+    opacity: 0.7,
+  },
+  sosRingSuccess: {
+    backgroundColor: "#86EFAC",
+  },
   sosCore: {
     width: 70,
     height: 70,
@@ -202,6 +317,16 @@ const styles = StyleSheet.create({
     backgroundColor: RED,
     alignItems: "center",
     justifyContent: "center",
+  },
+  sosCoreSuccess: {
+    backgroundColor: GREEN,
+  },
+  calmText: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#15803D",
+    textAlign: "center",
   },
   checkboxRow: {
     marginTop: 18,
@@ -229,7 +354,7 @@ const styles = StyleSheet.create({
     color: "#1A73E8",
   },
   grid: {
-    marginTop: 18,
+    marginTop: 70,
     width: "100%",
     flexDirection: "row",
     flexWrap: "wrap",
@@ -265,12 +390,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: "#94A3B8",
-  },
-  stopIcon: {
-    backgroundColor: RED,
-  },
-  stopText: {
-    color: RED,
   },
   loadingContainer: {
     width: "100%",

@@ -1,17 +1,7 @@
-<<<<<<< HEAD
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\events\AdminLogCreatedEvent.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\internal\controller\AdminLogController.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\internal\entity\AdminLog.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\internal\service\AdminLogServiceImpl.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\api\AdminLogService.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\internal\repository\AdminLogRepository.java
-C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\api\dto\AdminLogDto.java
-=======
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\api\AdminLogService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\api\dto\AdminLogDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\events\AdminLogCreatedEvent.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\internal\controller\AdminLogController.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\internal\entity\AdminLog.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\internal\repository\AdminLogRepository.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\internal\controller\AdminLogController.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\api\dto\AdminLogDto.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\internal\entity\AdminLog.java
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\events\AdminLogCreatedEvent.java
 D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\internal\service\AdminLogServiceImpl.java
->>>>>>> 61f4151 (feat: implement emergency_numbers)
+D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\admin-module\src\main\java\com\trackngo\admin\api\AdminLogService.java

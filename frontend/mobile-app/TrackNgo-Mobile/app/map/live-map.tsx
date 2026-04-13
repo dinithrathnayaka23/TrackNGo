@@ -15,10 +15,7 @@ import {
   View,
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
@@ -112,6 +109,12 @@ export default function LiveMapScreen() {
   const [locationError, setLocationError] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
 
+  /* Speed & distance smoothing for accurate ETA */
+  const busHistory = useRef<{ lat: number; lng: number; time: number }[]>([]);
+  const speedBuffer = useRef<number[]>([]);
+  const SPEED_BUFFER_SIZE = 5;
+  const HISTORY_MAX = 10;
+
   /* Animations */
   const sheetTranslateY = useRef(new Animated.Value(100)).current;
   const boardingPulse = useRef(new Animated.Value(1)).current;
@@ -130,6 +133,51 @@ export default function LiveMapScreen() {
       .map((s) => ({ latitude: s.latitude!, longitude: s.longitude! }));
   }, [routeStops]);
 
+  // Track bus position history for computed speed
+  useEffect(() => {
+    if (!busLocation) return;
+    const now = Date.now();
+    const hist = busHistory.current;
+
+    // Compute speed from last known position (more reliable than GPS speed)
+    if (hist.length > 0) {
+      const prev = hist[hist.length - 1];
+      const dt = (now - prev.time) / 1000; // seconds
+      if (dt > 0.5) {
+        const dx = haversineDistance(prev.lat, prev.lng, busLocation.latitude, busLocation.longitude);
+        const computedSpeed = (dx / dt) * 3600; // km/h
+        // Use GPS speed if available and reasonable, otherwise use computed
+        const gpsSpeed = busLocation.speed != null && busLocation.speed > 0 ? busLocation.speed * 3.6 : 0;
+        const bestSpeed = gpsSpeed > 1 && gpsSpeed < 120 ? gpsSpeed : computedSpeed;
+
+        if (bestSpeed < 150) {
+          speedBuffer.current.push(bestSpeed);
+          if (speedBuffer.current.length > SPEED_BUFFER_SIZE) {
+            speedBuffer.current.shift();
+          }
+        }
+      }
+    }
+
+    hist.push({ lat: busLocation.latitude, lng: busLocation.longitude, time: now });
+    if (hist.length > HISTORY_MAX) hist.shift();
+  }, [busLocation]);
+
+  // Smoothed average speed (rolling window)
+  const smoothedSpeed = useMemo(() => {
+    const buf = speedBuffer.current;
+    if (buf.length === 0) return 0; // no data yet
+    // Weighted average: recent readings count more
+    let weightedSum = 0;
+    let weightTotal = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const weight = i + 1; // older=1, newest=N
+      weightedSum += buf[i] * weight;
+      weightTotal += weight;
+    }
+    return weightedSum / weightTotal;
+  }, [busLocation]); // recalculate when bus moves
+
   // Distance & ETA from bus to user
   const distanceToUser = useMemo(() => {
     if (!busLocation || !userLocation) return null;
@@ -143,9 +191,9 @@ export default function LiveMapScreen() {
 
   const etaText = useMemo(() => {
     if (!distanceToUser) return "Calculating...";
-    const speed = busLocation?.speed && busLocation.speed > 0 ? busLocation.speed * 3.6 : 30;
-    return formatETA(distanceToUser, speed);
-  }, [distanceToUser, busLocation]);
+    if (smoothedSpeed < 1) return "Bus is stopped";
+    return formatETA(distanceToUser, smoothedSpeed);
+  }, [distanceToUser, smoothedSpeed]);
 
   const distanceText = useMemo(() => {
     if (!distanceToUser) return "—";
@@ -364,8 +412,7 @@ export default function LiveMapScreen() {
 
   /* ── Render ─────────────────────────────────────────────── */
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <View style={styles.container}>
+    <View style={styles.container}>
         {/* Map */}
         <MapView
           ref={mapRef}
@@ -378,7 +425,7 @@ export default function LiveMapScreen() {
           showsUserLocation={false}
           showsMyLocationButton={false}
           toolbarEnabled={false}
-          mapPadding={{ top: 0, right: 0, bottom: 280, left: 0 }}
+          mapPadding={{ top: 0, right: 0, bottom: 240, left: 0 }}
         >
           {/* Route polyline */}
           {routeCoords.length >= 2 && (
@@ -600,8 +647,8 @@ export default function LiveMapScreen() {
               </View>
               <Text style={styles.metricLabel}>Speed</Text>
               <Text style={styles.metricValue}>
-                {busLocation?.speed
-                  ? `${Math.round(busLocation.speed * 3.6)} km/h`
+                {busLocation
+                  ? `${Math.round(smoothedSpeed)} km/h`
                   : "—"}
               </Text>
             </View>
@@ -709,21 +756,15 @@ export default function LiveMapScreen() {
             </View>
           </View>
         </Modal>
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 /* ── Styles ──────────────────────────────────────────────── */
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
   },
   map: {
     ...StyleSheet.absoluteFillObject,
@@ -798,7 +839,7 @@ const styles = StyleSheet.create({
   /* Route strip */
   routeStrip: {
     position: "absolute",
-    top: 96,
+    top: 90,
     left: 16,
     right: 16,
     zIndex: 10,
@@ -806,9 +847,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 5,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -846,14 +887,14 @@ const styles = StyleSheet.create({
   fabColumn: {
     position: "absolute",
     right: 16,
-    bottom: 310,
-    gap: 10,
+    bottom: 260,
+    gap: 8,
     zIndex: 10,
   },
   fabButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -873,9 +914,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    gap: 14,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    gap: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
@@ -888,7 +929,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: "#E2E8F0",
     alignSelf: "center",
-    marginBottom: 4,
+    marginBottom: 2,
   },
 
   /* Sheet Header */
@@ -898,9 +939,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sheetBusIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: "#2F6BFF",
     alignItems: "center",
     justifyContent: "center",
@@ -909,7 +950,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheetBusNumber: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "700",
     color: "#0F172A",
   },
@@ -938,9 +979,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
   },
   metricCard: {
     flex: 1,
@@ -953,21 +994,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#E2E8F0",
   },
   metricIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   metricLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "500",
     color: "#94A3B8",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   metricValue: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     color: "#1E293B",
   },
@@ -977,13 +1018,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 6,
     backgroundColor: "#22C55E",
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
   boardedText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     color: "#FFFFFF",
   },
@@ -991,13 +1032,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 6,
     backgroundColor: "#EFF6FF",
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
   approachingText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: "#2F6BFF",
   },
@@ -1005,16 +1046,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 6,
     backgroundColor: "#F8FAFC",
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#E2E8F0",
     borderStyle: "dashed",
   },
   waitingText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
     color: "#94A3B8",
   },
@@ -1022,20 +1063,20 @@ const styles = StyleSheet.create({
   /* Action buttons */
   actionRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
   },
   boardBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 6,
     backgroundColor: "#2F6BFF",
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   boardBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: "#FFFFFF",
   },
@@ -1044,13 +1085,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 6,
     backgroundColor: "#F97316",
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   alightBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: "#FFFFFF",
   },
@@ -1058,15 +1099,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 5,
     borderWidth: 1.5,
     borderColor: "#2F6BFF",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
   },
   msgBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: "#2F6BFF",
   },

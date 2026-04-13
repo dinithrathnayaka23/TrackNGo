@@ -37,6 +37,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/messages/**").permitAll()
                 .requestMatchers("/api/media/**").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
+                .requestMatchers("/api/emergency-numbers/**").permitAll()
+                .requestMatchers("/api/emergency-contacts/**").permitAll()
+                .requestMatchers("/api/sos-alerts/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

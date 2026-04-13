@@ -1,10 +1,13 @@
 import { API_BASE_URL } from "../config/env";
 
 const defaultHeaders = {
-  Accept: "application/json"
+  Accept: "application/json",
 };
 
-function buildUrl(path: string, query?: Record<string, string | number | undefined>) {
+function buildUrl(
+  path: string,
+  query?: Record<string, string | number | undefined>,
+) {
   const url = new URL(path, API_BASE_URL);
   if (query) {
     Object.entries(query).forEach(([key, value]) => {
@@ -18,14 +21,18 @@ function buildUrl(path: string, query?: Record<string, string | number | undefin
 
 export async function httpGet<T>(
   path: string,
-  query?: Record<string, string | number | undefined>
+  query?: Record<string, string | number | undefined>,
+  headers?: Record<string, string>,
 ): Promise<T> {
   const url = buildUrl(path, query);
   console.log(`[HTTP GET] ${url}`);
   try {
     const response = await fetch(url, {
       method: "GET",
-      headers: defaultHeaders
+      headers: {
+        ...defaultHeaders,
+        ...(headers ?? {}),
+      },
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -45,7 +52,7 @@ export async function httpPost<T>(
   path: string,
   query?: Record<string, string | number | undefined>,
   body?: unknown,
-  headers?: Record<string, string>
+  headers?: Record<string, string>,
 ): Promise<T> {
   const url = buildUrl(path, query);
   console.log(`[HTTP POST] ${url}`, body);
@@ -55,9 +62,9 @@ export async function httpPost<T>(
       headers: {
         ...defaultHeaders,
         ...(body ? { "Content-Type": "application/json" } : {}),
-        ...(headers ?? {})
+        ...(headers ?? {}),
       },
-      body: body ? JSON.stringify(body) : undefined
+      body: body ? JSON.stringify(body) : undefined,
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -76,7 +83,7 @@ export async function httpPost<T>(
 export async function httpPut<T>(
   path: string,
   body?: unknown,
-  headers?: Record<string, string>
+  headers?: Record<string, string>,
 ): Promise<T> {
   const url = buildUrl(path);
   console.log(`[HTTP PUT] ${url}`, body);
@@ -86,9 +93,9 @@ export async function httpPut<T>(
       headers: {
         ...defaultHeaders,
         ...(body ? { "Content-Type": "application/json" } : {}),
-        ...(headers ?? {})
+        ...(headers ?? {}),
       },
-      body: body ? JSON.stringify(body) : undefined
+      body: body ? JSON.stringify(body) : undefined,
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -106,19 +113,21 @@ export async function httpPut<T>(
 
 export async function httpDelete<T>(
   path: string,
-  query?: Record<string, string | number | undefined>
+  query?: Record<string, string | number | undefined>,
 ): Promise<T> {
   const url = buildUrl(path, query);
   console.log(`[HTTP DELETE] ${url}`);
   try {
     const response = await fetch(url, {
       method: "DELETE",
-      headers: defaultHeaders
+      headers: defaultHeaders,
     });
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[HTTP DELETE] Error ${response.status}:`, errorText);
-      throw new Error(`DELETE ${path} failed: ${response.status} - ${errorText}`);
+      throw new Error(
+        `DELETE ${path} failed: ${response.status} - ${errorText}`,
+      );
     }
     const data = await response.json();
     console.log(`[HTTP DELETE] Success:`, data);
@@ -132,14 +141,17 @@ export async function httpDelete<T>(
 export async function httpPostForm<T>(
   path: string,
   form: FormData,
-  query?: Record<string, string | boolean | undefined>
+  query?: Record<string, string | boolean | undefined>,
 ): Promise<T> {
-  const url = buildUrl(path, query as Record<string, string | number | undefined>);
+  const url = buildUrl(
+    path,
+    query as Record<string, string | number | undefined>,
+  );
   console.log(`[HTTP POST FORM] ${url}`);
   try {
     const response = await fetch(url, {
       method: "POST",
-      body: form
+      body: form,
     });
     if (!response.ok) {
       const errorText = await response.text();

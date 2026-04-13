@@ -3,7 +3,7 @@
 
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/trackngo?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    url: jdbc:mysql://localhost:3306/trackngo?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
     password: dinithmora2003
   servlet:

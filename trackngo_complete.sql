@@ -157,23 +157,62 @@ CREATE TABLE bus (
     INDEX idx_insurance (insurance_exp_date)
 );
 
-CREATE TABLE sos (
-    sos_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    shared_location VARCHAR(255),
-    fire_brigade VARCHAR(20),
-    ambulance_number VARCHAR(20),
-    police_number VARCHAR(20),
-    audio_recorded TEXT,
-    emergency_contact VARCHAR(20),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    admin_id BIGINT,
-    passenger_id BIGINT NOT NULL,
+CREATE TABLE emergency_numbers (
+    emergency_id    BIGINT PRIMARY KEY AUTO_INCREMENT,
+    label           VARCHAR(100) NOT NULL COMMENT 'e.g., Sri Lanka National, Western Province',
+    fire_brigade    VARCHAR(20)  NOT NULL,
+    ambulance       VARCHAR(20)  NOT NULL,
+    police          VARCHAR(20)  NOT NULL,
+    help_center     VARCHAR(20)  NOT NULL COMMENT 'TrackNgo internal help line',
+    is_active       BOOLEAN      DEFAULT true,
+    created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+ 
+    INDEX idx_active (is_active)
+);
 
-    FOREIGN KEY (admin_id) REFERENCES admin(admin_id) ON DELETE SET NULL,
+CREATE TABLE sos_alert (
+    sos_id          BIGINT PRIMARY KEY AUTO_INCREMENT,
+    shared_location VARCHAR(255) COMMENT 'GPS coordinates at time of trigger',
+    status          ENUM('triggered', 'resolved', 'false_alarm') DEFAULT 'triggered',
+    triggered_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    resolved_at     TIMESTAMP    NULL,
+    passenger_id    BIGINT       NULL COMMENT 'Set if triggered by passenger',
+    driver_id       BIGINT       NULL COMMENT 'Set if triggered by driver',
+    bus_id          BIGINT       NULL COMMENT 'Bus identified at trigger time',
+    bus_number      VARCHAR(255) NULL COMMENT 'Bus number captured at trigger time',
+    start_location  VARCHAR(255) NULL COMMENT 'Journey start location at trigger time',
+    end_location    VARCHAR(255) NULL COMMENT 'Journey end location at trigger time',
+    admin_id        BIGINT       NULL COMMENT 'Admin who resolved',
+ 
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
-    INDEX idx_passenger (passenger_id, created_at DESC),
-    INDEX idx_admin (admin_id),
-    INDEX idx_created (created_at DESC)
+    FOREIGN KEY (driver_id)    REFERENCES driver(driver_id)       ON DELETE CASCADE,
+    FOREIGN KEY (bus_id)       REFERENCES bus(bus_id)             ON DELETE SET NULL,
+    FOREIGN KEY (admin_id)     REFERENCES admin(admin_id)         ON DELETE SET NULL,
+ 
+    CONSTRAINT chk_sos_triggered_by CHECK (
+        passenger_id IS NOT NULL OR driver_id IS NOT NULL
+    ),
+ 
+    INDEX idx_passenger  (passenger_id, status),
+    INDEX idx_driver     (driver_id, status),
+    INDEX idx_bus        (bus_id),
+    INDEX idx_admin      (admin_id),
+    INDEX idx_status     (status),
+    INDEX idx_triggered  (triggered_at DESC)
+);
+
+CREATE TABLE emergency_contact (
+    contact_id      BIGINT       PRIMARY KEY AUTO_INCREMENT,
+    owner_type      ENUM('passenger', 'driver') NOT NULL,
+    owner_id        BIGINT       NOT NULL COMMENT 'passenger_id or driver_id depending on owner_type',
+    name            VARCHAR(100) NOT NULL,
+    tele_number     VARCHAR(20)  NOT NULL,
+    relationship    VARCHAR(50)  COMMENT 'e.g., Mother, Spouse, Friend',
+    created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+ 
+    UNIQUE KEY unique_owner_contact (owner_type, owner_id, tele_number),
+ 
+    INDEX idx_owner  (owner_id, owner_type)
 );
 
 CREATE TABLE notification (
@@ -417,12 +456,12 @@ CREATE TABLE seat_booking (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     passenger_id BIGINT NOT NULL,
     bus_id BIGINT NOT NULL,
-    route_id BIGINT,
+    route_id BIGINT NOT NULL,
     payment_id BIGINT,
 
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
     FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,
-    FOREIGN KEY (route_id) REFERENCES route(route_id) ON DELETE SET NULL,
+    FOREIGN KEY (route_id) REFERENCES route(route_id) ON DELETE RESTRICT,
     FOREIGN KEY (payment_id) REFERENCES payment(payment_id) ON DELETE SET NULL,
     INDEX idx_passenger (passenger_id, status),
     INDEX idx_bus_date (bus_id, journey_date),

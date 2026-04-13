@@ -275,14 +275,52 @@ INSERT INTO complaint (complaint_id, complaint_type, priority, description, stat
 
 
 -- =============================================
--- SOS RECORDS (3 records)
+-- SOS RECORDS (3 Tables )
 -- =============================================
 
-INSERT INTO sos (sos_id, shared_location, fire_brigade, ambulance_number, police_number, emergency_contact, admin_id, passenger_id) VALUES
-(1, '7.0621, 80.0001 - Near Warakapola, Colombo-Kandy Road', '011-2422222', '1990', '119', '+94715551001', 1, 4),
-(2, '6.1417, 80.1000 - Near Hikkaduwa Beach Road',            '091-2222222', '1990', '119', '+94715552002', 2, 8),
-(3, '6.9336, 79.8486 - Colombo Fort Bus Station',             '011-2422222', '1990', '119', '+94715553003', 1, 6);
+INSERT INTO emergency_numbers (emergency_id, label, fire_brigade, ambulance, police, help_center, is_active) VALUES
+(1, 'Sri Lanka National', '011-2422222', '1990',        '119', '+94117654321', true),
+(2, 'Western Province',   '011-2696333', '011-2691111', '119', '+94117654321', false),
+(3, 'Central Province',   '081-2222222', '1990',        '119', '+94117654321', false);
 
+INSERT INTO emergency_contact (owner_id, owner_type, name, tele_number, relationship) VALUES
+-- Passengers
+(4,  'passenger', 'Kumari Silva',          '+94712345601', 'Mother'),
+(4,  'passenger', 'Niroshan Silva',        '+94712345602', 'Brother'),
+(5,  'passenger', 'Priya Rajapaksa',       '+94712345603', 'Spouse'),
+(5,  'passenger', 'Rohan Rajapaksa',       '+94712345604', 'Father'),
+(6,  'passenger', 'Dinesh Wickramasinghe', '+94712345605', 'Spouse'),
+(7,  'passenger', 'Sunethra Bandara',      '+94712345606', 'Mother'),
+(8,  'passenger', 'Kamal Dissanayake',     '+94712345607', 'Father'),
+(8,  'passenger', 'Dilini Perera',         '+94712345608', 'Friend'),
+(9,  'passenger', 'Renuka Kumara',         '+94712345609', 'Spouse'),
+(11, 'passenger', 'Mala Rathnayake',       '+94712345610', 'Mother'),
+-- Drivers
+(14, 'driver',    'Chamari Mendis',        '+94712345701', 'Spouse'),
+(14, 'driver',    'Sunil Mendis',          '+94712345702', 'Father'),
+(15, 'driver',    'Niluka Samarasinghe',   '+94712345703', 'Spouse'),
+(16, 'driver',    'Kanthi Herath',         '+94712345704', 'Mother'),
+(16, 'driver',    'Lasith Herath',         '+94712345705', 'Brother'),
+(18, 'driver',    'Shanthi Weerasinghe',   '+94712345706', 'Spouse'),
+(21, 'driver',    'Kamala Dharmasiri',     '+94712345707', 'Spouse'),
+(21, 'driver',    'Anura Dharmasiri',      '+94712345708', 'Son');
+ 
+INSERT INTO sos_alert (
+	shared_location,
+	status,
+	passenger_id,
+	driver_id,
+	bus_id,
+	bus_number,
+	start_location,
+	end_location,
+	admin_id,
+	resolved_at
+) VALUES
+('6.9500, 80.0001 - Near Warakapola, A1 Highway', 'resolved',    4, NULL, 1, 'NB-0012', 'Colombo Fort', 'Kandy',  1, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+('6.1417, 80.1000 - Near Hikkaduwa Beach Road',   'resolved',    8, NULL, 2, 'NB-0034', 'Colombo Fort', 'Galle',  2, DATE_SUB(NOW(), INTERVAL 3 DAY)),
+('6.9336, 79.8486 - Colombo Fort Bus Station',    'false_alarm', 6, NULL, 3, 'NB-0056', 'Colombo Fort', 'Jaffna', 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+('7.0433, 79.9514 - Kadawatha Junction',          'triggered',   5, NULL, 1, 'NB-0012', 'Colombo Fort', 'Kandy',  NULL, NULL);
 
 -- =============================================
 -- NOTIFICATIONS (15 records)
@@ -339,7 +377,7 @@ INSERT INTO payment (payment_id, transaction_id, payment_method, payment_status,
 -- =============================================
 
 INSERT INTO seat_booking (seat_booking_id, booking_reference, journey_date, journey_time, seat_number, special_request, total_amount, status, passenger_id, bus_id, route_id, payment_id) VALUES
-(1, 'SB-20250115-001', '2025-01-15', '06:00:00', 'A1,A2',    'Window seats please',         900.00,  'completed', 4,  1, 1, 1),
+(1, 'SB-20250115-001', '2026-04-15', '06:00:00', 'A1,A2',    'Window seats please',         900.00,  'completed', 4,  1, 1, 1),
 (2, 'SB-20250115-002', '2025-01-15', '06:00:00', 'B3',       NULL,                          450.00,  'completed', 5,  1, 1, 3),
 (3, 'SB-20250116-001', '2025-01-16', '07:00:00', 'A5',       'Front seat preferred',        400.00,  'completed', 6,  2, 2, 4),
 (4, 'SB-20250120-001', '2025-01-20', '04:30:00', 'C1,C2,C3', 'Traveling with family',      5400.00,  'completed', 8,  3, 3, 5),

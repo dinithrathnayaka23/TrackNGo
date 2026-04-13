@@ -25,6 +25,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		WHERE u.email = :email
 		  AND sb.status <> 'cancelled'
 		  AND TIMESTAMP(sb.journey_date, sb.journey_time) >= CURRENT_TIMESTAMP()
+		  AND sb.journey_date <= DATE_ADD(CURDATE(), INTERVAL 3 DAY)
 		ORDER BY sb.journey_date ASC, sb.journey_time ASC
 		LIMIT 8
 		""", nativeQuery = true)

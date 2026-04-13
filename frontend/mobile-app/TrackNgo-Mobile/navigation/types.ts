@@ -2,7 +2,7 @@ import type { UserType } from "../types/chat";
 
 export type RootStackParamList = {
   Dashboard: undefined;
-  UserSelect: undefined;
+  Login: undefined;
   Notification: undefined;
   Sos: undefined;
   EmergencyContacts: undefined;

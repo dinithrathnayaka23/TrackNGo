@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   Animated,
@@ -9,9 +15,15 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  getRecentUpcomingBookings,
+  type RecentBookingDto,
+} from "../../services/bookingsApi";
+import { getUserProfile } from "../../services/userProfileApi";
+import { useSession } from "../../store/sessionStore";
 
 const quickActions = [
   {
@@ -24,38 +36,101 @@ const quickActions = [
   {
     key: "long-distance",
     label: "Long Distance",
-    icon: (color: string) => <Ionicons name="bus-outline" size={20} color={color} />,
+    icon: (color: string) => (
+      <Ionicons name="bus-outline" size={20} color={color} />
+    ),
   },
   {
     key: "trip-booking",
     label: "Trip Booking",
-    icon: (color: string) => <Ionicons name="ticket-outline" size={20} color={color} />,
+    icon: (color: string) => (
+      <Ionicons name="ticket-outline" size={20} color={color} />
+    ),
   },
   {
     key: "my-bookings",
     label: "My Bookings",
-    icon: (color: string) => <Ionicons name="calendar-outline" size={20} color={color} />,
+    icon: (color: string) => (
+      <Ionicons name="calendar-outline" size={20} color={color} />
+    ),
   },
 ];
 
-const recentBookings = [
-  {
-    id: "HW8892",
-    badge: "Highway",
-    from: "Colombo",
-    to: "Galle",
-    time: "Tomorrow, 08:00 AM",
-    base: "#2F6BFF",
-  },
-  {
-    id: "TB8892",
-    badge: "Trip",
-    from: "Colombo",
-    to: "Jaffna",
-    time: "Dec 05, 08:00 AM",
-    base: "#8A2BE2",
-  },
-];
+interface DashboardRecentBooking {
+  busNumber: string;
+  id: string;
+  badge: string;
+  from: string;
+  to: string;
+  dateLabel: string;
+  timeLabel: string;
+  base: string;
+  journeyAt: Date;
+}
+
+function normalizeBusType(busType: string): string {
+  const raw = (busType ?? "").toLowerCase();
+  if (raw === "trip_booking") {
+    return "Trip";
+  }
+  if (!raw) {
+    return "Booking";
+  }
+  return raw
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function getCardBaseColor(busType: string): string {
+  return (busType ?? "").toLowerCase() === "trip_booking"
+    ? "#8A2BE2"
+    : "#2F6BFF";
+}
+
+function parseJourneyDateTime(date: string, time: string): Date {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute, second = 0] = time.split(":").map(Number);
+  return new Date(year, month - 1, day, hour, minute, second);
+}
+
+function getGreetingForTime(date: Date): string {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 12) {
+    return "Good Morning";
+  }
+  if (hour >= 12 && hour < 17) {
+    return "Good Afternoon";
+  }
+  if (hour >= 17 && hour < 21) {
+    return "Good Evening";
+  }
+  return "Good Night";
+}
+
+function toDashboardRecentBooking(
+  dto: RecentBookingDto,
+): DashboardRecentBooking {
+  const journeyAt = parseJourneyDateTime(dto.journeyDate, dto.journeyTime);
+  const dateLabel = dto.journeyDate;
+  const timeLabel = journeyAt.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  return {
+    busNumber: dto.busNumber,
+    id: dto.bookingReference,
+    badge: normalizeBusType(dto.busType),
+    from: dto.startLocation,
+    to: dto.endLocation,
+    dateLabel,
+    timeLabel,
+    base: getCardBaseColor(dto.busType),
+    journeyAt,
+  };
+}
 
 const CARD_GAP = 12;
 const H_PADDING = 20;
@@ -96,36 +171,147 @@ function PressScale({
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
-    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 20 }).start();
+    Animated.spring(scale, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 20,
+    }).start();
   };
   const handlePressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18 }).start();
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 18,
+    }).start();
   };
 
   return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
-      <Animated.View style={{ transform: [{ scale }] }}>{children}</Animated.View>
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <Animated.View style={{ transform: [{ scale }] }}>
+        {children}
+      </Animated.View>
     </Pressable>
   );
 }
 
 export default function HomeScreen() {
+  const { currentUser } = useSession();
   const headerAnim = useEntranceAnimation(0);
   const greetingAnim = useEntranceAnimation(80);
   const gridAnim = useEntranceAnimation(160);
   const recentAnim = useEntranceAnimation(240);
-  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const [recentBookings, setRecentBookings] = useState<
+    DashboardRecentBooking[]
+  >([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+  const [now, setNow] = useState(() => new Date());
+  const [displayName, setDisplayName] = useState("User");
+
+  const loadDisplayName = useCallback(async () => {
+    if (!currentUser) {
+      setDisplayName("User");
+      return;
+    }
+
+    try {
+      const profile = await getUserProfile(currentUser.userId);
+      const resolvedName =
+        profile.fullName?.trim() ||
+        profile.contactPersonName?.trim() ||
+        profile.companyName?.trim() ||
+        `User ${currentUser.userId}`;
+      setDisplayName(resolvedName);
+    } catch (error) {
+      console.error("[HomeScreen] Failed to load user profile", error);
+      setDisplayName(`User ${currentUser.userId}`);
+    }
+  }, [currentUser]);
+
+  const loadRecentBookings = useCallback(async () => {
+    if (!currentUser) {
+      setRecentBookings([]);
+      setLoadingRecent(false);
+      setNow(new Date());
+      return;
+    }
+
+    try {
+      setLoadingRecent(true);
+      const data = await getRecentUpcomingBookings();
+      setNow(new Date());
+      setRecentBookings(data.map(toDashboardRecentBooking));
+    } catch (error) {
+      console.error("[HomeScreen] Failed to load recent bookings", error);
+      setRecentBookings([]);
+    } finally {
+      setLoadingRecent(false);
+    }
+  }, [currentUser]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadRecentBookings();
+      void loadDisplayName();
+    }, [loadRecentBookings, loadDisplayName]),
+  );
+
+  useEffect(() => {
+    const nowMillis = Date.now();
+    const nextExpiryMillis = recentBookings
+      .map((booking) => booking.journeyAt.getTime())
+      .filter((millis) => millis >= nowMillis)
+      .sort((a, b) => a - b)[0];
+
+    if (!nextExpiryMillis) {
+      return;
+    }
+
+    const delayMillis = Math.max(nextExpiryMillis - nowMillis + 1_000, 500);
+    const timeoutId = setTimeout(() => {
+      setNow(new Date());
+      void loadRecentBookings();
+    }, delayMillis);
+
+    return () => clearTimeout(timeoutId);
+  }, [recentBookings, loadRecentBookings]);
+
+  useEffect(() => {
+    const nowDate = new Date();
+    const boundaryHours = [5, 12, 17, 21, 24];
+    const currentHour = nowDate.getHours();
+    const nextHour = boundaryHours.find((hour) => hour > currentHour) ?? 24;
+    const nextBoundary = new Date(nowDate);
+    nextBoundary.setHours(nextHour, 0, 0, 0);
+    const delayMillis = Math.max(nextBoundary.getTime() - Date.now(), 500);
+
+    const timeoutId = setTimeout(() => {
+      setNow(new Date());
+    }, delayMillis);
+
+    return () => clearTimeout(timeoutId);
+  }, [now]);
 
   const actionColor = useMemo(() => "#2F6BFF", []);
   const todayLabel = useMemo(() => {
-    const now = new Date();
     return now.toLocaleDateString("en-US", {
       weekday: "long",
       day: "2-digit",
       month: "short",
     });
-  }, []);
+  }, [now]);
+  const greetingLabel = useMemo(() => getGreetingForTime(now), [now]);
+  const visibleRecentBookings = useMemo(
+    () =>
+      recentBookings.filter(
+        (booking) => booking.journeyAt.getTime() >= now.getTime(),
+      ),
+    [recentBookings, now],
+  );
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -136,7 +322,10 @@ export default function HomeScreen() {
         <Animated.View
           style={[
             styles.header,
-            { opacity: headerAnim.opacity, transform: [{ translateY: headerAnim.translateY }] },
+            {
+              opacity: headerAnim.opacity,
+              transform: [{ translateY: headerAnim.translateY }],
+            },
           ]}
         >
           <View style={styles.brandRow}>
@@ -146,13 +335,21 @@ export default function HomeScreen() {
             <Text style={styles.brandText}>TrackNGo</Text>
           </View>
           <View style={styles.headerActions}>
-            <PressScale onPress={() => router.push("/notifications/notifications")}>
+            <PressScale
+              onPress={() => router.push("/notifications/notifications")}
+            >
               <View style={styles.iconButton}>
-                <Ionicons name="notifications-outline" size={20} color="#1F2937" />
+                <Ionicons
+                  name="notifications-outline"
+                  size={20}
+                  color="#1F2937"
+                />
                 <View style={styles.notificationDot} />
               </View>
             </PressScale>
-            <PressScale onPress={() => Alert.alert("Menu", "Menu button tapped.")}>
+            <PressScale
+              onPress={() => Alert.alert("Menu", "Menu button tapped.")}
+            >
               <View style={styles.iconButton}>
                 <Ionicons name="menu" size={22} color="#1F2937" />
               </View>
@@ -165,24 +362,35 @@ export default function HomeScreen() {
         <Animated.View
           style={[
             styles.greetingBlock,
-            { opacity: greetingAnim.opacity, transform: [{ translateY: greetingAnim.translateY }] },
+            {
+              opacity: greetingAnim.opacity,
+              transform: [{ translateY: greetingAnim.translateY }],
+            },
           ]}
         >
           <Text style={styles.dateText}>{todayLabel}</Text>
-          <Text style={styles.greetingText}>Good Morning, Chamara</Text>
+          <Text style={styles.greetingText}>
+            {greetingLabel}, {displayName}
+          </Text>
         </Animated.View>
 
         <Animated.View
           style={[
             styles.grid,
-            { opacity: gridAnim.opacity, transform: [{ translateY: gridAnim.translateY }] },
+            {
+              opacity: gridAnim.opacity,
+              transform: [{ translateY: gridAnim.translateY }],
+            },
           ]}
         >
           {quickActions.map((action) => (
             <PressScale
               key={action.key}
               onPress={() => {
-                if (action.key === "highway" || action.key === "long-distance") {
+                if (
+                  action.key === "highway" ||
+                  action.key === "long-distance"
+                ) {
                   router.push("/booking/search-buses");
                   return;
                 }
@@ -190,7 +398,9 @@ export default function HomeScreen() {
               }}
             >
               <View style={styles.actionCard}>
-                <View style={styles.actionIconWrap}>{action.icon(actionColor)}</View>
+                <View style={styles.actionIconWrap}>
+                  {action.icon(actionColor)}
+                </View>
                 <Text style={styles.actionLabel}>{action.label}</Text>
               </View>
             </PressScale>
@@ -200,13 +410,31 @@ export default function HomeScreen() {
         <Animated.View
           style={[
             styles.recentBlock,
-            { opacity: recentAnim.opacity, transform: [{ translateY: recentAnim.translateY }] },
+            {
+              opacity: recentAnim.opacity,
+              transform: [{ translateY: recentAnim.translateY }],
+            },
           ]}
         >
           <Text style={styles.sectionTitle}>Recent Bookings</Text>
 
-          {recentBookings.map((booking) => (
-            <View key={booking.id} style={[styles.bookingCard, { backgroundColor: booking.base }]}>
+          {loadingRecent ? (
+            <Text style={styles.recentInfoText}>
+              Loading upcoming bookings...
+            </Text>
+          ) : null}
+
+          {!loadingRecent && visibleRecentBookings.length === 0 ? (
+            <Text style={styles.recentInfoText}>
+              No upcoming bookings found.
+            </Text>
+          ) : null}
+
+          {visibleRecentBookings.map((booking) => (
+            <View
+              key={booking.id}
+              style={[styles.bookingCard, { backgroundColor: booking.base }]}
+            >
               <View style={styles.cardTopRow}>
                 <View style={styles.badgeRow}>
                   <View style={styles.badge}>
@@ -216,7 +444,7 @@ export default function HomeScreen() {
                     <Text style={styles.badgeText}>{booking.badge}</Text>
                   </View>
                 </View>
-                <Text style={styles.refText}>Ref: #{booking.id}</Text>
+                <Text style={styles.refText}>Ref: {booking.id}</Text>
               </View>
 
               <View style={styles.tripRow}>
@@ -235,19 +463,50 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.cardBottomRow}>
-                <Text style={styles.timeText}>{booking.time}</Text>
+                <Text style={styles.timeText}>
+                  {booking.dateLabel} | {booking.timeLabel}
+                </Text>
                 <View style={styles.cardActions}>
-                  <PressScale onPress={() => router.push("/map/live-map")}>
+                  <PressScale
+                    onPress={() =>
+                      router.push({
+                        pathname: "/map/live-map",
+                        params: {
+                          busNumber: booking.busNumber,
+                          startLocation: booking.from,
+                          endLocation: booking.to,
+                        },
+                      })
+                    }
+                  >
                     <View style={styles.smallButton}>
-                      <Ionicons name="location" size={13} color={booking.base} />
-                      <Text style={[styles.smallButtonText, { color: booking.base }]}>
+                      <Ionicons
+                        name="location"
+                        size={13}
+                        color={booking.base}
+                      />
+                      <Text
+                        style={[
+                          styles.smallButtonText,
+                          { color: booking.base },
+                        ]}
+                      >
                         Track Live
                       </Text>
                     </View>
                   </PressScale>
-                  <PressScale onPress={() => Alert.alert("Ticket", `Viewing ticket #${booking.id}.`)}>
+                  <PressScale
+                    onPress={() =>
+                      Alert.alert("Ticket", `Viewing ticket #${booking.id}.`)
+                    }
+                  >
                     <View style={styles.smallButton}>
-                      <Text style={[styles.smallButtonText, { color: booking.base }]}>
+                      <Text
+                        style={[
+                          styles.smallButtonText,
+                          { color: booking.base },
+                        ]}
+                      >
                         View Ticket
                       </Text>
                     </View>
@@ -379,6 +638,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#1F2937",
+  },
+  recentInfoText: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: -4,
   },
   bookingCard: {
     borderRadius: 14,

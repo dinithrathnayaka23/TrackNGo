@@ -2,16 +2,12 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { RootStackParamList } from "../../navigation/types";
-import { useSession } from "../../store/sessionStore";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Dashboard">;
 
 export function DashboardScreen({ navigation }: Props) {
-  const { clearCurrentUser } = useSession();
-
-  const onOpenChat = async () => {
-    await clearCurrentUser();
-    navigation.navigate("UserSelect");
+  const onOpenChat = () => {
+    navigation.navigate("ChatList");
   };
 
   return (

@@ -8,7 +8,6 @@ import { ChatRoomScreen } from "../screens/chat/ChatRoomScreen";
 import { EmergencyContactsScreen } from "../screens/sos/EmergencyContactsScreen";
 import { NotificationScreen } from "../screens/notifications/NotificationScreen";
 import { SosScreen } from "../screens/sos/SosScreen";
-import { UserSelectScreen } from "../screens/auth/UserSelectScreen";
 import LoginScreen from "../app/auth/login";
 import type { RootStackParamList } from "./types";
 
@@ -35,7 +34,6 @@ export function AppNavigator() {
         {!currentUser && (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="UserSelect" component={UserSelectScreen} />
           </>
         )}
 

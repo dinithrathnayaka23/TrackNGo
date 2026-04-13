@@ -29,10 +29,14 @@ public class SosAlertServiceImpl implements SosAlertService {
 
     @PostConstruct
     public void ensureSosAlertColumns() {
-        ensureColumnExists("bus_id", "BIGINT NULL");
-        ensureColumnExists("bus_number", "VARCHAR(255) NULL");
-        ensureColumnExists("start_location", "VARCHAR(255) NULL");
-        ensureColumnExists("end_location", "VARCHAR(255) NULL");
+        try {
+            ensureColumnExists("bus_id", "BIGINT NULL");
+            ensureColumnExists("bus_number", "VARCHAR(255) NULL");
+            ensureColumnExists("start_location", "VARCHAR(255) NULL");
+            ensureColumnExists("end_location", "VARCHAR(255) NULL");
+        } catch (Exception e) {
+            // Table may not exist yet; Hibernate ddl-auto will create it with all columns
+        }
     }
 
     @Override

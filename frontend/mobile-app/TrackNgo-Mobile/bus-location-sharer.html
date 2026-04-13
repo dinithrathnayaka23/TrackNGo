@@ -131,29 +131,7 @@
     .info-box .lbl { font-size: 10px; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px; }
     .info-box .val { font-size: 14px; font-weight: 700; color: #1E293B; margin-top: 2px; }
 
-    .mode-toggle {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-    .mode-btn {
-      flex: 1;
-      padding: 10px;
-      border: 2px solid #E2E8F0;
-      border-radius: 10px;
-      background: #FFFFFF;
-      font-size: 12px;
-      font-weight: 700;
-      color: #64748B;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .mode-btn.active {
-      border-color: #2F6BFF;
-      background: #EFF6FF;
-      color: #2F6BFF;
-    }
+
 
     .log-box {
       max-height: 120px;
@@ -271,12 +249,6 @@
     <label>Bus Number</label>
     <input type="text" id="busNumber" placeholder="e.g. ND-4589" value="ND-4589" />
 
-    <label>Sharing Mode</label>
-    <div class="mode-toggle">
-      <div class="mode-btn active" id="modeRest" onclick="setMode('rest')">REST API</div>
-      <div class="mode-btn" id="modeWs" onclick="setMode('ws')">WebSocket</div>
-    </div>
-
     <div id="statusBar" class="status-bar status-idle">
       <div class="dot dot-gray"></div>
       <span>Not sharing</span>
@@ -334,12 +306,6 @@
     <label>Bus Number</label>
     <input type="text" id="qrBusNumber" placeholder="e.g. ND-4589" value="ND-4589" />
 
-    <label>Mode</label>
-    <div class="mode-toggle">
-      <div class="mode-btn active" id="qrModeRest" onclick="setQrMode('rest')">REST API</div>
-      <div class="mode-btn" id="qrModeWs" onclick="setQrMode('ws')">WebSocket</div>
-    </div>
-
     <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
       <input type="checkbox" id="qrAutoStart" checked style="width:auto; margin:0;" />
       <label style="margin:0; text-transform:none; font-size:13px; color:#334155;">Auto-start sharing when scanned</label>
@@ -364,16 +330,8 @@
   </div><!-- end tab-qr -->
 
 <script>
-  let mode = 'rest';
   let watchId = null;
-  let ws = null;
   let updateCount = 0;
-
-  function setMode(m) {
-    mode = m;
-    document.getElementById('modeRest').classList.toggle('active', m === 'rest');
-    document.getElementById('modeWs').classList.toggle('active', m === 'ws');
-  }
 
   function log(msg) {
     const box = document.getElementById('logBox');
@@ -395,13 +353,6 @@
     return `http://${host}:${port}`;
   }
 
-  function getWsUrl() {
-    const host = document.getElementById('serverHost').value.trim();
-    const port = document.getElementById('serverPort').value.trim();
-    if (!host) return null;
-    return `ws://${host}:${port}/ws/tracking`;
-  }
-
   async function sendViaRest(data) {
     const base = getBaseUrl();
     if (!base) return;
@@ -419,26 +370,6 @@
     }
   }
 
-  function sendViaWs(data) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      log('❌ WebSocket not connected');
-      connectWs();
-      return;
-    }
-    ws.send(JSON.stringify(data));
-    log(`✅ Sent via WS (${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)})`);
-  }
-
-  function connectWs() {
-    const url = getWsUrl();
-    if (!url) return;
-    log(`Connecting WebSocket to ${url}...`);
-    ws = new WebSocket(url);
-    ws.onopen = () => { log('🟢 WebSocket connected'); setStatus('active', 'Sharing via WebSocket'); };
-    ws.onclose = () => { log('🔴 WebSocket disconnected'); };
-    ws.onerror = (e) => { log('❌ WebSocket error'); };
-  }
-
   function startSharing() {
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by this browser.');
@@ -447,8 +378,6 @@
 
     const busNumber = document.getElementById('busNumber').value.trim();
     if (!busNumber) { alert('Please enter a bus number'); return; }
-
-    if (mode === 'ws') connectWs();
 
     log('Starting location sharing...');
     setStatus('active', 'Sharing location');
@@ -474,8 +403,7 @@
           data.speed != null ? `${(data.speed * 3.6).toFixed(1)} km/h` : '—';
         document.getElementById('infoCount').textContent = updateCount;
 
-        if (mode === 'rest') sendViaRest(data);
-        else sendViaWs(data);
+        sendViaRest(data);
       },
       (err) => {
         log(`❌ Location error: ${err.message}`);
@@ -494,7 +422,6 @@
       navigator.geolocation.clearWatch(watchId);
       watchId = null;
     }
-    if (ws) { ws.close(); ws = null; }
     updateCount = 0;
     setStatus('idle', 'Stopped');
     document.getElementById('startBtn').style.display = 'flex';
@@ -512,13 +439,6 @@
   }
 
   /* ── QR Code generation (canvas-based, no library) ── */
-  let qrMode = 'rest';
-  function setQrMode(m) {
-    qrMode = m;
-    document.getElementById('qrModeRest').classList.toggle('active', m === 'rest');
-    document.getElementById('qrModeWs').classList.toggle('active', m === 'ws');
-  }
-
   function buildShareUrl() {
     const host = document.getElementById('qrServerHost').value.trim();
     const port = document.getElementById('qrServerPort').value.trim();
@@ -531,7 +451,7 @@
     // Build URL pointing to this same page served from the backend
     const base = `http://${host}:${port}/bus-sharer.html`;
     const params = new URLSearchParams({
-      host, port, bus, mode: qrMode,
+      host, port, bus,
       ...(auto ? { autostart: '1' } : {})
     });
     return `${base}?${params.toString()}`;
@@ -597,7 +517,6 @@
     const host = params.get('host');
     const port = params.get('port');
     const bus = params.get('bus');
-    const urlMode = params.get('mode');
     const autostart = params.get('autostart');
 
     // Auto-fill from URL params (QR code scanned)
@@ -613,7 +532,6 @@
       document.getElementById('busNumber').value = bus;
       document.getElementById('qrBusNumber').value = bus;
     }
-    if (urlMode) setMode(urlMode);
 
     // Auto-fill server host from current page URL if no params
     if (!host) {

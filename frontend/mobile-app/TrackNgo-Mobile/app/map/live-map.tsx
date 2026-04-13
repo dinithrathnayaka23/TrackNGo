@@ -548,28 +548,26 @@ export default function LiveMapScreen() {
                 {startLoc} → {endLoc}
               </Text>
             </View>
-            <Pressable
-              style={styles.sosBtn}
-              onPress={() =>
-                router.push({
-                  pathname: "/sos/sos",
-                  params: {
-                    busNumber,
-                    startLocation: startLoc,
-                    endLocation: endLoc,
-                    userLatitude: userLocation
-                      ? String(userLocation.latitude)
-                      : undefined,
-                    userLongitude: userLocation
-                      ? String(userLocation.longitude)
-                      : undefined,
-                  },
-                })
-              }
-            >
-              <Ionicons name="warning" size={12} color="#FFFFFF" />
-              <Text style={styles.sosBtnText}>SOS</Text>
-            </Pressable>
+            {isBoarded && userLocation && (
+              <Pressable
+                style={styles.sosBtn}
+                onPress={() =>
+                  router.push({
+                    pathname: "/sos/sos",
+                    params: {
+                      busNumber,
+                      startLocation: startLoc,
+                      endLocation: endLoc,
+                      userLatitude: String(userLocation.latitude),
+                      userLongitude: String(userLocation.longitude),
+                    },
+                  })
+                }
+              >
+                <Ionicons name="warning" size={12} color="#FFFFFF" />
+                <Text style={styles.sosBtnText}>SOS</Text>
+              </Pressable>
+            )}
           </View>
 
           {/* Metrics row */}
@@ -689,23 +687,23 @@ export default function LiveMapScreen() {
               </Text>
               <View style={styles.modalActions}>
                 <Pressable
-                  style={styles.modalCancel}
-                  onPress={() => setShowBoardingModal(false)}
-                >
-                  <Text style={styles.modalCancelText}>Not Yet</Text>
-                </Pressable>
-                <Pressable
                   style={styles.modalConfirm}
                   onPress={handleBoardingConfirm}
                 >
                   <Ionicons
                     name="checkmark-circle"
-                    size={18}
+                    size={16}
                     color="#FFFFFF"
                   />
                   <Text style={styles.modalConfirmText}>
                     Yes, I'm on Board
                   </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.modalCancel}
+                  onPress={() => setShowBoardingModal(false)}
+                >
+                  <Text style={styles.modalCancelText}>Not Yet</Text>
                 </Pressable>
               </View>
             </View>
@@ -1217,35 +1215,33 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   modalActions: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 24,
+    flexDirection: "column",
+    gap: 10,
+    marginTop: 20,
     width: "100%",
   },
   modalCancel: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: "center",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "transparent",
   },
   modalCancelText: {
     fontSize: 14,
-    fontWeight: "700",
-    color: "#64748B",
+    fontWeight: "600",
+    color: "#94A3B8",
   },
   modalConfirm: {
-    flex: 1.5,
     flexDirection: "row",
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
     backgroundColor: "#2F6BFF",
   },
   modalConfirmText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: "#FFFFFF",
   },

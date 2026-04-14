@@ -40,6 +40,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/emergency-numbers/**").permitAll()
                 .requestMatchers("/api/emergency-contacts/**").permitAll()
                 .requestMatchers("/api/sos-alerts/**").permitAll()
+                .requestMatchers("/api/tracking/**").permitAll()
+                .requestMatchers("/bus-sharer.html").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

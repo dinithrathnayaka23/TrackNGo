@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrackNGo — Bus Location Sharer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #F0F4F8;
+      color: #1E293B;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #0F172A;
+    }
+    .subtitle { font-size: 13px; color: #64748B; margin-bottom: 20px; }
+
+    .card {
+      background: #FFFFFF;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      padding: 24px;
+      width: 100%;
+      max-width: 420px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748B;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #1E293B;
+      background: #F8FAFC;
+      margin-bottom: 14px;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #2F6BFF;
+      background: #FFFFFF;
+    }
+
+    .server-row {
+      display: flex;
+      gap: 8px;
+    }
+    .server-row input { flex: 1; }
+    .server-row input:last-child { max-width: 80px; }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.2s;
+    }
+    .btn:active { opacity: 0.85; }
+    .btn-primary { background: #2F6BFF; color: #FFFFFF; }
+    .btn-danger { background: #EF4444; color: #FFFFFF; }
+    .btn-success { background: #22C55E; color: #FFFFFF; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .status-idle { background: #F1F5F9; color: #64748B; }
+    .status-active { background: #ECFDF5; color: #059669; }
+    .status-error { background: #FEF2F2; color: #DC2626; }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .dot-gray { background: #94A3B8; }
+    .dot-green { background: #22C55E; animation: pulse 1.5s infinite; }
+    .dot-red { background: #EF4444; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.5); }
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .info-box {
+      padding: 10px;
+      background: #F8FAFC;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .info-box .lbl { font-size: 10px; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-box .val { font-size: 14px; font-weight: 700; color: #1E293B; margin-top: 2px; }
+
+
+
+    .log-box {
+      max-height: 120px;
+      overflow-y: auto;
+      background: #F8FAFC;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 11px;
+      color: #64748B;
+      font-family: monospace;
+      line-height: 1.6;
+    }
+
+    /* QR Section */
+    .qr-section { text-align: center; }
+    .qr-section canvas { margin: 0 auto; }
+    #qrCanvas {
+      border-radius: 12px;
+      border: 3px solid #E2E8F0;
+      padding: 8px;
+      background: #FFFFFF;
+    }
+    .qr-hint {
+      font-size: 12px;
+      color: #64748B;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+    .btn-outline {
+      background: #FFFFFF;
+      color: #2F6BFF;
+      border: 2px solid #2F6BFF;
+    }
+    .divider-or {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 18px 0;
+      color: #94A3B8;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .divider-or::before, .divider-or::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #E2E8F0;
+    }
+    .auto-start-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #EFF6FF;
+      color: #2563EB;
+      margin-bottom: 14px;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      background: #FFFFFF;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      max-width: 420px;
+      width: 100%;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      background: #FFFFFF;
+      color: #94A3B8;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: #2F6BFF;
+      color: #FFFFFF;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+
+  <h1>🚌 TrackNGo Bus Sharer</h1>
+  <p class="subtitle">Share this device's location as a bus</p>
+
+  <!-- Tab Navigation -->
+  <div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" onclick="switchTab('share')">📍 Share Location</button>
+    <button class="tab-btn" onclick="switchTab('qr')">📱 Generate QR</button>
+  </div>
+
+  <!-- TAB 1: Share Location -->
+  <div class="tab-content active" id="tab-share">
+
+  <!-- Config Card -->
+  <div class="card">
+    <label>Server Address</label>
+    <div class="server-row">
+      <input type="text" id="serverHost" placeholder="192.168.x.x" value="" />
+      <input type="text" id="serverPort" placeholder="8080" value="8080" />
+    </div>
+
+    <label>Bus Number</label>
+    <input type="text" id="busNumber" placeholder="e.g. ND-4589" value="ND-4589" />
+
+    <div id="statusBar" class="status-bar status-idle">
+      <div class="dot dot-gray"></div>
+      <span>Not sharing</span>
+    </div>
+
+    <button class="btn btn-primary" id="startBtn" onclick="startSharing()">
+      📍 Start Sharing Location
+    </button>
+    <button class="btn btn-danger" id="stopBtn" onclick="stopSharing()" style="display:none; margin-top:8px;">
+      ⏹ Stop Sharing
+    </button>
+  </div>
+
+  <!-- Info Card -->
+  <div class="card" id="infoCard" style="display:none;">
+    <div class="info-grid">
+      <div class="info-box">
+        <div class="lbl">Latitude</div>
+        <div class="val" id="infoLat">—</div>
+      </div>
+      <div class="info-box">
+        <div class="lbl">Longitude</div>
+        <div class="val" id="infoLng">—</div>
+      </div>
+      <div class="info-box">
+        <div class="lbl">Speed</div>
+        <div class="val" id="infoSpeed">—</div>
+      </div>
+      <div class="info-box">
+        <div class="lbl">Updates Sent</div>
+        <div class="val" id="infoCount">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Card -->
+  <div class="card">
+    <label>Activity Log</label>
+    <div class="log-box" id="logBox">Waiting to start...</div>
+  </div>
+
+  </div><!-- end tab-share -->
+
+  <!-- TAB 2: Generate QR -->
+  <div class="tab-content" id="tab-qr">
+
+  <!-- QR Config Card -->
+  <div class="card">
+    <label>Server Address</label>
+    <div class="server-row">
+      <input type="text" id="qrServerHost" placeholder="192.168.x.x" value="" />
+      <input type="text" id="qrServerPort" placeholder="8080" value="8080" />
+    </div>
+
+    <label>Bus Number</label>
+    <input type="text" id="qrBusNumber" placeholder="e.g. ND-4589" value="ND-4589" />
+
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+      <input type="checkbox" id="qrAutoStart" checked style="width:auto; margin:0;" />
+      <label style="margin:0; text-transform:none; font-size:13px; color:#334155;">Auto-start sharing when scanned</label>
+    </div>
+
+    <button class="btn btn-primary" onclick="generateQR()">
+      📱 Generate QR Code
+    </button>
+  </div>
+
+  <!-- QR Display Card -->
+  <div class="card qr-section" id="qrCard" style="display:none;">
+    <canvas id="qrCanvas"></canvas>
+    <p class="qr-hint">Scan this QR code with the bus driver's phone.<br>It will open this page and start sharing GPS automatically.</p>
+    <div class="divider-or">OR</div>
+    <button class="btn btn-outline" onclick="copyQrUrl()">
+      📋 Copy Link
+    </button>
+    <input type="text" id="qrUrlDisplay" readonly style="margin-top:10px; font-size:11px; color:#64748B; text-align:center; cursor:pointer;" onclick="this.select()" />
+  </div>
+
+  </div><!-- end tab-qr -->
+
+<script>
+  let watchId = null;
+  let updateCount = 0;
+
+  function log(msg) {
+    const box = document.getElementById('logBox');
+    const time = new Date().toLocaleTimeString();
+    box.innerHTML = `[${time}] ${msg}<br>` + box.innerHTML;
+  }
+
+  function setStatus(type, message) {
+    const bar = document.getElementById('statusBar');
+    bar.className = `status-bar status-${type}`;
+    const dotClass = type === 'active' ? 'dot-green' : type === 'error' ? 'dot-red' : 'dot-gray';
+    bar.innerHTML = `<div class="dot ${dotClass}"></div><span>${message}</span>`;
+  }
+
+  function getBaseUrl() {
+    const host = document.getElementById('serverHost').value.trim();
+    const port = document.getElementById('serverPort').value.trim();
+    if (!host) { alert('Please enter the server IP address'); return null; }
+    return `http://${host}:${port}`;
+  }
+
+  async function sendViaRest(data) {
+    const base = getBaseUrl();
+    if (!base) return;
+    try {
+      const resp = await fetch(`${base}/api/tracking/live-location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      log(`✅ Sent via REST (${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)})`);
+    } catch (err) {
+      log(`❌ REST error: ${err.message}`);
+      setStatus('error', 'Send failed — check server');
+    }
+  }
+
+  function startSharing() {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    const busNumber = document.getElementById('busNumber').value.trim();
+    if (!busNumber) { alert('Please enter a bus number'); return; }
+
+    log('Starting location sharing...');
+    setStatus('active', 'Sharing location');
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'flex';
+    document.getElementById('infoCard').style.display = 'block';
+
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const data = {
+          busNumber,
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          heading: pos.coords.heading,
+          speed: pos.coords.speed,
+          timestamp: Date.now(),
+        };
+
+        updateCount++;
+        document.getElementById('infoLat').textContent = data.latitude.toFixed(6);
+        document.getElementById('infoLng').textContent = data.longitude.toFixed(6);
+        document.getElementById('infoSpeed').textContent =
+          data.speed != null ? `${(data.speed * 3.6).toFixed(1)} km/h` : '—';
+        document.getElementById('infoCount').textContent = updateCount;
+
+        sendViaRest(data);
+      },
+      (err) => {
+        log(`❌ Location error: ${err.message}`);
+        setStatus('error', 'Location access denied');
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 2000,
+        timeout: 10000,
+      }
+    );
+  }
+
+  function stopSharing() {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+    updateCount = 0;
+    setStatus('idle', 'Stopped');
+    document.getElementById('startBtn').style.display = 'flex';
+    document.getElementById('stopBtn').style.display = 'none';
+    document.getElementById('infoCard').style.display = 'none';
+    log('Sharing stopped');
+  }
+
+  /* ── Tab switching ──────────────────────────────── */
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.querySelectorAll('.tab-btn')[tab === 'share' ? 0 : 1].classList.add('active');
+  }
+
+  /* ── QR Code generation (canvas-based, no library) ── */
+  function buildShareUrl() {
+    const host = document.getElementById('qrServerHost').value.trim();
+    const port = document.getElementById('qrServerPort').value.trim();
+    const bus = document.getElementById('qrBusNumber').value.trim();
+    const auto = document.getElementById('qrAutoStart').checked;
+
+    if (!host) { alert('Enter the server IP address'); return null; }
+    if (!bus) { alert('Enter the bus number'); return null; }
+
+    // Build URL pointing to this same page served from the backend
+    const base = `http://${host}:${port}/bus-sharer.html`;
+    const params = new URLSearchParams({
+      host, port, bus,
+      ...(auto ? { autostart: '1' } : {})
+    });
+    return `${base}?${params.toString()}`;
+  }
+
+  function generateQR() {
+    const url = buildShareUrl();
+    if (!url) return;
+
+    document.getElementById('qrUrlDisplay').value = url;
+    document.getElementById('qrCard').style.display = 'block';
+
+    // Use the QR code API to render to canvas
+    const canvas = document.getElementById('qrCanvas');
+    const size = Math.min(280, window.innerWidth - 100);
+    renderQR(canvas, url, size);
+  }
+
+  function copyQrUrl() {
+    const url = document.getElementById('qrUrlDisplay').value;
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = event.target.closest('.btn');
+      const orig = btn.innerHTML;
+      btn.innerHTML = '✅ Copied!';
+      setTimeout(() => btn.innerHTML = orig, 1500);
+    }).catch(() => {
+      document.getElementById('qrUrlDisplay').select();
+    });
+  }
+
+  /* ── Minimal QR renderer (uses external API for simplicity) ── */
+  function renderQR(canvas, text, size) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    // Use a public QR code API to generate the image
+    const encoded = encodeURIComponent(text);
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&margin=8`;
+    img.onload = function() {
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, size, size);
+      ctx.drawImage(img, 0, 0, size, size);
+    };
+    img.onerror = function() {
+      // Fallback: show the URL as text
+      canvas.width = size;
+      canvas.height = 60;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#F8FAFC';
+      ctx.fillRect(0, 0, size, 60);
+      ctx.fillStyle = '#64748B';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('QR generation failed — use the link below', size/2, 35);
+    };
+  }
+
+  /* ── Read URL params & auto-fill / auto-start ───── */
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    const host = params.get('host');
+    const port = params.get('port');
+    const bus = params.get('bus');
+    const autostart = params.get('autostart');
+
+    // Auto-fill from URL params (QR code scanned)
+    if (host) {
+      document.getElementById('serverHost').value = host;
+      document.getElementById('qrServerHost').value = host;
+    }
+    if (port) {
+      document.getElementById('serverPort').value = port;
+      document.getElementById('qrServerPort').value = port;
+    }
+    if (bus) {
+      document.getElementById('busNumber').value = bus;
+      document.getElementById('qrBusNumber').value = bus;
+    }
+
+    // Auto-fill server host from current page URL if no params
+    if (!host) {
+      const pageHost = location.hostname;
+      if (pageHost && pageHost !== 'localhost' && pageHost !== '127.0.0.1') {
+        document.getElementById('serverHost').value = pageHost;
+        document.getElementById('qrServerHost').value = pageHost;
+      }
+    }
+
+    // Auto-start if opened via QR with autostart param
+    if (autostart === '1' && host && bus) {
+      // Small delay to let the page render
+      setTimeout(() => {
+        const bar = document.getElementById('statusBar');
+        bar.className = 'status-bar auto-start-banner';
+        bar.innerHTML = '<span>⚡</span><span>Auto-starting from QR scan...</span>';
+        setTimeout(() => startSharing(), 800);
+      }, 300);
+    }
+  })();
+</script>
+
+</body>
+</html>

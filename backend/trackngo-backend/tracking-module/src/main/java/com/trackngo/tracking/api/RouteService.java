@@ -11,5 +11,6 @@ public interface RouteService {
     List<RouteDto> getAll();
     RouteDto update(Long id, RouteDto dto);
     void delete(Long id);
+    RouteDto toggleStatus(Long id);
 }
 

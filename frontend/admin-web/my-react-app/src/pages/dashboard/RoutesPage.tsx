@@ -1,10 +1,9 @@
 ﻿import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   faBus,
   faCheckCircle,
   faBan,
-  faLocationDot,
   faPen,
   faPlus,
   faRoute,
@@ -17,79 +16,89 @@ import {
   faListOl,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
-import mapPreviewImage from '../../assets/images/map.png'
+import {
+  fetchRoutes,
+  createRoute,
+  updateRoute,
+  deleteRoute,
+  toggleRouteStatus,
+  type RouteRow,
+} from '../../services/routeService'
 
-type RouteRow = {
-  name: string
-  code: string
-  type: string
-  distance: string
-  duration: string
-  stops: string[]
-  activeBuses: number
-  baseFare: string
-  status: 'Active' | 'Inactive'
+
+
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
+
+let mapsScriptLoaded = false
+function loadMapsScript(): Promise<void> {
+  if (mapsScriptLoaded || window.google?.maps) {
+    mapsScriptLoaded = true
+    return Promise.resolve()
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker`
+    script.async = true
+    script.onload = () => { mapsScriptLoaded = true; resolve() }
+    script.onerror = () => reject(new Error('Failed to load Google Maps'))
+    document.head.appendChild(script)
+  })
 }
 
+function RouteMapEmbed({ location }: { location: string }) {
+  const mapRef = useRef<HTMLDivElement>(null)
 
+  useEffect(() => {
+    let cancelled = false
 
-const routeRows: RouteRow[] = [
-  {
-    name: 'Colombo - Kandy',
-    code: 'RT-001',
-    type: 'High Way',
-    distance: '148 km',
-    duration: '3h 15m',
-    stops: ['Colombo Fort', 'Kadawatha', 'Peradeniya', 'Kandy'],
-    activeBuses: 12,
-    baseFare: 'Rs.450',
-    status: 'Active',
-  },
-  {
-    name: 'Kadawatha - Moratuwa',
-    code: 'RT-045',
-    type: 'Long Distance',
-    distance: '345 km',
-    duration: '6h 45m',
-    stops: ['Kadawatha', 'Maharagama', 'Panadura', 'Kalutara', 'Aluthgama', 'Bentota', 'Ambalangoda', 'Moratuwa'],
-    activeBuses: 18,
-    baseFare: 'Rs.420',
-    status: 'Active',
-  },
-  {
-    name: 'Panadura - Kandy',
-    code: 'RT-17',
-    type: 'High Way',
-    distance: '233 km',
-    duration: '3h 30m',
-    stops: ['Panadura', 'Kegalle', 'Kandy'],
-    activeBuses: 0,
-    baseFare: 'Rs.500',
-    status: 'Inactive',
-  },
-  {
-    name: 'Colombo - Matara',
-    code: 'RT-112',
-    type: 'Long Distance',
-    distance: '275 km',
-    duration: '5h 15m',
-    stops: ['Colombo Fort', 'Maharagama', 'Kalutara', 'Aluthgama', 'Galle', 'Matara'],
-    activeBuses: 9,
-    baseFare: 'Rs.200',
-    status: 'Active',
-  },
-  {
-    name: 'Colombo - Galle',
-    code: 'RT-100',
-    type: 'High Way',
-    distance: '395 km',
-    duration: '7h 10m',
-    stops: ['Colombo Fort', 'Maharagama', 'Panadura', 'Kalutara', 'Aluthgama', 'Bentota', 'Hikkaduwa', 'Galle'],
-    activeBuses: 5,
-    baseFare: 'Rs.340',
-    status: 'Active',
-  },
-]
+    async function init() {
+      await loadMapsScript()
+      if (cancelled || !mapRef.current) return
+
+      const geocoder = new google.maps.Geocoder()
+      geocoder.geocode({ address: `${location}, Sri Lanka` }, (results, status) => {
+        if (cancelled || !mapRef.current) return
+        const center =
+          status === 'OK' && results && results[0]
+            ? results[0].geometry.location
+            : new google.maps.LatLng(6.9271, 79.8612) // fallback: Colombo
+
+        const map = new google.maps.Map(mapRef.current, {
+          center,
+          zoom: 14,
+          mapTypeControl: false,
+          streetViewControl: false,
+        })
+
+        new google.maps.Marker({
+          position: center,
+          map,
+          title: location,
+          icon: {
+            url: 'https://maps.google.com/mapfiles/kml/shapes/bus.png',
+            scaledSize: new google.maps.Size(40, 40),
+          },
+        })
+      })
+    }
+
+    init()
+    return () => { cancelled = true }
+  }, [location])
+
+  return <div ref={mapRef} className="h-[50vh] max-h-[360px] w-full rounded-lg border border-[#d8dfeb]" />
+}
+
+function buildStaticMapUrl(startLocation: string) {
+  const loc = encodeURIComponent(`${startLocation}, Sri Lanka`)
+  const busIcon = encodeURIComponent('https://maps.google.com/mapfiles/kml/shapes/bus.png')
+  return (
+    `https://maps.googleapis.com/maps/api/staticmap` +
+    `?center=${loc}&zoom=13&size=280x160&scale=2&maptype=roadmap` +
+    `&markers=icon:${busIcon}%7C${loc}` +
+    `&key=${GOOGLE_MAPS_KEY}`
+  )
+}
 
 const formatStopPriorityLabel = (index: number) => {
   const position = index + 1
@@ -137,11 +146,14 @@ function Routes() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [busTypeFilter, setBusTypeFilter] = useState<'all' | 'high-way' | 'long-distance'>('all')
-  const [routesData, setRoutesData] = useState<RouteRow[]>(routeRows)
+  const [routesData, setRoutesData] = useState<RouteRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [apiError, setApiError] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [editingRouteCode, setEditingRouteCode] = useState<string | null>(null)
+  const [editingRouteId, setEditingRouteId] = useState<number | null>(null)
   const [routePendingDelete, setRoutePendingDelete] = useState<RouteRow | null>(null)
   const [routeStopsPreview, setRouteStopsPreview] = useState<RouteRow | null>(null)
+  const [mapPreviewRoute, setMapPreviewRoute] = useState<RouteRow | null>(null)
   const [createRouteError, setCreateRouteError] = useState('')
   const [newRoute, setNewRoute] = useState({
     name: '',
@@ -155,19 +167,27 @@ function Routes() {
     status: 'Active' as RouteRow['status'],
   })
 
-  const getNextRouteCode = (rows: RouteRow[]) => {
-    const maxCodeNumber = rows.reduce((max, route) => {
-      const match = route.code.match(/(\d+)$/)
-      const value = match ? Number(match[1]) : 0
-      return Number.isFinite(value) ? Math.max(max, value) : max
-    }, 0)
-    return `RT-${String(maxCodeNumber + 1).padStart(3, '0')}`
-  }
+  const loadRoutes = useCallback(async () => {
+    try {
+      setLoading(true)
+      setApiError('')
+      const data = await fetchRoutes()
+      setRoutesData(data)
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Failed to load routes')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  const resetRouteForm = (routeCode = '') => {
+  useEffect(() => {
+    loadRoutes()
+  }, [loadRoutes])
+
+  const resetRouteForm = () => {
     setNewRoute({
       name: '',
-      code: routeCode,
+      code: '',
       type: 'High Way',
       distance: '',
       duration: '',
@@ -179,9 +199,9 @@ function Routes() {
   }
 
   const openCreateRouteModal = () => {
-    setEditingRouteCode(null)
+    setEditingRouteId(null)
     setCreateRouteError('')
-    resetRouteForm(getNextRouteCode(routesData))
+    resetRouteForm()
     setIsCreateModalOpen(true)
   }
 
@@ -189,13 +209,13 @@ function Routes() {
   const filteredRoutes = useMemo(
     () =>
       routesData.filter((route) => {
-        const normalizedType = route.type.toLowerCase().replace(/\s+/g, '-')
+        const normalizedType = (route.type ?? '').toLowerCase().replace(/\s+/g, '-')
         const normalizedSearch = searchTerm.trim().toLowerCase()
 
         const matchesSearch =
           normalizedSearch.length === 0 ||
           route.name.toLowerCase().includes(normalizedSearch) ||
-          route.code.toLowerCase().includes(normalizedSearch)
+          (route.code ?? '').toLowerCase().includes(normalizedSearch)
 
         const matchesStatus = statusFilter === 'all' || route.status.toLowerCase() === statusFilter
         const matchesBusType = busTypeFilter === 'all' || normalizedType === busTypeFilter
@@ -211,7 +231,7 @@ function Routes() {
     .filter((route) => route.status === 'Active')
     .reduce((sum, route) => sum + route.activeBuses, 0)
 
-  const handleCreateRoute = (event: FormEvent<HTMLFormElement>) => {
+  const handleCreateRoute = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     const trimmedName = newRoute.name.trim()
@@ -225,8 +245,8 @@ function Routes() {
       return
     }
 
-    if (!/^[A-Za-z]{2,4}-\d{2,4}$/.test(trimmedCode)) {
-      setCreateRouteError('Route code must follow a format like RT-200.')
+    if (!/^[A-Za-z0-9-]+$/.test(trimmedCode)) {
+      setCreateRouteError('Route code can only contain letters, numbers, and hyphens.')
       return
     }
 
@@ -265,7 +285,7 @@ function Routes() {
         ? `Rs.${normalizedFareValue}`
         : normalizedFareValue || 'Rs.0'
 
-    const createdRoute: RouteRow = {
+    const routePayload: RouteRow = {
       name: newRoute.name.trim(),
       code: newRoute.code.trim(),
       type: newRoute.type,
@@ -277,67 +297,50 @@ function Routes() {
       status: newRoute.status,
     }
 
-    if (editingRouteCode) {
-      const duplicateCode = routesData.some(
-        (route) => route.code.toLowerCase() === createdRoute.code.toLowerCase() && route.code !== editingRouteCode,
-      )
-      if (duplicateCode) {
-        setCreateRouteError('Route code already exists. Please use a unique code.')
-        return
+    try {
+      if (editingRouteId) {
+        await updateRoute(editingRouteId, routePayload)
+      } else {
+        await createRoute(routePayload)
       }
-
-      setRoutesData((previous) =>
-        previous.map((route) => (route.code === editingRouteCode ? createdRoute : route)),
-      )
-    } else {
-      const duplicateCode = routesData.some(
-        (route) => route.code.toLowerCase() === createdRoute.code.toLowerCase(),
-      )
-      if (duplicateCode) {
-        setCreateRouteError('Route code already exists. Please use a unique code.')
-        return
-      }
-
-      setRoutesData((previous) => [createdRoute, ...previous])
+      setIsCreateModalOpen(false)
+      setEditingRouteId(null)
+      setCreateRouteError('')
+      resetRouteForm()
+      await loadRoutes()
+    } catch (err) {
+      setCreateRouteError(err instanceof Error ? err.message : 'Failed to save route')
     }
-
-    setIsCreateModalOpen(false)
-    setEditingRouteCode(null)
-    setCreateRouteError('')
-    resetRouteForm()
   }
 
   const handleEditRoute = (route: RouteRow) => {
-    setEditingRouteCode(route.code)
+    setEditingRouteId(route.id ?? null)
     setCreateRouteError('')
     setNewRoute({
       name: route.name,
       code: route.code,
-      type: route.type,
+      type: route.type === 'High Way' || route.type === 'Long Distance' ? route.type : 'High Way',
       distance: route.distance,
       duration: route.duration,
-      stops: [...route.stops],
+      stops: route.stops.length >= 2 ? [...route.stops] : [...route.stops, ''],
       activeBuses: String(route.activeBuses),
       baseFare: route.baseFare.replace(/^Rs\.?/i, ''),
-      status: route.status,
+      status: route.status === 'Active' || route.status === 'Inactive' ? route.status : 'Active',
     })
     setIsCreateModalOpen(true)
   }
 
-  const handleToggleSuspendRoute = (routeCode: string) => {
-    setRoutesData((previous) =>
-      previous.map((route) =>
-        route.code === routeCode
-          ? { ...route, status: route.status === 'Active' ? 'Inactive' : 'Active' }
-          : route,
-      ),
-    )
+  const handleToggleSuspendRoute = async (routeId: number | undefined) => {
+    if (!routeId) return
+    try {
+      await toggleRouteStatus(routeId)
+      await loadRoutes()
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Failed to toggle status')
+    }
   }
 
-  const handleDeleteRoute = (routeCode: string) => {
-    const route = routesData.find((item) => item.code === routeCode)
-    if (!route) return
-
+  const handleDeleteRoute = (route: RouteRow) => {
     setRoutePendingDelete(route)
   }
 
@@ -345,10 +348,16 @@ function Routes() {
     setRoutePendingDelete(null)
   }
 
-  const confirmDeleteRoute = () => {
-    if (!routePendingDelete) return
-    setRoutesData((previous) => previous.filter((item) => item.code !== routePendingDelete.code))
-    setRoutePendingDelete(null)
+  const confirmDeleteRoute = async () => {
+    if (!routePendingDelete?.id) return
+    try {
+      await deleteRoute(routePendingDelete.id)
+      setRoutePendingDelete(null)
+      await loadRoutes()
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Failed to delete route')
+      setRoutePendingDelete(null)
+    }
   }
 
   return (
@@ -368,6 +377,13 @@ function Routes() {
                 Create New Route
               </button>
             </div>
+
+            {apiError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                {apiError}
+                <button type="button" onClick={() => setApiError('')} className="ml-2 underline">Dismiss</button>
+              </div>
+            ) : null}
 
             <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <SummaryCard
@@ -459,7 +475,13 @@ function Routes() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRoutes.length === 0 ? (
+                    {loading ? (
+                      <tr>
+                        <td colSpan={8} className="px-5 py-8 text-center text-sm font-semibold text-[#6f7890]">
+                          Loading routes...
+                        </td>
+                      </tr>
+                    ) : filteredRoutes.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="px-5 py-8 text-center text-sm font-semibold text-[#6f7890]">
                           No routes match the selected filters.
@@ -468,7 +490,7 @@ function Routes() {
                     ) : (
                       filteredRoutes.map((route) => (
                         <tr
-                          key={route.code}
+                          key={route.id ?? route.code}
                           className="border-b border-[#e7eaf1] text-[#1f2737] transition duration-200 hover:bg-[#f2f5fd]"
                         >
                           <td className="px-4 py-3">
@@ -480,11 +502,17 @@ function Routes() {
                             </p>
                           </td>
                           <td className="px-4 py-3">
-                            <img
-                              src={mapPreviewImage}
-                              alt={`Map preview for ${route.name}`}
-                              className="h-16 w-28 rounded-md border border-[#d8dfeb] object-cover"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => setMapPreviewRoute(route)}
+                              className="cursor-pointer rounded-md transition duration-200 hover:ring-2 hover:ring-[#2642a6]/40"
+                            >
+                              <img
+                                src={buildStaticMapUrl(route.stops[0] ?? route.name)}
+                                alt={`Map preview for ${route.name}`}
+                                className="h-16 w-28 rounded-md border border-[#d8dfeb] object-cover"
+                              />
+                            </button>
                           </td>
                           <td className="px-4 py-3 text-sm text-[#657089]">
                             <p>
@@ -536,7 +564,7 @@ function Routes() {
                               <button
                                 type="button"
                                 aria-label={`${route.status === 'Active' ? 'Suspend' : 'Activate'} route ${route.name}`}
-                                onClick={() => handleToggleSuspendRoute(route.code)}
+                                onClick={() => handleToggleSuspendRoute(route.id)}
                                 className="transition duration-200 hover:text-[#1f2737]"
                               >
                                 <FontAwesomeIcon icon={faBan} />
@@ -544,7 +572,7 @@ function Routes() {
                               <button
                                 type="button"
                                 aria-label={`Delete route ${route.name}`}
-                                onClick={() => handleDeleteRoute(route.code)}
+                                onClick={() => handleDeleteRoute(route)}
                                 className="transition duration-200 hover:text-[#d74949]"
                               >
                                 <FontAwesomeIcon icon={faTrash} />
@@ -588,22 +616,22 @@ function Routes() {
           </div>
 
       {isCreateModalOpen ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
-          <div className="w-full max-w-3xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
+        <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-[#101426]/45 p-4">
+          <div className="my-auto flex w-full max-w-3xl flex-col rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
             <div className="flex items-center justify-between border-b border-[#e1e5ef] px-4 py-3">
               <div>
                 <h2 className="text-sm font-extrabold text-[#1f2737]">
-                  {editingRouteCode ? 'Edit Route' : 'Create New Route'}
+                  {editingRouteId ? 'Edit Route' : 'Create New Route'}
                 </h2>
                 <p className="text-sm text-[#6d778e]">
-                  {editingRouteCode ? 'Update route data and save your changes.' : 'Add route data and save it to the table.'}
+                  {editingRouteId ? 'Update route data and save your changes.' : 'Add route data and save it to the table.'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => {
                   setIsCreateModalOpen(false)
-                  setEditingRouteCode(null)
+                  setEditingRouteId(null)
                   setCreateRouteError('')
                   resetRouteForm()
                 }}
@@ -614,7 +642,7 @@ function Routes() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateRoute} className="space-y-3 px-4 py-3">
+            <form id="route-form" onSubmit={handleCreateRoute} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="route-name">
@@ -638,16 +666,9 @@ function Routes() {
                     id="route-code"
                     value={newRoute.code}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, code: event.target.value }))}
-                    placeholder="RT-200"
-                    readOnly={!editingRouteCode}
-                    className={[
-                      'h-11 w-full rounded-lg border border-[#d7dde9] px-3 text-sm outline-none',
-                      editingRouteCode ? 'bg-[#f9fafd] text-[#273246]' : 'bg-[#eef1f7] text-[#6a7284]',
-                    ].join(' ')}
+                    placeholder="e.g. RT-200"
+                    className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                   />
-                  {!editingRouteCode ? (
-                    <p className="mt-1 text-xs text-[#6d778e]">Auto-generated for new routes.</p>
-                  ) : null}
                 </div>
 
                 <div>
@@ -720,27 +741,29 @@ function Routes() {
                       <div key={`stop-input-${index}`} className="flex items-center gap-2">
                         <input
                           value={stop}
-                          onChange={(event) =>
+                          onChange={(event) => {
+                            const updatedStops = newRoute.stops.map((item, itemIndex) =>
+                              itemIndex === index ? event.target.value : item,
+                            )
                             setNewRoute((prev) => ({
                               ...prev,
-                              stops: prev.stops.map((item, itemIndex) =>
-                                itemIndex === index ? event.target.value : item,
-                              ),
+                              stops: updatedStops,
                             }))
-                          }
+                          }}
                           placeholder={`Enter ${formatStopPriorityLabel(index)}`}
                           className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                         />
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            const updatedStops = newRoute.stops.length > 2
+                              ? newRoute.stops.filter((_, itemIndex) => itemIndex !== index)
+                              : newRoute.stops
                             setNewRoute((prev) => ({
                               ...prev,
-                              stops: prev.stops.length > 2
-                                ? prev.stops.filter((_, itemIndex) => itemIndex !== index)
-                                : prev.stops,
+                              stops: updatedStops,
                             }))
-                          }
+                          }}
                           disabled={newRoute.stops.length <= 2}
                           className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7] disabled:cursor-not-allowed disabled:opacity-60"
                         >
@@ -792,30 +815,32 @@ function Routes() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] pt-4">
-                {createRouteError ? (
-                  <p className="mr-auto text-sm font-semibold text-[#d14343]">{createRouteError}</p>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreateModalOpen(false)
-                    setEditingRouteCode(null)
-                    setCreateRouteError('')
-                    resetRouteForm()
-                  }}
-                  className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]"
-                >
-                  {editingRouteCode ? 'Save Changes' : 'Create Route'}
-                </button>
-              </div>
             </form>
+
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[#e1e5ef] px-4 py-3">
+              {createRouteError ? (
+                <p className="mr-auto text-sm font-semibold text-[#d14343]">{createRouteError}</p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreateModalOpen(false)
+                  setEditingRouteId(null)
+                  setCreateRouteError('')
+                  resetRouteForm()
+                }}
+                className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="route-form"
+                className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]"
+              >
+                {editingRouteId ? 'Save Changes' : 'Create Route'}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -858,6 +883,43 @@ function Routes() {
               <button
                 type="button"
                 onClick={() => setRouteStopsPreview(null)}
+                className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {mapPreviewRoute ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101426]/45 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
+            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-3 py-2">
+              <div>
+                <h2 className="text-sm font-extrabold text-[#1f2737]">Route Location</h2>
+                <p className="text-xs text-[#6d778e]">
+                  {mapPreviewRoute.name} — Start: {mapPreviewRoute.stops[0] ?? 'N/A'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMapPreviewRoute(null)}
+                className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
+                aria-label="Close map preview"
+              >
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
+            </div>
+
+            <div className="p-2">
+              <RouteMapEmbed location={mapPreviewRoute.stops[0] ?? mapPreviewRoute.name} />
+            </div>
+
+            <div className="flex justify-end border-t border-[#e1e5ef] px-3 py-2">
+              <button
+                type="button"
+                onClick={() => setMapPreviewRoute(null)}
                 className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Close

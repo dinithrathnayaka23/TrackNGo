@@ -18,11 +18,11 @@ public class RouteController {
 
     @PostMapping
     public ApiResponse<RouteDto> create(@Valid @RequestBody RouteDto dto) {
-        return ApiResponse.ok("Created", service.create(dto));
+        return ApiResponse.ok("Route created", service.create(dto));
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<RouteDto> get(@PathVariable Long id) {
+    public ApiResponse<RouteDto> get(@PathVariable("id") Long id) {
         return ApiResponse.ok("Fetched", service.get(id));
     }
 
@@ -32,14 +32,19 @@ public class RouteController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<RouteDto> update(@PathVariable Long id, @Valid @RequestBody RouteDto dto) {
-        return ApiResponse.ok("Updated", service.update(id, dto));
+    public ApiResponse<RouteDto> update(@PathVariable("id") Long id, @Valid @RequestBody RouteDto dto) {
+        return ApiResponse.ok("Route updated", service.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> delete(@PathVariable Long id) {
+    public ApiResponse<Void> delete(@PathVariable("id") Long id) {
         service.delete(id);
-        return ApiResponse.ok("Deleted", null);
+        return ApiResponse.ok("Route deleted", null);
+    }
+
+    @PatchMapping("/{id}/toggle-status")
+    public ApiResponse<RouteDto> toggleStatus(@PathVariable("id") Long id) {
+        return ApiResponse.ok("Status toggled", service.toggleStatus(id));
     }
 }
 

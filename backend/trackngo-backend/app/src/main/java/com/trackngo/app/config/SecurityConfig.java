@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**", "/health").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/chat/**").permitAll()
+                .requestMatchers("/api/routes/**").permitAll()
                 .requestMatchers("/api/users/*/conversations/**").permitAll()
                 .requestMatchers("/api/users/*/profile").permitAll()
                 .requestMatchers("/api/conversations/**").permitAll()
@@ -39,6 +40,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/emergency-numbers/**").permitAll()
                 .requestMatchers("/api/emergency-contacts/**").permitAll()
                 .requestMatchers("/api/sos-alerts/**").permitAll()
+                .requestMatchers("/api/tracking/**").permitAll()
+                .requestMatchers("/bus-sharer.html").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

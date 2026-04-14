@@ -16,6 +16,7 @@ export interface TriggerSosAlertRequest {
   busNumber?: string;
   startLocation?: string;
   endLocation?: string;
+  notifyEmergencyContacts?: boolean;
 }
 
 interface ApiResponse<T> {

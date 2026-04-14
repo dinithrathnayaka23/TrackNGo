@@ -22,3 +22,16 @@ trackngo:
   jwt:
     secret: ${JWT_SECRET:change-this-secret-change-this-secret}
     expiration-ms: 86400000
+
+twilio:
+  account-sid: ${TWILIO_ACCOUNT_SID:AC5fdb70837bf4bfcaaaa9fa71bf23877f}
+  auth-token: ${TWILIO_AUTH_TOKEN:8eb0c17bb64110819385b92b60795508}
+  phone-number: ${TWILIO_PHONE_NUMBER:+16416936521}
+  messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:MG57907a2acf84d25fa7cbf9bcd8255ee6}
+  default-country-code: ${TWILIO_DEFAULT_COUNTRY_CODE:+94}
+
+sms:
+  provider: ${SMS_PROVIDER:twilio}
+  android-gateway:
+    url: ${SMS_ANDROID_GATEWAY_URL:}
+    api-key: ${SMS_ANDROID_GATEWAY_API_KEY:}

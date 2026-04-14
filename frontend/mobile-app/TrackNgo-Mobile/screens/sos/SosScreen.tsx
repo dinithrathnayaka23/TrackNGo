@@ -22,6 +22,8 @@ import {
   getActiveEmergencyNumbers,
   triggerSosAlert,
 } from "../../services/sosApi";
+import { sendSosSmsDirect } from "../../services/smsService";
+import { getUserProfile } from "../../services/userProfileApi";
 import * as Location from "expo-location";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Sos">;
@@ -61,6 +63,7 @@ export function SosScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [sosSent, setSosSent] = useState(false);
+  const [informEmergencyContacts, setInformEmergencyContacts] = useState(true);
 
   useEffect(() => {
     getActiveEmergencyNumbers()
@@ -141,9 +144,32 @@ export function SosScreen({ navigation }: Props) {
         busNumber: params.busNumber,
         startLocation: params.startLocation,
         endLocation: params.endLocation,
+        notifyEmergencyContacts: informEmergencyContacts,
       });
 
       setSosSent(true);
+
+      if (informEmergencyContacts) {
+        try {
+          let userName = "User";
+          try {
+            const profile = await getUserProfile(currentUser.userId);
+            if (profile?.fullName) userName = profile.fullName;
+          } catch {}
+          await sendSosSmsDirect({
+            userName,
+            userId: currentUser.userId,
+            userType: currentUser.userType as "PASSENGER" | "DRIVER",
+            busNumber: params.busNumber,
+            startLocation: params.startLocation,
+            endLocation: params.endLocation,
+            sharedLocation,
+          });
+        } catch (smsErr) {
+          console.warn("Direct SMS sending failed:", smsErr);
+        }
+      }
+
       Alert.alert("SOS sent", "Emergency alert has been sent to admin.");
     } catch (error) {
       console.error("Failed to trigger SOS alert", error);
@@ -212,12 +238,23 @@ export function SosScreen({ navigation }: Props) {
           </Text>
         )}
 
-        <View style={styles.checkboxRow}>
-          <View style={styles.checkbox}>
-            <MaterialCommunityIcons name="check" size={12} color="#FFFFFF" />
+        <Pressable
+          style={styles.checkboxRow}
+          onPress={() => setInformEmergencyContacts((prev) => !prev)}
+          disabled={triggering || sosSent}
+        >
+          <View
+            style={[
+              styles.checkbox,
+              !informEmergencyContacts && styles.checkboxUnchecked,
+            ]}
+          >
+            {informEmergencyContacts ? (
+              <MaterialCommunityIcons name="check" size={12} color="#FFFFFF" />
+            ) : null}
           </View>
           <Text style={styles.checkboxText}>Inform my emergency contacts</Text>
-        </View>
+        </Pressable>
 
         <Pressable onPress={() => navigation.navigate("EmergencyContacts")}>
           <Text style={styles.manageText}>Manage emergency contacts</Text>
@@ -341,6 +378,11 @@ const styles = StyleSheet.create({
     backgroundColor: RED,
     alignItems: "center",
     justifyContent: "center",
+  },
+  checkboxUnchecked: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
   },
   checkboxText: {
     fontSize: 12,

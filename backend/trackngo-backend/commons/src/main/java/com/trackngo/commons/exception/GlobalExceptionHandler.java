@@ -52,12 +52,32 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleOther(Exception ex) {
         log.error("Unhandled exception", ex);
+
+        // Check for data integrity / FK constraint violations
+        String rootMsg = getRootCauseMessage(ex);
+        if (rootMsg.contains("foreign key constraint fails")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.fail("Cannot delete this record because it is referenced by other data (e.g. bookings). Remove or reassign related records first."));
+        }
+        if (rootMsg.contains("Duplicate entry")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.fail("A record with the same unique value already exists."));
+        }
+
         String message = ex.getMessage();
         if (message == null || message.isBlank()) {
             message = ex.getClass().getSimpleName();
         }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.fail("Unexpected error: " + message));
+    }
+
+    private String getRootCauseMessage(Throwable ex) {
+        Throwable root = ex;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        return root.getMessage() != null ? root.getMessage() : "";
     }
 }
 

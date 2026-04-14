@@ -10,4 +10,5 @@ public class TriggerSosAlertRequest {
     private String busNumber;
     private String startLocation;
     private String endLocation;
+    private Boolean notifyEmergencyContacts;
 }

@@ -84,6 +84,68 @@ function formatDistance(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
+/* ── Route helpers ────────────────────────────────────────── */
+
+function projectPointOnSegment(
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+  p: { latitude: number; longitude: number },
+): { fraction: number; closest: { latitude: number; longitude: number } } {
+  const dx = b.latitude - a.latitude;
+  const dy = b.longitude - a.longitude;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return { fraction: 0, closest: a };
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((p.latitude - a.latitude) * dx + (p.longitude - a.longitude) * dy) /
+        lenSq,
+    ),
+  );
+  return {
+    fraction: t,
+    closest: {
+      latitude: a.latitude + t * dx,
+      longitude: a.longitude + t * dy,
+    },
+  };
+}
+
+function findClosestPointOnRoute(
+  route: { latitude: number; longitude: number }[],
+  point: { latitude: number; longitude: number },
+): {
+  index: number;
+  fraction: number;
+  point: { latitude: number; longitude: number };
+} {
+  let minDist = Infinity;
+  let bestIdx = 0;
+  let bestFrac = 0;
+  let bestPt = route[0];
+  for (let i = 0; i < route.length - 1; i++) {
+    const { fraction, closest } = projectPointOnSegment(
+      route[i],
+      route[i + 1],
+      point,
+    );
+    const d = haversineDistance(
+      closest.latitude,
+      closest.longitude,
+      point.latitude,
+      point.longitude,
+    );
+    if (d < minDist) {
+      minDist = d;
+      bestIdx = i;
+      bestFrac = fraction;
+      bestPt = closest;
+    }
+  }
+  return { index: bestIdx, fraction: bestFrac, point: bestPt };
+}
+
 /* ── Component ────────────────────────────────────────────── */
 
 export default function LiveMapScreen() {
@@ -92,6 +154,7 @@ export default function LiveMapScreen() {
     busNumber?: string;
     startLocation?: string;
     endLocation?: string;
+    busDestination?: string;
     bookingRef?: string;
   }>();
   const insets = useSafeAreaInsets();
@@ -124,14 +187,42 @@ export default function LiveMapScreen() {
   const busNumber = params.busNumber ?? "ND-4589";
   const startLoc = params.startLocation ?? "Colombo";
   const endLoc = params.endLocation ?? "Kandy";
+  const busEndLoc = params.busDestination ?? endLoc;
 
-  // Route polyline coordinates (from route stops)
-  const routeCoords = useMemo(() => {
+  // Sorted route stops (with valid coords)
+  const sortedStops = useMemo(() => {
     return routeStops
       .filter((s) => s.latitude != null && s.longitude != null)
-      .sort((a, b) => a.priority - b.priority)
-      .map((s) => ({ latitude: s.latitude!, longitude: s.longitude! }));
+      .sort((a, b) => a.priority - b.priority);
   }, [routeStops]);
+
+  // Route polyline coordinates
+  const routeCoords = useMemo(() => {
+    return sortedStops.map((s) => ({
+      latitude: s.latitude!,
+      longitude: s.longitude!,
+    }));
+  }, [sortedStops]);
+
+  // Find passenger destination stop (may differ from bus final stop)
+  const passengerDestIndex = useMemo(() => {
+    if (!sortedStops.length) return -1;
+    if (endLoc === busEndLoc) return sortedStops.length - 1;
+    const needle = endLoc.toLowerCase().trim();
+    const idx = sortedStops.findIndex(
+      (s) =>
+        s.name.toLowerCase().trim() === needle ||
+        s.name.toLowerCase().trim().includes(needle) ||
+        needle.includes(s.name.toLowerCase().trim()),
+    );
+    return idx >= 0 ? idx : sortedStops.length - 1;
+  }, [sortedStops, endLoc, busEndLoc]);
+
+  const passengerDestCoord = useMemo(() => {
+    if (passengerDestIndex < 0 || passengerDestIndex >= routeCoords.length)
+      return null;
+    return routeCoords[passengerDestIndex];
+  }, [routeCoords, passengerDestIndex]);
 
   // Track bus position history for computed speed
   useEffect(() => {
@@ -178,7 +269,7 @@ export default function LiveMapScreen() {
     return weightedSum / weightTotal;
   }, [busLocation]); // recalculate when bus moves
 
-  // Distance & ETA from bus to user
+  // Straight-line distance from bus to user
   const distanceToUser = useMemo(() => {
     if (!busLocation || !userLocation) return null;
     return haversineDistance(
@@ -189,16 +280,49 @@ export default function LiveMapScreen() {
     );
   }, [busLocation, userLocation]);
 
+  // Along-route distance from bus to passenger destination
+  const distanceToDest = useMemo(() => {
+    if (!busLocation || routeCoords.length < 2 || passengerDestIndex < 0)
+      return null;
+    const busCoord = {
+      latitude: busLocation.latitude,
+      longitude: busLocation.longitude,
+    };
+    const proj = findClosestPointOnRoute(routeCoords, busCoord);
+    if (proj.index >= passengerDestIndex) return 0;
+    let dist = haversineDistance(
+      proj.point.latitude,
+      proj.point.longitude,
+      routeCoords[proj.index + 1].latitude,
+      routeCoords[proj.index + 1].longitude,
+    );
+    for (let i = proj.index + 1; i < passengerDestIndex; i++) {
+      dist += haversineDistance(
+        routeCoords[i].latitude,
+        routeCoords[i].longitude,
+        routeCoords[i + 1].latitude,
+        routeCoords[i + 1].longitude,
+      );
+    }
+    return dist;
+  }, [busLocation, routeCoords, passengerDestIndex]);
+
+  // Show distance to user before boarding, to destination after
+  const activeDistance = useMemo(() => {
+    return isBoarded ? distanceToDest : distanceToUser;
+  }, [isBoarded, distanceToDest, distanceToUser]);
+
   const etaText = useMemo(() => {
-    if (!distanceToUser) return "Calculating...";
+    if (activeDistance == null) return "Calculating...";
+    if (activeDistance <= 0) return isBoarded ? "Arriving!" : "Arrived";
     if (smoothedSpeed < 1) return "Bus is stopped";
-    return formatETA(distanceToUser, smoothedSpeed);
-  }, [distanceToUser, smoothedSpeed]);
+    return formatETA(activeDistance, smoothedSpeed);
+  }, [activeDistance, smoothedSpeed, isBoarded]);
 
   const distanceText = useMemo(() => {
-    if (!distanceToUser) return "—";
-    return formatDistance(distanceToUser);
-  }, [distanceToUser]);
+    if (activeDistance == null) return "—";
+    return formatDistance(activeDistance);
+  }, [activeDistance]);
 
   /* ── Effects ────────────────────────────────────────────── */
 
@@ -312,12 +436,12 @@ export default function LiveMapScreen() {
 
   // Load route geometry
   useEffect(() => {
-    getRouteGeometry(startLoc, endLoc)
+    getRouteGeometry(startLoc, busEndLoc)
       .then((geo) => {
         if (geo?.stops) setRouteStops(geo.stops);
       })
       .catch(() => {});
-  }, [startLoc, endLoc]);
+  }, [startLoc, busEndLoc]);
 
   // When user is boarded, follow bus location on map
   useEffect(() => {
@@ -404,7 +528,8 @@ export default function LiveMapScreen() {
         style={[
           styles.stopDot,
           index === 0 && styles.stopDotStart,
-          index === routeStops.length - 1 && styles.stopDotEnd,
+          index === sortedStops.length - 1 && styles.stopDotEnd,
+          index === passengerDestIndex && styles.stopDotPassengerDest,
         ]}
       />
     </View>
@@ -455,7 +580,7 @@ export default function LiveMapScreen() {
               tracksViewChanges={false}
             >
               <StopMarkerView
-                name={routeStops[idx]?.name ?? ""}
+                name={sortedStops[idx]?.name ?? ""}
                 index={idx}
               />
             </Marker>
@@ -845,6 +970,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     paddingHorizontal: 12,
@@ -874,7 +1000,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#334155",
-    flex: 1,
+    flexShrink: 1,
   },
   routeStripDash: {
     width: 8,
@@ -1214,6 +1340,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#22C55E",
   },
   stopDotEnd: {
+    borderColor: "#EF4444",
+    backgroundColor: "#EF4444",
+  },
+  stopDotPassengerDest: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 3,
     borderColor: "#EF4444",
     backgroundColor: "#EF4444",
   },

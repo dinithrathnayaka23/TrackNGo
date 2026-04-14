@@ -6,11 +6,14 @@ import com.trackngo.sos.api.SosAlertService;
 import com.trackngo.sos.api.dto.SosAlertDto;
 import com.trackngo.sos.api.dto.EmergencyContactDto;
 import com.trackngo.sos.api.dto.TriggerSosAlertRequest;
+import com.trackngo.sos.internal.entity.EmergencyContact;
 import com.trackngo.sos.internal.entity.SosAlert;
 import com.trackngo.sos.internal.repository.SosAlertRepository;
 import com.trackngo.sos.internal.repository.EmergencyContactRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -23,9 +26,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SosAlertServiceImpl implements SosAlertService {
 
+    private static final Logger log = LoggerFactory.getLogger(SosAlertServiceImpl.class);
+
     private final SosAlertRepository repository;
     private final EmergencyContactRepository emergencyContactRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final SmsProvider smsProvider;
 
     @PostConstruct
     public void ensureSosAlertColumns() {
@@ -96,6 +102,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         }
 
         SosAlert saved = repository.save(alert);
+        notifyEmergencyContactsIfRequested(saved, request);
         return toDto(saved);
     }
 
@@ -249,6 +256,112 @@ public class SosAlertServiceImpl implements SosAlertService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private void notifyEmergencyContactsIfRequested(SosAlert alert, TriggerSosAlertRequest request) {
+        if (request == null || !Boolean.TRUE.equals(request.getNotifyEmergencyContacts())) {
+            return;
+        }
+
+        if (!smsProvider.isConfigured()) {
+            log.warn("SMS provider ({}) is not configured. Skipping emergency contact notifications for SOS {}", smsProvider.getProviderName(), alert.getSosId());
+            return;
+        }
+
+        Long ownerId = alert.getPassengerId() != null ? alert.getPassengerId() : alert.getDriverId();
+        String ownerType = alert.getPassengerId() != null ? "passenger" : "driver";
+        if (ownerId == null) {
+            return;
+        }
+
+        List<EmergencyContact> contacts = emergencyContactRepository
+            .findByOwnerIdAndOwnerTypeOrderByCreatedAtDesc(ownerId, ownerType);
+
+        if (contacts.isEmpty()) {
+            log.info("No emergency contacts found for {} #{}", ownerType, ownerId);
+            return;
+        }
+
+        log.info(
+            "Sending SOS SMS notification for SOS {} to {} emergency contact(s) ({} #{})",
+            alert.getSosId(),
+            contacts.size(),
+            ownerType,
+            ownerId
+        );
+
+        String smsBody = buildEmergencySmsMessage(alert, ownerType, ownerId);
+        for (EmergencyContact contact : contacts) {
+            try {
+                smsProvider.sendSms(contact.getTeleNumber(), smsBody);
+                log.info("SOS SMS sent to {} ({}) for SOS {}", contact.getName(), contact.getTeleNumber(), alert.getSosId());
+            } catch (Exception ex) {
+                log.warn(
+                    "Failed to send SOS SMS to {} ({}) for SOS {}: {}",
+                    contact.getName(),
+                    contact.getTeleNumber(),
+                    alert.getSosId(),
+                    ex.getMessage()
+                );
+            }
+        }
+    }
+
+    private String buildEmergencySmsMessage(SosAlert alert, String ownerType, Long ownerId) {
+        String userName = resolveUserName(ownerId);
+        String typeLabel = "passenger".equals(ownerType) ? "Passenger" : "Driver";
+
+        StringBuilder message = new StringBuilder();
+        message.append("TrackNGo SOS : ")
+            .append(typeLabel)
+            .append(" ")
+            .append(userName != null ? userName : "User")
+            .append(" triggered an emergency.");
+
+        if (trimToNull(alert.getBusNumber()) != null) {
+            message.append(" Bus: ").append(alert.getBusNumber()).append(".");
+        }
+
+        String startLocation = trimToNull(alert.getStartLocation());
+        String endLocation = trimToNull(alert.getEndLocation());
+        if (startLocation != null || endLocation != null) {
+            message.append(" Route: ")
+                .append(startLocation != null ? startLocation : "Unknown")
+                .append(" to ")
+                .append(endLocation != null ? endLocation : "Unknown")
+                .append(".");
+        }
+
+        if (trimToNull(alert.getSharedLocation()) != null) {
+            String location = alert.getSharedLocation().replaceAll("\\s*-\\s*Logged user location", "").trim();
+            message.append(" Current location: ").append(location).append(".");
+        }
+
+        message.append(" Please check on them immediately.");
+        return message.toString();
+    }
+
+    private String resolveUserName(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+
+        List<Map<String, Object>> userRows = jdbcTemplate.queryForList(
+            """
+            SELECT first_name, last_name
+            FROM user
+            WHERE user_id = ?
+            LIMIT 1
+            """,
+            userId
+        );
+
+        if (userRows.isEmpty()) {
+            return null;
+        }
+
+        Map<String, Object> userRow = userRows.get(0);
+        return joinName((String) userRow.get("first_name"), (String) userRow.get("last_name"));
     }
 
     private void ensureColumnExists(String columnName, String definition) {

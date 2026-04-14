@@ -7,9 +7,11 @@ com\trackngo\booking\internal\entity\Booking.class
 com\trackngo\booking\api\BookingService.class
 com\trackngo\booking\events\SeatCreatedEvent.class
 com\trackngo\booking\api\dto\BookingDto.class
+com\trackngo\booking\api\dto\RecentBookingDto.class
 com\trackngo\booking\api\dto\SeatDto.class
 com\trackngo\booking\internal\service\TripServiceImpl.class
 com\trackngo\booking\internal\service\SeatServiceImpl.class
+com\trackngo\booking\internal\repository\RecentBookingProjection.class
 com\trackngo\booking\events\BookingCreatedEvent.class
 com\trackngo\booking\internal\service\BookingServiceImpl.class
 com\trackngo\booking\api\SeatService.class

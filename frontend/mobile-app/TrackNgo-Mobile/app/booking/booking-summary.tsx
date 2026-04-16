@@ -12,6 +12,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getBusImage } from '../../utils/busImage';
 
 export default function BookingSummaryScreen() {
   const router = useRouter();
@@ -26,6 +27,8 @@ export default function BookingSummaryScreen() {
     seats?: string;
     pricePerSeat?: string;
     totalPrice?: string;
+    busBrand?: string;
+    amenities?: string;
   }>();
 
   const from = params.from ?? 'Colombo Fort';
@@ -37,6 +40,9 @@ export default function BookingSummaryScreen() {
   const seats = params.seats ? params.seats.split(',') : ['3A', '3B'];
   const pricePerSeat = Number(params.pricePerSeat ?? '1500') || 1500;
   const totalPrice = Number(params.totalPrice ?? `${pricePerSeat * seats.length}`) || pricePerSeat * seats.length;
+  const busBrand = params.busBrand ?? '';
+  const amenities: string[] = (() => { try { return JSON.parse(params.amenities ?? '[]'); } catch { return []; } })();
+  const busImage = getBusImage(busBrand, amenities);
 
   const [fullName, setFullName] = useState('Kamal Perera');
   const [mobile, setMobile] = useState('+94 77 123 4567');
@@ -115,10 +121,13 @@ export default function BookingSummaryScreen() {
               <Text style={styles.durationText}>Journey Date: {date}</Text>
             </View>
 
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=800&q=80' }}
-              style={styles.busImage}
-            />
+            {busImage ? (
+              <Image source={busImage} style={styles.busImage} />
+            ) : (
+              <View style={[styles.busImage, { backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="bus" size={48} color="#94A3B8" />
+              </View>
+            )}
           </View>
 
           {/* Bus Details */}

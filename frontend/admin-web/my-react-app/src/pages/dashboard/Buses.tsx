@@ -10,10 +10,23 @@ import {
   faPlus,
   faArrowUpFromBracket,
   faSpinner,
+  faXmark,
 } from '@fortawesome/free-solid-svg-icons'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchBuses, type BusListItem } from '../../services/busService'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import {
+  fetchBuses,
+  createBus,
+  fetchDriverOptions,
+  fetchRouteOptions,
+  type BusListItem,
+  type SaveBusRequest,
+  type DriverOption,
+  type RouteOption,
+} from '../../services/busService'
+import { getBusImage } from '../../utils/busImage'
 
 type BusStatus = 'active' | 'maintenance' | 'inactive'
 
@@ -44,12 +57,126 @@ function Buses() {
   const [minCap, setMinCap] = useState(0)
   const [maxCap, setMaxCap] = useState(100)
 
-  useEffect(() => {
+  // Add Bus modal state
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [driverOptions, setDriverOptions] = useState<DriverOption[]>([])
+  const [routeOptions, setRouteOptions] = useState<RouteOption[]>([])
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  const emptyForm: SaveBusRequest = {
+    busNumber: '',
+    busBrand: '',
+    seatCapacity: 40,
+    busType: 'highway',
+    busCondition: 'good',
+    status: 'active',
+    amenities: [],
+    startTime: null,
+    endTime: null,
+    registrationNumber: '',
+    insuranceExpDate: '',
+    driverId: null,
+    routeId: null,
+  }
+  const [form, setForm] = useState<SaveBusRequest>(emptyForm)
+
+  const loadBuses = () => {
+    setLoading(true)
     fetchBuses()
       .then(setBuses)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadBuses() }, [])
+
+  const openAddModal = () => {
+    setForm(emptyForm)
+    setSaveError('')
+    setShowAddModal(true)
+    Promise.all([fetchDriverOptions(), fetchRouteOptions()])
+      .then(([drivers, routes]) => {
+        setDriverOptions(drivers)
+        setRouteOptions(routes)
+      })
+      .catch(() => {})
+  }
+
+  const handleAddBus = async () => {
+    if (!form.busNumber.trim() || !form.busBrand.trim() || !form.registrationNumber.trim()) {
+      setSaveError('Bus number, brand, and registration number are required.')
+      return
+    }
+    setSaving(true)
+    setSaveError('')
+    try {
+      await createBus(form)
+      setShowAddModal(false)
+      loadBuses()
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to create bus')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const exportPdf = () => {
+    const doc = new jsPDF({ orientation: 'landscape' })
+
+    // Title
+    doc.setFontSize(18)
+    doc.setTextColor(38, 66, 166)
+    doc.text('TrackNGo - Bus Fleet Report', 14, 18)
+
+    // Summary line
+    doc.setFontSize(10)
+    doc.setTextColor(100, 116, 139)
+    doc.text(
+      `Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}   |   Total: ${TOTAL}   Active: ${ACTIVE_COUNT}   Maintenance: ${MAINTENANCE_COUNT}   Inactive: ${INACTIVE_COUNT}`,
+      14, 26,
+    )
+
+    // Table
+    const rows = filtered.map((b) => [
+      b.busNumber,
+      b.registrationNumber,
+      b.busBrand,
+      String(b.seatCapacity),
+      hasAc(b.amenities) ? 'AC' : 'Non-AC',
+      b.amenities.filter((a) => a.toLowerCase() !== 'ac').join(', ') || '—',
+      b.status.charAt(0).toUpperCase() + b.status.slice(1),
+      b.driverName || 'Unassigned',
+      b.routeName || 'None',
+      b.startTime && b.endTime ? `${b.startTime} – ${b.endTime}` : '—',
+      b.insuranceExpDate || '—',
+    ])
+
+    autoTable(doc, {
+      startY: 32,
+      head: [['Bus #', 'Registration', 'Brand', 'Seats', 'Type', 'Amenities', 'Status', 'Driver', 'Route', 'Schedule', 'Insurance Exp']],
+      body: rows,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [38, 66, 166], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 252] },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        3: { halign: 'center', cellWidth: 14 },
+        4: { cellWidth: 16 },
+      },
+    })
+
+    doc.save('TrackNGo_Bus_Report.pdf')
+  }
+
+  const toggleAmenity = (key: string) => {
+    setForm((prev) => ({
+      ...prev,
+      amenities: prev.amenities.includes(key)
+        ? prev.amenities.filter((a) => a !== key)
+        : [...prev.amenities, key],
+    }))
+  }
 
   const filtered = buses.filter((bus) => {
     if (search && !bus.busNumber.toLowerCase().includes(search.toLowerCase()) && !bus.busBrand.toLowerCase().includes(search.toLowerCase())) return false
@@ -73,6 +200,7 @@ function Buses() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={exportPdf}
             className="inline-flex items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9]"
           >
             <FontAwesomeIcon icon={faArrowUpFromBracket} className="text-xs" />
@@ -80,6 +208,7 @@ function Buses() {
           </button>
           <button
             type="button"
+            onClick={openAddModal}
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]"
           >
             <FontAwesomeIcon icon={faPlus} className="text-xs" />
@@ -212,9 +341,17 @@ function Buses() {
           >
             {/* Image */}
             <div className="relative h-40 w-full overflow-hidden bg-[#f1f5f9]">
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#e0e7ff] to-[#f1f5f9]">
-                <FontAwesomeIcon icon={faBus} className="text-4xl text-[#94a3b8]" />
-              </div>
+              {getBusImage(bus.busBrand, bus.amenities) ? (
+                <img
+                  src={getBusImage(bus.busBrand, bus.amenities)!}
+                  alt={bus.busBrand}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#e0e7ff] to-[#f1f5f9]">
+                  <FontAwesomeIcon icon={faBus} className="text-4xl text-[#94a3b8]" />
+                </div>
+              )}
               <span className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${statusBadgeClass(bus.status)}`}>
                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
                 {statusLabel(bus.status)}
@@ -285,6 +422,231 @@ function Buses() {
           </p>
         )}
       </div>
+      )}
+
+      {/* ── Add Bus Modal ───────────────────────────────────── */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+            <button
+              type="button"
+              onClick={() => setShowAddModal(false)}
+              className="absolute right-4 top-4 text-[#94a3b8] transition hover:text-[#334155]"
+            >
+              <FontAwesomeIcon icon={faXmark} className="text-lg" />
+            </button>
+
+            <h2 className="text-lg font-extrabold text-[#111827]">Add New Bus</h2>
+            <p className="mt-1 text-sm text-[#64748b]">Fill in the details to register a new bus.</p>
+
+            {saveError && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                {saveError}
+              </div>
+            )}
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              {/* Bus Number */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Bus Number *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. NB-0012"
+                  value={form.busNumber}
+                  onChange={(e) => setForm({ ...form, busNumber: e.target.value })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                />
+              </div>
+
+              {/* Registration Number */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Registration Number *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. WP CAB-0012"
+                  value={form.registrationNumber}
+                  onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                />
+              </div>
+
+              {/* Brand */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Brand *</label>
+                <select
+                  value={form.busBrand}
+                  onChange={(e) => setForm({ ...form, busBrand: e.target.value })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
+                >
+                  <option value="">Select brand</option>
+                  <option value="Ashok Leyland">Ashok Leyland</option>
+                  <option value="TATA Motors">TATA Motors</option>
+                  <option value="Rosa Bus">Rosa Bus</option>
+                </select>
+              </div>
+
+              {/* Seat Capacity */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Seat Capacity</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={form.seatCapacity}
+                  onChange={(e) => setForm({ ...form, seatCapacity: Number(e.target.value) })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                />
+              </div>
+
+              {/* Bus Type */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Bus Type</label>
+                <select
+                  value={form.busType}
+                  onChange={(e) => setForm({ ...form, busType: e.target.value })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
+                >
+                  <option value="highway">Highway</option>
+                  <option value="long_distance">Long Distance</option>
+                  <option value="trip_booking">Trip Booking</option>
+                  <option value="corporate">Corporate</option>
+                </select>
+              </div>
+
+              {/* Condition */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Condition</label>
+                <select
+                  value={form.busCondition}
+                  onChange={(e) => setForm({ ...form, busCondition: e.target.value })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
+                >
+                  <option value="excellent">Excellent</option>
+                  <option value="good">Good</option>
+                  <option value="fair">Fair</option>
+                </select>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Status</label>
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
+                >
+                  <option value="active">Active</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+
+              {/* Insurance Expiry */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Insurance Expiry</label>
+                <input
+                  type="date"
+                  value={form.insuranceExpDate}
+                  onChange={(e) => setForm({ ...form, insuranceExpDate: e.target.value })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                />
+              </div>
+
+              {/* Start Time */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Start Time</label>
+                <input
+                  type="time"
+                  value={form.startTime ?? ''}
+                  onChange={(e) => setForm({ ...form, startTime: e.target.value || null })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                />
+              </div>
+
+              {/* End Time */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">End Time</label>
+                <input
+                  type="time"
+                  value={form.endTime ?? ''}
+                  onChange={(e) => setForm({ ...form, endTime: e.target.value || null })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                />
+              </div>
+
+              {/* Driver */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Driver</label>
+                <select
+                  value={form.driverId ?? ''}
+                  onChange={(e) => setForm({ ...form, driverId: e.target.value ? Number(e.target.value) : null })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
+                >
+                  <option value="">Unassigned</option>
+                  {driverOptions.map((d) => (
+                    <option key={d.driverId} value={d.driverId}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Route */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Route</label>
+                <select
+                  value={form.routeId ?? ''}
+                  onChange={(e) => setForm({ ...form, routeId: e.target.value ? Number(e.target.value) : null })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
+                >
+                  <option value="">No Route</option>
+                  {routeOptions.map((r) => (
+                    <option key={r.routeId} value={r.routeId}>{r.routeName}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Amenities */}
+            <div className="mt-4">
+              <label className="mb-2 block text-sm font-semibold text-[#334155]">Amenities</label>
+              <div className="flex flex-wrap gap-2">
+                {['ac', 'wifi', 'charging_ports', 'entertainment', 'cctv', 'restroom'].map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleAmenity(key)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      form.amenities.includes(key)
+                        ? 'bg-[#2642a6] text-white'
+                        : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'
+                    }`}
+                  >
+                    {key === 'ac' ? 'AC' : key === 'wifi' ? 'WiFi' : key === 'charging_ports' ? 'Charging Ports' : key === 'entertainment' ? 'Entertainment' : key === 'cctv' ? 'CCTV' : 'Restroom'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="rounded-lg border border-[#d6dbe6] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddBus}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#203b96] disabled:opacity-60"
+              >
+                {saving && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />}
+                {saving ? 'Creating...' : 'Create Bus'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

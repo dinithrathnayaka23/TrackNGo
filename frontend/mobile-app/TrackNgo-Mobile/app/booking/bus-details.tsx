@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getBusDetails, type BusDetailResult } from '../../services/bookingFlowApi';
+import { getBusImage } from '../../utils/busImage';
 
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode; label: string }> = {
   ac: { icon: <MaterialCommunityIcons name="snowflake" size={18} color="#2F6BFF" />, label: 'A/C' },
@@ -112,10 +113,16 @@ export default function BusDetailsScreen() {
         </View>
 
         <View style={styles.busCard}>
-          <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=900&q=80' }}
-            style={styles.busImage}
-          />
+          {(() => {
+            const busImg = getBusImage(details.busBrand, details.amenities);
+            return busImg ? (
+              <Image source={busImg} style={styles.busImage} />
+            ) : (
+              <View style={[styles.busImage, { backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="bus" size={48} color="#94A3B8" />
+              </View>
+            );
+          })()}
           <View style={styles.busInfo}>
             <View style={styles.busText}>
               <Text style={styles.busType}>{details.busBrand} • {details.busType}</Text>
@@ -235,6 +242,8 @@ export default function BusDetailsScreen() {
                 busType: details.busType,
                 depart: details.startTime,
                 price,
+                busBrand: details.busBrand,
+                amenities: JSON.stringify(details.amenities),
               },
             })
           }>

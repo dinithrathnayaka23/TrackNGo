@@ -43,20 +43,54 @@ export default function BusSelectionScreen() {
     to?: string;
     date?: string;
     passengers?: string;
+    busType?: string;
+    timeStart?: string;
+    timeEnd?: string;
+    busCategory?: string;
   }>();
 
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
   const date = params.date ?? new Date().toISOString().split('T')[0];
   const passengers = params.passengers ?? '1';
+  const busType = params.busType ?? '';
+  const timeStart = params.timeStart ?? '';
+  const timeEnd = params.timeEnd ?? '';
+  const busCategory = params.busCategory ?? '';
 
   const [buses, setBuses] = useState<BusSearchResult[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /** Convert "HH:MM" to minutes since midnight for comparison */
+  function toMinutes(t: string): number {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + (m || 0);
+  }
+
+  /** Filter buses by category, AC/Non-AC type, and departure time range */
+  const filteredBuses = buses.filter((bus) => {
+    // Bus category filter (highway / long_distance)
+    if (busCategory && bus.busType.toLowerCase() !== busCategory.toLowerCase()) return false;
+
+    // Bus type filter (AC / Non-AC)
+    if (busType === 'AC' && !bus.amenities.some((a) => a.toLowerCase() === 'ac')) return false;
+    if (busType === 'Non-AC' && bus.amenities.some((a) => a.toLowerCase() === 'ac')) return false;
+
+    // Departure time range filter
+    if (timeStart && timeEnd && bus.startTime) {
+      const dep = toMinutes(bus.startTime);
+      const lo = toMinutes(timeStart);
+      const hi = toMinutes(timeEnd);
+      if (dep < lo || dep > hi) return false;
+    }
+
+    return true;
+  });
+
   const loadBuses = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await searchBuses(from, to, date);
+      const data = await searchBuses(from, to, date, busCategory || undefined);
       setBuses(data);
     } catch (e: any) {
       console.error('[BusSelection] search failed', e);
@@ -64,7 +98,7 @@ export default function BusSelectionScreen() {
     } finally {
       setLoading(false);
     }
-  }, [from, to, date]);
+  }, [from, to, date, busCategory]);
 
   useEffect(() => { void loadBuses(); }, [loadBuses]);
 
@@ -109,13 +143,13 @@ export default function BusSelectionScreen() {
             <ActivityIndicator size="large" color="#2F6BFF" />
             <Text style={{ marginTop: 12, color: '#94A3B8', fontSize: 13 }}>Searching buses...</Text>
           </View>
-        ) : buses.length === 0 ? (
+        ) : filteredBuses.length === 0 ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}>
             <Ionicons name="bus-outline" size={48} color="#CBD5E1" />
             <Text style={{ marginTop: 12, color: '#94A3B8', fontSize: 13 }}>No buses found for this route.</Text>
           </View>
         ) : (
-          buses.map((bus) => {
+          filteredBuses.map((bus) => {
             const duration = formatDuration(bus.startTime, bus.endTime);
             return (
           <View key={bus.busId} style={styles.busCard}>

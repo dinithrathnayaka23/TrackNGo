@@ -89,10 +89,13 @@ export async function searchBuses(
   from: string,
   to: string,
   date: string,
+  busCategory?: string,
 ): Promise<BusSearchResult[]> {
+  const params: Record<string, string> = { from, to, date };
+  if (busCategory) params.busCategory = busCategory;
   const res = await httpGet<ApiResponse<BusSearchResult[]>>(
     "/api/booking-flow/search",
-    { from, to, date },
+    params,
   );
   return res.data ?? [];
 }

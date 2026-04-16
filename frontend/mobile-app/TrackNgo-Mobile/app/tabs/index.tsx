@@ -391,7 +391,11 @@ export default function HomeScreen() {
                   action.key === "highway" ||
                   action.key === "long-distance"
                 ) {
-                  router.push("/booking/search-buses");
+                  const busCategory = action.key === "highway" ? "highway" : "long_distance";
+                  router.push({
+                    pathname: "/booking/search-buses",
+                    params: { busCategory },
+                  });
                   return;
                 }
                 Alert.alert(action.label, `Opening ${action.label}...`);

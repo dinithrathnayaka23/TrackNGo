@@ -22,9 +22,10 @@ public class BookingFlowController {
     public ApiResponse<List<BusSearchResult>> searchBuses(
             @RequestParam String from,
             @RequestParam String to,
-            @RequestParam String date
+            @RequestParam String date,
+            @RequestParam(required = false) String busCategory
     ) {
-        List<BusSearchResult> buses = service.searchBuses(from, to, date);
+        List<BusSearchResult> buses = service.searchBuses(from, to, date, busCategory);
         return ApiResponse.ok("Search results", buses);
     }
 

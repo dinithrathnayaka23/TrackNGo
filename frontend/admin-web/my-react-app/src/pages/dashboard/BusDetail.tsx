@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   faArrowLeft,
@@ -25,7 +25,69 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import adminProfileImage from "../../assets/images/adminProfile.png";
-import mapImage from "../../assets/images/map.png";
+import { getBusImage } from "../../utils/busImage";
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+
+let mapsScriptLoaded = false;
+function loadMapsScript(): Promise<void> {
+  if (mapsScriptLoaded || window.google?.maps) {
+    mapsScriptLoaded = true;
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker`;
+    script.async = true;
+    script.onload = () => { mapsScriptLoaded = true; resolve(); };
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    document.head.appendChild(script);
+  });
+}
+
+function BusLocationMap({ locationName }: { locationName: string }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      await loadMapsScript();
+      if (cancelled || !mapRef.current) return;
+
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: `${locationName}, Sri Lanka` }, (results, status) => {
+        if (cancelled || !mapRef.current) return;
+        const center =
+          status === "OK" && results && results[0]
+            ? results[0].geometry.location
+            : new google.maps.LatLng(6.9271, 79.8612);
+
+        const map = new google.maps.Map(mapRef.current, {
+          center,
+          zoom: 14,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+        });
+
+        new google.maps.Marker({
+          position: center,
+          map,
+          title: locationName,
+          icon: {
+            url: "https://maps.google.com/mapfiles/kml/shapes/bus.png",
+            scaledSize: new google.maps.Size(36, 36),
+          },
+        });
+      });
+    }
+
+    init();
+    return () => { cancelled = true; };
+  }, [locationName]);
+
+  return <div ref={mapRef} className="h-40 w-full" />;
+}
 import {
   fetchBusDetail,
   updateBus,
@@ -895,9 +957,17 @@ function BusDetail() {
             >
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-28 w-44 shrink-0 items-center justify-center rounded-lg bg-[#e8ecf4]">
-                    <FontAwesomeIcon icon={faBus} className="text-4xl text-[#6b7a99]" />
-                  </div>
+                  {getBusImage(busInfo.brand, amenities.filter(a => a.enabled).map(a => a.key)) ? (
+                    <img
+                      src={getBusImage(busInfo.brand, amenities.filter(a => a.enabled).map(a => a.key))!}
+                      alt={busInfo.brand}
+                      className="h-28 w-44 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-28 w-44 shrink-0 items-center justify-center rounded-lg bg-[#e8ecf4]">
+                      <FontAwesomeIcon icon={faBus} className="text-4xl text-[#6b7a99]" />
+                    </div>
+                  )}
                   <div>
                     <span
                       className={[
@@ -1087,21 +1157,17 @@ function BusDetail() {
                   className="dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm"
                   style={{ animationDelay: "210ms" }}
                 >
-                  <img
-                    src={mapImage}
-                    alt="Map showing the current bus location"
-                    className="h-40 w-full object-cover"
-                  />
+                  <BusLocationMap locationName={busInfo.routeName ? busInfo.routeName.split(" to ")[0] : "Colombo"} />
                   <div className="flex items-end justify-between p-4">
                     <div>
                       <p className="text-sm font-semibold text-[#8a93a4]">
                         Current Location
                       </p>
                       <p className="text-sm font-bold text-[#232c3f]">
-                        NH44, Near Electronic City
+                        {busInfo.routeName ? busInfo.routeName.split(" to ")[0] : "Not assigned"}
                       </p>
                       <p className="text-sm text-[#8a93a4]">
-                        Last updated: 2 min ago
+                        Start location
                       </p>
                     </div>
                     <FontAwesomeIcon

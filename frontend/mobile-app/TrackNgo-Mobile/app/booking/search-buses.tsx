@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -32,6 +32,7 @@ function formatTime(value: number) {
 export default function SearchBusesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { busCategory } = useLocalSearchParams<{ busCategory?: string }>();
   const [from, setFrom] = useState('Colombo Fort');
   const [to, setTo] = useState('Kandy');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -151,6 +152,10 @@ export default function SearchBusesScreen() {
         to: trimmedTo,
         date: selectedDate.toISOString().split('T')[0],
         passengers: String(adults + children),
+        busType,
+        timeStart: formatTime(range.start),
+        timeEnd: formatTime(range.end),
+        ...(busCategory ? { busCategory } : {}),
       },
     });
   };

@@ -32,7 +32,8 @@ public class BookingFlowService {
     /* ═══════════════════════════════════════════════════════════
        1. Search buses by from / to / date
        ═══════════════════════════════════════════════════════════ */
-    public List<BusSearchResult> searchBuses(String from, String to, String date) {
+    public List<BusSearchResult> searchBuses(String from, String to, String date, String busCategory) {
+        boolean filterCategory = busCategory != null && !busCategory.isBlank();
         String sql = """
             SELECT b.bus_id, b.bus_number, b.bus_type, b.bus_brand,
                    b.start_time, b.end_time, b.seat_capacity, b.amenities,
@@ -47,13 +48,16 @@ public class BookingFlowService {
               AND LOWER(r.end_location) LIKE ?
               AND b.status = 'active'
               AND r.is_active = 1
+            """ + (filterCategory ? "  AND b.bus_type = ?\n" : "") + """
             ORDER BY b.start_time
             """;
 
         String fromPattern = "%" + from.trim().toLowerCase() + "%";
         String toPattern = "%" + to.trim().toLowerCase() + "%";
 
-        List<Map<String, Object>> rows = jdbc.queryForList(sql, fromPattern, toPattern);
+        List<Map<String, Object>> rows = filterCategory
+            ? jdbc.queryForList(sql, fromPattern, toPattern, busCategory.trim().toLowerCase())
+            : jdbc.queryForList(sql, fromPattern, toPattern);
 
         List<BusSearchResult> results = new ArrayList<>();
         for (Map<String, Object> row : rows) {

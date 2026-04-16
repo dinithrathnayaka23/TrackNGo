@@ -29,6 +29,8 @@ export default function SeatSelectionScreen() {
     price?: string;
     adults?: string;
     children?: string;
+    busBrand?: string;
+    amenities?: string;
   }>();
 
   const [showAvailableOnly, setShowAvailableOnly] = useState(false);
@@ -279,6 +281,8 @@ export default function SeatSelectionScreen() {
                   seats: selectedSeats.join(','),
                   pricePerSeat: String(pricePerSeat),
                   totalPrice: String(totalPrice),
+                  busBrand: params.busBrand ?? '',
+                  amenities: params.amenities ?? '[]',
                 },
               });
             }}

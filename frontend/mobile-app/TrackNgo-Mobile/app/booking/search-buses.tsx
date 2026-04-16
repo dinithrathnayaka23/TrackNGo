@@ -144,7 +144,15 @@ export default function SearchBusesScreen() {
       return;
     }
 
-    router.push('/booking/bus-selection');
+    router.push({
+      pathname: '/booking/bus-selection',
+      params: {
+        from: trimmedFrom,
+        to: trimmedTo,
+        date: selectedDate.toISOString().split('T')[0],
+        passengers: String(adults + children),
+      },
+    });
   };
 
   const startX = sliderWidth * range.start;

@@ -9,160 +9,61 @@ import {
   faChair,
   faPlus,
   faArrowUpFromBracket,
+  faSpinner,
 } from '@fortawesome/free-solid-svg-icons'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { fetchBuses, type BusListItem } from '../../services/busService'
 
-type BusStatus = 'Active' | 'Maintenance' | 'Inactive'
-type AcType = 'AC' | 'Non-AC'
+type BusStatus = 'active' | 'maintenance' | 'inactive'
 
-type BusCard = {
-  id: string
-  regNo: string
-  brand: string
-  seats: number
-  acType: AcType
-  status: BusStatus
-  driverName: string
-  driverInitials: string
-  todaysTrips: number
-  revenue: string
-  image: string
+function statusBadgeClass(status: string) {
+  if (status === 'active') return 'bg-[#16a34a] text-white'
+  if (status === 'maintenance') return 'bg-[#f59e0b] text-white'
+  return 'bg-[#94a3b8] text-white'
 }
 
-const BUS_DATA: BusCard[] = [
-  {
-    id: 'nd-1151',
-    regNo: 'ND-1151',
-    brand: 'Ashok Leyland',
-    seats: 42,
-    acType: 'AC',
-    status: 'Active',
-    driverName: 'Lahiru Mudalige',
-    driverInitials: 'LM',
-    todaysTrips: 4,
-    revenue: '$840.00',
-    image: 'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=480&q=80&fit=crop',
-  },
-  {
-    id: 'nc-2344',
-    regNo: 'NC-2344',
-    brand: 'Ashok Leyland',
-    seats: 54,
-    acType: 'Non-AC',
-    status: 'Active',
-    driverName: 'Lahiru Mudalige',
-    driverInitials: 'LM',
-    todaysTrips: 4,
-    revenue: '$840.00',
-    image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=480&q=80&fit=crop',
-  },
-  {
-    id: 'nj-1539',
-    regNo: 'NJ-1539',
-    brand: 'Volvo 9600',
-    seats: 36,
-    acType: 'AC',
-    status: 'Active',
-    driverName: 'Ashen Senarathna',
-    driverInitials: 'AS',
-    todaysTrips: 2,
-    revenue: '$1,250.00',
-    image: 'https://images.unsplash.com/photo-1557223562-6c77ef16210f?w=480&q=80&fit=crop',
-  },
-  {
-    id: 'nc-1212',
-    regNo: 'NC-1212',
-    brand: 'Volvo 9600',
-    seats: 40,
-    acType: 'AC',
-    status: 'Active',
-    driverName: 'David Ross',
-    driverInitials: 'DR',
-    todaysTrips: 2,
-    revenue: '$1,250.00',
-    image: 'https://images.unsplash.com/photo-1494515843206-f3117d3f51b7?w=480&q=80&fit=crop',
-  },
-  {
-    id: 'nb-3301',
-    regNo: 'NB-3301',
-    brand: 'Tata Marcopolo',
-    seats: 50,
-    acType: 'AC',
-    status: 'Maintenance',
-    driverName: 'Kasun Perera',
-    driverInitials: 'KP',
-    todaysTrips: 0,
-    revenue: '$0.00',
-    image: 'https://images.unsplash.com/photo-1561361513-2d000a50f0dc?w=480&q=80&fit=crop',
-  },
-  {
-    id: 'nd-4420',
-    regNo: 'ND-4420',
-    brand: 'King Long',
-    seats: 45,
-    acType: 'Non-AC',
-    status: 'Maintenance',
-    driverName: 'Nimal Silva',
-    driverInitials: 'NS',
-    todaysTrips: 0,
-    revenue: '$0.00',
-    image: 'https://images.unsplash.com/photo-1464219789935-c2d9d9aba644?w=480&q=80&fit=crop',
-  },
-  {
-    id: 'nc-5501',
-    regNo: 'NC-5501',
-    brand: 'Ashok Leyland',
-    seats: 38,
-    acType: 'AC',
-    status: 'Active',
-    driverName: 'Amila Fernando',
-    driverInitials: 'AF',
-    todaysTrips: 3,
-    revenue: '$960.00',
-    image: 'https://images.unsplash.com/photo-1622631601750-b9ef0ecc69f7?w=480&q=80&fit=crop',
-  },
-  {
-    id: 'nj-6610',
-    regNo: 'NJ-6610',
-    brand: 'Volvo 9600',
-    seats: 44,
-    acType: 'AC',
-    status: 'Active',
-    driverName: 'Dinesh Gamage',
-    driverInitials: 'DG',
-    todaysTrips: 5,
-    revenue: '$1,480.00',
-    image: 'https://images.unsplash.com/photo-1587036325238-17e478fa5248?w=480&q=80&fit=crop',
-  },
-]
+function statusLabel(status: string) {
+  if (status === 'active') return 'Active'
+  if (status === 'maintenance') return 'Maintenance'
+  return 'Inactive'
+}
 
-const TOTAL = BUS_DATA.length
-const ACTIVE_COUNT = BUS_DATA.filter((b) => b.status === 'Active').length
-const MAINTENANCE_COUNT = BUS_DATA.filter((b) => b.status === 'Maintenance').length
-const INACTIVE_COUNT = BUS_DATA.filter((b) => b.status === 'Inactive').length
-
-function statusBadgeClass(status: BusStatus) {
-  if (status === 'Active') return 'bg-[#16a34a] text-white'
-  if (status === 'Maintenance') return 'bg-[#f59e0b] text-white'
-  return 'bg-[#94a3b8] text-white'
+function hasAc(amenities: string[]) {
+  return amenities.some((a) => a.toLowerCase() === 'ac')
 }
 
 function Buses() {
   const navigate = useNavigate()
+  const [buses, setBuses] = useState<BusListItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'All Types' | 'AC' | 'Non-AC'>('All Types')
   const [statusFilter, setStatusFilter] = useState<'All' | BusStatus>('All')
   const [minCap, setMinCap] = useState(0)
-  const [maxCap, setMaxCap] = useState(60)
+  const [maxCap, setMaxCap] = useState(100)
 
-  const filtered = BUS_DATA.filter((bus) => {
-    if (search && !bus.regNo.toLowerCase().includes(search.toLowerCase()) && !bus.brand.toLowerCase().includes(search.toLowerCase())) return false
-    if (typeFilter !== 'All Types' && bus.acType !== typeFilter) return false
+  useEffect(() => {
+    fetchBuses()
+      .then(setBuses)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const filtered = buses.filter((bus) => {
+    if (search && !bus.busNumber.toLowerCase().includes(search.toLowerCase()) && !bus.busBrand.toLowerCase().includes(search.toLowerCase())) return false
+    if (typeFilter === 'AC' && !hasAc(bus.amenities)) return false
+    if (typeFilter === 'Non-AC' && hasAc(bus.amenities)) return false
     if (statusFilter !== 'All' && bus.status !== statusFilter) return false
-    if (bus.seats < minCap || bus.seats > maxCap) return false
+    if (bus.seatCapacity < minCap || bus.seatCapacity > maxCap) return false
     return true
   })
+
+  const TOTAL = buses.length
+  const ACTIVE_COUNT = buses.filter((b) => b.status === 'active').length
+  const MAINTENANCE_COUNT = buses.filter((b) => b.status === 'maintenance').length
+  const INACTIVE_COUNT = buses.filter((b) => b.status === 'inactive').length
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
@@ -258,9 +159,9 @@ function Buses() {
             className="appearance-none rounded-lg border border-[#d6dbe6] bg-white py-2.5 pl-3 pr-8 text-sm font-medium text-[#334155] outline-none transition focus:border-[#2642a6]"
           >
             <option value="All">All Status</option>
-            <option>Active</option>
-            <option>Maintenance</option>
-            <option>Inactive</option>
+            <option value="active">Active</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="inactive">Inactive</option>
           </select>
           <FontAwesomeIcon icon={faChevronDown} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#64748b]" />
         </div>
@@ -287,23 +188,36 @@ function Buses() {
       </div>
 
       {/* Bus Cards Grid */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-[#64748b]">
+          <FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />
+          Loading buses...
+        </div>
+      ) : error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-10 text-center text-sm text-red-600">
+          {error}
+        </div>
+      ) : (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filtered.map((bus) => (
+        {filtered.map((bus) => {
+          const acType = hasAc(bus.amenities) ? 'AC' : 'Non-AC'
+          const initials = bus.driverName
+            ? bus.driverName.split(' ').map((w) => w[0]).join('').slice(0, 2)
+            : '—'
+          return (
           <article
-            key={bus.id}
+            key={bus.busId}
             className="animate-dash-in overflow-hidden rounded-xl border border-[#e5e7eb] bg-white transition hover:shadow-md"
             style={{ animationDelay: '150ms' }}
           >
             {/* Image */}
             <div className="relative h-40 w-full overflow-hidden bg-[#f1f5f9]">
-              <img
-                src={bus.image}
-                alt={bus.regNo}
-                className="h-full w-full object-cover"
-              />
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#e0e7ff] to-[#f1f5f9]">
+                <FontAwesomeIcon icon={faBus} className="text-4xl text-[#94a3b8]" />
+              </div>
               <span className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${statusBadgeClass(bus.status)}`}>
                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                {bus.status}
+                {statusLabel(bus.status)}
               </span>
             </div>
 
@@ -311,43 +225,43 @@ function Buses() {
             <div className="p-4">
               {/* Reg + AC badge */}
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-base font-extrabold text-[#111827]">{bus.regNo}</h3>
+                <h3 className="text-base font-extrabold text-[#111827]">{bus.busNumber}</h3>
                 <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
-                  bus.acType === 'AC'
+                  acType === 'AC'
                     ? 'bg-[#dbeafe] text-[#2563eb]'
                     : 'bg-[#f1f5f9] text-[#475569]'
                 }`}>
-                  {bus.acType}
+                  {acType}
                 </span>
               </div>
-              <p className="mt-0.5 text-sm text-[#64748b]">{bus.brand}</p>
+              <p className="mt-0.5 text-sm text-[#64748b]">{bus.busBrand}</p>
 
               {/* Seats */}
               <div className="mt-3 flex items-center gap-1.5 text-sm text-[#475569]">
                 <FontAwesomeIcon icon={faChair} className="text-xs text-[#94a3b8]" />
-                <span>{bus.seats} Seats</span>
+                <span>{bus.seatCapacity} Seats</span>
               </div>
 
               {/* Driver */}
               <div className="mt-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="grid h-7 w-7 place-items-center rounded-full bg-[#e0e7ff] text-[10px] font-bold text-[#3b5998]">
-                    {bus.driverInitials}
+                    {initials}
                   </div>
-                  <span className="text-sm font-medium text-[#334155]">{bus.driverName}</span>
+                  <span className="text-sm font-medium text-[#334155]">{bus.driverName || 'Unassigned'}</span>
                 </div>
                 <span className="text-xs text-[#94a3b8]">Driver</span>
               </div>
 
-              {/* Stats */}
+              {/* Route info */}
               <div className="mt-3 flex items-center border-t border-[#f1f5f9] pt-3">
                 <div className="flex-1">
-                  <p className="text-xs text-[#94a3b8]">Today's Trips</p>
-                  <p className="mt-0.5 text-sm font-bold text-[#111827]">{bus.todaysTrips}</p>
+                  <p className="text-xs text-[#94a3b8]">Route</p>
+                  <p className="mt-0.5 text-sm font-bold text-[#111827]">{bus.routeName || 'None'}</p>
                 </div>
                 <div className="flex-1 text-right">
-                  <p className="text-xs text-[#94a3b8]">Revenue</p>
-                  <p className="mt-0.5 text-sm font-bold text-[#16a34a]">{bus.revenue}</p>
+                  <p className="text-xs text-[#94a3b8]">Schedule</p>
+                  <p className="mt-0.5 text-sm font-bold text-[#16a34a]">{bus.startTime && bus.endTime ? `${bus.startTime}–${bus.endTime}` : '—'}</p>
                 </div>
               </div>
 
@@ -355,7 +269,7 @@ function Buses() {
               <div className="mt-3 border-t border-[#f1f5f9] pt-3 text-right">
                 <button
                   type="button"
-                  onClick={() => navigate(`/dashboard/buses/${bus.id}`)}
+                  onClick={() => navigate(`/dashboard/buses/${bus.busId}`)}
                   className="text-sm font-semibold text-[#2642a6] transition hover:text-[#1b357f]"
                 >
                   View Details
@@ -363,13 +277,15 @@ function Buses() {
               </div>
             </div>
           </article>
-        ))}
+          )
+        })}
         {filtered.length === 0 && (
           <p className="col-span-full rounded-xl border border-dashed border-[#d6dbe6] bg-white px-4 py-10 text-center text-sm text-[#64748b]">
             No buses match your filters.
           </p>
         )}
       </div>
+      )}
     </div>
   )
 }

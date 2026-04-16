@@ -41,6 +41,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/emergency-contacts/**").permitAll()
                 .requestMatchers("/api/sos-alerts/**").permitAll()
                 .requestMatchers("/api/tracking/**").permitAll()
+                .requestMatchers("/api/booking-flow/**").permitAll()
+                .requestMatchers("/api/admin/buses/**").permitAll()
                 .requestMatchers("/bus-sharer.html").permitAll()
                 .anyRequest().authenticated()
             )

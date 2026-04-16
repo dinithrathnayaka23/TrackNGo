@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -11,40 +12,91 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { getBusDetails, type BusDetailResult } from '../../services/bookingFlowApi';
 
-const routeStops = [
-  { name: 'Fort', time: '06:00 AM', status: 'Start' },
-  { name: 'Nittambuwa', time: '07:30 AM', status: 'ETA' },
-  { name: 'Kegalle', time: '08:30 AM', status: 'ETA' },
-  { name: 'Kandy', time: '10:00 AM', status: 'Destination' },
-];
+const AMENITY_ICONS: Record<string, { icon: React.ReactNode; label: string }> = {
+  ac: { icon: <MaterialCommunityIcons name="snowflake" size={18} color="#2F6BFF" />, label: 'A/C' },
+  wifi: { icon: <Ionicons name="wifi" size={18} color="#2F6BFF" />, label: 'WiFi' },
+  charging: { icon: <MaterialCommunityIcons name="power-plug" size={18} color="#2F6BFF" />, label: 'Power' },
+  charging_ports: { icon: <MaterialCommunityIcons name="power-plug" size={18} color="#2F6BFF" />, label: 'Power' },
+  entertainment: { icon: <Ionicons name="tv-outline" size={18} color="#2F6BFF" />, label: 'TV' },
+  tv: { icon: <Ionicons name="tv-outline" size={18} color="#2F6BFF" />, label: 'TV' },
+  water: { icon: <Ionicons name="water" size={18} color="#2F6BFF" />, label: 'Water' },
+  gps: { icon: <MaterialCommunityIcons name="crosshairs-gps" size={18} color="#2F6BFF" />, label: 'GPS' },
+  cctv: { icon: <MaterialCommunityIcons name="cctv" size={18} color="#2F6BFF" />, label: 'CCTV' },
+};
+
+function formatDuration(start: string, end: string): string {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff < 0) diff += 24 * 60;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
 
 export default function BusDetailsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
-    id?: string;
-    type?: string;
-    rating?: string;
-    depart?: string;
-    arrive?: string;
-    duration?: string;
+    busId?: string;
     from?: string;
     to?: string;
+    date?: string;
     price?: string;
-    seatsLeft?: string;
   }>();
 
-  const busId = params.id ?? 'ND-4589';
-  const busType = params.type ?? 'Super Luxury';
-  const rating = params.rating ?? '4.8';
-  const depart = params.depart ?? '06:00';
-  const arrive = params.arrive ?? '09:30';
-  const duration = params.duration ?? '3h 30m';
+  const busId = Number(params.busId ?? '0');
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const price = params.price ?? 'LKR 1200';
-  const priceNumber = Number((price || '0').replace(/[^0-9.]/g, '')) || 0;
+  const date = params.date ?? new Date().toISOString().split('T')[0];
+  const price = params.price ?? '0';
+
+  const [details, setDetails] = useState<BusDetailResult | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getBusDetails(busId);
+      setDetails(data);
+    } catch (e: any) {
+      console.error('[BusDetails] load failed', e);
+      Alert.alert('Error', 'Failed to load bus details.');
+    } finally {
+      setLoading(false);
+    }
+  }, [busId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  if (loading) {
+    return (
+      <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#2F6BFF" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!details) {
+    return (
+      <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#94A3B8' }}>Bus details not available.</Text>
+          <Pressable onPress={() => router.back()} style={{ marginTop: 12 }}>
+            <Text style={{ color: '#2F6BFF', fontWeight: '700' }}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const duration = formatDuration(details.startTime, details.endTime);
+  const routeStops = details.routeStops.sort((a, b) => a.priority - b.priority);
+  const driverRating = details.driver?.rating?.toFixed(1) ?? 'N/A';
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -66,10 +118,10 @@ export default function BusDetailsScreen() {
           />
           <View style={styles.busInfo}>
             <View style={styles.busText}>
-              <Text style={styles.busType}>{busType}</Text>
-              <Text style={styles.busId}>{busId}</Text>
+              <Text style={styles.busType}>{details.busBrand} • {details.busType}</Text>
+              <Text style={styles.busId}>{details.busNumber}</Text>
               <Text style={styles.busRoute}>
-                {from}  {'->'} {to}
+                {from}  {'→'}  {to}
               </Text>
             </View>
             <View style={styles.busBadge}>
@@ -80,7 +132,7 @@ export default function BusDetailsScreen() {
 
         <View style={styles.summaryRow}>
           <View>
-            <Text style={styles.timeText}>{depart}</Text>
+            <Text style={styles.timeText}>{details.startTime}</Text>
             <Text style={styles.timeSub}>{from}</Text>
           </View>
           <View style={styles.timelineWrap}>
@@ -92,21 +144,25 @@ export default function BusDetailsScreen() {
             </View>
           </View>
           <View>
-            <Text style={styles.timeText}>{arrive}</Text>
+            <Text style={styles.timeText}>{details.endTime}</Text>
             <Text style={styles.timeSub}>{to}</Text>
           </View>
         </View>
 
         <Text style={styles.sectionTitle}>Route Information</Text>
         <View style={styles.routeCard}>
-          {routeStops.map((stop, index) => (
+          {routeStops.map((stop, index) => {
+            const isFirst = index === 0;
+            const isLast = index === routeStops.length - 1;
+            const label = isFirst ? 'Start' : isLast ? 'Destination' : undefined;
+            return (
             <View key={stop.name} style={styles.routeRow}>
               <View style={styles.routeMarkerColumn}>
                 <View
                   style={[
                     styles.routeMarker,
-                    index === 0 ? styles.routeMarkerStart : undefined,
-                    index === routeStops.length - 1 ? styles.routeMarkerEnd : undefined,
+                    isFirst ? styles.routeMarkerStart : undefined,
+                    isLast ? styles.routeMarkerEnd : undefined,
                   ]}
                 />
                 {index < routeStops.length - 1 && <View style={styles.routeLine} />}
@@ -114,36 +170,32 @@ export default function BusDetailsScreen() {
               <View>
                 <Text style={styles.routeName}>{stop.name}</Text>
                 <Text style={styles.routeSub}>
-                  {stop.time}  -  {stop.status}
+                  {stop.estimatedTime ? `ETA ${stop.estimatedTime}` : '—'}
+                  {label ? `  •  ${label}` : ''}
                 </Text>
               </View>
             </View>
-          ))}
+            );
+          })}
         </View>
 
         <Text style={styles.sectionTitle}>Vehicle & Driver</Text>
         <View style={styles.vehicleCard}>
           <Text style={styles.vehicleLabel}>AMENITIES</Text>
           <View style={styles.amenitiesRow}>
-            <View style={styles.amenityItem}>
-              <MaterialCommunityIcons name="snowflake" size={18} color="#2F6BFF" />
-              <Text style={styles.amenityText}>A/C</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <Ionicons name="wifi" size={18} color="#2F6BFF" />
-              <Text style={styles.amenityText}>WiFi</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <Ionicons name="water" size={18} color="#2F6BFF" />
-              <Text style={styles.amenityText}>Water</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <MaterialCommunityIcons name="power-plug" size={18} color="#2F6BFF" />
-              <Text style={styles.amenityText}>Power</Text>
-            </View>
+            {details.amenities.map((a) => {
+              const entry = AMENITY_ICONS[a.toLowerCase()];
+              if (!entry) return null;
+              return (
+                <View key={a} style={styles.amenityItem}>
+                  {entry.icon}
+                  <Text style={styles.amenityText}>{entry.label}</Text>
+                </View>
+              );
+            })}
           </View>
           <View style={styles.vehicleFooter}>
-            <Text style={styles.layoutText}>Layout: 2+2 (45 Seats)</Text>
+            <Text style={styles.layoutText}>Layout: 2+2 ({details.seatCapacity} Seats)</Text>
             <Pressable>
               <Text style={styles.viewLayout}>View Layout</Text>
             </Pressable>
@@ -152,18 +204,21 @@ export default function BusDetailsScreen() {
 
         <View style={styles.driverCard}>
           <View style={styles.driverAvatar}>
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=200&q=80' }}
-              style={styles.driverImage}
-            />
+            {details.driver?.profilePhoto ? (
+              <Image source={{ uri: details.driver.profilePhoto }} style={styles.driverImage} />
+            ) : (
+              <View style={[styles.driverImage, { backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="person" size={20} color="#94A3B8" />
+              </View>
+            )}
           </View>
           <View style={styles.driverText}>
-            <Text style={styles.driverName}>Sunil Perera</Text>
-            <Text style={styles.driverSub}>Professional Driver - 5 Yrs Exp</Text>
+            <Text style={styles.driverName}>{details.driver?.name ?? 'Driver'}</Text>
+            <Text style={styles.driverSub}>Professional Driver</Text>
           </View>
           <View style={styles.ratingPill}>
             <Ionicons name="star" size={12} color="#F59E0B" />
-            <Text style={styles.ratingText}>{rating}</Text>
+            <Text style={styles.ratingText}>{driverRating}</Text>
           </View>
         </View>
 
@@ -173,17 +228,18 @@ export default function BusDetailsScreen() {
             router.push({
               pathname: '/booking/seat-selection',
               params: {
+                busId: String(details.busId),
                 from,
                 to,
-                id: busId,
-                type: busType,
-                depart,
-                price: String(priceNumber),
+                date,
+                busType: details.busType,
+                depart: details.startTime,
+                price,
               },
             })
           }>
           <Text style={styles.bookButtonText}>Book Seat</Text>
-          <Text style={styles.bookSubText}>{price} / person</Text>
+          <Text style={styles.bookSubText}>LKR {Number(price).toLocaleString('en-US')} / person</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>

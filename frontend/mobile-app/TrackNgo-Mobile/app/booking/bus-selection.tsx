@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -8,63 +9,74 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { searchBuses, type BusSearchResult } from '../../services/bookingFlowApi';
 
-const buses = [
-  {
-    id: 'ND-4567',
-    type: 'Semi-Luxury',
-    rating: 4.5,
-    depart: '06:00',
-    arrive: '09:30',
-    duration: '3h 30m',
-    from: 'Colombo',
-    to: 'Kandy',
-    price: 'LKR 1,800',
-    seatsLeft: 5,
-  },
-  {
-    id: 'WP-1234',
-    type: 'Super Luxury',
-    rating: 4.8,
-    depart: '07:15',
-    arrive: '11:00',
-    duration: '3h 45m',
-    from: 'Colombo',
-    to: 'Kandy',
-    price: 'LKR 2,500',
-    seatsLeft: 12,
-  },
-  {
-    id: 'WP-1234',
-    type: 'Super Luxury',
-    rating: 4.8,
-    depart: '07:15',
-    arrive: '11:00',
-    duration: '3h 45m',
-    from: 'Colombo',
-    to: 'Kandy',
-    price: 'LKR 2,500',
-    seatsLeft: 12,
-  },
-  {
-    id: 'ND-4567',
-    type: 'Normal',
-    rating: 4.5,
-    depart: '06:00',
-    arrive: '09:30',
-    duration: '3h 30m',
-    from: 'Colombo',
-    to: 'Kandy',
-    price: 'LKR 450',
-    seatsLeft: 5,
-  },
-];
+const AMENITY_ICONS: Record<string, { icon: React.ReactNode }> = {
+  ac: { icon: <MaterialCommunityIcons name="snowflake" size={16} color="#94A3B8" /> },
+  wifi: { icon: <Ionicons name="wifi" size={16} color="#94A3B8" /> },
+  charging: { icon: <MaterialCommunityIcons name="power-plug" size={16} color="#94A3B8" /> },
+  charging_ports: { icon: <MaterialCommunityIcons name="power-plug" size={16} color="#94A3B8" /> },
+  entertainment: { icon: <Ionicons name="tv-outline" size={16} color="#94A3B8" /> },
+  tv: { icon: <Ionicons name="tv-outline" size={16} color="#94A3B8" /> },
+  water: { icon: <Ionicons name="water" size={16} color="#94A3B8" /> },
+  gps: { icon: <MaterialCommunityIcons name="crosshairs-gps" size={16} color="#94A3B8" /> },
+  cctv: { icon: <MaterialCommunityIcons name="cctv" size={16} color="#94A3B8" /> },
+};
+
+function formatDuration(start: string, end: string): string {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff < 0) diff += 24 * 60;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
 
 export default function BusSelectionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{
+    from?: string;
+    to?: string;
+    date?: string;
+    passengers?: string;
+  }>();
+
+  const from = params.from ?? 'Colombo';
+  const to = params.to ?? 'Kandy';
+  const date = params.date ?? new Date().toISOString().split('T')[0];
+  const passengers = params.passengers ?? '1';
+
+  const [buses, setBuses] = useState<BusSearchResult[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadBuses = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await searchBuses(from, to, date);
+      setBuses(data);
+    } catch (e: any) {
+      console.error('[BusSelection] search failed', e);
+      Alert.alert('Error', 'Failed to load buses. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [from, to, date]);
+
+  useEffect(() => { void loadBuses(); }, [loadBuses]);
+
+  const dateLabel = (() => {
+    const d = new Date(date + 'T00:00:00');
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const formatted = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+    if (isToday) return `Today, ${formatted}`;
+    const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
+    return `${weekday}, ${formatted}`;
+  })();
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -84,39 +96,52 @@ export default function BusSelectionScreen() {
             <Ionicons name="bus" size={18} color="#2F6BFF" />
           </View>
           <View style={styles.summaryText}>
-            <Text style={styles.summaryTitle}>Colombo  →  Kandy</Text>
-            <Text style={styles.summarySub}>Fri, 24 Oct  •  1 Passenger</Text>
+            <Text style={styles.summaryTitle}>{from}  →  {to}</Text>
+            <Text style={styles.summarySub}>{dateLabel}  •  {passengers} Passenger{Number(passengers) !== 1 ? 's' : ''}</Text>
           </View>
           <Pressable onPress={() => router.back()}>
             <Text style={styles.summaryEdit}>Edit</Text>
           </Pressable>
         </View>
 
-        {buses.map((bus, index) => (
-          <View key={`${bus.id}-${index}`} style={styles.busCard}>
+        {loading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#2F6BFF" />
+            <Text style={{ marginTop: 12, color: '#94A3B8', fontSize: 13 }}>Searching buses...</Text>
+          </View>
+        ) : buses.length === 0 ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <Ionicons name="bus-outline" size={48} color="#CBD5E1" />
+            <Text style={{ marginTop: 12, color: '#94A3B8', fontSize: 13 }}>No buses found for this route.</Text>
+          </View>
+        ) : (
+          buses.map((bus) => {
+            const duration = formatDuration(bus.startTime, bus.endTime);
+            return (
+          <View key={bus.busId} style={styles.busCard}>
             <View style={styles.busHeader}>
               <View style={styles.busIdWrap}>
                 <View style={styles.busBadge}>
                   <Ionicons name="bus" size={14} color="#64748B" />
                 </View>
                 <View>
-                  <Text style={styles.busId}>{bus.id}</Text>
-                  <Text style={styles.busType}>Reg: {bus.id}  {bus.type}</Text>
+                  <Text style={styles.busId}>{bus.busNumber}</Text>
+                  <Text style={styles.busType}>{bus.busBrand}  •  {bus.busType}</Text>
                 </View>
               </View>
               <View style={styles.ratingPill}>
                 <Ionicons name="star" size={12} color="#F59E0B" />
-                <Text style={styles.ratingText}>{bus.rating}</Text>
+                <Text style={styles.ratingText}>{bus.driverRating.toFixed(1)}</Text>
               </View>
             </View>
 
             <View style={styles.timeRow}>
               <View>
-                <Text style={styles.timeText}>{bus.depart}</Text>
-                <Text style={styles.timeSub}>{bus.from}</Text>
+                <Text style={styles.timeText}>{bus.startTime}</Text>
+                <Text style={styles.timeSub}>{from}</Text>
               </View>
               <View style={styles.timelineWrap}>
-                <Text style={styles.durationText}>{bus.duration}</Text>
+                <Text style={styles.durationText}>{duration}</Text>
                 <View style={styles.timeline}>
                   <View style={styles.timelineDot} />
                   <View style={styles.timelineLine} />
@@ -124,35 +149,35 @@ export default function BusSelectionScreen() {
                 </View>
               </View>
               <View>
-                <Text style={styles.timeText}>{bus.arrive}</Text>
-                <Text style={styles.timeSub}>{bus.to}</Text>
+                <Text style={styles.timeText}>{bus.endTime}</Text>
+                <Text style={styles.timeSub}>{to}</Text>
               </View>
             </View>
 
             <View style={styles.featuresRow}>
-              <MaterialCommunityIcons name="snowflake" size={16} color="#94A3B8" />
-              <Ionicons name="tv-outline" size={16} color="#94A3B8" />
-              <Ionicons name="wifi" size={16} color="#94A3B8" />
-              <MaterialCommunityIcons name="power-plug" size={16} color="#94A3B8" />
+              {bus.amenities.map((a) => {
+                const entry = AMENITY_ICONS[a.toLowerCase()];
+                return entry ? <View key={a}>{entry.icon}</View> : null;
+              })}
             </View>
 
             <View style={styles.bottomRow}>
               <View>
                 <Text style={styles.priceLabel}>Per person</Text>
-                <Text style={styles.priceText}>{bus.price}</Text>
+                <Text style={styles.priceText}>LKR {bus.fee.toLocaleString('en-US')}</Text>
               </View>
               <View style={styles.bottomRight}>
                 <View
                   style={[
                     styles.seatsPill,
-                    bus.seatsLeft <= 6 ? styles.seatsPillAlert : styles.seatsPillOk,
+                    bus.availableSeats <= 6 ? styles.seatsPillAlert : styles.seatsPillOk,
                   ]}>
                   <Text
                     style={[
                       styles.seatsText,
-                      bus.seatsLeft <= 6 ? styles.seatsTextAlert : styles.seatsTextOk,
+                      bus.availableSeats <= 6 ? styles.seatsTextAlert : styles.seatsTextOk,
                     ]}>
-                    {bus.seatsLeft} seats left
+                    {bus.availableSeats} seats left
                   </Text>
                 </View>
                 <Pressable
@@ -161,16 +186,11 @@ export default function BusSelectionScreen() {
                     router.push({
                       pathname: '/booking/bus-details',
                       params: {
-                        id: bus.id,
-                        type: bus.type,
-                        rating: String(bus.rating),
-                        depart: bus.depart,
-                        arrive: bus.arrive,
-                        duration: bus.duration,
-                        from: bus.from,
-                        to: bus.to,
-                        price: bus.price,
-                        seatsLeft: String(bus.seatsLeft),
+                        busId: String(bus.busId),
+                        from,
+                        to,
+                        date,
+                        price: String(bus.fee),
                       },
                     })
                   }>
@@ -179,7 +199,9 @@ export default function BusSelectionScreen() {
               </View>
             </View>
           </View>
-        ))}
+            );
+          })
+        )}
       </ScrollView>
     </SafeAreaView>
   );

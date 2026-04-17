@@ -235,7 +235,7 @@ public class BookingFlowService {
             );
             ps.setString(1, txnId);
             ps.setString(2, req.paymentMethod() != null ? req.paymentMethod() : "card");
-            ps.setString(3, "completed");
+            ps.setString(3, "success");
             ps.setBigDecimal(4, req.totalAmount());
             return ps;
         }, paymentKeyHolder);

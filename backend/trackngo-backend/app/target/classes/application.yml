@@ -39,6 +39,10 @@ sms:
     api-key: ${SMS_ANDROID_GATEWAY_API_KEY:}
 
 payhere:
-  merchant-id: ${PAYHERE_MERCHANT_ID}
-  merchant-secret: ${PAYHERE_MERCHANT_SECRET}
+  merchant-id: ${PAYHERE_MERCHANT_ID:}
+  merchant-secret: ${PAYHERE_MERCHANT_SECRET:}
   sandbox: ${PAYHERE_SANDBOX:true}
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY}
+  publishable-key: ${STRIPE_PUBLISHABLE_KEY}

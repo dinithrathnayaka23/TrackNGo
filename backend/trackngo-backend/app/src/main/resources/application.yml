@@ -5,9 +5,9 @@ spring:
   config:
     import: optional:file:.env[.properties],optional:file:../.env[.properties],optional:file:../../.env[.properties],optional:file:../../../.env[.properties]
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/trackngo?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:dinithmora2003}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   servlet:
     multipart:
       max-file-size: 15MB
@@ -22,14 +22,14 @@ spring:
 
 trackngo:
   jwt:
-    secret: ${JWT_SECRET:change-this-secret-change-this-secret}
+    secret: ${JWT_SECRET}
     expiration-ms: 86400000
 
 twilio:
-  account-sid: ${TWILIO_ACCOUNT_SID:AC5fdb70837bf4bfcaaaa9fa71bf23877f}
-  auth-token: ${TWILIO_AUTH_TOKEN:8eb0c17bb64110819385b92b60795508}
-  phone-number: ${TWILIO_PHONE_NUMBER:+16416936521}
-  messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:MG57907a2acf84d25fa7cbf9bcd8255ee6}
+  account-sid: ${TWILIO_ACCOUNT_SID}
+  auth-token: ${TWILIO_AUTH_TOKEN}
+  phone-number: ${TWILIO_PHONE_NUMBER}
+  messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID}
   default-country-code: ${TWILIO_DEFAULT_COUNTRY_CODE:+94}
 
 sms:
@@ -39,6 +39,10 @@ sms:
     api-key: ${SMS_ANDROID_GATEWAY_API_KEY:}
 
 payhere:
-  merchant-id: ${PAYHERE_MERCHANT_ID}
-  merchant-secret: ${PAYHERE_MERCHANT_SECRET}
+  merchant-id: ${PAYHERE_MERCHANT_ID:}
+  merchant-secret: ${PAYHERE_MERCHANT_SECRET:}
   sandbox: ${PAYHERE_SANDBOX:true}
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY}
+  publishable-key: ${STRIPE_PUBLISHABLE_KEY}

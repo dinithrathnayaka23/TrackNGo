@@ -138,6 +138,30 @@ export async function createBooking(
   return res.data;
 }
 
+/* ── PayHere hash generation ─────────────────────────── */
+
+export interface PayHereHashRequest {
+  orderId: string;
+  amount: string;
+  currency: string;
+}
+
+export interface PayHereHashResponse {
+  merchant_id: string;
+  hash: string;
+}
+
+export async function getPayHereHash(
+  request: PayHereHashRequest,
+): Promise<PayHereHashResponse> {
+  const res = await httpPost<ApiResponse<PayHereHashResponse>>(
+    "/api/booking-flow/payhere/hash",
+    undefined,
+    request,
+  );
+  return res.data;
+}
+
 export async function getBookingByRef(
   bookingRef: string,
 ): Promise<BookingConfirmation> {

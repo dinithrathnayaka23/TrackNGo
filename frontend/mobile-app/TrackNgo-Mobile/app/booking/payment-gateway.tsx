@@ -1,20 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
-  Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
+import type { WebViewMessageEvent } from 'react-native-webview';
 import { createBooking } from '../../services/bookingFlowApi';
 import { useSession } from '../../store/sessionStore';
+import { API_BASE_URL } from '../../config/env';
 
 export default function PaymentGatewayScreen() {
   const router = useRouter();
@@ -44,244 +44,157 @@ export default function PaymentGatewayScreen() {
   const seats = params.seats ?? '';
   const totalPrice = Number(params.totalPrice ?? '2500') || 2500;
   const fullName = params.fullName ?? '';
+  const mobile = params.mobile ?? '';
+  const email = params.email ?? '';
   const specialRequest = params.specialRequest ?? '';
 
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [cardName, setCardName] = useState(fullName);
-  const [saveCard, setSaveCard] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<{
-    cardNumber?: string;
-    expiryDate?: string;
-    cvv?: string;
-    cardName?: string;
-  }>({});
+  const [loading, setLoading] = useState(false);
+  const [showWebView, setShowWebView] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState('');
+  const [processingResult, setProcessingResult] = useState(false);
 
-  const orderRef = `BUS-${Math.floor(10000 + Math.random() * 90000)}`;
+  const nameParts = fullName.trim().split(/\s+/);
+  const firstName = nameParts[0] || 'Passenger';
+  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'N/A';
 
-  const formatCardNumber = (text: string) => {
-    const cleaned = text.replace(/\D/g, '').slice(0, 16);
-    const groups = cleaned.match(/.{1,4}/g);
-    return groups ? groups.join(' ') : cleaned;
-  };
+  const handlePayWithPayHere = async () => {
+    setLoading(true);
+    const orderId = `BUS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-  const formatExpiry = (text: string) => {
-    const cleaned = text.replace(/\D/g, '').slice(0, 4);
-    if (cleaned.length > 2) {
-      return `${cleaned.slice(0, 2)} / ${cleaned.slice(2)}`;
+    const amountFormatted = totalPrice.toFixed(2);
+    const itemsText = `Bus Ticket: ${from} to ${to}`;
+    const emailVal = email || 'passenger@trackngo.lk';
+    const phoneVal = mobile || '0770000000';
+
+    try {
+      const params = new URLSearchParams({
+        order_id: orderId,
+        amount: amountFormatted,
+        currency: 'LKR',
+        items: itemsText,
+        first_name: firstName,
+        last_name: lastName,
+        email: emailVal,
+        phone: phoneVal,
+        address: 'N/A',
+        city: 'Colombo',
+        country: 'Sri Lanka',
+        base_url: API_BASE_URL,
+      });
+
+      const backendCheckoutUrl = `${API_BASE_URL}/api/booking-flow/payhere/checkout?${params.toString()}`;
+      setCheckoutUrl(backendCheckoutUrl);
+      setShowWebView(true);
+    } catch (e: any) {
+      console.error('[PayHere] Failed to initialize checkout', e);
+      Alert.alert('Payment Error', 'Could not initialize payment. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    return cleaned;
   };
 
-  const getCardType = (): 'visa' | 'mastercard' | 'none' => {
-    const num = cardNumber.replace(/\s/g, '');
-    if (num.startsWith('4')) return 'visa';
-    if (num.startsWith('5') || num.startsWith('2')) return 'mastercard';
-    return 'none';
-  };
+  const handleWebViewMessage = useCallback(async (event: WebViewMessageEvent) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
 
-  const isFormValid = cardNumber.replace(/\s/g, '').length >= 15 && expiryDate.length >= 5 && cvv.length >= 3 && cardName.length > 0;
-
-  const luhnCheck = (num: string): boolean => {
-    const digits = num.replace(/\D/g, '');
-    let sum = 0;
-    let alternate = false;
-    for (let i = digits.length - 1; i >= 0; i--) {
-      let n = parseInt(digits[i], 10);
-      if (alternate) { n *= 2; if (n > 9) n -= 9; }
-      sum += n;
-      alternate = !alternate;
-    }
-    return sum % 10 === 0;
-  };
-
-  const validatePayment = (): boolean => {
-    const newErrors: typeof fieldErrors = {};
-    const rawCard = cardNumber.replace(/\s/g, '');
-
-    if (rawCard.length < 15 || rawCard.length > 16) {
-      newErrors.cardNumber = 'Card number must be 15-16 digits';
-    } else if (!luhnCheck(rawCard)) {
-      newErrors.cardNumber = 'Invalid card number';
-    }
-
-    if (expiryDate.length < 5) {
-      newErrors.expiryDate = 'Enter expiry as MM / YY';
-    } else {
-      const parts = expiryDate.replace(/\s/g, '').split('/');
-      const month = parseInt(parts[0], 10);
-      const year = parseInt(parts[1], 10);
-      if (month < 1 || month > 12) {
-        newErrors.expiryDate = 'Month must be 01-12';
-      } else {
-        const now = new Date();
-        const expiry = new Date(2000 + year, month);
-        if (expiry <= now) {
-          newErrors.expiryDate = 'Card has expired';
+      if (data.type === 'completed') {
+        setShowWebView(false);
+        setProcessingResult(true);
+        try {
+          const seatList = seats.split(',').filter(Boolean);
+          const result = await createBooking({
+            busId: Number(busId),
+            journeyDate: date,
+            journeyTime: depart,
+            seatNumbers: seatList,
+            specialRequest,
+            paymentMethod: 'PAYHERE',
+            totalAmount: totalPrice,
+            passengerId: currentUser?.userId ?? 0,
+          });
+          router.push({
+            pathname: '/booking/booking-confirmation',
+            params: {
+              bookingRef: result.bookingReference,
+              from: result.fromLocation,
+              to: result.toLocation,
+              busNumber: result.busNumber,
+              seats: result.seatNumbers,
+              totalPrice: String(result.totalAmount),
+              date: result.journeyDate,
+              depart: result.journeyTime,
+              transactionId: result.transactionId,
+              status: result.status,
+            },
+          });
+        } catch (e: any) {
+          console.error('[PayHere] Booking creation failed', e);
+          Alert.alert(
+            'Booking Failed',
+            'Payment was successful but booking creation failed. Please contact support.'
+          );
+        } finally {
+          setProcessingResult(false);
         }
+      } else if (data.type === 'dismissed' || data.type === 'cancelled') {
+        setShowWebView(false);
+        Alert.alert('Payment Cancelled', 'You cancelled the payment. You can try again.');
+      } else if (data.type === 'error') {
+        setShowWebView(false);
+        Alert.alert('Payment Error', data.error || 'Something went wrong. Please try again.');
       }
+    } catch {
+      // ignore non-JSON messages
     }
+  }, [seats, busId, date, depart, specialRequest, totalPrice, currentUser, router]);
 
-    if (cvv.length < 3) {
-      newErrors.cvv = 'CVV must be 3-4 digits';
-    }
-
-    if (!cardName.trim()) {
-      newErrors.cardName = 'Name on card is required';
-    }
-
-    setFieldErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-      <View style={styles.content}>
-        <ScrollView
-          contentContainerStyle={styles.container}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled">
-
-          {/* Header */}
-          <View style={styles.headerSection}>
-            <Text style={styles.headerTitle}>Secure Checkout</Text>
-            <View style={styles.payhereBadge}>
-              <Text style={styles.payhereText}>PayHere</Text>
-              <Ionicons name="lock-closed" size={12} color="#22C55E" />
+  // ── WebView full-screen ─────────────────────────────────
+  if (showWebView) {
+    return (
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+        <View style={styles.webViewHeader}>
+          <Pressable onPress={() => setShowWebView(false)} style={styles.webViewBack}>
+            <Ionicons name="close" size={24} color="#111827" />
+          </Pressable>
+          <Text style={styles.webViewTitle}>PayHere Checkout</Text>
+          <Ionicons name="lock-closed" size={16} color="#22C55E" />
+        </View>
+        <WebView
+          source={{ uri: checkoutUrl }}
+          onMessage={handleWebViewMessage}
+          javaScriptEnabled
+          domStorageEnabled
+          javaScriptCanOpenWindowsAutomatically
+          thirdPartyCookiesEnabled
+          mixedContentMode="compatibility"
+          originWhitelist={['*']}
+          startInLoadingState
+          renderLoading={() => (
+            <View style={styles.webViewLoading}>
+              <ActivityIndicator size="large" color="#1474F2" />
+              <Text style={styles.loadingText}>Loading PayHere...</Text>
             </View>
-          </View>
+          )}
+          onShouldStartLoadWithRequest={(request) => {
+            const url = request.url;
+            const isReturnUrl = url.includes('/api/booking-flow/payhere/return');
+            const isCancelUrl = url.includes('/api/booking-flow/payhere/cancel');
 
-          {/* Amount Display */}
-          <View style={styles.amountSection}>
-            <Text style={styles.amountLabel}>Total Amount Due</Text>
-            <Text style={styles.amountValue}>LKR {totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
-            <View style={styles.orderPill}>
-              <Text style={styles.orderText}>Order #{orderRef}</Text>
-            </View>
-          </View>
-
-          {/* Card Method Tab */}
-          <View style={styles.methodTab}>
-            <View style={styles.methodTabActive}>
-              <Ionicons name="card-outline" size={20} color="#1474F2" />
-              <Text style={styles.methodTabText}>Cards</Text>
-            </View>
-          </View>
-
-          {/* Card Number */}
-          <Text style={styles.fieldLabel}>Card Number</Text>
-          <View style={[styles.cardInputRow, fieldErrors.cardNumber ? styles.inputError : null]}>
-            <Ionicons name="card-outline" size={18} color="#94A3B8" />
-            <TextInput
-              style={styles.cardInput}
-              value={cardNumber}
-              onChangeText={(t) => { setCardNumber(formatCardNumber(t)); if (fieldErrors.cardNumber) setFieldErrors((e) => ({ ...e, cardNumber: undefined })); }}
-              placeholder="0000 0000 0000 0000"
-              placeholderTextColor="#CBD5E1"
-              keyboardType="number-pad"
-              maxLength={19}
-            />
-            {getCardType() === 'visa' && (
-              <View style={styles.visaBadge}>
-                <Text style={styles.visaBadgeText}>VISA</Text>
-              </View>
-            )}
-            {getCardType() === 'mastercard' && (
-              <View style={styles.mcBadgeRow}>
-                <View style={styles.mcBadgeCircle1} />
-                <View style={styles.mcBadgeCircle2} />
-              </View>
-            )}
-          </View>
-          {fieldErrors.cardNumber && <Text style={styles.errorText}>{fieldErrors.cardNumber}</Text>}
-
-          {/* Expiry & CVV */}
-          <View style={styles.row}>
-            <View style={styles.halfField}>
-              <Text style={styles.fieldLabel}>Expiry Date</Text>
-              <View style={[styles.inputBox, fieldErrors.expiryDate ? styles.inputError : null]}>
-                <TextInput
-                  style={styles.inputText}
-                  value={expiryDate}
-                  onChangeText={(t) => { setExpiryDate(formatExpiry(t)); if (fieldErrors.expiryDate) setFieldErrors((e) => ({ ...e, expiryDate: undefined })); }}
-                  placeholder="MM / YY"
-                  placeholderTextColor="#CBD5E1"
-                  keyboardType="number-pad"
-                  maxLength={7}
-                />
-              </View>
-              {fieldErrors.expiryDate && <Text style={styles.errorText}>{fieldErrors.expiryDate}</Text>}
-            </View>
-            <View style={styles.halfField}>
-              <View style={styles.cvvLabelRow}>
-                <Text style={styles.fieldLabel}>CVV</Text>
-                <Ionicons name="help-circle-outline" size={14} color="#94A3B8" />
-              </View>
-              <View style={[styles.inputBox, fieldErrors.cvv ? styles.inputError : null]}>
-                <TextInput
-                  style={styles.inputText}
-                  value={cvv}
-                  onChangeText={(t) => { setCvv(t.replace(/\D/g, '').slice(0, 4)); if (fieldErrors.cvv) setFieldErrors((e) => ({ ...e, cvv: undefined })); }}
-                  placeholder="123"
-                  placeholderTextColor="#CBD5E1"
-                  keyboardType="number-pad"
-                  maxLength={4}
-                  secureTextEntry
-                />
-              </View>
-              {fieldErrors.cvv && <Text style={styles.errorText}>{fieldErrors.cvv}</Text>}
-            </View>
-          </View>
-
-          {/* Name on Card */}
-          <Text style={styles.fieldLabel}>Name on Card</Text>
-          <View style={[styles.inputBox, fieldErrors.cardName ? styles.inputError : null]}>
-            <TextInput
-              style={styles.inputText}
-              value={cardName}
-              onChangeText={(t) => { setCardName(t); if (fieldErrors.cardName) setFieldErrors((e) => ({ ...e, cardName: undefined })); }}
-              placeholder="Enter name on card"
-              placeholderTextColor="#CBD5E1"
-            />
-          </View>
-          {fieldErrors.cardName && <Text style={styles.errorText}>{fieldErrors.cardName}</Text>}
-
-          {/* Save Card Toggle */}
-          <View style={styles.saveRow}>
-            <Switch
-              value={saveCard}
-              onValueChange={setSaveCard}
-              trackColor={{ false: '#E2E8F0', true: '#BBD3FF' }}
-              thumbColor={saveCard ? '#1474F2' : '#FFFFFF'}
-            />
-            <Text style={styles.saveText}>Save card for future payments</Text>
-          </View>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        {/* Bottom Buttons */}
-        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <Pressable
-            style={[styles.payButton, (!isFormValid || submitting) && styles.payButtonDisabled]}
-            disabled={!isFormValid || submitting}
-            onPress={async () => {
-              if (!validatePayment()) return;
-              try {
-                setSubmitting(true);
-                const seatList = seats.split(',').filter(Boolean);
-                const result = await createBooking({
-                  busId: Number(busId),
-                  journeyDate: date,
-                  journeyTime: depart,
-                  seatNumbers: seatList,
-                  specialRequest,
-                  paymentMethod: 'CARD',
-                  totalAmount: totalPrice,
-                  passengerId: currentUser?.userId ?? 0,
-                });
+            // Fallback interception in case WebView cannot load callback page.
+            if (isReturnUrl && (url.includes('localhost') || url.startsWith(API_BASE_URL))) {
+              setShowWebView(false);
+              setProcessingResult(true);
+              const seatList = seats.split(',').filter(Boolean);
+              createBooking({
+                busId: Number(busId),
+                journeyDate: date,
+                journeyTime: depart,
+                seatNumbers: seatList,
+                specialRequest,
+                paymentMethod: 'PAYHERE',
+                totalAmount: totalPrice,
+                passengerId: currentUser?.userId ?? 0,
+              }).then((result) => {
                 router.push({
                   pathname: '/booking/booking-confirmation',
                   params: {
@@ -297,14 +210,102 @@ export default function PaymentGatewayScreen() {
                     status: result.status,
                   },
                 });
-              } catch (e: any) {
-                console.error('[PaymentGateway] booking failed', e);
-                Alert.alert('Payment Failed', 'Could not complete payment. Please try again.');
-              } finally {
-                setSubmitting(false);
-              }
-            }}>
-            {submitting ? (
+              }).catch((e) => {
+                console.error('[PayHere] Booking creation failed', e);
+                Alert.alert('Booking Failed', 'Payment was successful but booking creation failed. Please contact support.');
+              }).finally(() => setProcessingResult(false));
+              return false; // block the navigation
+            }
+            if (isCancelUrl && (url.includes('localhost') || url.startsWith(API_BASE_URL))) {
+              setShowWebView(false);
+              Alert.alert('Payment Cancelled', 'You cancelled the payment. You can try again.');
+              return false;
+            }
+            return true; // allow all other navigations
+          }}
+          style={{ flex: 1 }}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // ── Processing result overlay ───────────────────────────
+  if (processingResult) {
+    return (
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+        <View style={styles.processingContainer}>
+          <ActivityIndicator size="large" color="#1474F2" />
+          <Text style={styles.processingText}>Confirming your booking...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Summary + Pay button ────────────────────────────────
+  return (
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+      <View style={styles.content}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.headerSection}>
+            <Text style={styles.headerTitle}>Secure Checkout</Text>
+            <View style={styles.payhereBadge}>
+              <Text style={styles.payhereText}>Powered by PayHere</Text>
+              <Ionicons name="lock-closed" size={12} color="#22C55E" />
+            </View>
+          </View>
+
+          {/* Amount Display */}
+          <View style={styles.amountSection}>
+            <Text style={styles.amountLabel}>Total Amount Due</Text>
+            <Text style={styles.amountValue}>
+              LKR {totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </Text>
+          </View>
+
+          {/* Trip Summary */}
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryRow}>
+              <Ionicons name="bus-outline" size={18} color="#64748B" />
+              <Text style={styles.summaryLabel}>Route</Text>
+              <Text style={styles.summaryValue}>{from} → {to}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.summaryRow}>
+              <Ionicons name="calendar-outline" size={18} color="#64748B" />
+              <Text style={styles.summaryLabel}>Date</Text>
+              <Text style={styles.summaryValue}>{date}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.summaryRow}>
+              <Ionicons name="time-outline" size={18} color="#64748B" />
+              <Text style={styles.summaryLabel}>Departure</Text>
+              <Text style={styles.summaryValue}>{depart}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.summaryRow}>
+              <Ionicons name="person-outline" size={18} color="#64748B" />
+              <Text style={styles.summaryLabel}>Seats</Text>
+              <Text style={styles.summaryValue}>{seats}</Text>
+            </View>
+          </View>
+
+          {/* Payment methods info */}
+          <View style={styles.methodsInfo}>
+            <Ionicons name="card-outline" size={20} color="#1474F2" />
+            <Text style={styles.methodsText}>
+              Visa, MasterCard, AMEX, Lanka QR, mPay & more
+            </Text>
+          </View>
+        </View>
+
+        {/* Bottom Buttons */}
+        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <Pressable
+            style={[styles.payButton, loading && styles.payButtonDisabled]}
+            disabled={loading}
+            onPress={handlePayWithPayHere}>
+            {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <>
@@ -336,7 +337,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 24,
     paddingTop: 24,
-    paddingBottom: 24,
+    flex: 1,
   },
   /* Header */
   headerSection: {
@@ -374,148 +375,54 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800',
     color: '#111827',
-    marginBottom: 10,
   },
-  orderPill: {
-    backgroundColor: '#EAF1FF',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  orderText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1474F2',
-  },
-  /* Card Method Tab */
-  methodTab: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  methodTabActive: {
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EAF1FF',
-    borderRadius: 14,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderWidth: 1.5,
-    borderColor: '#1474F2',
-  },
-  methodTabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1474F2',
-  },
-  /* Fields */
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-    height: 18,
-  },
-  cardInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  /* Trip Summary Card */
+  summaryCard: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginBottom: 16,
-    gap: 10,
   },
-  inputError: {
-    borderColor: '#EF4444',
-  },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: 0,
-    marginLeft: 4,
-  },
-  cardInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#111827',
-    padding: 0,
-    letterSpacing: 1,
-  },
-  visaBadge: {
-    backgroundColor: '#1A1F71',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  visaBadgeText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 1,
-  },
-  mcBadgeRow: {
-    flexDirection: 'row',
-    width: 30,
-    height: 20,
-  },
-  mcBadgeCircle1: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#EB001B',
-    position: 'absolute',
-    left: 0,
-  },
-  mcBadgeCircle2: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#F79E1B',
-    position: 'absolute',
-    right: 0,
-    opacity: 0.85,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  halfField: {
-    flex: 1,
-  },
-  cvvLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 8,
-    height: 18,
-  },
-  inputBox: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  inputText: {
-    fontSize: 15,
-    color: '#111827',
-    padding: 0,
-  },
-  /* Save Card */
-  saveRow: {
+  summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 8,
   },
-  saveText: {
+  summaryLabel: {
     fontSize: 13,
+    fontWeight: '500',
     color: '#64748B',
+    width: 80,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+    textAlign: 'right',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  /* Payment methods info */
+  methodsInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#EAF1FF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  methodsText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#1474F2',
   },
   /* Bottom */
   bottomBar: {
@@ -551,5 +458,52 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#EF4444',
+  },
+  /* WebView */
+  webViewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  webViewBack: {
+    padding: 4,
+  },
+  webViewTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  webViewLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F6F7F9',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
+  },
+  /* Processing */
+  processingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  processingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
   },
 });

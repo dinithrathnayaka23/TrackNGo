@@ -2,10 +2,12 @@
   port: 8080
 
 spring:
+  config:
+    import: optional:file:.env[.properties],optional:file:../.env[.properties],optional:file:../../.env[.properties],optional:file:../../../.env[.properties]
   datasource:
-    url: jdbc:mysql://localhost:3306/trackngo?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: root
-    password: dinithmora2003
+    url: ${DB_URL:jdbc:mysql://localhost:3306/trackngo?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:dinithmora2003}
   servlet:
     multipart:
       max-file-size: 15MB
@@ -35,3 +37,8 @@ sms:
   android-gateway:
     url: ${SMS_ANDROID_GATEWAY_URL:}
     api-key: ${SMS_ANDROID_GATEWAY_API_KEY:}
+
+payhere:
+  merchant-id: ${PAYHERE_MERCHANT_ID}
+  merchant-secret: ${PAYHERE_MERCHANT_SECRET}
+  sandbox: ${PAYHERE_SANDBOX:true}

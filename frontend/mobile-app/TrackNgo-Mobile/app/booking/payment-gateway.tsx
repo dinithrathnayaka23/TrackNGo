@@ -12,7 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
-import { createBooking } from '../../services/bookingFlowApi';
+import { createBooking, createStripeCheckoutSession, getStripeSessionStatus } from '../../services/bookingFlowApi';
 import { useSession } from '../../store/sessionStore';
 import { API_BASE_URL } from '../../config/env';
 
@@ -51,102 +51,98 @@ export default function PaymentGatewayScreen() {
   const [loading, setLoading] = useState(false);
   const [showWebView, setShowWebView] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState('');
+  const [sessionId, setSessionId] = useState('');
   const [processingResult, setProcessingResult] = useState(false);
 
-  const nameParts = fullName.trim().split(/\s+/);
-  const firstName = nameParts[0] || 'Passenger';
-  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'N/A';
-
-  const handlePayWithPayHere = async () => {
+  const handlePayWithStripe = async () => {
     setLoading(true);
     const orderId = `BUS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    const amountFormatted = totalPrice.toFixed(2);
-    const itemsText = `Bus Ticket: ${from} to ${to}`;
-    const emailVal = email || 'passenger@trackngo.lk';
-    const phoneVal = mobile || '0770000000';
-
     try {
-      const params = new URLSearchParams({
-        order_id: orderId,
-        amount: amountFormatted,
+      const result = await createStripeCheckoutSession({
+        orderId,
+        amount: totalPrice,
         currency: 'LKR',
-        items: itemsText,
-        first_name: firstName,
-        last_name: lastName,
-        email: emailVal,
-        phone: phoneVal,
-        address: 'N/A',
-        city: 'Colombo',
-        country: 'Sri Lanka',
-        base_url: API_BASE_URL,
+        itemName: `Bus Ticket: ${from} → ${to}`,
+        itemDescription: `${date} at ${depart} | Seats: ${seats}`,
+        email: email || 'passenger@trackngo.lk',
+        successUrl: `${API_BASE_URL}/api/booking-flow/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${API_BASE_URL}/api/booking-flow/stripe/cancel?session_id={CHECKOUT_SESSION_ID}`,
       });
 
-      const backendCheckoutUrl = `${API_BASE_URL}/api/booking-flow/payhere/checkout?${params.toString()}`;
-      setCheckoutUrl(backendCheckoutUrl);
+      setSessionId(result.sessionId);
+      setCheckoutUrl(result.url);
       setShowWebView(true);
     } catch (e: any) {
-      console.error('[PayHere] Failed to initialize checkout', e);
+      console.error('[Stripe] Failed to create checkout session', e);
       Alert.alert('Payment Error', 'Could not initialize payment. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const completeBooking = useCallback(async () => {
+    setShowWebView(false);
+    setProcessingResult(true);
+    try {
+      // Verify payment with backend
+      const status = await getStripeSessionStatus(sessionId);
+      if (status.paymentStatus !== 'paid') {
+        Alert.alert('Payment Incomplete', 'Payment was not completed. Please try again.');
+        setProcessingResult(false);
+        return;
+      }
+
+      const seatList = seats.split(',').filter(Boolean);
+      const result = await createBooking({
+        busId: Number(busId),
+        journeyDate: date,
+        journeyTime: depart,
+        seatNumbers: seatList,
+        specialRequest,
+        paymentMethod: 'stripe',
+        totalAmount: totalPrice,
+        passengerId: currentUser?.userId ?? 0,
+      });
+      router.push({
+        pathname: '/booking/booking-confirmation',
+        params: {
+          bookingRef: result.bookingReference,
+          from: result.fromLocation,
+          to: result.toLocation,
+          busNumber: result.busNumber,
+          seats: result.seatNumbers,
+          totalPrice: String(result.totalAmount),
+          date: result.journeyDate,
+          depart: result.journeyTime,
+          transactionId: result.transactionId ?? status.paymentIntentId,
+          status: result.status,
+        },
+      });
+    } catch (e: any) {
+      console.error('[Stripe] Booking creation failed', e);
+      Alert.alert(
+        'Booking Failed',
+        'Payment was successful but booking creation failed. Please contact support.'
+      );
+    } finally {
+      setProcessingResult(false);
+    }
+  }, [sessionId, seats, busId, date, depart, specialRequest, totalPrice, currentUser, router]);
+
   const handleWebViewMessage = useCallback(async (event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-
       if (data.type === 'completed') {
-        setShowWebView(false);
-        setProcessingResult(true);
-        try {
-          const seatList = seats.split(',').filter(Boolean);
-          const result = await createBooking({
-            busId: Number(busId),
-            journeyDate: date,
-            journeyTime: depart,
-            seatNumbers: seatList,
-            specialRequest,
-            paymentMethod: 'PAYHERE',
-            totalAmount: totalPrice,
-            passengerId: currentUser?.userId ?? 0,
-          });
-          router.push({
-            pathname: '/booking/booking-confirmation',
-            params: {
-              bookingRef: result.bookingReference,
-              from: result.fromLocation,
-              to: result.toLocation,
-              busNumber: result.busNumber,
-              seats: result.seatNumbers,
-              totalPrice: String(result.totalAmount),
-              date: result.journeyDate,
-              depart: result.journeyTime,
-              transactionId: result.transactionId,
-              status: result.status,
-            },
-          });
-        } catch (e: any) {
-          console.error('[PayHere] Booking creation failed', e);
-          Alert.alert(
-            'Booking Failed',
-            'Payment was successful but booking creation failed. Please contact support.'
-          );
-        } finally {
-          setProcessingResult(false);
-        }
-      } else if (data.type === 'dismissed' || data.type === 'cancelled') {
+        completeBooking();
+      } else if (data.type === 'cancelled') {
         setShowWebView(false);
         Alert.alert('Payment Cancelled', 'You cancelled the payment. You can try again.');
-      } else if (data.type === 'error') {
-        setShowWebView(false);
-        Alert.alert('Payment Error', data.error || 'Something went wrong. Please try again.');
       }
     } catch {
       // ignore non-JSON messages
     }
-  }, [seats, busId, date, depart, specialRequest, totalPrice, currentUser, router]);
+  }, [completeBooking]);
 
   // ── WebView full-screen ─────────────────────────────────
   if (showWebView) {
@@ -156,7 +152,7 @@ export default function PaymentGatewayScreen() {
           <Pressable onPress={() => setShowWebView(false)} style={styles.webViewBack}>
             <Ionicons name="close" size={24} color="#111827" />
           </Pressable>
-          <Text style={styles.webViewTitle}>PayHere Checkout</Text>
+          <Text style={styles.webViewTitle}>Stripe Checkout</Text>
           <Ionicons name="lock-closed" size={16} color="#22C55E" />
         </View>
         <WebView
@@ -164,64 +160,30 @@ export default function PaymentGatewayScreen() {
           onMessage={handleWebViewMessage}
           javaScriptEnabled
           domStorageEnabled
-          javaScriptCanOpenWindowsAutomatically
           thirdPartyCookiesEnabled
           mixedContentMode="compatibility"
           originWhitelist={['*']}
           startInLoadingState
           renderLoading={() => (
             <View style={styles.webViewLoading}>
-              <ActivityIndicator size="large" color="#1474F2" />
-              <Text style={styles.loadingText}>Loading PayHere...</Text>
+              <ActivityIndicator size="large" color="#2563EB" />
+              <Text style={styles.loadingText}>Loading Stripe...</Text>
             </View>
           )}
           onShouldStartLoadWithRequest={(request) => {
             const url = request.url;
-            const isReturnUrl = url.includes('/api/booking-flow/payhere/return');
-            const isCancelUrl = url.includes('/api/booking-flow/payhere/cancel');
-
-            // Fallback interception in case WebView cannot load callback page.
-            if (isReturnUrl && (url.includes('localhost') || url.startsWith(API_BASE_URL))) {
-              setShowWebView(false);
-              setProcessingResult(true);
-              const seatList = seats.split(',').filter(Boolean);
-              createBooking({
-                busId: Number(busId),
-                journeyDate: date,
-                journeyTime: depart,
-                seatNumbers: seatList,
-                specialRequest,
-                paymentMethod: 'PAYHERE',
-                totalAmount: totalPrice,
-                passengerId: currentUser?.userId ?? 0,
-              }).then((result) => {
-                router.push({
-                  pathname: '/booking/booking-confirmation',
-                  params: {
-                    bookingRef: result.bookingReference,
-                    from: result.fromLocation,
-                    to: result.toLocation,
-                    busNumber: result.busNumber,
-                    seats: result.seatNumbers,
-                    totalPrice: String(result.totalAmount),
-                    date: result.journeyDate,
-                    depart: result.journeyTime,
-                    transactionId: result.transactionId,
-                    status: result.status,
-                  },
-                });
-              }).catch((e) => {
-                console.error('[PayHere] Booking creation failed', e);
-                Alert.alert('Booking Failed', 'Payment was successful but booking creation failed. Please contact support.');
-              }).finally(() => setProcessingResult(false));
-              return false; // block the navigation
+            // Intercept success redirect
+            if (url.includes('/api/booking-flow/stripe/success')) {
+              completeBooking();
+              return false;
             }
-            if (isCancelUrl && (url.includes('localhost') || url.startsWith(API_BASE_URL))) {
+            // Intercept cancel redirect
+            if (url.includes('/api/booking-flow/stripe/cancel')) {
               setShowWebView(false);
               Alert.alert('Payment Cancelled', 'You cancelled the payment. You can try again.');
               return false;
             }
-            return true; // allow all other navigations
+            return true;
           }}
           style={{ flex: 1 }}
         />
@@ -234,7 +196,7 @@ export default function PaymentGatewayScreen() {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
         <View style={styles.processingContainer}>
-          <ActivityIndicator size="large" color="#1474F2" />
+          <ActivityIndicator size="large" color="#2563EB" />
           <Text style={styles.processingText}>Confirming your booking...</Text>
         </View>
       </SafeAreaView>
@@ -249,8 +211,8 @@ export default function PaymentGatewayScreen() {
           {/* Header */}
           <View style={styles.headerSection}>
             <Text style={styles.headerTitle}>Secure Checkout</Text>
-            <View style={styles.payhereBadge}>
-              <Text style={styles.payhereText}>Powered by PayHere</Text>
+            <View style={styles.stripeBadge}>
+              <Text style={styles.stripeText}>Powered by Stripe</Text>
               <Ionicons name="lock-closed" size={12} color="#22C55E" />
             </View>
           </View>
@@ -292,9 +254,9 @@ export default function PaymentGatewayScreen() {
 
           {/* Payment methods info */}
           <View style={styles.methodsInfo}>
-            <Ionicons name="card-outline" size={20} color="#1474F2" />
+            <Ionicons name="card-outline" size={20} color="#2563EB" />
             <Text style={styles.methodsText}>
-              Visa, MasterCard, AMEX, Lanka QR, mPay & more
+              Visa, MasterCard, AMEX & more via Stripe
             </Text>
           </View>
         </View>
@@ -304,7 +266,7 @@ export default function PaymentGatewayScreen() {
           <Pressable
             style={[styles.payButton, loading && styles.payButtonDisabled]}
             disabled={loading}
-            onPress={handlePayWithPayHere}>
+            onPress={handlePayWithStripe}>
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
@@ -350,12 +312,12 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 6,
   },
-  payhereBadge: {
+  stripeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  payhereText: {
+  stripeText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#94A3B8',
@@ -368,7 +330,7 @@ const styles = StyleSheet.create({
   amountLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#1474F2',
+    color: '#2563EB',
     marginBottom: 4,
   },
   amountValue: {
@@ -414,7 +376,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#EAF1FF',
+    backgroundColor: '#EFF6FF',
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -422,7 +384,7 @@ const styles = StyleSheet.create({
   methodsText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#1474F2',
+    color: '#2563EB',
   },
   /* Bottom */
   bottomBar: {
@@ -438,7 +400,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#1474F2',
+    backgroundColor: '#2563EB',
     borderRadius: 12,
     paddingVertical: 16,
     width: '100%',

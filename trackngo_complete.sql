@@ -431,7 +431,7 @@ CREATE TABLE corporate_contract (
 CREATE TABLE payment (
     payment_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     transaction_id VARCHAR(100) UNIQUE NOT NULL,
-    payment_method ENUM('credit_card', 'debit_card', 'payhere', 'bank_transfer', 'cash') NOT NULL,
+    payment_method ENUM('credit_card', 'debit_card', 'payhere', 'bank_transfer', 'cash', 'stripe') NOT NULL,
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     payment_status ENUM('pending', 'success', 'failed', 'refunded') DEFAULT 'pending',
     amount DECIMAL(10, 2) NOT NULL,

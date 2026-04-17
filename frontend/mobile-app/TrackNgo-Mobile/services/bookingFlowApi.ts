@@ -138,26 +138,47 @@ export async function createBooking(
   return res.data;
 }
 
-/* ── PayHere hash generation ─────────────────────────── */
+/* ── Stripe checkout session ──────────────────────────── */
 
-export interface PayHereHashRequest {
+export interface StripeCheckoutRequest {
   orderId: string;
-  amount: string;
+  amount: number;
   currency: string;
+  itemName: string;
+  itemDescription: string;
+  email: string;
+  successUrl: string;
+  cancelUrl: string;
 }
 
-export interface PayHereHashResponse {
-  merchant_id: string;
-  hash: string;
+export interface StripeCheckoutResponse {
+  sessionId: string;
+  url: string;
 }
 
-export async function getPayHereHash(
-  request: PayHereHashRequest,
-): Promise<PayHereHashResponse> {
-  const res = await httpPost<ApiResponse<PayHereHashResponse>>(
-    "/api/booking-flow/payhere/hash",
+export async function createStripeCheckoutSession(
+  request: StripeCheckoutRequest,
+): Promise<StripeCheckoutResponse> {
+  const res = await httpPost<ApiResponse<StripeCheckoutResponse>>(
+    "/api/booking-flow/stripe/create-checkout-session",
     undefined,
     request,
+  );
+  return res.data;
+}
+
+export interface StripeSessionStatus {
+  status: string;
+  paymentStatus: string;
+  orderId: string;
+  paymentIntentId: string;
+}
+
+export async function getStripeSessionStatus(
+  sessionId: string,
+): Promise<StripeSessionStatus> {
+  const res = await httpGet<ApiResponse<StripeSessionStatus>>(
+    `/api/booking-flow/stripe/session-status?sessionId=${encodeURIComponent(sessionId)}`,
   );
   return res.data;
 }

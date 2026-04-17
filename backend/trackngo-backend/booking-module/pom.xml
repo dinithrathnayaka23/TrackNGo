@@ -38,6 +38,11 @@
       <artifactId>commons</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.stripe</groupId>
+      <artifactId>stripe-java</artifactId>
+      <version>24.18.0</version>
+    </dependency>
   </dependencies>
 </project>
 

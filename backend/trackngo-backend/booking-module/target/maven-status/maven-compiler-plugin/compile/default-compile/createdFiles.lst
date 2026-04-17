@@ -16,6 +16,8 @@ com\trackngo\booking\api\TripService.class
 com\trackngo\booking\internal\service\AdminBusService.class
 com\trackngo\booking\internal\service\AdminBusService$1.class
 com\trackngo\booking\api\dto\BookingFlowDtos$BusDetailResult.class
+com\trackngo\booking\internal\controller\StripeController$CheckoutRequest.class
+com\trackngo\booking\internal\controller\StripeController.class
 com\trackngo\booking\internal\controller\PayHereController.class
 com\trackngo\booking\api\dto\TripDto.class
 com\trackngo\booking\internal\entity\Booking.class

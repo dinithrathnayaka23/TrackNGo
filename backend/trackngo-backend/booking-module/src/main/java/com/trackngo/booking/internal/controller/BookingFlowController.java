@@ -63,4 +63,10 @@ public class BookingFlowController {
         BookingConfirmationResult result = service.getBookingByRef(bookingRef);
         return ApiResponse.ok("Booking details", result);
     }
+
+    @PutMapping("/bookings/{bookingRef}/cancel")
+    public ApiResponse<Void> cancelBooking(@PathVariable String bookingRef) {
+        service.cancelBooking(bookingRef);
+        return ApiResponse.ok("Booking cancelled", null);
+    }
 }

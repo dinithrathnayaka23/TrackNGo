@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +10,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import QRCode from 'react-native-qrcode-svg';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 export default function BookingConfirmationScreen() {
   const router = useRouter();
@@ -34,6 +38,161 @@ export default function BookingConfirmationScreen() {
   const totalPrice = Number(params.totalPrice ?? '0') || 0;
   const bookingId = params.bookingRef ?? 'N/A';
 
+  // Build the QR payload with all ticket information
+  const qrData = JSON.stringify({
+    bookingId,
+    from,
+    to,
+    date,
+    depart,
+    seats,
+    totalPrice,
+    busNumber: params.busNumber ?? '',
+    transactionId: params.transactionId ?? '',
+  });
+
+  // Ref to the SVG QR component so we can extract base64 for the PDF
+  const qrSvgRef = useRef<any>(null);
+
+  /** Get a base64 data-URI of the QR code from the SVG ref */
+  const getQrBase64 = useCallback((): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!qrSvgRef.current) return reject(new Error('QR ref not ready'));
+      qrSvgRef.current.toDataURL((data: string) => {
+        resolve(`data:image/png;base64,${data}`);
+      });
+    });
+  }, []);
+
+  /** Build an HTML ticket and generate a PDF, then share/save it */
+  const generateTicketPdf = useCallback(async (): Promise<string> => {
+    const qrImageUri = await getQrBase64();
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 24px; background: #f6f7f9; }
+            .ticket { background: #fff; border-radius: 16px; padding: 32px 28px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+            .header { text-align: center; margin-bottom: 20px; }
+            .logo { font-size: 22px; font-weight: 800; color: #22C55E; letter-spacing: 1px; }
+            .subtitle { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+            .divider { border: none; border-top: 2px dashed #e2e8f0; margin: 18px 0; }
+            .qr-section { text-align: center; margin: 18px 0; }
+            .qr-section img { width: 180px; height: 180px; border: 3px solid #111827; border-radius: 8px; padding: 8px; background: #fff; }
+            .scan-badge { display: inline-block; background: #111827; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 2px; padding: 4px 14px; border-radius: 4px; margin-top: -12px; }
+            .scan-hint { font-size: 11px; color: #94a3b8; margin-top: 10px; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+            .info-box label { display: block; font-size: 9px; font-weight: 700; color: #94a3b8; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+            .info-box span { font-size: 14px; font-weight: 700; color: #111827; }
+            .route { text-align: center; margin: 10px 0 6px; }
+            .route-text { font-size: 20px; font-weight: 800; color: #111827; }
+            .route-arrow { color: #22C55E; margin: 0 6px; }
+            .price-row { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; background: #f0fdf4; padding: 14px 18px; border-radius: 10px; }
+            .price-label { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 1px; }
+            .price-value { font-size: 22px; font-weight: 800; color: #22C55E; }
+            .footer { text-align: center; margin-top: 20px; font-size: 10px; color: #cbd5e1; }
+          </style>
+        </head>
+        <body>
+          <div class="ticket">
+            <div class="header">
+              <div class="logo">TrackNGo</div>
+              <div class="subtitle">E-Bus Ticket</div>
+            </div>
+
+            <div class="route">
+              <span class="route-text">${from} <span class="route-arrow">→</span> ${to}</span>
+            </div>
+
+            <hr class="divider" />
+
+            <div class="qr-section">
+              <img src="${qrImageUri}" alt="QR Ticket" /><br/>
+              <span class="scan-badge">SCAN ME</span>
+              <div class="scan-hint">Show this QR code to the driver at boarding</div>
+            </div>
+
+            <hr class="divider" />
+
+            <div class="info-grid">
+              <div class="info-box">
+                <label>Booking ID</label>
+                <span>#${bookingId}</span>
+              </div>
+              <div class="info-box">
+                <label>Bus Number</label>
+                <span>${params.busNumber ?? 'N/A'}</span>
+              </div>
+              <div class="info-box">
+                <label>Date</label>
+                <span>${date}</span>
+              </div>
+              <div class="info-box">
+                <label>Departure</label>
+                <span>${depart}</span>
+              </div>
+              <div class="info-box">
+                <label>Seats</label>
+                <span>${seats.replace(/,/g, ', ')}</span>
+              </div>
+              <div class="info-box">
+                <label>Transaction</label>
+                <span>${params.transactionId ?? 'N/A'}</span>
+              </div>
+            </div>
+
+            <div class="price-row">
+              <div>
+                <div class="price-label">TOTAL PAID</div>
+              </div>
+              <div class="price-value">LKR ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+            </div>
+
+            <div class="footer">This is a system-generated ticket. No signature required.</div>
+          </div>
+        </body>
+      </html>
+    `;
+    const { uri } = await Print.printToFileAsync({ html, base64: false });
+    return uri;
+  }, [bookingId, from, to, date, depart, seats, totalPrice, params.busNumber, params.transactionId, getQrBase64]);
+
+  /** Download — generate a PDF ticket and let the user save it */
+  const handleDownload = useCallback(async () => {
+    try {
+      const pdfUri = await generateTicketPdf();
+      await Sharing.shareAsync(pdfUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Save your TrackNGo bus ticket',
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (e: any) {
+      console.error('Download error:', e);
+      Alert.alert('Error', 'Could not generate the ticket PDF. Please try again.');
+    }
+  }, [generateTicketPdf]);
+
+  /** Share — generate a PDF ticket and share via system share sheet */
+  const handleShare = useCallback(async () => {
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Sharing unavailable', 'Sharing is not available on this device.');
+        return;
+      }
+      const pdfUri = await generateTicketPdf();
+      await Sharing.shareAsync(pdfUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Share your TrackNGo bus ticket',
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (e: any) {
+      console.error('Share error:', e);
+      Alert.alert('Error', 'Could not share the ticket. Please try again.');
+    }
+  }, [generateTicketPdf]);
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.content}>
@@ -56,29 +215,17 @@ export default function BookingConfirmationScreen() {
 
           {/* QR Code Card */}
           <View style={styles.qrCard}>
-            {/* QR Code - Generated pattern */}
+            {/* Real scannable QR code */}
             <View style={styles.qrContainer}>
-              <View style={styles.qrGrid}>
-                {/* Top-left finder */}
-                <View style={[styles.qrFinder, styles.qrFinderTL]} />
-                {/* Top-right finder */}
-                <View style={[styles.qrFinder, styles.qrFinderTR]} />
-                {/* Bottom-left finder */}
-                <View style={[styles.qrFinder, styles.qrFinderBL]} />
-                {/* Pattern rows */}
-                {Array.from({ length: 8 }).map((_, rowIdx) => (
-                  <View key={`qr-row-${rowIdx}`} style={styles.qrRow}>
-                    {Array.from({ length: 8 }).map((_, colIdx) => (
-                      <View
-                        key={`qr-${rowIdx}-${colIdx}`}
-                        style={[
-                          styles.qrDot,
-                          ((rowIdx + colIdx) % 3 === 0 || (rowIdx * colIdx) % 2 === 0) && styles.qrDotFilled,
-                        ]}
-                      />
-                    ))}
-                  </View>
-                ))}
+              <View style={styles.qrBorder}>
+                <QRCode
+                  value={qrData}
+                  size={150}
+                  color="#111827"
+                  backgroundColor="#FFFFFF"
+                  ecl="M"
+                  getRef={(ref: any) => { qrSvgRef.current = ref; }}
+                />
               </View>
               <View style={styles.scanBadge}>
                 <Text style={styles.scanBadgeText}>SCAN ME</Text>
@@ -87,6 +234,13 @@ export default function BookingConfirmationScreen() {
 
             <Text style={styles.scanTitle}>Scan at boarding</Text>
             <Text style={styles.scanSub}>Show this QR code to the driver</Text>
+
+            {/* Inline ticket summary */}
+            <View style={styles.ticketInfo}>
+              <Text style={styles.ticketRoute}>{from}  →  {to}</Text>
+              <Text style={styles.ticketMeta}>{date}  •  {depart}   |   Seats: {seats.replace(/,/g, ', ')}</Text>
+              <Text style={styles.ticketMeta}>Booking #{bookingId}   •   LKR {totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
+            </View>
           </View>
 
           {/* Trip Details Card */}
@@ -141,11 +295,11 @@ export default function BookingConfirmationScreen() {
 
           {/* Action Buttons */}
           <View style={styles.actionsRow}>
-            <Pressable style={styles.actionBtn}>
+            <Pressable style={styles.actionBtn} onPress={handleDownload}>
               <Ionicons name="download-outline" size={22} color="#374151" />
               <Text style={styles.actionBtnText}>Download</Text>
             </Pressable>
-            <Pressable style={styles.actionBtn}>
+            <Pressable style={styles.actionBtn} onPress={handleShare}>
               <Ionicons name="share-social-outline" size={22} color="#374151" />
               <Text style={styles.actionBtnText}>Share</Text>
             </Pressable>
@@ -239,50 +393,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  qrGrid: {
-    width: 160,
-    height: 160,
+  qrBorder: {
+    padding: 12,
     backgroundColor: '#FFFFFF',
     borderWidth: 3,
     borderColor: '#111827',
     borderRadius: 8,
-    padding: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 3,
-  },
-  qrFinder: {
-    position: 'absolute',
-    width: 28,
-    height: 28,
-    borderWidth: 4,
-    borderColor: '#111827',
-    borderRadius: 4,
-  },
-  qrFinderTL: {
-    top: 6,
-    left: 6,
-  },
-  qrFinderTR: {
-    top: 6,
-    right: 6,
-  },
-  qrFinderBL: {
-    bottom: 6,
-    left: 6,
-  },
-  qrRow: {
-    flexDirection: 'row',
-    gap: 3,
-  },
-  qrDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 2,
-    backgroundColor: '#FFFFFF',
-  },
-  qrDotFilled: {
-    backgroundColor: '#111827',
   },
   scanBadge: {
     backgroundColor: '#111827',
@@ -307,6 +423,25 @@ const styles = StyleSheet.create({
   scanSub: {
     fontSize: 12,
     color: '#94A3B8',
+  },
+  ticketInfo: {
+    marginTop: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 14,
+    width: '100%',
+  },
+  ticketRoute: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  ticketMeta: {
+    fontSize: 11,
+    color: '#64748B',
+    marginBottom: 2,
   },
   /* Details Card */
   detailsCard: {

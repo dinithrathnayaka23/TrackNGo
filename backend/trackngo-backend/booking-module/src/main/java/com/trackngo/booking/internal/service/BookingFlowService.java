@@ -316,6 +316,20 @@ public class BookingFlowService {
     }
 
     /* ═══════════════════════════════════════════════════════════
+       7. Cancel booking by reference
+       ═══════════════════════════════════════════════════════════ */
+    @Transactional
+    public void cancelBooking(String bookingRef) {
+        int updated = jdbc.update(
+            "UPDATE seat_booking SET status = 'cancelled' WHERE booking_reference = ? AND status = 'confirmed'",
+            bookingRef
+        );
+        if (updated == 0) {
+            throw new RuntimeException("Booking not found or already cancelled");
+        }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
        HELPERS
        ═══════════════════════════════════════════════════════════ */
 

@@ -307,9 +307,19 @@ export default function HomeScreen() {
   const greetingLabel = useMemo(() => getGreetingForTime(now), [now]);
   const visibleRecentBookings = useMemo(
     () =>
-      recentBookings.filter(
-        (booking) => booking.journeyAt.getTime() >= now.getTime(),
-      ),
+      recentBookings.filter((booking) => {
+        const journeyDate = new Date(
+          booking.journeyAt.getFullYear(),
+          booking.journeyAt.getMonth(),
+          booking.journeyAt.getDate(),
+        );
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+        );
+        return journeyDate.getTime() >= today.getTime();
+      }),
     [recentBookings, now],
   );
 
@@ -396,6 +406,10 @@ export default function HomeScreen() {
                     pathname: "/booking/search-buses",
                     params: { busCategory },
                   });
+                  return;
+                }
+                if (action.key === "my-bookings") {
+                  router.push("/booking/booking-history");
                   return;
                 }
                 Alert.alert(action.label, `Opening ${action.label}...`);
@@ -501,7 +515,17 @@ export default function HomeScreen() {
                   </PressScale>
                   <PressScale
                     onPress={() =>
-                      Alert.alert("Ticket", `Viewing ticket #${booking.id}.`)
+                      router.push({
+                        pathname: "/booking/booking-confirmation",
+                        params: {
+                          bookingRef: booking.id,
+                          from: booking.from,
+                          to: booking.to,
+                          busNumber: booking.busNumber,
+                          date: booking.dateLabel,
+                          depart: booking.timeLabel,
+                        },
+                      })
                     }
                   >
                     <View style={styles.smallButton}>

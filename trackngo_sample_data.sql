@@ -48,6 +48,17 @@ INSERT INTO admin (admin_id, phone_number, role, status) VALUES
 
 
 -- =============================================
+-- ROLES (4 records)
+-- =============================================
+
+INSERT INTO roles (id, name) VALUES
+(1, 'ROLE_ADMIN'),
+(2, 'ROLE_PASSENGER'),
+(3, 'ROLE_DRIVER'),
+(4, 'ROLE_CORPORATE');
+
+
+-- =============================================
 -- PASSENGERS (10 records)
 -- =============================================
 
@@ -95,13 +106,13 @@ INSERT INTO corporate_user (corporate_user_id, address, company_name, profile_ph
 -- ROUTES (6 records)
 -- =============================================
 
-INSERT INTO route (route_id, route_name, start_location, end_location, est_distance_difference, estimated_time_duration, fee, is_active) VALUES
-(1, 'Colombo to Kandy Express',       'Colombo Fort',       'Kandy',            115.50, 165, 450.00, true),
-(2, 'Colombo to Galle Highway',       'Colombo Fort',       'Galle',            119.00, 100, 400.00, true),
-(3, 'Colombo to Jaffna Long Distance','Colombo Fort',       'Jaffna',           396.00, 480, 1800.00, true),
-(4, 'Kandy to Nuwara Eliya',          'Kandy',              'Nuwara Eliya',     79.00,  120, 350.00, true),
-(5, 'Colombo to Matara',              'Colombo Fort',       'Matara',           160.00, 150, 550.00, true),
-(6, 'Colombo to Negombo',             'Colombo Fort',       'Negombo',          37.00,  60,  200.00, true);
+INSERT INTO route (route_id, route_name, route_code, route_type, start_location, end_location, est_distance_difference, estimated_time_duration, fee, active_buses, is_active) VALUES
+(1, 'Colombo to Kandy Express',       'R001', 'highway',       'Colombo Fort',       'Kandy',            115.50, 165, 450.00,  2, true),
+(2, 'Colombo to Galle Highway',       'R002', 'highway',       'Colombo Fort',       'Galle',            119.00, 100, 400.00,  1, true),
+(3, 'Colombo to Jaffna Long Distance','R003', 'long_distance', 'Colombo Fort',       'Jaffna',           396.00, 480, 1800.00, 1, true),
+(4, 'Kandy to Nuwara Eliya',          'R004', 'highway',       'Kandy',              'Nuwara Eliya',     79.00,  120, 350.00,  1, true),
+(5, 'Colombo to Matara',              'R005', 'highway',       'Colombo Fort',       'Matara',           160.00, 150, 550.00,  1, true),
+(6, 'Colombo to Negombo',             'R006', 'highway',       'Colombo Fort',       'Negombo',          37.00,  60,  200.00,  1, true);
 
 
 -- =============================================
@@ -179,6 +190,38 @@ INSERT INTO bus (bus_id, bus_number, bus_brand, start_time, end_time, registrati
 (8, 'TB-0202', 'TATA Motors',   NULL,        NULL,        'WP CAB-0202', '["ac"]',                                        30, 'good',      'trip_booking',  'active',      '2026-09-30', NULL, NULL),
 (9, 'CB-0301', 'Ashok Leyland', '06:00:00', '20:00:00', 'WP CAB-0301', '["ac","wifi","charging_ports"]',                 40, 'excellent', 'corporate',     'active',      '2026-12-31', 19, NULL),
 (10, 'CB-0302', 'Rosa Bus',      '06:00:00', '20:00:00', 'WP CAB-0302', '["ac","charging_ports"]',                        35, 'good',      'corporate',     'maintenance', '2026-07-31', NULL, NULL);
+
+
+-- =============================================
+-- SEAT LAYOUTS (sample for Bus 1: NB-0012, 45 seats)
+-- position_group: 'left' or 'right' (2+2 layout), 'back' for last row
+-- =============================================
+
+INSERT INTO seat_layout (bus_id, seat_label, row_num, position_group, position_index) VALUES
+-- Bus 1 (NB-0012) - 45 seat highway bus, rows 1-11 with 4 per row + 1 back row of 1
+(1, 'A1', 1, 'left', 1), (1, 'A2', 1, 'left', 2), (1, 'A3', 1, 'right', 1), (1, 'A4', 1, 'right', 2),
+(1, 'B1', 2, 'left', 1), (1, 'B2', 2, 'left', 2), (1, 'B3', 2, 'right', 1), (1, 'B4', 2, 'right', 2),
+(1, 'C1', 3, 'left', 1), (1, 'C2', 3, 'left', 2), (1, 'C3', 3, 'right', 1), (1, 'C4', 3, 'right', 2),
+(1, 'D1', 4, 'left', 1), (1, 'D2', 4, 'left', 2), (1, 'D3', 4, 'right', 1), (1, 'D4', 4, 'right', 2),
+(1, 'E1', 5, 'left', 1), (1, 'E2', 5, 'left', 2), (1, 'E3', 5, 'right', 1), (1, 'E4', 5, 'right', 2),
+(1, 'F1', 6, 'left', 1), (1, 'F2', 6, 'left', 2), (1, 'F3', 6, 'right', 1), (1, 'F4', 6, 'right', 2),
+(1, 'G1', 7, 'left', 1), (1, 'G2', 7, 'left', 2), (1, 'G3', 7, 'right', 1), (1, 'G4', 7, 'right', 2),
+(1, 'H1', 8, 'left', 1), (1, 'H2', 8, 'left', 2), (1, 'H3', 8, 'right', 1), (1, 'H4', 8, 'right', 2),
+(1, 'I1', 9, 'left', 1), (1, 'I2', 9, 'left', 2), (1, 'I3', 9, 'right', 1), (1, 'I4', 9, 'right', 2),
+(1, 'J1', 10, 'left', 1), (1, 'J2', 10, 'left', 2), (1, 'J3', 10, 'right', 1), (1, 'J4', 10, 'right', 2),
+(1, 'K1', 11, 'left', 1), (1, 'K2', 11, 'left', 2), (1, 'K3', 11, 'right', 1), (1, 'K4', 11, 'right', 2),
+(1, 'L1', 12, 'back', 1),
+-- Bus 2 (NB-0034) - 40 seat highway bus, rows 1-10 with 4 per row
+(2, 'A1', 1, 'left', 1), (2, 'A2', 1, 'left', 2), (2, 'A3', 1, 'right', 1), (2, 'A4', 1, 'right', 2),
+(2, 'B1', 2, 'left', 1), (2, 'B2', 2, 'left', 2), (2, 'B3', 2, 'right', 1), (2, 'B4', 2, 'right', 2),
+(2, 'C1', 3, 'left', 1), (2, 'C2', 3, 'left', 2), (2, 'C3', 3, 'right', 1), (2, 'C4', 3, 'right', 2),
+(2, 'D1', 4, 'left', 1), (2, 'D2', 4, 'left', 2), (2, 'D3', 4, 'right', 1), (2, 'D4', 4, 'right', 2),
+(2, 'E1', 5, 'left', 1), (2, 'E2', 5, 'left', 2), (2, 'E3', 5, 'right', 1), (2, 'E4', 5, 'right', 2),
+(2, 'F1', 6, 'left', 1), (2, 'F2', 6, 'left', 2), (2, 'F3', 6, 'right', 1), (2, 'F4', 6, 'right', 2),
+(2, 'G1', 7, 'left', 1), (2, 'G2', 7, 'left', 2), (2, 'G3', 7, 'right', 1), (2, 'G4', 7, 'right', 2),
+(2, 'H1', 8, 'left', 1), (2, 'H2', 8, 'left', 2), (2, 'H3', 8, 'right', 1), (2, 'H4', 8, 'right', 2),
+(2, 'I1', 9, 'left', 1), (2, 'I2', 9, 'left', 2), (2, 'I3', 9, 'right', 1), (2, 'I4', 9, 'right', 2),
+(2, 'J1', 10, 'left', 1), (2, 'J2', 10, 'left', 2), (2, 'J3', 10, 'right', 1), (2, 'J4', 10, 'right', 2);
 
 
 -- =============================================
@@ -431,19 +474,23 @@ INSERT INTO refund (refund_id, refund_reason, refund_status, processed_date, ref
 SHOW TABLES;
 SELECT 'user'               AS tbl, COUNT(*) AS row_count FROM user
 UNION ALL SELECT 'admin',              COUNT(*) FROM admin
+UNION ALL SELECT 'roles',              COUNT(*) FROM roles
 UNION ALL SELECT 'passenger',          COUNT(*) FROM passenger
 UNION ALL SELECT 'driver',             COUNT(*) FROM driver
 UNION ALL SELECT 'corporate_user',     COUNT(*) FROM corporate_user
 UNION ALL SELECT 'route',              COUNT(*) FROM route
 UNION ALL SELECT 'route_stop',         COUNT(*) FROM route_stop
 UNION ALL SELECT 'bus',                COUNT(*) FROM bus
+UNION ALL SELECT 'seat_layout',        COUNT(*) FROM seat_layout
 UNION ALL SELECT 'otp_verification',   COUNT(*) FROM otp_verification
 UNION ALL SELECT 'social_login',       COUNT(*) FROM social_login
 UNION ALL SELECT 'trip_booking',       COUNT(*) FROM trip_booking
 UNION ALL SELECT 'conversation',       COUNT(*) FROM conversation
 UNION ALL SELECT 'chat_message',       COUNT(*) FROM chat_message
 UNION ALL SELECT 'complaint',          COUNT(*) FROM complaint
-UNION ALL SELECT 'sos',                COUNT(*) FROM sos
+UNION ALL SELECT 'sos_alert',          COUNT(*) FROM sos_alert
+UNION ALL SELECT 'emergency_numbers',  COUNT(*) FROM emergency_numbers
+UNION ALL SELECT 'emergency_contact',  COUNT(*) FROM emergency_contact
 UNION ALL SELECT 'notification',       COUNT(*) FROM notification
 UNION ALL SELECT 'corporate_contract', COUNT(*) FROM corporate_contract
 UNION ALL SELECT 'payment',            COUNT(*) FROM payment

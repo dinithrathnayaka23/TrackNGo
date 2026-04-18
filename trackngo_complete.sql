@@ -36,6 +36,11 @@ CREATE TABLE user (
 -- Primary key equals user.user_id to enforce 1:1 mapping.
 -- =============================================
 
+CREATE TABLE roles (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL UNIQUE
+);
+
 CREATE TABLE admin (
     admin_id BIGINT PRIMARY KEY,
     phone_number VARCHAR(20) UNIQUE NOT NULL,
@@ -100,16 +105,20 @@ CREATE TABLE driver (
 CREATE TABLE route (
     route_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     route_name VARCHAR(255) NOT NULL,
+    route_code VARCHAR(50) UNIQUE,
+    route_type VARCHAR(50),
     start_location VARCHAR(255) NOT NULL,
     end_location VARCHAR(255) NOT NULL,
     est_distance_difference DECIMAL(10, 2),
     estimated_time_duration INT,
     fee DECIMAL(10, 2),
+    active_buses INT DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_active (is_active),
-    INDEX idx_locations (start_location, end_location)
+    INDEX idx_locations (start_location, end_location),
+    INDEX idx_route_code (route_code)
 );
 
 
@@ -155,6 +164,19 @@ CREATE TABLE bus (
     INDEX idx_route (route_id),
     INDEX idx_type_status (bus_type, status),
     INDEX idx_insurance (insurance_exp_date)
+);
+
+CREATE TABLE seat_layout (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    bus_id BIGINT NOT NULL,
+    seat_label VARCHAR(10) NOT NULL,
+    row_num INT NOT NULL,
+    position_group VARCHAR(10) NOT NULL COMMENT 'left, right, back',
+    position_index INT NOT NULL,
+
+    FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_bus_seat (bus_id, seat_label),
+    INDEX idx_bus (bus_id)
 );
 
 CREATE TABLE emergency_numbers (
@@ -530,4 +552,81 @@ CREATE TABLE refund (
     INDEX idx_payment (payment_id),
     INDEX idx_status (refund_status),
     INDEX idx_created (created_date DESC)
+);
+
+
+-- =============================================
+-- MODULE SCAFFOLD TABLES
+-- Placeholder tables for Hibernate entity mapping.
+-- These will be expanded as modules are developed.
+-- =============================================
+
+CREATE TABLE adminlogs (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE bookings (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE seats (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE trips (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE fleets (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE drivers (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE buss (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE complaints (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE feedbacks (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE ratings (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE notifications (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE invoices (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE payments (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE bus_locations (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL
 );

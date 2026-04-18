@@ -9,6 +9,7 @@ C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\internal\repository\RecentBookingProjection.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\internal\repository\TripRepository.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\api\BookingService.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\internal\repository\BookingHistoryProjection.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\api\dto\RecentBookingDto.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\internal\entity\Trip.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\internal\controller\PayHereController.java
@@ -20,6 +21,7 @@ C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\api\dto\BookingDto.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\internal\controller\AdminBusController.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\internal\controller\TripController.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\api\dto\BookingHistoryDto.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\internal\repository\SeatRepository.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\api\dto\BookingFlowDtos.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\booking-module\src\main\java\com\trackngo\booking\internal\service\TripServiceImpl.java

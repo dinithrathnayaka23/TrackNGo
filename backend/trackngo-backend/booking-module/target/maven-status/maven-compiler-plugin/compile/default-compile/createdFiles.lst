@@ -27,6 +27,8 @@ com\trackngo\booking\api\dto\SeatDto.class
 com\trackngo\booking\internal\service\BookingServiceImpl.class
 com\trackngo\booking\internal\controller\SeatController.class
 com\trackngo\booking\api\dto\AdminBusDtos.class
+com\trackngo\booking\internal\repository\BookingHistoryProjection.class
+com\trackngo\booking\api\dto\BookingHistoryDto.class
 com\trackngo\booking\internal\controller\AdminBusController.class
 com\trackngo\booking\api\dto\AdminBusDtos$SaveSeatLayoutRequest.class
 com\trackngo\booking\internal\entity\Seat.class

@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,47 +12,62 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { getSeatLayout, getBookedSeats, type SeatLayoutRow } from '../../services/bookingFlowApi';
 
 type SeatStatus = 'available' | 'selected' | 'booked';
-
-type SeatRow = {
-  left: string[];
-  right?: string[];
-  lastRow?: string[];
-};
-
-const seatRows: SeatRow[] = [
-  { left: ['1A', '1B'], right: ['1C', '1D'] },
-  { left: ['2A', '2B'], right: ['2C', '2D'] },
-  { left: ['3A', '3B'], right: ['3C', '3D'] },
-  { left: ['4A', '4B'], right: ['4C', '4D'] },
-  { left: ['5A', '5B'], right: ['5C', '5D'] },
-  { left: [], right: [], lastRow: ['6A', '6B', '6C', '6D', '6E'] },
-];
-
-const bookedSeats = new Set(['1D', '4A', '4B', '4C', '4D']);
 
 export default function SeatSelectionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
+    busId?: string;
     from?: string;
     to?: string;
-    id?: string;
-    type?: string;
+    date?: string;
+    busType?: string;
     depart?: string;
     price?: string;
+    adults?: string;
+    children?: string;
+    busBrand?: string;
+    amenities?: string;
   }>();
 
   const [showAvailableOnly, setShowAvailableOnly] = useState(false);
-  const [selectedSeats, setSelectedSeats] = useState<string[]>(['1C', '3C']);
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
+  const [seatRows, setSeatRows] = useState<SeatLayoutRow[]>([]);
+  const [bookedSeats, setBookedSeats] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
 
+  const busId = Number(params.busId ?? '0');
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const busId = params.id ?? 'ND-4521';
-  const busType = params.type ?? 'Super Luxury';
-  const depart = params.depart ?? '08:30 AM';
+  const date = params.date ?? new Date().toISOString().split('T')[0];
+  const busType = params.busType ?? 'Super Luxury';
+  const depart = params.depart ?? '08:30';
   const pricePerSeat = Number(params.price ?? '1200') || 1200;
+  const adults = Number(params.adults ?? '1') || 1;
+  const children = Number(params.children ?? '0') || 0;
+  const maxSeats = adults + children;
+
+  const loadSeats = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [layout, booked] = await Promise.all([
+        getSeatLayout(busId),
+        getBookedSeats(busId, date),
+      ]);
+      setSeatRows(layout);
+      setBookedSeats(new Set(booked));
+    } catch (e: any) {
+      console.error('[SeatSelection] load failed', e);
+      Alert.alert('Error', 'Failed to load seat layout.');
+    } finally {
+      setLoading(false);
+    }
+  }, [busId, date]);
+
+  useEffect(() => { void loadSeats(); }, [loadSeats]);
 
   const seatStatus = (seatId: string): SeatStatus => {
     if (bookedSeats.has(seatId)) return 'booked';
@@ -60,9 +77,17 @@ export default function SeatSelectionScreen() {
 
   const toggleSeat = (seatId: string) => {
     if (bookedSeats.has(seatId)) return;
-    setSelectedSeats((prev) =>
-      prev.includes(seatId) ? prev.filter((seat) => seat !== seatId) : [...prev, seatId]
-    );
+    setSelectedSeats((prev) => {
+      if (prev.includes(seatId)) return prev.filter((seat) => seat !== seatId);
+      if (prev.length >= maxSeats) {
+        Alert.alert(
+          'Seat limit reached',
+          `You can select up to ${maxSeats} seat${maxSeats > 1 ? 's' : ''} for ${adults} adult${adults > 1 ? 's' : ''}${children > 0 ? ` and ${children} child${children > 1 ? 'ren' : ''}` : ''}.`
+        );
+        return prev;
+      }
+      return [...prev, seatId];
+    });
   };
 
   const totalPrice = useMemo(() => selectedSeats.length * pricePerSeat, [selectedSeats, pricePerSeat]);
@@ -88,7 +113,7 @@ export default function SeatSelectionScreen() {
             <View style={styles.summaryText}>
               <Text style={styles.summaryTitle}>{from} - {to}</Text>
               <Text style={styles.summarySub}>
-                Bus {busId} - {depart} - Today
+                Bus {busId} - {depart} - {date}
               </Text>
             </View>
             <View style={styles.summaryPill}>
@@ -133,8 +158,12 @@ export default function SeatSelectionScreen() {
               </View>
             </View>
 
-            {seatRows.map((row, rowIndex) => {
-              if (row.lastRow) {
+            {loading ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#2F6BFF" />
+              </View>
+            ) : seatRows.map((row, rowIndex) => {
+              if (row.lastRow && row.lastRow.length > 0) {
                 return (
                   <View key={`row-${rowIndex}`} style={styles.lastRow}>
                     {row.lastRow.map((seat) => {
@@ -195,7 +224,7 @@ export default function SeatSelectionScreen() {
                   </View>
                   <View style={styles.aisle} />
                   <View style={styles.seatGroup}>
-                    {row.right?.map((seat) => {
+                    {row.right.map((seat) => {
                       const status = seatStatus(seat);
                       if (showAvailableOnly && status === 'booked') {
                         return <View key={seat} style={styles.seatPlaceholder} />;
@@ -239,7 +268,24 @@ export default function SeatSelectionScreen() {
           </View>
           <Pressable
             style={[styles.payButton, selectedSeats.length === 0 && styles.payButtonDisabled]}
-            onPress={() => Alert.alert('Continue', 'Proceeding to payment.')}
+            onPress={() => {
+              router.push({
+                pathname: '/booking/booking-summary',
+                params: {
+                  from,
+                  to,
+                  busId: String(busId),
+                  busType,
+                  depart,
+                  date,
+                  seats: selectedSeats.join(','),
+                  pricePerSeat: String(pricePerSeat),
+                  totalPrice: String(totalPrice),
+                  busBrand: params.busBrand ?? '',
+                  amenities: params.amenities ?? '[]',
+                },
+              });
+            }}
             disabled={selectedSeats.length === 0}>
             <Text style={styles.payButtonText}>Continue to Payment</Text>
             <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />

@@ -1,6 +1,7 @@
 package com.trackngo.booking.api;
 
 import com.trackngo.booking.api.dto.BookingDto;
+import com.trackngo.booking.api.dto.BookingHistoryDto;
 import com.trackngo.booking.api.dto.RecentBookingDto;
 
 import java.util.List;
@@ -13,4 +14,6 @@ public interface BookingService {
     void delete(Long id);
 
     List<RecentBookingDto> getUpcomingForUser(String email);
+    List<BookingHistoryDto> getUpcomingBookings(String email);
+    List<BookingHistoryDto> getPastBookings(String email);
 }

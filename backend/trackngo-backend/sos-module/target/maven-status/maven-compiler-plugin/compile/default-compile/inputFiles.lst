@@ -1,17 +1,20 @@
-<<<<<<< HEAD
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\controller\EmergencyNumberController.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\EmergencyNumberServiceImpl.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\SosAlertServiceImpl.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\dto\EmergencyContactDto.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\EmergencyNumberService.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\controller\SosAlertController.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\SmsProvider.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\repository\SosAlertRepository.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\AndroidSmsGatewayService.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\SmsProviderConfig.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\dto\TriggerSosAlertRequest.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\repository\EmergencyNumberRepository.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\EmergencyContactService.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\SosAlertService.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\repository\EmergencyContactRepository.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\entity\EmergencyContact.java
+C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\TwilioSmsService.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\controller\EmergencyContactController.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\EmergencyContactServiceImpl.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\entity\EmergencyNumber.java
@@ -19,29 +22,3 @@ C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\dto\EmergencyNumberDto.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\dto\CreateEmergencyContactRequest.java
 C:\Users\MSI GF63\Pictures\web\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\dto\SosAlertDto.java
-=======
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\EmergencyContactService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\EmergencyNumberService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\dto\SosAlertDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\SosAlertService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\dto\CreateEmergencyContactRequest.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\dto\TriggerSosAlertRequest.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\controller\EmergencyNumberController.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\AndroidSmsGatewayService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\entity\EmergencyNumber.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\dto\EmergencyContactDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\SmsProviderConfig.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\controller\SosAlertController.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\TwilioSmsService.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\SmsProvider.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\EmergencyNumberServiceImpl.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\api\dto\EmergencyNumberDto.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\entity\SosAlert.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\repository\EmergencyContactRepository.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\entity\EmergencyContact.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\repository\EmergencyNumberRepository.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\SosAlertServiceImpl.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\controller\EmergencyContactController.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\repository\SosAlertRepository.java
-D:\L2S2\Software Development Project\TrackNGo\TrackNGo\backend\trackngo-backend\sos-module\src\main\java\com\trackngo\sos\internal\service\EmergencyContactServiceImpl.java
->>>>>>> ea291bf (feat: implement send sms to emergency contacts)

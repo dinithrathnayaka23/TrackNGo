@@ -27,13 +27,17 @@ public class JwtFilter extends OncePerRequestFilter {
         throws ServletException, IOException {
         String auth = request.getHeader("Authorization");
         if (auth != null && auth.startsWith("Bearer ")) {
-            String token = auth.substring(7);
-            Claims claims = jwtUtil.parse(token);
-            String username = claims.getSubject();
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                var userDetails = userDetailsService.loadUserByUsername(username);
-                var authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+            try {
+                String token = auth.substring(7);
+                Claims claims = jwtUtil.parse(token);
+                String username = claims.getSubject();
+                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    var userDetails = userDetailsService.loadUserByUsername(username);
+                    var authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            } catch (Exception e) {
+                // Expired or invalid token — continue without authentication
             }
         }
         filterChain.doFilter(request, response);

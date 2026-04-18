@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   faArrowLeft,
@@ -18,15 +18,93 @@ import {
   faTrash,
   faTv,
   faUsers,
+  faVideo,
   faWifi,
   faXmark,
+  faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import adminProfileImage from "../../assets/images/adminProfile.png";
-import mapImage from "../../assets/images/map.png";
+import { getBusImage } from "../../utils/busImage";
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+
+let mapsScriptLoaded = false;
+function loadMapsScript(): Promise<void> {
+  if (mapsScriptLoaded || window.google?.maps) {
+    mapsScriptLoaded = true;
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker`;
+    script.async = true;
+    script.onload = () => { mapsScriptLoaded = true; resolve(); };
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    document.head.appendChild(script);
+  });
+}
+
+function BusLocationMap({ locationName }: { locationName: string }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      await loadMapsScript();
+      if (cancelled || !mapRef.current) return;
+
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: `${locationName}, Sri Lanka` }, (results, status) => {
+        if (cancelled || !mapRef.current) return;
+        const center =
+          status === "OK" && results && results[0]
+            ? results[0].geometry.location
+            : new google.maps.LatLng(6.9271, 79.8612);
+
+        const map = new google.maps.Map(mapRef.current, {
+          center,
+          zoom: 14,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+        });
+
+        new google.maps.Marker({
+          position: center,
+          map,
+          title: locationName,
+          icon: {
+            url: "https://maps.google.com/mapfiles/kml/shapes/bus.png",
+            scaledSize: new google.maps.Size(36, 36),
+          },
+        });
+      });
+    }
+
+    init();
+    return () => { cancelled = true; };
+  }, [locationName]);
+
+  return <div ref={mapRef} className="h-40 w-full" />;
+}
+import {
+  fetchBusDetail,
+  updateBus,
+  deleteBus as deleteBusApi,
+  fetchSeatLayout,
+  saveSeatLayout as saveSeatLayoutApi,
+  fetchDriverOptions,
+  fetchRouteOptions,
+  type BusDetail as BusDetailDto,
+  type SeatLayoutRow as ApiSeatLayoutRow,
+  type DriverOption,
+  type RouteOption,
+} from "../../services/busService";
 
 type Amenity = {
-  name: string;
+  key: string;   // DB value: "ac", "wifi", "charging_ports", etc.
+  name: string;  // Display label
   icon: IconDefinition;
   enabled: boolean;
 };
@@ -46,7 +124,12 @@ type BusInfo = {
   condition: string;
   type: string;
   insuranceExp: string;
-  status: "Active" | "Maintenance";
+  status: "active" | "maintenance" | "inactive";
+  startTime: string;
+  endTime: string;
+  registrationNumber: string;
+  routeId: number | null;
+  routeName: string;
 };
 
 type DashboardTab = "overview" | "schedule" | "revenue";
@@ -121,12 +204,12 @@ const buildSeatLayoutRows = (config: LayoutConfig): SeatLayoutRow[] => {
 };
 
 const initialAmenities: Amenity[] = [
-  { name: "Wi-Fi", icon: faWifi, enabled: true },
-  { name: "AC", icon: faSnowflake, enabled: true },
-  { name: "Sleeper", icon: faBus, enabled: true },
-  { name: "Charging", icon: faChargingStation, enabled: true },
-  { name: "Ent. Sys", icon: faTv, enabled: true },
-  { name: "Toilet", icon: faToilet, enabled: false },
+  { key: "wifi", name: "Wi-Fi", icon: faWifi, enabled: false },
+  { key: "ac", name: "A/C", icon: faSnowflake, enabled: false },
+  { key: "charging_ports", name: "Charging", icon: faChargingStation, enabled: false },
+  { key: "entertainment", name: "Ent.sys", icon: faTv, enabled: false },
+  { key: "gps", name: "GPS", icon: faLocationDot, enabled: false },
+  { key: "cctv", name: "CCTV", icon: faVideo, enabled: false },
 ];
 
 type DriverTripRecord = {
@@ -278,24 +361,37 @@ const BUS_DETAIL_MAP: Record<string, BusDetailEntry> = {
 function BusDetail() {
   const { busId } = useParams<{ busId: string }>();
   const navigate = useNavigate();
-  const busEntry = busId ? BUS_DETAIL_MAP[busId] : undefined;
 
-  const entryBusInfo = busEntry?.busInfo ?? initialBusInfo;
-  const entryDriver = busEntry?.driver ?? initialDriver;
-  const busImage = busEntry?.image ?? "https://images.unsplash.com/photo-1570125909517-53cb21c89ff2?auto=format&fit=crop&w=280&q=80";
+  // API loading state
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [apiError, setApiError] = useState("");
+  const [busData, setBusData] = useState<BusDetailDto | null>(null);
+  const [driverOptions, setDriverOptions] = useState<DriverOption[]>([]);
+  const [routeOptions, setRouteOptions] = useState<RouteOption[]>([]);
 
   // Persisted view state displayed on the page.
   const [amenities, setAmenities] = useState<Amenity[]>(initialAmenities);
   // Draft state lets users edit in modals without mutating live data until Save.
   const [isAmenityModalOpen, setIsAmenityModalOpen] = useState(false);
   const [amenityDraft, setAmenityDraft] = useState<Amenity[]>(initialAmenities);
-  const [assignedDriver, setAssignedDriver] = useState<Driver>(entryDriver);
+  const [assignedDriver, setAssignedDriver] = useState<Driver>({
+    name: "", id: "", phone: "", rating: "0", trips: 0,
+  });
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
-  const [driverDraft, setDriverDraft] = useState<Driver>(entryDriver);
-  const [busInfo, setBusInfo] = useState<BusInfo>(entryBusInfo);
+  const [driverDraft, setDriverDraft] = useState<Driver>({
+    name: "", id: "", phone: "", rating: "0", trips: 0,
+  });
+  const [busInfo, setBusInfo] = useState<BusInfo>({
+    code: "", seats: "0", brand: "", condition: "", type: "", insuranceExp: "",
+    status: "active", startTime: "", endTime: "", registrationNumber: "", routeId: null, routeName: "",
+  });
   const [isEditBusModalOpen, setIsEditBusModalOpen] = useState(false);
   const [isEditLayoutModalOpen, setIsEditLayoutModalOpen] = useState(false);
-  const [busDraft, setBusDraft] = useState<BusInfo>(entryBusInfo);
+  const [busDraft, setBusDraft] = useState<BusInfo>({
+    code: "", seats: "0", brand: "", condition: "", type: "", insuranceExp: "",
+    status: "active", startTime: "", endTime: "", registrationNumber: "", routeId: null, routeName: "",
+  });
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isBusDeleted, setIsBusDeleted] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
@@ -309,68 +405,187 @@ function BusDetail() {
   const [layoutConfigError, setLayoutConfigError] = useState("");
   const [blockedSeats, setBlockedSeats] = useState<Set<number>>(new Set());
 
+  // ── Load bus data from API ────────────────────────────────
+  useEffect(() => {
+    if (!busId) return;
+    const numericId = Number(busId);
+    if (Number.isNaN(numericId)) return;
+
+    setLoading(true);
+    setApiError("");
+
+    Promise.all([
+      fetchBusDetail(numericId),
+      fetchSeatLayout(numericId),
+      fetchDriverOptions(),
+      fetchRouteOptions(),
+    ])
+      .then(([detail, seatRows, drivers, routes]) => {
+        setBusData(detail);
+        setDriverOptions(drivers);
+        setRouteOptions(routes);
+
+        // Map to local state
+        const info: BusInfo = {
+          code: detail.busNumber,
+          seats: String(detail.seatCapacity),
+          brand: detail.busBrand,
+          condition: detail.busCondition ?? "",
+          type: detail.busType ?? "",
+          insuranceExp: detail.insuranceExpDate ?? "",
+          status: (detail.status as BusInfo["status"]) ?? "active",
+          startTime: detail.startTime ?? "",
+          endTime: detail.endTime ?? "",
+          registrationNumber: detail.registrationNumber ?? "",
+          routeId: detail.routeId ?? null,
+          routeName: detail.routeName ?? "",
+        };
+        setBusInfo(info);
+        setBusDraft(info);
+
+        // Map amenities — match by DB key
+        const enabledKeys = (detail.amenities || []).map((a) => a.toLowerCase());
+        const mapped = initialAmenities.map((a) => ({
+          ...a,
+          enabled: enabledKeys.includes(a.key),
+        }));
+        setAmenities(mapped);
+        setAmenityDraft(mapped);
+
+        // Map driver
+        if (detail.driverName) {
+          const drv: Driver = {
+            name: detail.driverName,
+            id: detail.driverId ? String(detail.driverId) : "",
+            phone: detail.driverPhone ?? "",
+            rating: detail.driverRating ? String(detail.driverRating) : "0",
+            trips: 0,
+          };
+          setAssignedDriver(drv);
+          setDriverDraft(drv);
+        }
+
+        // Map seat layout from API rows into LayoutConfig
+        if (seatRows && seatRows.length > 0) {
+          const hasBackRow = seatRows.some((r) => r.lastRow && r.lastRow.length > 0);
+          const normalRows = seatRows.filter((r) => !r.lastRow || r.lastRow.length === 0);
+          const backRow = seatRows.find((r) => r.lastRow && r.lastRow.length > 0);
+          const leftPer = normalRows.length > 0 ? normalRows[0].left.length : 2;
+          const rightPer = normalRows.length > 0 ? normalRows[0].right.length : 2;
+          const cfg: LayoutConfig = {
+            rows: normalRows.length,
+            leftSeatsPerRow: leftPer,
+            rightSeatsPerRow: rightPer,
+            rearRowSeats: backRow?.lastRow?.length ?? 0,
+            driverLeftSeats: 0,
+          };
+          setLayoutConfig(cfg);
+          setLayoutDraftConfig(cfg);
+        }
+      })
+      .catch((e) => setApiError(e.message))
+      .finally(() => setLoading(false));
+  }, [busId]);
+
   const openAmenityModal = () => {
     // Reset draft from latest saved values every time the editor opens.
     setAmenityDraft(amenities);
     setIsAmenityModalOpen(true);
   };
 
-  const handleAmenityToggle = (amenityName: string) => {
+  const handleAmenityToggle = (amenityKey: string) => {
     setAmenityDraft((current) =>
       current.map((amenity) =>
-        amenity.name === amenityName
+        amenity.key === amenityKey
           ? { ...amenity, enabled: !amenity.enabled }
           : amenity,
       ),
     );
   };
 
+  /** Build a consistent SaveBusRequest from current state with optional overrides. */
+  const buildSaveRequest = (overrides: Partial<{
+    amenities: string[];
+    driverId: number | null;
+    routeId: number | null;
+    status: string;
+    busNumber: string;
+    busBrand: string;
+    seatCapacity: number;
+    busType: string;
+    busCondition: string;
+    startTime: string | null;
+    endTime: string | null;
+    registrationNumber: string;
+    insuranceExpDate: string;
+  }> = {}) => ({
+    busNumber: overrides.busNumber ?? busInfo.code,
+    busBrand: overrides.busBrand ?? busInfo.brand,
+    seatCapacity: overrides.seatCapacity ?? Number(busInfo.seats),
+    busType: overrides.busType ?? busInfo.type,
+    busCondition: overrides.busCondition ?? busInfo.condition,
+    status: overrides.status ?? busInfo.status,
+    amenities: overrides.amenities ?? amenities.filter((a) => a.enabled).map((a) => a.key),
+    startTime: overrides.startTime !== undefined ? overrides.startTime : (busInfo.startTime || null),
+    endTime: overrides.endTime !== undefined ? overrides.endTime : (busInfo.endTime || null),
+    registrationNumber: overrides.registrationNumber ?? busInfo.registrationNumber,
+    insuranceExpDate: overrides.insuranceExpDate ?? busInfo.insuranceExp,
+    driverId: overrides.driverId !== undefined ? overrides.driverId : (busData?.driverId ?? null),
+    routeId: overrides.routeId !== undefined ? overrides.routeId : (busInfo.routeId ?? null),
+  });
+
   const handleSaveAmenities = () => {
-    setAmenities(amenityDraft);
-    setIsAmenityModalOpen(false);
+    const enabledKeys = amenityDraft.filter((a) => a.enabled).map((a) => a.key);
+    setSaving(true);
+    const numericId = Number(busId);
+    updateBus(numericId, buildSaveRequest({ amenities: enabledKeys }))
+      .then(() => {
+        setAmenities(amenityDraft);
+        setIsAmenityModalOpen(false);
+      })
+      .catch((e) => setApiError(e.message))
+      .finally(() => setSaving(false));
   };
 
   const openDriverModal = () => {
-    // Snapshot current driver into draft for safe editing.
     setDriverDraft(assignedDriver);
     setDriverFormError("");
     setIsDriverModalOpen(true);
   };
 
-  const handleDriverNameChange = (name: string) => {
-    const matchedId = driverDirectory[name.trim().toLowerCase()] ?? "";
-    const matchedTrips = matchedId ? getTripCountForDriver(matchedId) : 0;
+  const handleDriverSelect = (driverId: string) => {
+    const selected = driverOptions.find((d) => String(d.driverId) === driverId);
+    if (selected) {
+      setDriverDraft((prev) => ({
+        ...prev,
+        name: selected.name,
+        id: String(selected.driverId),
+      }));
+    } else {
+      setDriverDraft((prev) => ({ ...prev, name: "", id: "" }));
+    }
     setDriverFormError("");
-    setDriverDraft((prev) => ({
-      ...prev,
-      name,
-      id: matchedId,
-      trips: matchedTrips,
-    }));
   };
 
   const handleSaveDriver = () => {
-    const normalizedName = driverDraft.name.trim();
-    const normalizedPhone = driverDraft.phone.trim();
-
-    if (!normalizedName || !driverDraft.id) {
-      setDriverFormError(
-        "Please enter a valid driver name to auto-load a driver ID.",
-      );
-      return;
-    }
-
-    if (!/^\d{10}$/.test(normalizedPhone)) {
-      setDriverFormError("Phone number must contain exactly 10 digits.");
+    if (!driverDraft.id) {
+      setDriverFormError("Please select a driver.");
       return;
     }
 
     setDriverFormError("");
-    setAssignedDriver({
-      ...driverDraft,
-      trips: getTripCountForDriver(driverDraft.id),
-    });
-    setIsDriverModalOpen(false);
+    setSaving(true);
+    const numericId = Number(busId);
+    updateBus(numericId, buildSaveRequest({ driverId: Number(driverDraft.id) || null }))
+      .then(() => {
+        setAssignedDriver({ ...driverDraft });
+        if (busData) {
+          setBusData({ ...busData, driverId: Number(driverDraft.id), driverName: driverDraft.name, driverPhone: driverDraft.phone });
+        }
+        setIsDriverModalOpen(false);
+      })
+      .catch((e) => setDriverFormError(e.message))
+      .finally(() => setSaving(false));
   };
 
   const openEditBusModal = () => {
@@ -384,9 +599,6 @@ function BusDetail() {
     const normalizedCode = busDraft.code.trim();
     const normalizedSeats = busDraft.seats.trim();
     const normalizedBrand = busDraft.brand.trim();
-    const normalizedCondition = busDraft.condition.trim();
-    const normalizedType = busDraft.type.trim();
-    const normalizedInsuranceExp = busDraft.insuranceExp.trim();
 
     if (!/^[A-Za-z]{2,4}-\d{2,4}$/.test(normalizedCode)) {
       setBusFormError("Bus Number must follow a format like ND-1151.");
@@ -398,21 +610,33 @@ function BusDetail() {
       return;
     }
 
-    if (
-      !normalizedBrand ||
-      !normalizedCondition ||
-      !normalizedType ||
-      !normalizedInsuranceExp
-    ) {
-      setBusFormError(
-        "Brand, condition, type, and insurance expiry are required.",
-      );
+    if (!normalizedBrand || !busDraft.condition || !busDraft.type) {
+      setBusFormError("Brand, condition, and type are required.");
       return;
     }
 
     setBusFormError("");
-    setBusInfo(busDraft);
-    setIsEditBusModalOpen(false);
+    setSaving(true);
+    const numericId = Number(busId);
+    updateBus(numericId, buildSaveRequest({
+      busNumber: busDraft.code,
+      busBrand: busDraft.brand,
+      seatCapacity: Number(busDraft.seats),
+      busType: busDraft.type,
+      busCondition: busDraft.condition,
+      status: busDraft.status,
+      startTime: busDraft.startTime || null,
+      endTime: busDraft.endTime || null,
+      registrationNumber: busDraft.registrationNumber,
+      insuranceExpDate: busDraft.insuranceExp,
+      routeId: busDraft.routeId,
+    }))
+      .then(() => {
+        setBusInfo(busDraft);
+        setIsEditBusModalOpen(false);
+      })
+      .catch((e) => setBusFormError(e.message))
+      .finally(() => setSaving(false));
   };
 
   const openEditLayoutModal = () => {
@@ -575,16 +799,30 @@ function BusDetail() {
   };
 
   const handleToggleMaintenance = () => {
-    // Dummy state toggle to simulate status transitions in the UI.
-    setBusInfo((current) => ({
-      ...current,
-      status: current.status === "Active" ? "Maintenance" : "Active",
-    }));
+    const numericId = Number(busId);
+    const newStatus = busInfo.status === "active" ? "maintenance" : "active";
+    setSaving(true);
+    updateBus(numericId, buildSaveRequest({ status: newStatus }))
+      .then(() => {
+        setBusInfo((current) => ({
+          ...current,
+          status: newStatus as BusInfo["status"],
+        }));
+      })
+      .catch((e) => setApiError(e.message))
+      .finally(() => setSaving(false));
   };
 
   const handleDeleteBus = () => {
-    setIsDeleteModalOpen(false);
-    setIsBusDeleted(true);
+    const numericId = Number(busId);
+    setSaving(true);
+    deleteBusApi(numericId)
+      .then(() => {
+        setIsDeleteModalOpen(false);
+        setIsBusDeleted(true);
+      })
+      .catch((e) => setApiError(e.message))
+      .finally(() => setSaving(false));
   };
 
   const scheduleItems = [
@@ -623,8 +861,8 @@ function BusDetail() {
     ? scheduleItems
     : scheduleItems.slice(0, 2);
   const revenuePoints = useMemo(
-    () => generateBusRevenue(busEntry?.revenueSeed ?? 0),
-    [busEntry],
+    () => generateBusRevenue(busData?.busId ?? 0),
+    [busData],
   );
   const totalRevenueLast30Days = useMemo(
     () => revenuePoints.reduce((sum, point) => sum + point.revenue, 0),
@@ -683,10 +921,15 @@ function BusDetail() {
 
   return (
     <>
-      {!busEntry ? (
+      {loading ? (
+        <div className="mx-auto max-w-7xl space-y-4 py-12 text-center">
+          <FontAwesomeIcon icon={faSpinner} className="animate-spin text-2xl text-[#2642a6]" />
+          <p className="text-sm text-[#64748b]">Loading bus details...</p>
+        </div>
+      ) : apiError && !busData ? (
         <div className="mx-auto max-w-7xl space-y-4 py-12 text-center">
           <h1 className="text-xl font-extrabold text-[#111827]">Bus Not Found</h1>
-          <p className="text-sm text-[#64748b]">The bus you are looking for does not exist.</p>
+          <p className="text-sm text-[#64748b]">{apiError}</p>
           <button
             type="button"
             onClick={() => navigate('/dashboard/buses')}
@@ -697,7 +940,7 @@ function BusDetail() {
           </button>
         </div>
       ) : (
-      <div className="mx-auto max-w-7xl space-y-3">
+      <div className="mx-auto max-w-7xl space-y-4">
             <button
               type="button"
               onClick={() => navigate('/dashboard/buses')}
@@ -709,37 +952,47 @@ function BusDetail() {
             </button>
 
             <section
-              className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
+              className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm"
               style={{ animationDelay: "80ms" }}
             >
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <img
-                    src={busImage}
-                    alt={`Bus ${busInfo.code}`}
-                    className="h-28 w-44 rounded-lg object-cover"
-                  />
+                  {getBusImage(busInfo.brand, amenities.filter(a => a.enabled).map(a => a.key)) ? (
+                    <img
+                      src={getBusImage(busInfo.brand, amenities.filter(a => a.enabled).map(a => a.key))!}
+                      alt={busInfo.brand}
+                      className="h-28 w-44 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-28 w-44 shrink-0 items-center justify-center rounded-lg bg-[#e8ecf4]">
+                      <FontAwesomeIcon icon={faBus} className="text-4xl text-[#6b7a99]" />
+                    </div>
+                  )}
                   <div>
                     <span
                       className={[
                         "inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold",
-                        busInfo.status === "Active"
+                        busInfo.status === "active"
                           ? "bg-[#e7f8eb] text-[#0f9b45]"
-                          : "bg-[#fff3d8] text-[#99680b]",
+                          : busInfo.status === "maintenance"
+                            ? "bg-[#fff3d8] text-[#99680b]"
+                            : "bg-[#f3f4f6] text-[#6b7280]",
                       ].join(" ")}
                     >
                       <span
                         className={[
                           "h-2.5 w-2.5 rounded-full",
-                          busInfo.status === "Active"
+                          busInfo.status === "active"
                             ? "animate-status-dot bg-[#0fb24a]"
-                            : "bg-[#efaf00]",
+                            : busInfo.status === "maintenance"
+                              ? "bg-[#efaf00]"
+                              : "bg-[#9ca3af]",
                         ].join(" ")}
                         aria-hidden="true"
                       />
-                      {busInfo.status}
+                      {busInfo.status.charAt(0).toUpperCase() + busInfo.status.slice(1)}
                     </span>
-                    <h1 className="mt-1 text-base font-extrabold tracking-tight text-[#1f2737]">
+                    <h1 className="mt-1 text-lg font-extrabold tracking-tight text-[#1f2737]">
                       {busInfo.code}
                     </h1>
                     <p className="mt-1 text-sm text-[#5d677e]">
@@ -772,7 +1025,7 @@ function BusDetail() {
                       icon={faScrewdriverWrench}
                       className="mr-2"
                     />
-                    {busInfo.status === "Maintenance"
+                    {busInfo.status === "maintenance"
                       ? "Mark Active"
                       : "Maintenance"}
                   </button>
@@ -820,25 +1073,23 @@ function BusDetail() {
                       className="text-[#6f7788]"
                     />
                   </div>
-                  <div className="space-y-3 text-[15px]">
+                  <div className="space-y-2 text-sm">
                     {[
                       ["Brand", busInfo.brand],
-                      ["Condition", busInfo.condition],
-                      ["Type", busInfo.type],
-                      ["Insurance Exp", busInfo.insuranceExp],
+                      ["Condition", busInfo.condition ? busInfo.condition.replace(/_/g, " ") : "—"],
+                      ["Type", busInfo.type ? busInfo.type.replace(/_/g, " ") : "—"],
+                      ["Registration", busInfo.registrationNumber || "—"],
+                      ["Route", busInfo.routeName || "Not assigned"],
+                      ["Start Time", busInfo.startTime || "—"],
+                      ["End Time", busInfo.endTime || "—"],
+                      ["Insurance Exp", busInfo.insuranceExp || "—"],
                     ].map(([key, value]) => (
                       <div
                         key={key}
-                        className="flex justify-between border-b border-[#eceef4] pb-2 last:border-0 last:pb-0"
+                        className="flex items-start justify-between gap-3 border-b border-[#eceef4] pb-1.5 last:border-0 last:pb-0"
                       >
-                        <span className="text-[#7b8394]">{key}</span>
-                        <span
-                          className={
-                            value === "Nov 2026"
-                              ? "font-semibold text-[#ef6700]"
-                              : "font-semibold text-[#2c3448]"
-                          }
-                        >
+                        <span className="shrink-0 text-[#7b8394]">{key}</span>
+                        <span className="min-w-0 break-words text-right font-semibold text-[#2c3448] capitalize">
                           {value}
                         </span>
                       </div>
@@ -906,21 +1157,17 @@ function BusDetail() {
                   className="dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm"
                   style={{ animationDelay: "210ms" }}
                 >
-                  <img
-                    src={mapImage}
-                    alt="Map showing the current bus location"
-                    className="h-40 w-full object-cover"
-                  />
+                  <BusLocationMap locationName={busInfo.routeName ? busInfo.routeName.split(" to ")[0] : "Colombo"} />
                   <div className="flex items-end justify-between p-4">
                     <div>
                       <p className="text-sm font-semibold text-[#8a93a4]">
                         Current Location
                       </p>
                       <p className="text-sm font-bold text-[#232c3f]">
-                        NH44, Near Electronic City
+                        {busInfo.routeName ? busInfo.routeName.split(" to ")[0] : "Not assigned"}
                       </p>
                       <p className="text-sm text-[#8a93a4]">
-                        Last updated: 2 min ago
+                        Start location
                       </p>
                     </div>
                     <FontAwesomeIcon
@@ -949,9 +1196,9 @@ function BusDetail() {
                   <div className="grid grid-cols-2 gap-2">
                     {amenities.map((amenity) => (
                       <div
-                        key={amenity.name}
+                        key={amenity.key}
                         className={[
-                          "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition duration-200 hover:-translate-y-0.5",
+                          "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition duration-200 hover:-translate-y-0.5",
                           amenity.enabled
                             ? "border-[#e5e8f0] bg-[#f2f4f8] text-[#3a4255]"
                             : "border-[#eceff5] bg-[#f7f8fb] text-[#9fa7b7]",
@@ -1127,18 +1374,16 @@ function BusDetail() {
                         {visibleScheduleItems.map((item) => (
                           <div
                             key={`${item.time}-${item.route}`}
-                            className={
-                              item.highlighted
-                                ? "border-l-2 border-[#2642a6] pl-4"
-                                : "border-l-2 border-[#d0d5e0] pl-4"
-                            }
+                            className={[
+                              "border-l-2 pl-4",
+                              item.highlighted ? "border-[#2642a6]" : "border-[#d0d5e0]",
+                            ].join(" ")}
                           >
                             <p
-                              className={
-                                item.highlighted
-                                  ? "text-sm font-bold text-[#2642a6]"
-                                  : "text-sm font-bold text-[#6e7587]"
-                              }
+                              className={[
+                                "text-sm font-bold",
+                                item.highlighted ? "text-[#2642a6]" : "text-[#6e7587]",
+                              ].join(" ")}
                             >
                               {item.time}
                             </p>
@@ -1352,7 +1597,6 @@ function BusDetail() {
       )}
 
       {isAmenityModalOpen ? (
-        // Amenity editor modal works on draft values until Save Changes is clicked.
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
             <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
@@ -1377,7 +1621,7 @@ function BusDetail() {
             <div className="space-y-3 px-6 py-5">
               {amenityDraft.map((amenity) => (
                 <label
-                  key={amenity.name}
+                  key={amenity.key}
                   className="flex cursor-pointer items-center justify-between rounded-lg border border-[#e3e7f0] bg-[#f9fafd] px-4 py-3"
                 >
                   <span className="flex items-center gap-3 text-sm font-semibold text-[#2f394d]">
@@ -1387,7 +1631,7 @@ function BusDetail() {
                   <input
                     type="checkbox"
                     checked={amenity.enabled}
-                    onChange={() => handleAmenityToggle(amenity.name)}
+                    onChange={() => handleAmenityToggle(amenity.key)}
                     className="h-4 w-4 rounded border-[#d1d8e5] text-[#2642a6] focus:ring-[#2642a6]"
                   />
                 </label>
@@ -1415,7 +1659,6 @@ function BusDetail() {
       ) : null}
 
       {isDriverModalOpen ? (
-        // Driver editor modal keeps form edits isolated from main UI state.
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
             <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
@@ -1438,71 +1681,29 @@ function BusDetail() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2">
-              <div>
-                <label
-                  htmlFor="driver-name"
-                  className="mb-1 block text-sm font-semibold text-[#45516b]"
-                >
-                  Driver Name
-                </label>
-                <input
-                  id="driver-name"
-                  value={driverDraft.name}
-                  onChange={(event) =>
-                    handleDriverNameChange(event.target.value)
-                  }
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="driver-id"
-                  className="mb-1 block text-sm font-semibold text-[#45516b]"
-                >
-                  Driver ID
-                </label>
-                <input
-                  id="driver-id"
-                  value={driverDraft.id}
-                  readOnly
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#eef1f7] px-3 text-sm text-[#6a7284] outline-none"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="driver-phone"
-                  className="mb-1 block text-sm font-semibold text-[#45516b]"
-                >
-                  Phone
-                </label>
-                <input
-                  id="driver-phone"
-                  value={driverDraft.phone}
-                  onChange={(event) =>
-                    setDriverDraft((prev) => ({
-                      ...prev,
-                      phone: event.target.value,
-                    }))
-                  }
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                />
-              </div>
-              <div>
-                <p className="mb-1 block text-sm font-semibold text-[#45516b]">
-                  Rating
-                </p>
-                <div className="flex h-11 w-full items-center rounded-lg border border-[#d7dde9] bg-[#eef1f7] px-3 text-sm text-[#6a7284]">
-                  {driverDraft.rating} (auto-calculated)
-                </div>
-              </div>
               <div className="md:col-span-2">
-                <p className="mb-1 block text-sm font-semibold text-[#45516b]">
-                  Trips
-                </p>
-                <div className="flex h-11 w-full items-center rounded-lg border border-[#d7dde9] bg-[#eef1f7] px-3 text-sm text-[#6a7284]">
-                  {driverDraft.trips} (auto-calculated)
-                </div>
+                <label htmlFor="driver-select" className="mb-1 block text-sm font-semibold text-[#45516b]">Select Driver</label>
+                <select id="driver-select" value={driverDraft.id}
+                  onChange={(e) => handleDriverSelect(e.target.value)}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none">
+                  <option value="">-- Select a driver --</option>
+                  {driverOptions.map((d) => (
+                    <option key={d.driverId} value={d.driverId}>{d.name} (ID: {d.driverId})</option>
+                  ))}
+                </select>
               </div>
+              {driverDraft.id ? (
+                <>
+                  <div>
+                    <p className="mb-1 block text-sm font-semibold text-[#45516b]">Driver Name</p>
+                    <div className="flex h-11 w-full items-center rounded-lg border border-[#d7dde9] bg-[#eef1f7] px-3 text-sm text-[#6a7284]">{driverDraft.name}</div>
+                  </div>
+                  <div>
+                    <p className="mb-1 block text-sm font-semibold text-[#45516b]">Driver ID</p>
+                    <div className="flex h-11 w-full items-center rounded-lg border border-[#d7dde9] bg-[#eef1f7] px-3 text-sm text-[#6a7284]">{driverDraft.id}</div>
+                  </div>
+                </>
+              ) : null}
             </div>
 
             <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-6 py-4">
@@ -1534,7 +1735,6 @@ function BusDetail() {
       ) : null}
 
       {isEditBusModalOpen ? (
-        // Bus profile editor modal follows the same draft -> save pattern.
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
             <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
@@ -1558,121 +1758,111 @@ function BusDetail() {
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
+            <div className="max-h-[70vh] overflow-y-auto">
             <div className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2">
+              {/* Bus Number */}
               <div>
-                <label
-                  htmlFor="bus-code"
-                  className="mb-1 block text-sm font-semibold text-[#45516b]"
-                >
-                  Bus Number
-                </label>
-                <input
-                  id="bus-code"
-                  value={busDraft.code}
-                  onChange={(event) =>
-                    setBusDraft((prev) => ({
-                      ...prev,
-                      code: event.target.value,
-                    }))
-                  }
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                />
+                <label htmlFor="bus-code" className="mb-1 block text-sm font-semibold text-[#45516b]">Bus Number</label>
+                <input id="bus-code" value={busDraft.code}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, code: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
               </div>
+              {/* Registration Number */}
               <div>
-                <label
-                  htmlFor="bus-seats"
-                  className="mb-1 block text-sm font-semibold text-[#45516b]"
-                >
-                  Seats
-                </label>
-                <input
-                  id="bus-seats"
-                  value={busDraft.seats}
-                  onChange={(event) =>
-                    setBusDraft((prev) => ({
-                      ...prev,
-                      seats: event.target.value,
-                    }))
-                  }
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                />
+                <label htmlFor="bus-reg" className="mb-1 block text-sm font-semibold text-[#45516b]">Registration Number</label>
+                <input id="bus-reg" value={busDraft.registrationNumber}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, registrationNumber: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
               </div>
+              {/* Seats */}
               <div>
-                <label
-                  htmlFor="bus-brand"
-                  className="mb-1 block text-sm font-semibold text-[#45516b]"
-                >
-                  Brand
-                </label>
-                <input
-                  id="bus-brand"
-                  value={busDraft.brand}
-                  onChange={(event) =>
-                    setBusDraft((prev) => ({
-                      ...prev,
-                      brand: event.target.value,
-                    }))
-                  }
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                />
+                <label htmlFor="bus-seats" className="mb-1 block text-sm font-semibold text-[#45516b]">Seats</label>
+                <input id="bus-seats" value={busDraft.seats}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, seats: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
               </div>
+              {/* Brand */}
               <div>
-                <label
-                  htmlFor="bus-condition"
-                  className="mb-1 block text-sm font-semibold text-[#45516b]"
-                >
-                  Condition
-                </label>
-                <input
-                  id="bus-condition"
-                  value={busDraft.condition}
-                  onChange={(event) =>
-                    setBusDraft((prev) => ({
-                      ...prev,
-                      condition: event.target.value,
-                    }))
-                  }
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                />
+                <label htmlFor="bus-brand" className="mb-1 block text-sm font-semibold text-[#45516b]">Brand</label>
+                <input id="bus-brand" value={busDraft.brand}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, brand: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
               </div>
+              {/* Bus Condition — dropdown with DB ENUM values */}
               <div>
-                <label
-                  htmlFor="bus-type"
-                  className="mb-1 block text-sm font-semibold text-[#45516b]"
-                >
-                  Type
-                </label>
-                <input
-                  id="bus-type"
-                  value={busDraft.type}
-                  onChange={(event) =>
-                    setBusDraft((prev) => ({
-                      ...prev,
-                      type: event.target.value,
-                    }))
-                  }
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                />
+                <label htmlFor="bus-condition" className="mb-1 block text-sm font-semibold text-[#45516b]">Condition</label>
+                <select id="bus-condition" value={busDraft.condition}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, condition: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none">
+                  <option value="">Select condition</option>
+                  <option value="excellent">Excellent</option>
+                  <option value="good">Good</option>
+                  <option value="fair">Fair</option>
+                  <option value="needs_maintenance">Needs Maintenance</option>
+                </select>
               </div>
+              {/* Bus Type — dropdown with DB ENUM values */}
               <div>
-                <label
-                  htmlFor="bus-insurance"
-                  className="mb-1 block text-sm font-semibold text-[#45516b]"
-                >
-                  Insurance Exp
-                </label>
-                <input
-                  id="bus-insurance"
-                  value={busDraft.insuranceExp}
-                  onChange={(event) =>
-                    setBusDraft((prev) => ({
-                      ...prev,
-                      insuranceExp: event.target.value,
-                    }))
-                  }
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
-                />
+                <label htmlFor="bus-type" className="mb-1 block text-sm font-semibold text-[#45516b]">Type</label>
+                <select id="bus-type" value={busDraft.type}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, type: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none">
+                  <option value="">Select type</option>
+                  <option value="highway">Highway</option>
+                  <option value="long_distance">Long Distance</option>
+                  <option value="trip_booking">Trip Booking</option>
+                  <option value="corporate">Corporate</option>
+                </select>
               </div>
+              {/* Status */}
+              <div>
+                <label htmlFor="bus-status" className="mb-1 block text-sm font-semibold text-[#45516b]">Status</label>
+                <select id="bus-status" value={busDraft.status}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, status: e.target.value as BusInfo["status"] }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none">
+                  <option value="active">Active</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              {/* Route */}
+              <div>
+                <label htmlFor="bus-route" className="mb-1 block text-sm font-semibold text-[#45516b]">Route</label>
+                <select id="bus-route" value={busDraft.routeId ?? ""}
+                  onChange={(e) => {
+                    const rid = e.target.value ? Number(e.target.value) : null;
+                    const rName = routeOptions.find((r) => r.routeId === rid)?.routeName ?? "";
+                    setBusDraft((p) => ({ ...p, routeId: rid, routeName: rName }));
+                  }}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none">
+                  <option value="">No route assigned</option>
+                  {routeOptions.map((r) => (
+                    <option key={r.routeId} value={r.routeId}>{r.routeName}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Start Time */}
+              <div>
+                <label htmlFor="bus-start-time" className="mb-1 block text-sm font-semibold text-[#45516b]">Start Time</label>
+                <input id="bus-start-time" type="time" value={busDraft.startTime}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, startTime: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+              </div>
+              {/* End Time */}
+              <div>
+                <label htmlFor="bus-end-time" className="mb-1 block text-sm font-semibold text-[#45516b]">End Time</label>
+                <input id="bus-end-time" type="time" value={busDraft.endTime}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, endTime: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+              </div>
+              {/* Insurance Expiry Date */}
+              <div>
+                <label htmlFor="bus-insurance" className="mb-1 block text-sm font-semibold text-[#45516b]">Insurance Expiry</label>
+                <input id="bus-insurance" type="date" value={busDraft.insuranceExp}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, insuranceExp: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+              </div>
+            </div>
             </div>
             <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-6 py-4">
               {busFormError ? (
@@ -2016,12 +2206,28 @@ function BusDetail() {
                       <button
                         type="button"
                         onClick={() => {
-                          setIsEditLayoutModalOpen(false);
-                          setIsEditBusModalOpen(true);
+                          // Save seat layout to API
+                          const numericId = Number(busId);
+                          const rows = buildSeatLayoutRows(layoutConfig);
+                          const apiRows: ApiSeatLayoutRow[] = rows.map((row, idx) => ({
+                            rowNum: idx + 1,
+                            left: row.left,
+                            right: row.right ?? [],
+                            lastRow: row.lastRow ?? null,
+                          }));
+                          setSaving(true);
+                          saveSeatLayoutApi(numericId, { rows: apiRows })
+                            .then(() => {
+                              setIsEditLayoutModalOpen(false);
+                              setIsEditBusModalOpen(true);
+                            })
+                            .catch((e) => setLayoutConfigError(e.message))
+                            .finally(() => setSaving(false));
                         }}
+                        disabled={saving}
                         className="rounded-lg bg-[#1474f2] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#1268d8]"
                       >
-                        Save Layout
+                        {saving ? "Saving..." : "Save Layout"}
                       </button>
                     </div>
                   </div>
@@ -2033,7 +2239,6 @@ function BusDetail() {
       ) : null}
 
       {isDeleteModalOpen ? (
-        // Delete confirmation is intentionally non-destructive for this demo flow.
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-md rounded-2xl border border-[#f0d6d6] bg-[#fff7f7] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
             <div className="border-b border-[#efdcdc] px-6 py-4">

@@ -46,6 +46,8 @@ export default function BusDetailsScreen() {
     to?: string;
     date?: string;
     price?: string;
+    adults?: string;
+    children?: string;
   }>();
 
   const busId = Number(params.busId ?? '0');
@@ -53,6 +55,8 @@ export default function BusDetailsScreen() {
   const to = params.to ?? 'Kandy';
   const date = params.date ?? new Date().toISOString().split('T')[0];
   const price = params.price ?? '0';
+  const adults = params.adults ?? '1';
+  const children = params.children ?? '0';
 
   const [details, setDetails] = useState<BusDetailResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,7 +207,24 @@ export default function BusDetailsScreen() {
           </View>
           <View style={styles.vehicleFooter}>
             <Text style={styles.layoutText}>Layout: 2+2 ({details.seatCapacity} Seats)</Text>
-            <Pressable>
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/booking/seat-selection',
+                  params: {
+                    busId: String(details.busId),
+                    from,
+                    to,
+                    date,
+                    busType: details.busType,
+                    depart: details.startTime,
+                    price,
+                    busBrand: details.busBrand,
+                    amenities: JSON.stringify(details.amenities),
+                    viewOnly: 'true',
+                  },
+                })
+              }>
               <Text style={styles.viewLayout}>View Layout</Text>
             </Pressable>
           </View>
@@ -242,6 +263,8 @@ export default function BusDetailsScreen() {
                 busType: details.busType,
                 depart: details.startTime,
                 price,
+                adults,
+                children,
                 busBrand: details.busBrand,
                 amenities: JSON.stringify(details.amenities),
               },

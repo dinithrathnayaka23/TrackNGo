@@ -217,6 +217,14 @@ public class BookingFlowService {
     }
 
     /* ═══════════════════════════════════════════════════════════
+       4b. Blocked seats for a bus
+       ═══════════════════════════════════════════════════════════ */
+    public List<String> getBlockedSeats(Long busId) {
+        String sql = "SELECT seat_label FROM seat_layout WHERE bus_id = ? AND blocked = true";
+        return jdbc.queryForList(sql, String.class, busId);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
        5. Create booking + payment (transactional)
        ═══════════════════════════════════════════════════════════ */
     @Transactional

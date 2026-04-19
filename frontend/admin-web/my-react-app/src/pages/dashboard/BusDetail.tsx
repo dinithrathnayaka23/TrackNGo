@@ -2215,8 +2215,20 @@ function BusDetail() {
                             right: row.right ?? [],
                             lastRow: row.lastRow ?? null,
                           }));
+
+                          // Map blocked numeric IDs to seat labels
+                          const allLabels: string[] = [];
+                          for (const row of rows) {
+                            for (const l of row.left) allLabels.push(l);
+                            if (row.right) for (const r of row.right) allLabels.push(r);
+                            if (row.lastRow) for (const lr of row.lastRow) allLabels.push(lr);
+                          }
+                          const blockedLabels = Array.from(blockedSeats)
+                            .filter((id) => id >= 1 && id <= allLabels.length)
+                            .map((id) => allLabels[id - 1]);
+
                           setSaving(true);
-                          saveSeatLayoutApi(numericId, { rows: apiRows })
+                          saveSeatLayoutApi(numericId, { rows: apiRows, blockedSeats: blockedLabels })
                             .then(() => {
                               setIsEditLayoutModalOpen(false);
                               setIsEditBusModalOpen(true);

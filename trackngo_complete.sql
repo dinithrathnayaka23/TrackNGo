@@ -173,6 +173,7 @@ CREATE TABLE seat_layout (
     row_num INT NOT NULL,
     position_group VARCHAR(10) NOT NULL COMMENT 'left, right, back',
     position_index INT NOT NULL,
+    blocked BOOLEAN NOT NULL DEFAULT FALSE,
 
     FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE CASCADE,
     UNIQUE KEY unique_bus_seat (bus_id, seat_label),

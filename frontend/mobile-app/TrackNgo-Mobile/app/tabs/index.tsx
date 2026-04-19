@@ -242,7 +242,7 @@ export default function HomeScreen() {
 
     try {
       setLoadingRecent(true);
-      const data = await getRecentUpcomingBookings();
+      const data = await getRecentUpcomingBookings(currentUser.userId);
       setNow(new Date());
       setRecentBookings(data.map(toDashboardRecentBooking));
     } catch (error) {

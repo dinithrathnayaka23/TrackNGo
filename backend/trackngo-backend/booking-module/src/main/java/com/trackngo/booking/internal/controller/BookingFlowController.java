@@ -50,6 +50,12 @@ public class BookingFlowController {
         return ApiResponse.ok("Booked seats", booked);
     }
 
+    @GetMapping("/buses/{busId}/blocked-seats")
+    public ApiResponse<List<String>> getBlockedSeats(@PathVariable Long busId) {
+        List<String> blocked = service.getBlockedSeats(busId);
+        return ApiResponse.ok("Blocked seats", blocked);
+    }
+
     @PostMapping("/bookings")
     public ApiResponse<BookingConfirmationResult> createBooking(
             @RequestBody @Valid CreateBookingRequest request

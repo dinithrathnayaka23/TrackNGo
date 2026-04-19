@@ -77,7 +77,8 @@ public final class AdminBusDtos {
 
     /* ── Save seat layout request ─────────────────────────── */
     public record SaveSeatLayoutRequest(
-            List<SeatLayoutRow> rows
+            List<SeatLayoutRow> rows,
+            List<String> blockedSeats
     ) {}
 
     /* ── Simple dropdown items ────────────────────────────── */

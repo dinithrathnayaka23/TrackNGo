@@ -127,6 +127,15 @@ export async function getBookedSeats(
   return res.data ?? [];
 }
 
+export async function getBlockedSeats(
+  busId: number,
+): Promise<string[]> {
+  const res = await httpGet<ApiResponse<string[]>>(
+    `/api/booking-flow/buses/${busId}/blocked-seats`,
+  );
+  return res.data ?? [];
+}
+
 export async function createBooking(
   request: CreateBookingRequest,
 ): Promise<BookingConfirmation> {

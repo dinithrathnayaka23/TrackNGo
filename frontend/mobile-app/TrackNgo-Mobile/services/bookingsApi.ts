@@ -38,31 +38,31 @@ async function authHeaders(): Promise<Record<string, string> | undefined> {
   return token ? { Authorization: `Bearer ${token}` } : undefined;
 }
 
-export async function getRecentUpcomingBookings(): Promise<RecentBookingDto[]> {
+export async function getRecentUpcomingBookings(userId: number): Promise<RecentBookingDto[]> {
   const headers = await authHeaders();
   const res = await httpGet<ApiResponse<RecentBookingDto[]>>(
     "/api/bookings/recent",
-    undefined,
+    { userId },
     headers,
   );
   return res.data ?? [];
 }
 
-export async function getUpcomingBookings(): Promise<BookingHistoryDto[]> {
+export async function getUpcomingBookings(userId: number): Promise<BookingHistoryDto[]> {
   const headers = await authHeaders();
   const res = await httpGet<ApiResponse<BookingHistoryDto[]>>(
     "/api/bookings/upcoming",
-    undefined,
+    { userId },
     headers,
   );
   return res.data ?? [];
 }
 
-export async function getPastBookings(): Promise<BookingHistoryDto[]> {
+export async function getPastBookings(userId: number): Promise<BookingHistoryDto[]> {
   const headers = await authHeaders();
   const res = await httpGet<ApiResponse<BookingHistoryDto[]>>(
     "/api/bookings/past",
-    undefined,
+    { userId },
     headers,
   );
   return res.data ?? [];

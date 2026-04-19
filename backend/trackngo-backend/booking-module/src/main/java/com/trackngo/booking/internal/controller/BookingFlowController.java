@@ -30,8 +30,12 @@ public class BookingFlowController {
     }
 
     @GetMapping("/buses/{busId}/details")
-    public ApiResponse<BusDetailResult> getBusDetails(@PathVariable Long busId) {
-        BusDetailResult detail = service.getBusDetails(busId);
+    public ApiResponse<BusDetailResult> getBusDetails(
+            @PathVariable Long busId,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to
+    ) {
+        BusDetailResult detail = service.getBusDetails(busId, from, to);
         return ApiResponse.ok("Bus details", detail);
     }
 

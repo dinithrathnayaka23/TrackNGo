@@ -31,24 +31,41 @@ public class BookingFlowService {
 
     /* ═══════════════════════════════════════════════════════════
        1. Search buses by from / to / date
+       Matches buses whose route contains BOTH the from-stop and
+       to-stop (from must come before to in stop priority).
+       Fare is calculated proportionally by distance between stops.
        ═══════════════════════════════════════════════════════════ */
     public List<BusSearchResult> searchBuses(String from, String to, String date, String busCategory) {
         boolean filterCategory = busCategory != null && !busCategory.isBlank();
+
+        // Find buses on routes that contain both from-stop and to-stop
+        // with from-stop having a lower priority (earlier on the route)
         String sql = """
             SELECT b.bus_id, b.bus_number, b.bus_type, b.bus_brand,
                    b.start_time, b.end_time, b.seat_capacity, b.amenities,
-                   r.fee, r.route_id, r.route_name,
+                   r.fee AS route_fee, r.route_id, r.route_name,
+                   r.start_location, r.end_location,
+                   r.est_distance_difference AS total_distance,
+                   rs_from.distance_from_start AS from_distance,
+                   rs_to.distance_from_start   AS to_distance,
+                   rs_from.name                AS from_stop_name,
+                   rs_to.name                  AS to_stop_name,
+                   rs_from.estimated_arrival_mins AS from_arrival_mins,
+                   rs_to.estimated_arrival_mins   AS to_arrival_mins,
                    d.average_rating,
                    CONCAT(u.first_name, ' ', u.last_name) AS driver_name
             FROM bus b
             JOIN route r ON b.route_id = r.route_id
+            JOIN route_stop rs_from ON rs_from.route_id = r.route_id
+                                    AND LOWER(rs_from.name) LIKE ?
+            JOIN route_stop rs_to   ON rs_to.route_id   = r.route_id
+                                    AND LOWER(rs_to.name) LIKE ?
             LEFT JOIN driver d ON b.driver_id = d.driver_id
             LEFT JOIN `user` u ON d.driver_id = u.user_id
-            WHERE LOWER(r.start_location) LIKE ?
-              AND LOWER(r.end_location) LIKE ?
+            WHERE rs_from.priority < rs_to.priority
               AND b.status = 'active'
               AND r.is_active = 1
-            """ + (filterCategory ? "  AND b.bus_type = ?\n" : "") + """
+            """ + (filterCategory ? "  AND LOWER(b.bus_type) = ?\n" : "") + """
             ORDER BY b.start_time
             """;
 
@@ -69,19 +86,35 @@ public class BookingFlowService {
 
             List<String> amenities = parseAmenities(row.get("amenities"));
 
+            // Calculate proportional fare based on distance between stops
+            BigDecimal fee = calculateSegmentFare(row);
+
+            // Calculate stop-specific times based on bus start_time + estimated_arrival_mins
+            LocalTime busStart = toLocalTime(row.get("start_time"));
+            int fromMins = row.get("from_arrival_mins") != null
+                    ? ((Number) row.get("from_arrival_mins")).intValue() : 0;
+            int toMins = row.get("to_arrival_mins") != null
+                    ? ((Number) row.get("to_arrival_mins")).intValue() : 0;
+            String fromTime = busStart.plusMinutes(fromMins).format(DateTimeFormatter.ofPattern("HH:mm"));
+            String toTime = busStart.plusMinutes(toMins).format(DateTimeFormatter.ofPattern("HH:mm"));
+
+            // Build route label e.g. "Colombo Fort - Kandy"
+            String routeName = ((String) row.get("start_location")) + " - " + ((String) row.get("end_location"));
+
             results.add(new BusSearchResult(
                     busId,
                     (String) row.get("bus_number"),
                     (String) row.get("bus_type"),
                     (String) row.get("bus_brand"),
-                    formatTime(row.get("start_time")),
-                    formatTime(row.get("end_time")),
+                    fromTime,
+                    toTime,
                     capacity,
                     available,
                     amenities,
-                    toBigDecimal(row.get("fee")),
+                    fee,
                     (String) row.get("driver_name"),
-                    toDouble(row.get("average_rating"))
+                    toDouble(row.get("average_rating")),
+                    routeName
             ));
         }
         return results;
@@ -90,11 +123,11 @@ public class BookingFlowService {
     /* ═══════════════════════════════════════════════════════════
        2. Bus details (route stops, driver, amenities)
        ═══════════════════════════════════════════════════════════ */
-    public BusDetailResult getBusDetails(Long busId) {
+    public BusDetailResult getBusDetails(Long busId, String fromStop, String toStop) {
         String busSql = """
             SELECT b.bus_id, b.bus_number, b.bus_type, b.bus_brand,
                    b.start_time, b.end_time, b.seat_capacity, b.amenities,
-                   r.fee, r.route_id, r.route_name,
+                   r.fee, r.route_id, r.route_name, r.est_distance_difference,
                    d.average_rating, d.phone_number AS driver_phone, d.profile_photo,
                    CONCAT(u.first_name, ' ', u.last_name) AS driver_name
             FROM bus b
@@ -131,16 +164,39 @@ public class BookingFlowService {
             ));
         }
 
+        // Calculate segment-based fare if from/to stops are provided
+        BigDecimal fee = toBigDecimal(row.get("fee"));
+        String displayStartTime = formatTime(row.get("start_time"));
+        String displayEndTime = formatTime(row.get("end_time"));
+
+        if (fromStop != null && !fromStop.isBlank() && toStop != null && !toStop.isBlank()) {
+            fee = calculateSegmentFareForRoute(routeId, fee,
+                    toBigDecimal(row.get("est_distance_difference")), fromStop, toStop);
+
+            // Find stop-specific times from the loaded stops
+            String fromLower = fromStop.trim().toLowerCase();
+            String toLower = toStop.trim().toLowerCase();
+            for (BusDetailResult.RouteStopInfo stop : stops) {
+                if (stop.name().toLowerCase().contains(fromLower)) {
+                    // Convert "hh:mm a" (12-hr) to "HH:mm" (24-hr) for consistency
+                    displayStartTime = convertTo24Hr(stop.estimatedTime());
+                }
+                if (stop.name().toLowerCase().contains(toLower)) {
+                    displayEndTime = convertTo24Hr(stop.estimatedTime());
+                }
+            }
+        }
+
         return new BusDetailResult(
                 busId,
                 (String) row.get("bus_number"),
                 (String) row.get("bus_type"),
                 (String) row.get("bus_brand"),
-                formatTime(row.get("start_time")),
-                formatTime(row.get("end_time")),
+                displayStartTime,
+                displayEndTime,
                 ((Number) row.get("seat_capacity")).intValue(),
                 parseAmenities(row.get("amenities")),
-                toBigDecimal(row.get("fee")),
+                fee,
                 (String) row.get("route_name"),
                 stops,
                 row.get("driver_name") != null
@@ -344,6 +400,59 @@ public class BookingFlowService {
        HELPERS
        ═══════════════════════════════════════════════════════════ */
 
+    /**
+     * Calculate proportional fare from a search result row that already
+     * contains from_distance, to_distance, total_distance, and route_fee.
+     */
+    private BigDecimal calculateSegmentFare(Map<String, Object> row) {
+        BigDecimal routeFee = toBigDecimal(row.get("route_fee"));
+        BigDecimal totalDistance = toBigDecimal(row.get("total_distance"));
+        BigDecimal fromDist = toBigDecimal(row.get("from_distance"));
+        BigDecimal toDist = toBigDecimal(row.get("to_distance"));
+
+        if (totalDistance.compareTo(BigDecimal.ZERO) <= 0) return routeFee;
+
+        BigDecimal segmentDistance = toDist.subtract(fromDist);
+        if (segmentDistance.compareTo(BigDecimal.ZERO) <= 0) return routeFee;
+
+        return segmentDistance
+                .divide(totalDistance, 10, java.math.RoundingMode.HALF_UP)
+                .multiply(routeFee)
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Calculate proportional fare for a given route by looking up from/to stop distances.
+     */
+    private BigDecimal calculateSegmentFareForRoute(Long routeId, BigDecimal routeFee,
+                                                     BigDecimal totalDistance,
+                                                     String fromStop, String toStop) {
+        String distSql = """
+            SELECT name, distance_from_start FROM route_stop
+            WHERE route_id = ? AND (LOWER(name) LIKE ? OR LOWER(name) LIKE ?)
+            ORDER BY priority
+            """;
+        String fromPattern = "%" + fromStop.trim().toLowerCase() + "%";
+        String toPattern = "%" + toStop.trim().toLowerCase() + "%";
+
+        List<Map<String, Object>> distRows = jdbc.queryForList(distSql, routeId, fromPattern, toPattern);
+
+        if (distRows.size() < 2 || totalDistance.compareTo(BigDecimal.ZERO) <= 0) {
+            return routeFee;
+        }
+
+        BigDecimal fromDist = toBigDecimal(distRows.get(0).get("distance_from_start"));
+        BigDecimal toDist = toBigDecimal(distRows.get(distRows.size() - 1).get("distance_from_start"));
+        BigDecimal segmentDistance = toDist.subtract(fromDist);
+
+        if (segmentDistance.compareTo(BigDecimal.ZERO) <= 0) return routeFee;
+
+        return segmentDistance
+                .divide(totalDistance, 10, java.math.RoundingMode.HALF_UP)
+                .multiply(routeFee)
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
     private int countBookedSeats(Long busId, String date) {
         String sql = "SELECT COALESCE(SUM(LENGTH(seat_number) - LENGTH(REPLACE(seat_number, ',', '')) + 1), 0) " +
                      "FROM seat_booking WHERE bus_id = ? AND journey_date = ? AND status != 'cancelled'";
@@ -406,6 +515,16 @@ public class BookingFlowService {
             return lt.format(DateTimeFormatter.ofPattern("HH:mm"));
         }
         return timeObj.toString();
+    }
+
+    /** Convert "hh:mm a" (12-hr) to "HH:mm" (24-hr) */
+    private String convertTo24Hr(String time12) {
+        try {
+            LocalTime lt = LocalTime.parse(time12.trim(), DateTimeFormatter.ofPattern("hh:mm a"));
+            return lt.format(DateTimeFormatter.ofPattern("HH:mm"));
+        } catch (Exception e) {
+            return time12; // return as-is if parsing fails
+        }
     }
 
     private LocalTime toLocalTime(Object timeObj) {

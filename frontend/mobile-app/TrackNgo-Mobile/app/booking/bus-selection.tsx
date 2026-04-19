@@ -165,6 +165,9 @@ export default function BusSelectionScreen() {
                 <View>
                   <Text style={styles.busId}>{bus.busNumber}</Text>
                   <Text style={styles.busType}>{bus.busBrand}  •  {bus.busType}</Text>
+                  {bus.routeName ? (
+                    <Text style={styles.routeLabel}>{bus.routeName} Bus</Text>
+                  ) : null}
                 </View>
               </View>
               <View style={styles.ratingPill}>
@@ -355,6 +358,12 @@ const styles = StyleSheet.create({
   busType: {
     fontSize: 10,
     color: '#94A3B8',
+  },
+  routeLabel: {
+    fontSize: 10,
+    color: '#2F6BFF',
+    fontWeight: '600',
+    marginTop: 2,
   },
   ratingPill: {
     flexDirection: 'row',

@@ -31,7 +31,8 @@ public final class BookingFlowDtos {
             List<String> amenities,
             BigDecimal fee,
             String driverName,
-            Double driverRating
+            Double driverRating,
+            String routeName
     ) {}
 
     /* ── Bus detail ───────────────────────────────────────── */

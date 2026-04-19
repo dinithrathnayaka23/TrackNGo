@@ -214,12 +214,16 @@ export default function SearchBusesScreen() {
       return;
     }
 
+    const yyyy = selectedDate.getFullYear();
+    const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(selectedDate.getDate()).padStart(2, '0');
+
     router.push({
       pathname: '/booking/bus-selection',
       params: {
         from: trimmedFrom,
         to: trimmedTo,
-        date: selectedDate.toISOString().split('T')[0],
+        date: `${yyyy}-${mm}-${dd}`,
         passengers: String(adults + children),
         adults: String(adults),
         children: String(children),
@@ -287,7 +291,7 @@ export default function SearchBusesScreen() {
             </View>
           </View>
 
-          <View style={styles.inputCard}>
+          <View style={[styles.inputCard, { zIndex: 30 }]}>
             <View style={styles.inputIcon}>
               <MaterialCommunityIcons name="target" size={18} color="#94A3B8" />
             </View>
@@ -329,9 +333,9 @@ export default function SearchBusesScreen() {
             </View>
           </View>
 
-          <View style={styles.verticalConnector} />
+          <View style={[styles.verticalConnector, { zIndex: 5 }]} />
 
-          <View style={styles.inputCard}>
+          <View style={[styles.inputCard, { zIndex: 20 }]}>
             <View style={[styles.inputIcon, styles.inputIconBlue]}>
               <Ionicons name="location" size={18} color="#2F6BFF" />
             </View>
@@ -373,7 +377,7 @@ export default function SearchBusesScreen() {
             </View>
           </View>
 
-          <View style={styles.rowCards}>
+          <View style={[styles.rowCards, { zIndex: 1 }]}>
             <Pressable style={styles.smallCard} onPress={() => setShowDatePicker(true)}>
               <Text style={styles.inputLabel}>Date</Text>
               <Text style={styles.inputValueText}>{dateLabel}</Text>
@@ -416,13 +420,13 @@ export default function SearchBusesScreen() {
           </View>
         </View>
 
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, { zIndex: 1 }]}>
           <Text style={styles.sectionTitle}>Bus Type</Text>
           <Pressable onPress={() => setBusType('AC')}>
             <Text style={styles.sectionReset}>Reset</Text>
           </Pressable>
         </View>
-        <View style={styles.pillRow}>
+        <View style={[styles.pillRow, { zIndex: 1 }]}>
           <Pressable onPress={() => setBusType('AC')}>
             <View style={[styles.typePill, busType === 'AC' && styles.typePillActive]}>
               <Ionicons name="snow" size={16} color={busType === 'AC' ? '#2F6BFF' : '#94A3B8'} />
@@ -727,6 +731,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 12,
     elevation: 2,
+    zIndex: 10,
+    overflow: 'visible',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -816,27 +822,27 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   passengerLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
   },
   passengerControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   passengerButton: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#EAF1FF',
   },
   passengerCount: {
-    minWidth: 20,
+    width: 18,
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#1F2937',
   },

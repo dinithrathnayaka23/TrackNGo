@@ -53,7 +53,7 @@ export default function BusSelectionScreen() {
 
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? new Date().toISOString().split('T')[0];
+  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const passengers = params.passengers ?? '1';
   const adults = params.adults ?? '1';
   const children = params.children ?? '0';

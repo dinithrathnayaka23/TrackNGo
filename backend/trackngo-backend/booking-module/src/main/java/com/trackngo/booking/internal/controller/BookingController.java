@@ -8,6 +8,7 @@ import com.trackngo.commons.ApiResponse;
 import com.trackngo.commons.exception.BusinessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -19,15 +20,20 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BookingController {
     private final BookingService service;
+    private final JdbcTemplate jdbc;
 
-    private String extractEmail(Authentication authentication) {
-        if (authentication == null
-                || authentication instanceof AnonymousAuthenticationToken
-                || authentication.getName() == null
-                || authentication.getName().isBlank()) {
-            throw new BusinessException("Unauthorized request");
+    private String resolveEmail(Authentication authentication, Long userId) {
+        if (authentication != null
+                && !(authentication instanceof AnonymousAuthenticationToken)
+                && authentication.getName() != null
+                && !authentication.getName().isBlank()) {
+            return authentication.getName();
         }
-        return authentication.getName();
+        if (userId != null) {
+            return jdbc.queryForObject(
+                    "SELECT email FROM `user` WHERE user_id = ?", String.class, userId);
+        }
+        throw new BusinessException("Unauthorized request");
     }
 
     @PostMapping
@@ -41,25 +47,26 @@ public class BookingController {
     }
 
     @GetMapping("/recent")
-    public ApiResponse<List<RecentBookingDto>> getRecentUpcoming(Authentication authentication) {
-        String email = extractEmail(authentication);
+    public ApiResponse<List<RecentBookingDto>> getRecentUpcoming(
+            Authentication authentication,
+            @RequestParam(required = false) Long userId) {
+        String email = resolveEmail(authentication, userId);
         return ApiResponse.ok("Fetched", service.getUpcomingForUser(email));
     }
 
     @GetMapping("/upcoming")
-    public ApiResponse<List<BookingHistoryDto>> getUpcomingBookings(Authentication authentication) {
-        String email = extractEmail(authentication);
+    public ApiResponse<List<BookingHistoryDto>> getUpcomingBookings(
+            Authentication authentication,
+            @RequestParam(required = false) Long userId) {
+        String email = resolveEmail(authentication, userId);
         return ApiResponse.ok("Fetched", service.getUpcomingBookings(email));
     }
 
     @GetMapping("/past")
-    public ApiResponse<List<BookingHistoryDto>> getPastBookings(Authentication authentication) {
-        String email = extractEmail(authentication);
-        return ApiResponse.ok("Fetched", service.getPastBookings(email
-
-    @GetMapping("/past")
-    public ApiResponse<List<BookingHistoryDto>> getPastBookings(Authentication authentication) {
-        String email = extractEmail(authentication);
+    public ApiResponse<List<BookingHistoryDto>> getPastBookings(
+            Authentication authentication,
+            @RequestParam(required = false) Long userId) {
+        String email = resolveEmail(authentication, userId);
         return ApiResponse.ok("Fetched", service.getPastBookings(email));
     }
 

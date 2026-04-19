@@ -12,9 +12,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { getSeatLayout, getBookedSeats, type SeatLayoutRow } from '../../services/bookingFlowApi';
+import { getSeatLayout, getBookedSeats, getBlockedSeats, type SeatLayoutRow } from '../../services/bookingFlowApi';
 
-type SeatStatus = 'available' | 'selected' | 'booked';
+type SeatStatus = 'available' | 'selected' | 'booked' | 'blocked';
 
 export default function SeatSelectionScreen() {
   const router = useRouter();
@@ -31,12 +31,14 @@ export default function SeatSelectionScreen() {
     children?: string;
     busBrand?: string;
     amenities?: string;
+    viewOnly?: string;
   }>();
 
   const [showAvailableOnly, setShowAvailableOnly] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [seatRows, setSeatRows] = useState<SeatLayoutRow[]>([]);
   const [bookedSeats, setBookedSeats] = useState<Set<string>>(new Set());
+  const [blockedSeatSet, setBlockedSeatSet] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   const busId = Number(params.busId ?? '0');
@@ -49,16 +51,19 @@ export default function SeatSelectionScreen() {
   const adults = Number(params.adults ?? '1') || 1;
   const children = Number(params.children ?? '0') || 0;
   const maxSeats = adults + children;
+  const viewOnly = params.viewOnly === 'true';
 
   const loadSeats = useCallback(async () => {
     try {
       setLoading(true);
-      const [layout, booked] = await Promise.all([
+      const [layout, booked, blocked] = await Promise.all([
         getSeatLayout(busId),
         getBookedSeats(busId, date),
+        getBlockedSeats(busId),
       ]);
       setSeatRows(layout);
       setBookedSeats(new Set(booked));
+      setBlockedSeatSet(new Set(blocked));
     } catch (e: any) {
       console.error('[SeatSelection] load failed', e);
       Alert.alert('Error', 'Failed to load seat layout.');
@@ -70,13 +75,14 @@ export default function SeatSelectionScreen() {
   useEffect(() => { void loadSeats(); }, [loadSeats]);
 
   const seatStatus = (seatId: string): SeatStatus => {
+    if (blockedSeatSet.has(seatId)) return 'blocked';
     if (bookedSeats.has(seatId)) return 'booked';
     if (selectedSeats.includes(seatId)) return 'selected';
     return 'available';
   };
 
   const toggleSeat = (seatId: string) => {
-    if (bookedSeats.has(seatId)) return;
+    if (bookedSeats.has(seatId) || blockedSeatSet.has(seatId)) return;
     setSelectedSeats((prev) => {
       if (prev.includes(seatId)) return prev.filter((seat) => seat !== seatId);
       if (prev.length >= maxSeats) {
@@ -144,6 +150,10 @@ export default function SeatSelectionScreen() {
               <View style={[styles.legendBox, styles.legendBooked]} />
               <Text style={styles.legendText}>Booked</Text>
             </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendBox, styles.legendBlocked]} />
+              <Text style={styles.legendText}>Blocked</Text>
+            </View>
           </View>
 
           <View style={styles.seatCard}>
@@ -168,7 +178,7 @@ export default function SeatSelectionScreen() {
                   <View key={`row-${rowIndex}`} style={styles.lastRow}>
                     {row.lastRow.map((seat) => {
                       const status = seatStatus(seat);
-                      if (showAvailableOnly && status === 'booked') {
+                      if (showAvailableOnly && (status === 'booked' || status === 'blocked')) {
                         return <View key={seat} style={styles.seatPlaceholder} />;
                       }
                       return (
@@ -179,6 +189,7 @@ export default function SeatSelectionScreen() {
                             styles.seatBox,
                             status === 'selected' && styles.seatSelected,
                             status === 'booked' && styles.seatBooked,
+                            status === 'blocked' && styles.seatBlocked,
                           ]}>
                           <Text
                             style={[
@@ -199,7 +210,7 @@ export default function SeatSelectionScreen() {
                   <View style={styles.seatGroup}>
                     {row.left.map((seat) => {
                       const status = seatStatus(seat);
-                      if (showAvailableOnly && status === 'booked') {
+                      if (showAvailableOnly && (status === 'booked' || status === 'blocked')) {
                         return <View key={seat} style={styles.seatPlaceholder} />;
                       }
                       return (
@@ -210,6 +221,7 @@ export default function SeatSelectionScreen() {
                             styles.seatBox,
                             status === 'selected' && styles.seatSelected,
                             status === 'booked' && styles.seatBooked,
+                            status === 'blocked' && styles.seatBlocked,
                           ]}>
                           <Text
                             style={[
@@ -226,7 +238,7 @@ export default function SeatSelectionScreen() {
                   <View style={styles.seatGroup}>
                     {row.right.map((seat) => {
                       const status = seatStatus(seat);
-                      if (showAvailableOnly && status === 'booked') {
+                      if (showAvailableOnly && (status === 'booked' || status === 'blocked')) {
                         return <View key={seat} style={styles.seatPlaceholder} />;
                       }
                       return (
@@ -237,6 +249,7 @@ export default function SeatSelectionScreen() {
                             styles.seatBox,
                             status === 'selected' && styles.seatSelected,
                             status === 'booked' && styles.seatBooked,
+                            status === 'blocked' && styles.seatBlocked,
                           ]}>
                           <Text
                             style={[
@@ -255,6 +268,7 @@ export default function SeatSelectionScreen() {
           </View>
         </ScrollView>
 
+        {!viewOnly && (
         <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}> 
           <View style={styles.bottomRow}>
             <View>
@@ -291,6 +305,7 @@ export default function SeatSelectionScreen() {
             <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
           </Pressable>
         </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -422,6 +437,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
     borderColor: '#EF4444',
   },
+  legendBlocked: {
+    backgroundColor: '#9CA3AF',
+    borderColor: '#9CA3AF',
+  },
   legendText: {
     fontSize: 11,
     color: '#94A3B8',
@@ -483,6 +502,10 @@ const styles = StyleSheet.create({
   seatBooked: {
     backgroundColor: '#EF4444',
     borderColor: '#EF4444',
+  },
+  seatBlocked: {
+    backgroundColor: '#9CA3AF',
+    borderColor: '#9CA3AF',
   },
   seatText: {
     fontSize: 11,

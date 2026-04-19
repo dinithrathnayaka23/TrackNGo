@@ -30,4 +30,7 @@ public class SeatLayout {
 
     @Column(name = "position_index", nullable = false)
     private int positionIndex;
+
+    @Column(name = "blocked", nullable = false)
+    private boolean blocked = false;
 }

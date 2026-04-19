@@ -43,6 +43,8 @@ export default function BusSelectionScreen() {
     to?: string;
     date?: string;
     passengers?: string;
+    adults?: string;
+    children?: string;
     busType?: string;
     timeStart?: string;
     timeEnd?: string;
@@ -53,6 +55,8 @@ export default function BusSelectionScreen() {
   const to = params.to ?? 'Kandy';
   const date = params.date ?? new Date().toISOString().split('T')[0];
   const passengers = params.passengers ?? '1';
+  const adults = params.adults ?? '1';
+  const children = params.children ?? '0';
   const busType = params.busType ?? '';
   const timeStart = params.timeStart ?? '';
   const timeEnd = params.timeEnd ?? '';
@@ -225,6 +229,8 @@ export default function BusSelectionScreen() {
                         to,
                         date,
                         price: String(bus.fee),
+                        adults,
+                        children,
                       },
                     })
                   }>

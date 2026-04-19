@@ -82,6 +82,7 @@ export type SeatLayoutRow = {
 
 export type SaveSeatLayoutRequest = {
   rows: SeatLayoutRow[];
+  blockedSeats?: string[];
 };
 
 export type DriverOption = {

@@ -720,7 +720,7 @@ export default function LiveMapScreen() {
                 {startLoc} → {endLoc}
               </Text>
             </View>
-            {isBoarded && userLocation && (
+            {userLocation && (
               <Pressable
                 style={styles.sosBtn}
                 onPress={() =>

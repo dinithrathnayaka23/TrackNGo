@@ -232,26 +232,33 @@ public class AdminBusService {
 
         if (req.rows() == null || req.rows().isEmpty()) return;
 
-        String insertSql = "INSERT INTO seat_layout (bus_id, seat_label, row_num, position_group, position_index) " +
-                           "VALUES (?, ?, ?, ?, ?)";
+        Set<String> blockedLabels = req.blockedSeats() != null
+                ? new HashSet<>(req.blockedSeats())
+                : Set.of();
+
+        String insertSql = "INSERT INTO seat_layout (bus_id, seat_label, row_num, position_group, position_index, blocked) " +
+                           "VALUES (?, ?, ?, ?, ?, ?)";
 
         int totalSeats = 0;
         for (SeatLayoutRow row : req.rows()) {
             if (row.left() != null) {
                 for (int i = 0; i < row.left().size(); i++) {
-                    jdbc.update(insertSql, busId, row.left().get(i), row.rowNum(), "left", i);
+                    String label = row.left().get(i);
+                    jdbc.update(insertSql, busId, label, row.rowNum(), "left", i, blockedLabels.contains(label));
                     totalSeats++;
                 }
             }
             if (row.right() != null) {
                 for (int i = 0; i < row.right().size(); i++) {
-                    jdbc.update(insertSql, busId, row.right().get(i), row.rowNum(), "right", i);
+                    String label = row.right().get(i);
+                    jdbc.update(insertSql, busId, label, row.rowNum(), "right", i, blockedLabels.contains(label));
                     totalSeats++;
                 }
             }
             if (row.lastRow() != null) {
                 for (int i = 0; i < row.lastRow().size(); i++) {
-                    jdbc.update(insertSql, busId, row.lastRow().get(i), row.rowNum(), "back", i);
+                    String label = row.lastRow().get(i);
+                    jdbc.update(insertSql, busId, label, row.rowNum(), "back", i, blockedLabels.contains(label));
                     totalSeats++;
                 }
             }

@@ -17,11 +17,13 @@ import {
   cancelBooking,
   type BookingHistoryDto,
 } from "../../services/bookingsApi";
+import { useSession } from "../../store/sessionStore";
 
 type Tab = "upcoming" | "past";
 
 export default function BookingHistoryScreen() {
   const router = useRouter();
+  const { currentUser } = useSession();
   const [tab, setTab] = useState<Tab>("upcoming");
   const [upcoming, setUpcoming] = useState<BookingHistoryDto[]>([]);
   const [past, setPast] = useState<BookingHistoryDto[]>([]);
@@ -30,9 +32,10 @@ export default function BookingHistoryScreen() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      const uid = currentUser?.userId ?? 0;
       const [u, p] = await Promise.all([
-        getUpcomingBookings(),
-        getPastBookings(),
+        getUpcomingBookings(uid),
+        getPastBookings(uid),
       ]);
       setUpcoming(u);
       setPast(p);

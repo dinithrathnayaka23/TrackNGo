@@ -1,6 +1,7 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  FlatList,
   Modal,
   PanResponder,
   Platform,
@@ -15,6 +16,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useSession } from '../../store/sessionStore';
+import { getUserProfile } from '../../services/userProfileApi';
+import { httpGet } from '../../services/http';
 
 const MIN_GAP = 0.08;
 
@@ -32,9 +36,10 @@ function formatTime(value: number) {
 export default function SearchBusesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { currentUser } = useSession();
   const { busCategory } = useLocalSearchParams<{ busCategory?: string }>();
-  const [from, setFrom] = useState('Colombo Fort');
-  const [to, setTo] = useState('Kandy');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [adults, setAdults] = useState(1);
@@ -45,6 +50,67 @@ export default function SearchBusesScreen() {
   const [dragging, setDragging] = useState(false);
   const sliderLeft = useRef(0);
   const sliderRef = useRef<View>(null);
+  const [displayName, setDisplayName] = useState('User');
+
+  // Autocomplete state
+  const [allStops, setAllStops] = useState<string[]>([]);
+  const [fromSuggestions, setFromSuggestions] = useState<string[]>([]);
+  const [toSuggestions, setToSuggestions] = useState<string[]>([]);
+  const [showFromSuggestions, setShowFromSuggestions] = useState(false);
+  const [showToSuggestions, setShowToSuggestions] = useState(false);
+
+  // Fetch user display name
+  useEffect(() => {
+    if (!currentUser) return;
+    getUserProfile(currentUser.userId)
+      .then((profile) => {
+        const name =
+          profile.fullName?.trim() ||
+          profile.contactPersonName?.trim() ||
+          profile.companyName?.trim() ||
+          `User ${currentUser.userId}`;
+        setDisplayName(name);
+      })
+      .catch(() => setDisplayName('User'));
+  }, [currentUser]);
+
+  // Fetch all route stops for autocomplete
+  useEffect(() => {
+    httpGet<{ success: boolean; data: { stops: string[] }[] }>('/api/routes')
+      .then((res) => {
+        const stops = new Set<string>();
+        const routes = res.data ?? [];
+        for (const route of routes) {
+          if (route.stops) {
+            for (const stop of route.stops) {
+              stops.add(stop);
+            }
+          }
+        }
+        setAllStops(Array.from(stops).sort());
+      })
+      .catch(() => {});
+  }, []);
+
+  const filterSuggestions = useCallback((text: string) => {
+    if (!text.trim()) return [];
+    const needle = text.toLowerCase().trim();
+    return allStops.filter((s) => s.toLowerCase().includes(needle)).slice(0, 8);
+  }, [allStops]);
+
+  const handleFromChange = useCallback((text: string) => {
+    setFrom(text);
+    const matches = filterSuggestions(text);
+    setFromSuggestions(matches);
+    setShowFromSuggestions(matches.length > 0 && text.length > 0);
+  }, [filterSuggestions]);
+
+  const handleToChange = useCallback((text: string) => {
+    setTo(text);
+    const matches = filterSuggestions(text);
+    setToSuggestions(matches);
+    setShowToSuggestions(matches.length > 0 && text.length > 0);
+  }, [filterSuggestions]);
 
   const rangeRef = useRef(range);
   rangeRef.current = range;
@@ -152,6 +218,8 @@ export default function SearchBusesScreen() {
         to: trimmedTo,
         date: selectedDate.toISOString().split('T')[0],
         passengers: String(adults + children),
+        adults: String(adults),
+        children: String(children),
         busType,
         timeStart: formatTime(range.start),
         timeEnd: formatTime(range.end),
@@ -168,14 +236,21 @@ export default function SearchBusesScreen() {
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         scrollEnabled={!dragging}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={22} color="#111827" />
         </Pressable>
 
         <View style={styles.greetingBlock}>
-          <Text style={styles.greetingSub}>Good Morning,</Text>
-          <Text style={styles.greetingMain}>Kamal Perera</Text>
+          <Text style={styles.greetingSub}>
+            {new Date().getHours() < 12
+              ? 'Good Morning,'
+              : new Date().getHours() < 17
+                ? 'Good Afternoon,'
+                : 'Good Evening,'}
+          </Text>
+          <Text style={styles.greetingMain}>{displayName}</Text>
         </View>
 
         <View style={styles.card}>
@@ -197,11 +272,37 @@ export default function SearchBusesScreen() {
               <Text style={styles.inputLabel}>From</Text>
               <TextInput
                 value={from}
-                onChangeText={setFrom}
-                placeholder="Colombo Fort"
+                onChangeText={handleFromChange}
+                onFocus={() => {
+                  if (from.length > 0) {
+                    const matches = filterSuggestions(from);
+                    setFromSuggestions(matches);
+                    setShowFromSuggestions(matches.length > 0);
+                  }
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowFromSuggestions(false), 300);
+                }}
+                placeholder="Search location..."
                 placeholderTextColor="#94A3B8"
                 style={styles.inputValue}
               />
+              {showFromSuggestions && (
+                <View style={styles.suggestionsContainer}>
+                  {fromSuggestions.map((item) => (
+                    <Pressable
+                      key={item}
+                      style={styles.suggestionItem}
+                      onPress={() => {
+                        setFrom(item);
+                        setShowFromSuggestions(false);
+                      }}>
+                      <Ionicons name="location-outline" size={14} color="#64748B" />
+                      <Text style={styles.suggestionText}>{item}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
 
@@ -215,11 +316,37 @@ export default function SearchBusesScreen() {
               <Text style={styles.inputLabel}>To</Text>
               <TextInput
                 value={to}
-                onChangeText={setTo}
-                placeholder="Kandy"
+                onChangeText={handleToChange}
+                onFocus={() => {
+                  if (to.length > 0) {
+                    const matches = filterSuggestions(to);
+                    setToSuggestions(matches);
+                    setShowToSuggestions(matches.length > 0);
+                  }
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowToSuggestions(false), 300);
+                }}
+                placeholder="Search location..."
                 placeholderTextColor="#94A3B8"
                 style={styles.inputValue}
               />
+              {showToSuggestions && (
+                <View style={styles.suggestionsContainer}>
+                  {toSuggestions.map((item) => (
+                    <Pressable
+                      key={item}
+                      style={styles.suggestionItem}
+                      onPress={() => {
+                        setTo(item);
+                        setShowToSuggestions(false);
+                      }}>
+                      <Ionicons name="location-outline" size={14} color="#64748B" />
+                      <Text style={styles.suggestionText}>{item}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
 
@@ -300,6 +427,34 @@ export default function SearchBusesScreen() {
           </View>
         </View>
 
+        <View style={styles.presetRow}>
+          {([
+            { label: 'Morning', start: 5 / 24, end: 12 / 24, icon: 'sunny-outline' as const },
+            { label: 'Afternoon', start: 12 / 24, end: 17 / 24, icon: 'partly-sunny-outline' as const },
+            { label: 'Evening', start: 17 / 24, end: 21 / 24, icon: 'moon-outline' as const },
+            { label: 'All Day', start: 0, end: 1, icon: 'time-outline' as const },
+          ] as const).map((preset) => {
+            const isActive =
+              Math.abs(range.start - preset.start) < 0.01 &&
+              Math.abs(range.end - preset.end) < 0.01;
+            return (
+              <Pressable
+                key={preset.label}
+                style={[styles.presetChip, isActive && styles.presetChipActive]}
+                onPress={() => setRange({ start: preset.start, end: preset.end })}>
+                <Ionicons
+                  name={preset.icon}
+                  size={13}
+                  color={isActive ? '#2F6BFF' : '#94A3B8'}
+                />
+                <Text style={[styles.presetChipText, isActive && styles.presetChipTextActive]}>
+                  {preset.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         <Pressable
           style={styles.sliderWrap}
           ref={sliderRef}
@@ -327,16 +482,30 @@ export default function SearchBusesScreen() {
               { left: startX, width: Math.max(0, endX - startX) },
             ]}
           />
+          {dragging && (
+            <View style={[styles.sliderTooltip, { left: startX - 22 }]}>
+              <Text style={styles.sliderTooltipText}>{formatTime(range.start)}</Text>
+            </View>
+          )}
+          {dragging && (
+            <View style={[styles.sliderTooltip, { left: endX - 22 }]}>
+              <Text style={styles.sliderTooltipText}>{formatTime(range.end)}</Text>
+            </View>
+          )}
           <View
-            style={[styles.sliderHandle, { left: startX - 10 }]}
+            style={[styles.sliderHandle, { left: startX - 12 }]}
             {...startPan.panHandlers}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          />
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+          >
+            <View style={styles.sliderHandleInner} />
+          </View>
           <View
-            style={[styles.sliderHandle, { left: endX - 10 }]}
+            style={[styles.sliderHandle, { left: endX - 12 }]}
             {...endPan.panHandlers}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          />
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+          >
+            <View style={styles.sliderHandleInner} />
+          </View>
         </Pressable>
 
         <View style={styles.timeMarks}>
@@ -481,6 +650,7 @@ const styles = StyleSheet.create({
   },
   inputTextBlock: {
     flex: 1,
+    zIndex: 10,
   },
   inputLabel: {
     fontSize: 11,
@@ -603,8 +773,9 @@ const styles = StyleSheet.create({
   },
   sliderWrap: {
     marginTop: 8,
-    height: 36,
+    height: 48,
     justifyContent: 'center',
+    paddingTop: 12,
   },
   sliderTrack: {
     height: 4,
@@ -619,12 +790,101 @@ const styles = StyleSheet.create({
   },
   sliderHandle: {
     position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#FFFFFF',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#2F6BFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2F6BFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  sliderHandleInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#2F6BFF',
+  },
+  sliderTooltip: {
+    position: 'absolute',
+    top: -28,
+    width: 44,
+    alignItems: 'center',
+    backgroundColor: '#1F2937',
+    borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 4,
+  },
+  sliderTooltipText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  presetRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+    flexWrap: 'wrap',
+  },
+  presetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  presetChipActive: {
+    borderColor: '#BBD3FF',
+    backgroundColor: '#EAF1FF',
+  },
+  presetChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  presetChipTextActive: {
+    color: '#2F6BFF',
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 44,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 999,
+    maxHeight: 200,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F1F5F9',
+  },
+  suggestionText: {
+    fontSize: 13,
+    color: '#1F2937',
+    fontWeight: '500',
   },
   timeMarks: {
     flexDirection: 'row',

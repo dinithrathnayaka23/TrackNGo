@@ -206,6 +206,7 @@ CREATE TABLE sos_alert (
     start_location  VARCHAR(255) NULL COMMENT 'Journey start location at trigger time',
     end_location    VARCHAR(255) NULL COMMENT 'Journey end location at trigger time',
     admin_id        BIGINT       NULL COMMENT 'Admin who resolved',
+    notify_emergency_contacts BOOLEAN DEFAULT false COMMENT 'Whether emergency contacts were notified',
  
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
     FOREIGN KEY (driver_id)    REFERENCES driver(driver_id)       ON DELETE CASCADE,
@@ -277,6 +278,7 @@ CREATE TABLE conversation (
     participant_1_unread INT DEFAULT 0,
     participant_2_unread INT DEFAULT 0,
     last_message TEXT,
+    last_message_type ENUM('text', 'image', 'voice', 'location', 'system') NULL,
     last_message_timestamp TIMESTAMP NULL,
     -- generated columns to support symmetric uniqueness in MySQL without functional index
     participant_min_id BIGINT AS (LEAST(participant_1_id, participant_2_id)) STORED,
@@ -310,15 +312,18 @@ CREATE TABLE complaint (
     passenger_id BIGINT,
     driver_id BIGINT,
     corporate_user_id BIGINT,
+    bus_id BIGINT NULL,
     assigned_to_admin_id BIGINT,
 
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
     FOREIGN KEY (driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE,
     FOREIGN KEY (corporate_user_id) REFERENCES corporate_user(corporate_user_id) ON DELETE CASCADE,
+    FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE SET NULL,
     FOREIGN KEY (assigned_to_admin_id) REFERENCES admin(admin_id) ON DELETE SET NULL,
     INDEX idx_passenger (passenger_id, status),
     INDEX idx_driver (driver_id, status),
     INDEX idx_corporate (corporate_user_id, status),
+    INDEX idx_bus (bus_id),
     INDEX idx_status_priority (status, priority),
     INDEX idx_type (complaint_type),
     INDEX idx_created (created_at DESC),
@@ -407,20 +412,35 @@ CREATE TABLE chat_message (
     message_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     conversation_id BIGINT NOT NULL,
     sender_id BIGINT NOT NULL,
+    recipient_id BIGINT NULL,
     sender_type ENUM('passenger', 'driver', 'admin', 'corporate') NOT NULL,
-    message_type ENUM('text', 'image', 'voice', 'location') DEFAULT 'text',
+    message_type ENUM('text', 'image', 'voice', 'location', 'system') DEFAULT 'text',
     content TEXT NOT NULL,
+    status ENUM('sent', 'delivered', 'read') DEFAULT 'sent',
+    client_message_id VARCHAR(255) NULL COMMENT 'Client-generated UUID for deduplication',
     media_url TEXT,
+    compressed_media_url TEXT,
+    file_name VARCHAR(255) NULL,
+    media_mime_type VARCHAR(100) NULL,
+    media_size_bytes BIGINT NULL,
+    compressed_size_bytes BIGINT NULL,
+    duration_seconds INT NULL COMMENT 'Duration in seconds for voice messages',
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
     is_read BOOLEAN DEFAULT false,
+    read_by_participant_1 BOOLEAN DEFAULT false,
+    read_by_participant_2 BOOLEAN DEFAULT false,
     is_deleted BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    delivered_at TIMESTAMP NULL,
+    read_at TIMESTAMP NULL,
 
     FOREIGN KEY (conversation_id) REFERENCES conversation(conversation_id) ON DELETE CASCADE,
     INDEX idx_conversation_time (conversation_id, created_at DESC),
     INDEX idx_sender (sender_id, sender_type),
-    INDEX idx_unread (conversation_id, is_read)
+    INDEX idx_unread (conversation_id, is_read),
+    INDEX idx_status (status),
+    INDEX idx_client_msg (client_message_id)
 );
 
 CREATE TABLE corporate_contract (
@@ -629,5 +649,13 @@ CREATE TABLE payments (
 
 CREATE TABLE bus_locations (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(255) NOT NULL
+    bus_number VARCHAR(50) NOT NULL,
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    heading DECIMAL(5, 2) NULL COMMENT 'Direction in degrees (0-360)',
+    speed DECIMAL(6, 2) NULL COMMENT 'Speed in km/h',
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_bus_number (bus_number),
+    INDEX idx_recorded (recorded_at DESC)
 );

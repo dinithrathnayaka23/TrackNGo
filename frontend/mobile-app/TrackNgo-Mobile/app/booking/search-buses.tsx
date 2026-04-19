@@ -48,6 +48,9 @@ export default function SearchBusesScreen() {
   const [range, setRange] = useState({ start: 6 / 24, end: 22 / 24 });
   const [sliderWidth, setSliderWidth] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [showTimeModal, setShowTimeModal] = useState<'start' | 'end' | null>(null);
+  const [tempHour, setTempHour] = useState(0);
+  const [tempMinute, setTempMinute] = useState(0);
   const sliderLeft = useRef(0);
   const sliderRef = useRef<View>(null);
   const [displayName, setDisplayName] = useState('User');
@@ -226,6 +229,26 @@ export default function SearchBusesScreen() {
         ...(busCategory ? { busCategory } : {}),
       },
     });
+  };
+
+  const openTimeModal = (which: 'start' | 'end') => {
+    const value = which === 'start' ? range.start : range.end;
+    const totalMinutes = Math.round(value * 24 * 60);
+    setTempHour(Math.floor(totalMinutes / 60) % 24);
+    setTempMinute(totalMinutes % 60);
+    setShowTimeModal(which);
+  };
+
+  const confirmTimeModal = () => {
+    const newValue = (tempHour * 60 + tempMinute) / (24 * 60);
+    if (showTimeModal === 'start') {
+      const clamped = clamp(newValue, 0, range.end - MIN_GAP);
+      setRange((prev) => ({ ...prev, start: clamped }));
+    } else if (showTimeModal === 'end') {
+      const clamped = clamp(newValue, range.start + MIN_GAP, 1);
+      setRange((prev) => ({ ...prev, end: clamped }));
+    }
+    setShowTimeModal(null);
   };
 
   const startX = sliderWidth * range.start;
@@ -516,6 +539,28 @@ export default function SearchBusesScreen() {
           <Text style={styles.timeMarkText}>23:59</Text>
         </View>
 
+        <View style={styles.exactTimeRow}>
+          <Pressable style={styles.exactTimeCard} onPress={() => openTimeModal('start')}>
+            <Text style={styles.exactTimeLabel}>Start Time</Text>
+            <View style={styles.exactTimeValueRow}>
+              <Ionicons name="time-outline" size={14} color="#2F6BFF" />
+              <Text style={styles.exactTimeValue}>{formatTime(range.start)}</Text>
+              <Ionicons name="create-outline" size={13} color="#94A3B8" />
+            </View>
+          </Pressable>
+          <View style={styles.exactTimeDash}>
+            <Text style={styles.exactTimeDashText}>—</Text>
+          </View>
+          <Pressable style={styles.exactTimeCard} onPress={() => openTimeModal('end')}>
+            <Text style={styles.exactTimeLabel}>End Time</Text>
+            <View style={styles.exactTimeValueRow}>
+              <Ionicons name="time-outline" size={14} color="#2F6BFF" />
+              <Text style={styles.exactTimeValue}>{formatTime(range.end)}</Text>
+              <Ionicons name="create-outline" size={13} color="#94A3B8" />
+            </View>
+          </Pressable>
+        </View>
+
         <Pressable onPress={handleSearch} style={styles.searchButton}>
           <Text style={styles.searchButtonText}>Search Buses</Text>
         </Pressable>
@@ -558,6 +603,85 @@ export default function SearchBusesScreen() {
             setShowDatePicker(false);
           }}
         />
+      )}
+
+      {showTimeModal !== null && (
+        <Modal transparent animationType="fade">
+          <Pressable style={styles.modalOverlay} onPress={() => setShowTimeModal(null)}>
+            <Pressable style={styles.timeModalCard} onPress={() => undefined}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  Set {showTimeModal === 'start' ? 'Start' : 'End'} Time
+                </Text>
+                <Pressable onPress={confirmTimeModal}>
+                  <Text style={styles.modalDone}>Done</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.timePickerRow}>
+                <View style={styles.timePickerCol}>
+                  <Text style={styles.timePickerLabel}>Hour</Text>
+                  <View style={styles.stepperRow}>
+                    <Pressable
+                      style={styles.stepperBtn}
+                      onPress={() => setTempHour((h) => Math.max(0, h - 1))}>
+                      <Ionicons name="remove" size={20} color="#2F6BFF" />
+                    </Pressable>
+                    <TextInput
+                      style={styles.stepperInput}
+                      value={String(tempHour).padStart(2, '0')}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      selectTextOnFocus
+                      onChangeText={(text) => {
+                        const n = parseInt(text, 10);
+                        if (!isNaN(n) && n >= 0 && n <= 23) setTempHour(n);
+                        else if (text === '') setTempHour(0);
+                      }}
+                    />
+                    <Pressable
+                      style={styles.stepperBtn}
+                      onPress={() => setTempHour((h) => Math.min(23, h + 1))}>
+                      <Ionicons name="add" size={20} color="#2F6BFF" />
+                    </Pressable>
+                  </View>
+                </View>
+
+                <Text style={styles.timePickerSep}>:</Text>
+
+                <View style={styles.timePickerCol}>
+                  <Text style={styles.timePickerLabel}>Minute</Text>
+                  <View style={styles.stepperRow}>
+                    <Pressable
+                      style={styles.stepperBtn}
+                      onPress={() => setTempMinute((m) => Math.max(0, m - 5))}>
+                      <Ionicons name="remove" size={20} color="#2F6BFF" />
+                    </Pressable>
+                    <TextInput
+                      style={styles.stepperInput}
+                      value={String(tempMinute).padStart(2, '0')}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      selectTextOnFocus
+                      onChangeText={(text) => {
+                        const n = parseInt(text, 10);
+                        if (!isNaN(n) && n >= 0 && n <= 59) setTempMinute(n);
+                        else if (text === '') setTempMinute(0);
+                      }}
+                    />
+                    <Pressable
+                      style={styles.stepperBtn}
+                      onPress={() => setTempMinute((m) => Math.min(59, m + 5))}>
+                      <Ionicons name="add" size={20} color="#2F6BFF" />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.timePickerHint}>Tap the number to type directly</Text>
+            </Pressable>
+          </Pressable>
+        </Modal>
       )}
     </SafeAreaView>
   );
@@ -933,5 +1057,110 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#2F6BFF',
+  },
+  exactTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    gap: 8,
+  },
+  exactTimeCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  exactTimeLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  exactTimeValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  exactTimeValue: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  exactTimeDash: {
+    paddingHorizontal: 2,
+  },
+  exactTimeDashText: {
+    fontSize: 16,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  timeModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+  },
+  timePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    marginBottom: 8,
+    gap: 12,
+  },
+  timePickerCol: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  timePickerLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stepperBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EAF1FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperInput: {
+    width: 56,
+    height: 48,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+    paddingVertical: 0,
+  },
+  timePickerSep: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginTop: 20,
+  },
+  timePickerHint: {
+    textAlign: 'center',
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 8,
+    marginBottom: 4,
   },
 });

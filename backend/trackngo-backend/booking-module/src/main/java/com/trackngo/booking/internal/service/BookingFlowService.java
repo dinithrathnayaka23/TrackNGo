@@ -230,6 +230,9 @@ public class BookingFlowService {
     @Transactional
     public BookingConfirmationResult createBooking(CreateBookingRequest req) {
 
+        // 0) Ensure a passenger record exists for this user (FK requirement)
+        ensurePassengerExists(req.passengerId());
+
         String txnId = "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         String bookingRef = "BK-" + req.journeyDate().replace("-", "")
                 + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
@@ -242,7 +245,7 @@ public class BookingFlowService {
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, txnId);
-            ps.setString(2, req.paymentMethod() != null ? req.paymentMethod() : "card");
+            ps.setString(2, req.paymentMethod() != null ? req.paymentMethod() : "stripe");
             ps.setString(3, "success");
             ps.setBigDecimal(4, req.totalAmount());
             return ps;
@@ -422,5 +425,15 @@ public class BookingFlowService {
         if (obj == null) return 0.0;
         if (obj instanceof Number n) return n.doubleValue();
         return Double.parseDouble(obj.toString());
+    }
+
+    private void ensurePassengerExists(Long userId) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM passenger WHERE passenger_id = ?", Integer.class, userId);
+        if (count == null || count == 0) {
+            String placeholder = "000-" + userId;
+            jdbc.update("INSERT INTO passenger (passenger_id, mobile_number, status) VALUES (?, ?, 'active')",
+                    userId, placeholder);
+        }
     }
 }

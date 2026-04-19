@@ -20,8 +20,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		FROM seat_booking sb
 		INNER JOIN route r ON r.route_id = sb.route_id
 		INNER JOIN bus b ON b.bus_id = sb.bus_id
-		INNER JOIN passenger p ON p.passenger_id = sb.passenger_id
-		INNER JOIN `user` u ON u.user_id = p.passenger_id
+		INNER JOIN `user` u ON u.user_id = sb.passenger_id
 		WHERE u.email = :email
 		  AND sb.status <> 'cancelled'
 		  AND sb.journey_date >= CURDATE()
@@ -47,8 +46,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		FROM seat_booking sb
 		INNER JOIN bus b ON b.bus_id = sb.bus_id
 		INNER JOIN route r ON r.route_id = sb.route_id
-		INNER JOIN passenger pa ON pa.passenger_id = sb.passenger_id
-		INNER JOIN `user` u ON u.user_id = pa.passenger_id
+		INNER JOIN `user` u ON u.user_id = sb.passenger_id
 		LEFT JOIN payment p ON p.payment_id = sb.payment_id
 		WHERE u.email = :email
 		  AND sb.status <> 'cancelled'
@@ -73,8 +71,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		FROM seat_booking sb
 		INNER JOIN bus b ON b.bus_id = sb.bus_id
 		INNER JOIN route r ON r.route_id = sb.route_id
-		INNER JOIN passenger pa ON pa.passenger_id = sb.passenger_id
-		INNER JOIN `user` u ON u.user_id = pa.passenger_id
+		INNER JOIN `user` u ON u.user_id = sb.passenger_id
 		LEFT JOIN payment p ON p.payment_id = sb.payment_id
 		WHERE u.email = :email
 		  AND (sb.journey_date < CURDATE()

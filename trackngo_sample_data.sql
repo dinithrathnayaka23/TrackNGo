@@ -268,53 +268,53 @@ INSERT INTO trip_booking (trip_booking_id, passenger_count, advance_payment, sta
 -- CONVERSATIONS (6 records)
 -- =============================================
 
-INSERT INTO conversation (conversation_id, participant_1_id, participant_1_type, participant_2_id, participant_2_type, participant_1_unread, participant_2_unread, last_message, last_message_timestamp) VALUES
-(1, 4, 'passenger', 14, 'driver',    0, 2, 'Where is the bus now?',       NOW()),
-(2, 5, 'passenger', 15, 'driver',    1, 0, 'Is booking confirmed?',     DATE_SUB(NOW(), INTERVAL 2 HOUR)),
-(3, 4, 'passenger', 1,  'admin',     0, 1, 'There is a payment issue', DATE_SUB(NOW(), INTERVAL 1 DAY)),
-(4, 6, 'passenger', 16, 'driver',    2, 0, 'How are you?',                           DATE_SUB(NOW(), INTERVAL 3 HOUR)),
-(5, 22, 'corporate', 2, 'admin',     0, 3, 'Contract renewal regarding',                             DATE_SUB(NOW(), INTERVAL 5 HOUR)),
-(6, 8, 'passenger', 17, 'driver',    1, 1, 'Pick up location sinhalen kiyannako?',                  DATE_SUB(NOW(), INTERVAL 30 MINUTE));
+INSERT INTO conversation (conversation_id, participant_1_id, participant_1_type, participant_2_id, participant_2_type, participant_1_unread, participant_2_unread, last_message, last_message_type, last_message_timestamp) VALUES
+(1, 4, 'passenger', 14, 'driver',    0, 2, 'Where is the bus now?',       'text', NOW()),
+(2, 5, 'passenger', 15, 'driver',    1, 0, 'Is booking confirmed?',     'text', DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(3, 4, 'passenger', 1,  'admin',     0, 1, 'There is a payment issue', 'text', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(4, 6, 'passenger', 16, 'driver',    2, 0, 'How are you?',                           'location', DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(5, 22, 'corporate', 2, 'admin',     0, 3, 'Contract renewal regarding',                             'text', DATE_SUB(NOW(), INTERVAL 5 HOUR)),
+(6, 8, 'passenger', 17, 'driver',    1, 1, 'Pick up location sinhalen kiyannako?',                  'text', DATE_SUB(NOW(), INTERVAL 30 MINUTE));
 
 
 -- =============================================
 -- CHAT MESSAGES (20 records)
 -- =============================================
 
-INSERT INTO chat_message (message_id, conversation_id, sender_id, sender_type, message_type, content, is_read) VALUES
-(1, 1, 4,  'passenger', 'text',     'Hello! Where is the bus now?', true),
-(2, 1, 14, 'driver',    'text',     'At Kadawatha junction, will come in 20 mins', true),
-(3, 1, 4,  'passenger', 'text',     'Okay, I will wait',                         true),
-(4, 1, 14, 'driver',    'text',     'Did you take from Peradeniya toll?', false),
-(5, 1, 4,  'passenger', 'text',     'Not yet',                                                  false),
-(6, 2, 5,  'passenger', 'text',     'My booking for March 20 to Nuwara Eliya confirmed?',                    true),
-(7, 2, 15, 'driver',    'text',     'Yes, confirmed! I will pick you from Kandy clock tower at 7am',         true),
-(8, 2, 5,  'passenger', 'text',     'Thank you! Can we stop at Ramboda Falls?',                              false),
-(9, 3, 4,  'passenger', 'text',     'I paid via PayHere but booking shows pending',                          true),
-(10, 3, 1, 'admin',     'text',     'Did you give transaction ID?', true),
-(11, 3, 4, 'passenger', 'text',     'TXN-20250115-0042',                                                     false),
-(12, 4, 6, 'passenger', 'text',     'Please come for the Yala trip on the mentioned time', true),
-(13, 4, 16,'driver',    'text',     'I will come at 5.30',                            true),
-(14, 4, 6, 'passenger', 'location', '6.3705, 80.7447',                                                       false),
-(15, 5, 22,'corporate', 'text',     'Dialog contract renewal for next year - need 2 buses',                  true),
-(16, 5, 2, 'admin',     'text',     'Thank you. Our agent will contact you within 24 hours',                 false),
-(17, 6, 8, 'passenger', 'text',     'Can we talk about pick up time?', true),
-(18, 6, 17,'driver',    'text',     'How about 6.15?',                                    true),
-(19, 6, 8, 'passenger', 'text',     'Okay',                                                           false),
-(20, 6, 17,'driver',    'text',     'Will call when ready',                false);
+INSERT INTO chat_message (message_id, conversation_id, sender_id, recipient_id, sender_type, message_type, content, status, is_read, read_by_participant_1, read_by_participant_2) VALUES
+(1, 1, 4,  14, 'passenger', 'text',     'Hello! Where is the bus now?',                                           'read',      true,  true,  true),
+(2, 1, 14, 4,  'driver',    'text',     'At Kadawatha junction, will come in 20 mins',                            'read',      true,  true,  true),
+(3, 1, 4,  14, 'passenger', 'text',     'Okay, I will wait',                                                      'read',      true,  true,  true),
+(4, 1, 14, 4,  'driver',    'text',     'Did you take from Peradeniya toll?',                                      'delivered', false, false, true),
+(5, 1, 4,  14, 'passenger', 'text',     'Not yet',                                                                 'delivered', false, true,  false),
+(6, 2, 5,  15, 'passenger', 'text',     'My booking for March 20 to Nuwara Eliya confirmed?',                      'read',      true,  true,  true),
+(7, 2, 15, 5,  'driver',    'text',     'Yes, confirmed! I will pick you from Kandy clock tower at 7am',           'read',      true,  true,  true),
+(8, 2, 5,  15, 'passenger', 'text',     'Thank you! Can we stop at Ramboda Falls?',                                'sent',      false, true,  false),
+(9, 3, 4,  1,  'passenger', 'text',     'I paid via PayHere but booking shows pending',                            'read',      true,  true,  true),
+(10, 3, 1, 4,  'admin',     'text',     'Did you give transaction ID?',                                            'read',      true,  true,  true),
+(11, 3, 4, 1,  'passenger', 'text',     'TXN-20250115-0042',                                                       'sent',      false, true,  false),
+(12, 4, 6, 16, 'passenger', 'text',     'Please come for the Yala trip on the mentioned time',                     'read',      true,  true,  true),
+(13, 4, 16,6,  'driver',    'text',     'I will come at 5.30',                                                     'read',      true,  true,  true),
+(14, 4, 6, 16, 'passenger', 'location', '6.3705, 80.7447',                                                         'sent',      false, true,  false),
+(15, 5, 22,2,  'corporate', 'text',     'Dialog contract renewal for next year - need 2 buses',                    'read',      true,  true,  true),
+(16, 5, 2, 22, 'admin',     'text',     'Thank you. Our agent will contact you within 24 hours',                   'sent',      false, false, true),
+(17, 6, 8, 17, 'passenger', 'text',     'Can we talk about pick up time?',                                         'read',      true,  true,  true),
+(18, 6, 17,8,  'driver',    'text',     'How about 6.15?',                                                         'read',      true,  true,  true),
+(19, 6, 8, 17, 'passenger', 'text',     'Okay',                                                                    'delivered', false, true,  false),
+(20, 6, 17,8,  'driver',    'text',     'Will call when ready',                                                    'delivered', false, false, true);
 
 
 -- =============================================
 -- COMPLAINTS (6 records)
 -- =============================================
 
-INSERT INTO complaint (complaint_id, complaint_type, priority, description, status, admin_response, passenger_id, driver_id, assigned_to_admin_id, resolved_at) VALUES
-(1, 'driver_behavior', 'high',   'Driver was rude and used phone while driving on Colombo-Kandy route. Very unsafe behavior.', 'resolved', 'We investigated and gave the driver a formal warning. Thank you for reporting.', 4, 14, 1, DATE_SUB(NOW(), INTERVAL 10 DAY)),
-(2, 'payment_issue',   'medium', 'I paid Rs.1800 via PayHere for Jaffna trip but received no confirmation email.',              'under_review', NULL,                                                                           6, NULL, 2, NULL),
-(3, 'bus_condition',   'low',    'AC was not working properly on the Colombo to Galle route. Very uncomfortable journey.',      'resolved', 'Bus was sent for maintenance. AC has been repaired.',                              8, 15, 1, DATE_SUB(NOW(), INTERVAL 5 DAY)),
-(4, 'route_issue',     'medium', 'Bus took wrong turn at Kurunegala and was 45 minutes late to Dambulla stop.',                 'pending',  NULL,                                                                           5, 16, NULL, NULL),
-(5, 'safety_concern',  'urgent', 'Driver was speeding heavily between Nittambuwa and Warakapola. Passengers were scared.',      'under_review', NULL,                                                                           9, 18, 2, NULL),
-(6, 'booking_issue',   'low',    'I cancelled my seat 3 days before but refund has not been processed after 2 weeks.',          'resolved', 'Refund was processed. Please allow 3-5 business days to reflect.',                11, NULL, 1, DATE_SUB(NOW(), INTERVAL 2 DAY));
+INSERT INTO complaint (complaint_id, complaint_type, priority, description, status, admin_response, passenger_id, driver_id, bus_id, assigned_to_admin_id, resolved_at) VALUES
+(1, 'driver_behavior', 'high',   'Driver was rude and used phone while driving on Colombo-Kandy route. Very unsafe behavior.', 'resolved', 'We investigated and gave the driver a formal warning. Thank you for reporting.', 4, 14, 1, 1, DATE_SUB(NOW(), INTERVAL 10 DAY)),
+(2, 'payment_issue',   'medium', 'I paid Rs.1800 via PayHere for Jaffna trip but received no confirmation email.',              'under_review', NULL,                                                                           6, NULL, 3, 2, NULL),
+(3, 'bus_condition',   'low',    'AC was not working properly on the Colombo to Galle route. Very uncomfortable journey.',      'resolved', 'Bus was sent for maintenance. AC has been repaired.',                              8, 15, 2, 1, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(4, 'route_issue',     'medium', 'Bus took wrong turn at Kurunegala and was 45 minutes late to Dambulla stop.',                 'pending',  NULL,                                                                           5, 16, 3, NULL, NULL),
+(5, 'safety_concern',  'urgent', 'Driver was speeding heavily between Nittambuwa and Warakapola. Passengers were scared.',      'under_review', NULL,                                                                           9, 18, 5, 2, NULL),
+(6, 'booking_issue',   'low',    'I cancelled my seat 3 days before but refund has not been processed after 2 weeks.',          'resolved', 'Refund was processed. Please allow 3-5 business days to reflect.',                11, NULL, NULL, 1, DATE_SUB(NOW(), INTERVAL 2 DAY));
 
 
 -- =============================================
@@ -358,12 +358,13 @@ INSERT INTO sos_alert (
 	start_location,
 	end_location,
 	admin_id,
+	notify_emergency_contacts,
 	resolved_at
 ) VALUES
-('6.9500, 80.0001 - Near Warakapola, A1 Highway', 'resolved',    4, NULL, 1, 'NB-0012', 'Colombo Fort', 'Kandy',  1, DATE_SUB(NOW(), INTERVAL 5 DAY)),
-('6.1417, 80.1000 - Near Hikkaduwa Beach Road',   'resolved',    8, NULL, 2, 'NB-0034', 'Colombo Fort', 'Galle',  2, DATE_SUB(NOW(), INTERVAL 3 DAY)),
-('6.9336, 79.8486 - Colombo Fort Bus Station',    'false_alarm', 6, NULL, 3, 'NB-0056', 'Colombo Fort', 'Jaffna', 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
-('7.0433, 79.9514 - Kadawatha Junction',          'triggered',   5, NULL, 1, 'NB-0012', 'Colombo Fort', 'Kandy',  NULL, NULL);
+('6.9500, 80.0001 - Near Warakapola, A1 Highway', 'resolved',    4, NULL, 1, 'NB-0012', 'Colombo Fort', 'Kandy',  1, true,  DATE_SUB(NOW(), INTERVAL 5 DAY)),
+('6.1417, 80.1000 - Near Hikkaduwa Beach Road',   'resolved',    8, NULL, 2, 'NB-0034', 'Colombo Fort', 'Galle',  2, true,  DATE_SUB(NOW(), INTERVAL 3 DAY)),
+('6.9336, 79.8486 - Colombo Fort Bus Station',    'false_alarm', 6, NULL, 3, 'NB-0056', 'Colombo Fort', 'Jaffna', 1, false, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+('7.0433, 79.9514 - Kadawatha Junction',          'triggered',   5, NULL, 1, 'NB-0012', 'Colombo Fort', 'Kandy',  NULL, true, NULL);
 
 -- =============================================
 -- NOTIFICATIONS (15 records)
@@ -469,6 +470,22 @@ INSERT INTO refund (refund_id, refund_reason, refund_status, processed_date, ref
 
 
 -- =============================================
+-- BUS LOCATIONS (sample live tracking data)
+-- =============================================
+
+INSERT INTO bus_locations (bus_number, latitude, longitude, heading, speed, recorded_at) VALUES
+('NB-0012', 7.04330, 79.95140, 45.00,  60.50, DATE_SUB(NOW(), INTERVAL 2 MINUTE)),
+('NB-0012', 7.05000, 79.96000, 47.20,  58.30, DATE_SUB(NOW(), INTERVAL 1 MINUTE)),
+('NB-0034', 6.71389, 79.90361, 180.00, 72.00, DATE_SUB(NOW(), INTERVAL 3 MINUTE)),
+('NB-0034', 6.70000, 79.90500, 182.50, 70.10, DATE_SUB(NOW(), INTERVAL 1 MINUTE)),
+('NB-0056', 7.48694, 80.36250, 10.00,  55.00, DATE_SUB(NOW(), INTERVAL 5 MINUTE)),
+('NB-0078', 7.26667, 80.59333, 90.00,  40.00, DATE_SUB(NOW(), INTERVAL 2 MINUTE)),
+('NB-0090', 6.58556, 79.96139, 175.00, 65.00, DATE_SUB(NOW(), INTERVAL 4 MINUTE)),
+('NB-0112', 6.96750, 79.88972, 350.00, 45.00, DATE_SUB(NOW(), INTERVAL 1 MINUTE)),
+('CB-0301', 6.90000, 79.87000, 270.00, 30.00, DATE_SUB(NOW(), INTERVAL 3 MINUTE));
+
+
+-- =============================================
 -- VERIFY
 -- =============================================
 SHOW TABLES;
@@ -497,4 +514,5 @@ UNION ALL SELECT 'payment',            COUNT(*) FROM payment
 UNION ALL SELECT 'seat_booking',       COUNT(*) FROM seat_booking
 UNION ALL SELECT 'rating',             COUNT(*) FROM rating
 UNION ALL SELECT 'corporate_invoices', COUNT(*) FROM corporate_invoices
-UNION ALL SELECT 'refund',             COUNT(*) FROM refund;
+UNION ALL SELECT 'refund',             COUNT(*) FROM refund
+UNION ALL SELECT 'bus_locations',      COUNT(*) FROM bus_locations;

@@ -10,7 +10,7 @@ import {
   faUserShield,
 } from "@fortawesome/free-solid-svg-icons";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = "http://127.0.0.1:8080";
 
 type EmergencyContact = {
   contactId: number;
@@ -53,6 +53,17 @@ type ApiResponse<T> = {
   message: string;
   data: T;
 };
+
+async function readApiResponse<T>(res: Response): Promise<ApiResponse<T> | null> {
+  const text = await res.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text) as ApiResponse<T>;
+  } catch {
+    return null;
+  }
+}
 
 const DEFAULT_EMERGENCY_NUMBERS: EmergencyServiceNumbers = {
   ambulance: "1990",
@@ -103,8 +114,8 @@ function SosAlertPopup() {
     const fetchAlerts = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/sos-alerts/active`);
-        const json = await res.json();
-        if (active && json.success && json.data) {
+        const json = await readApiResponse<SosAlertData[]>(res);
+        if (active && json?.success && json.data) {
           setAlerts(json.data);
           // If no more active alerts, reset state
           if (json.data.length === 0) {
@@ -120,9 +131,8 @@ function SosAlertPopup() {
     const fetchEmergencyNumbers = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/emergency-numbers/active`);
-        const json: ApiResponse<Partial<EmergencyServiceNumbers>> =
-          await res.json();
-        if (active && json.success && json.data) {
+        const json = await readApiResponse<Partial<EmergencyServiceNumbers>>(res);
+        if (active && json?.success && json.data) {
           setEmergencyNumbers({
             ambulance:
               json.data.ambulance || DEFAULT_EMERGENCY_NUMBERS.ambulance,
@@ -138,7 +148,10 @@ function SosAlertPopup() {
 
     fetchAlerts();
     fetchEmergencyNumbers();
-    const interval = setInterval(fetchAlerts, 5000);
+    const interval = setInterval(() => {
+      fetchAlerts();
+      fetchEmergencyNumbers();
+    }, 5000);
     return () => {
       active = false;
       clearInterval(interval);

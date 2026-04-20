@@ -308,13 +308,13 @@ INSERT INTO chat_message (message_id, conversation_id, sender_id, recipient_id, 
 -- COMPLAINTS (6 records)
 -- =============================================
 
-INSERT INTO complaint (complaint_id, complaint_type, priority, description, status, admin_response, passenger_id, driver_id, bus_id, assigned_to_admin_id, resolved_at) VALUES
-(1, 'driver_behavior', 'high',   'Driver was rude and used phone while driving on Colombo-Kandy route. Very unsafe behavior.', 'resolved', 'We investigated and gave the driver a formal warning. Thank you for reporting.', 4, 14, 1, 1, DATE_SUB(NOW(), INTERVAL 10 DAY)),
-(2, 'payment_issue',   'medium', 'I paid Rs.1800 via PayHere for Jaffna trip but received no confirmation email.',              'under_review', NULL,                                                                           6, NULL, 3, 2, NULL),
-(3, 'bus_condition',   'low',    'AC was not working properly on the Colombo to Galle route. Very uncomfortable journey.',      'resolved', 'Bus was sent for maintenance. AC has been repaired.',                              8, 15, 2, 1, DATE_SUB(NOW(), INTERVAL 5 DAY)),
-(4, 'route_issue',     'medium', 'Bus took wrong turn at Kurunegala and was 45 minutes late to Dambulla stop.',                 'pending',  NULL,                                                                           5, 16, 3, NULL, NULL),
-(5, 'safety_concern',  'urgent', 'Driver was speeding heavily between Nittambuwa and Warakapola. Passengers were scared.',      'under_review', NULL,                                                                           9, 18, 5, 2, NULL),
-(6, 'booking_issue',   'low',    'I cancelled my seat 3 days before but refund has not been processed after 2 weeks.',          'resolved', 'Refund was processed. Please allow 3-5 business days to reflect.',                11, NULL, NULL, 1, DATE_SUB(NOW(), INTERVAL 2 DAY));
+INSERT INTO complaint (complaint_id, booking_reference, complaint_type, priority, description, status, admin_response, passenger_id, resolved_at) VALUES
+(1, 'SB-20250115-001', 'driver_behavior', 'high',   'Driver was rude and used phone while driving on Colombo-Kandy route. Very unsafe behavior.', 'resolved', 'We investigated and gave the driver a formal warning. Thank you for reporting.', 4, DATE_SUB(NOW(), INTERVAL 10 DAY)),
+(2, 'SB-20250116-001', 'payment_issue',   'medium', 'I paid Rs.1800 via PayHere for Jaffna trip but received no confirmation email.',              'under_review', NULL,                                                                           6, NULL),
+(3, 'SB-20250120-001', 'bus_condition',   'low',    'AC was not working properly on the Colombo to Galle route. Very uncomfortable journey.',      'resolved', 'Bus was sent for maintenance. AC has been repaired.',                              8, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(4, 'SB-20250115-002', 'route_issue',     'medium', 'Bus took wrong turn at Kurunegala and was 45 minutes late to Dambulla stop.',                 'pending',  NULL,                                                                           5, NULL),
+(5, 'SB-20250125-001', 'safety_concern',  'high',   'Driver was speeding heavily between Nittambuwa and Warakapola. Passengers were scared.',      'under_review', NULL,                                                                           9, NULL),
+(6, 'SB-20250201-001', 'booking_issue',   'low',    'I cancelled my seat 3 days before but refund has not been processed after 2 weeks.',          'resolved', 'Refund was processed. Please allow 3-5 business days to reflect.',                11, DATE_SUB(NOW(), INTERVAL 2 DAY));
 
 
 -- =============================================

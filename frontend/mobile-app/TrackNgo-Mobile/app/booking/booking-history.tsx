@@ -93,6 +93,34 @@ export default function BookingHistoryScreen() {
     });
   };
 
+  const navigateToRate = (b: BookingHistoryDto) => {
+    router.push({
+      pathname: "/booking/rate",
+      params: {
+        bookingRef: b.bookingReference,
+        from: b.startLocation,
+        to: b.endLocation,
+        busNumber: b.busNumber,
+        date: b.journeyDate,
+        time: b.journeyTime,
+      },
+    });
+  };
+
+  const navigateToComplaint = (b: BookingHistoryDto) => {
+    router.push({
+      pathname: "/booking/complaint",
+      params: {
+        bookingRef: b.bookingReference,
+        from: b.startLocation,
+        to: b.endLocation,
+        busNumber: b.busNumber,
+        date: b.journeyDate,
+        time: b.journeyTime,
+      },
+    });
+  };
+
   const data = tab === "upcoming" ? upcoming : past;
 
   return (
@@ -155,6 +183,8 @@ export default function BookingHistoryScreen() {
               booking={b}
               isUpcoming={tab === "upcoming"}
               onTicket={() => navigateToTicket(b)}
+              onRate={() => navigateToRate(b)}
+              onComplaint={() => navigateToComplaint(b)}
               onCancel={() => handleCancel(b.bookingReference)}
               onTrack={() =>
                 router.push({
@@ -180,12 +210,16 @@ function BookingCard({
   booking: b,
   isUpcoming,
   onTicket,
+  onRate,
+  onComplaint,
   onCancel,
   onTrack,
 }: {
   booking: BookingHistoryDto;
   isUpcoming: boolean;
   onTicket: () => void;
+  onRate: () => void;
+  onComplaint: () => void;
   onCancel: () => void;
   onTrack: () => void;
 }) {
@@ -268,28 +302,33 @@ function BookingCard({
       </View>
 
       {/* Actions */}
-      <View style={styles.actionRow}>
-        {isUpcoming && b.status === "confirmed" ? (
-          <>
-            <Pressable style={styles.primaryBtn} onPress={onTicket}>
-              <Ionicons name="ticket-outline" size={15} color="#FFF" />
-              <Text style={styles.primaryBtnText}>View Ticket</Text>
-            </Pressable>
-            <Pressable style={styles.trackBtn} onPress={onTrack}>
-              <Ionicons name="location-outline" size={15} color="#2F6BFF" />
-              <Text style={styles.trackBtnText}>Track</Text>
-            </Pressable>
-            <Pressable style={styles.cancelBtn} onPress={onCancel}>
-              <Ionicons name="close-circle-outline" size={15} color="#DC2626" />
-            </Pressable>
-          </>
-        ) : (
+      {isUpcoming && b.status === "confirmed" ? (
+        <View style={styles.actionRow}>
           <Pressable style={styles.primaryBtn} onPress={onTicket}>
             <Ionicons name="ticket-outline" size={15} color="#FFF" />
             <Text style={styles.primaryBtnText}>View Ticket</Text>
           </Pressable>
-        )}
-      </View>
+          <Pressable style={styles.trackBtn} onPress={onTrack}>
+            <Ionicons name="location-outline" size={15} color="#2F6BFF" />
+            <Text style={styles.trackBtnText}>Track</Text>
+          </Pressable>
+          <Pressable style={styles.cancelBtn} onPress={onCancel}>
+            <Ionicons name="close-circle-outline" size={15} color="#DC2626" />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {!isUpcoming && b.status !== "cancelled" ? (
+        <View style={styles.pastActionRow}>
+          <Pressable style={styles.secondaryActionBtn} onPress={onRate}>
+            <Ionicons name="star" size={15} color="#475569" />
+            <Text style={styles.secondaryActionText}>Rate</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryActionBtn} onPress={onComplaint}>
+            <Text style={styles.secondaryActionText}>Submit Complain</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -432,6 +471,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  pastActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   primaryBtn: {
     flex: 1,
     flexDirection: "row",
@@ -460,5 +504,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF2F2",
     borderRadius: 8,
     padding: 10,
+  },
+  secondaryActionBtn: {
+    flex: 1,
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  secondaryActionText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#334155",
   },
 });

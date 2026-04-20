@@ -44,6 +44,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/booking-flow/**").permitAll()
                 .requestMatchers("/api/bookings/**").permitAll()
                 .requestMatchers("/api/admin/buses/**").permitAll()
+                .requestMatchers("/api/admin/complaints/**").permitAll()
                 .requestMatchers("/bus-sharer.html").permitAll()
                 .anyRequest().authenticated()
             )

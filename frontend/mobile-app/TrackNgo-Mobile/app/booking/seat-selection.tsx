@@ -44,7 +44,7 @@ export default function SeatSelectionScreen() {
   const busId = Number(params.busId ?? '0');
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? new Date().toISOString().split('T')[0];
+  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const busType = params.busType ?? 'Super Luxury';
   const depart = params.depart ?? '08:30';
   const pricePerSeat = Number(params.price ?? '1200') || 1200;

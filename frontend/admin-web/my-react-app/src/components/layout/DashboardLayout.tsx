@@ -30,6 +30,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
     booking: "Bookings",
     complaints: "Complaints",
     routes: "Routes",
+    settings: "Settings",
   };
   const subSegment = location.pathname.split("/")[3] || "";
   const breadcrumbTrail =

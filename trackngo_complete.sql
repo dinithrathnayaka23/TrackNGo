@@ -497,6 +497,8 @@ CREATE TABLE seat_booking (
     bus_id BIGINT NOT NULL,
     route_id BIGINT NOT NULL,
     payment_id BIGINT,
+    from_stop VARCHAR(255) COMMENT 'Passenger boarding stop name',
+    to_stop VARCHAR(255) COMMENT 'Passenger alighting stop name',
 
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
     FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,

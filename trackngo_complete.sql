@@ -300,34 +300,22 @@ CREATE TABLE conversation (
 CREATE TABLE complaint (
     complaint_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     image TEXT,
+    booking_reference VARCHAR(50),
     complaint_type ENUM('driver_behavior', 'bus_condition', 'route_issue', 'payment_issue', 'booking_issue', 'safety_concern', 'other') NOT NULL,
-    priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
+    priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
     description TEXT NOT NULL,
-    status ENUM('pending', 'under_review', 'resolved', 'closed', 'rejected') DEFAULT 'pending',
+    status ENUM('pending', 'under_review', 'resolved', 'rejected') DEFAULT 'pending',
     admin_response TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP NULL,
-    passenger_id BIGINT,
-    driver_id BIGINT,
-    corporate_user_id BIGINT,
-    assigned_to_admin_id BIGINT,
+    passenger_id BIGINT NOT NULL,
 
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
-    FOREIGN KEY (driver_id) REFERENCES driver(driver_id) ON DELETE CASCADE,
-    FOREIGN KEY (corporate_user_id) REFERENCES corporate_user(corporate_user_id) ON DELETE CASCADE,
-    FOREIGN KEY (assigned_to_admin_id) REFERENCES admin(admin_id) ON DELETE SET NULL,
     INDEX idx_passenger (passenger_id, status),
-    INDEX idx_driver (driver_id, status),
-    INDEX idx_corporate (corporate_user_id, status),
+    INDEX idx_booking_reference (booking_reference),
     INDEX idx_status_priority (status, priority),
     INDEX idx_type (complaint_type),
-    INDEX idx_created (created_at DESC),
-
-    CONSTRAINT chk_complaint_user CHECK (
-        passenger_id IS NOT NULL OR
-        driver_id IS NOT NULL OR
-        corporate_user_id IS NOT NULL
-    )
+    INDEX idx_created (created_at DESC)
 );
 
 CREATE TABLE otp_verification (
@@ -593,11 +581,6 @@ CREATE TABLE drivers (
 );
 
 CREATE TABLE buss (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(255) NOT NULL
-);
-
-CREATE TABLE complaints (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL
 );

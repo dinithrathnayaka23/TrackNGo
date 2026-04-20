@@ -55,7 +55,7 @@ public class ComplaintController {
         return ApiResponse.ok("Fetched", service.getMine(email));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<ComplaintDto> get(@PathVariable Long id) {
         return ApiResponse.ok("Fetched", service.get(id));
@@ -67,13 +67,13 @@ public class ComplaintController {
         return ApiResponse.ok("Fetched", service.getAll());
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<ComplaintDto> update(@PathVariable Long id, @Valid @RequestBody ComplaintDto dto) {
         return ApiResponse.ok("Updated", service.update(id, dto));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         service.delete(id);

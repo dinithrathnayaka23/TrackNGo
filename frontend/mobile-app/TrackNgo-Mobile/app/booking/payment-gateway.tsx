@@ -40,7 +40,7 @@ export default function PaymentGatewayScreen() {
   const busId = params.busId ?? '0';
   const busType = params.busType ?? 'Super Luxury A/C';
   const depart = params.depart ?? '08:30';
-  const date = params.date ?? new Date().toISOString().split('T')[0];
+  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const seats = params.seats ?? '';
   const totalPrice = Number(params.totalPrice ?? '2500') || 2500;
   const fullName = params.fullName ?? '';

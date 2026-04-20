@@ -33,7 +33,7 @@ export default function BookingConfirmationScreen() {
   const from = params.from ?? 'Colombo Fort';
   const to = params.to ?? 'Kandy';
   const depart = params.depart ?? '08:30';
-  const date = params.date ?? new Date().toISOString().split('T')[0];
+  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const seats = params.seats ?? '';
   const totalPrice = Number(params.totalPrice ?? '0') || 0;
   const bookingId = params.bookingRef ?? 'N/A';

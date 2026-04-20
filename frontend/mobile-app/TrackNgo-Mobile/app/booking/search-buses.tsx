@@ -905,7 +905,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     height: 48,
     justifyContent: 'center',
-    paddingTop: 12,
   },
   sliderTrack: {
     height: 4,
@@ -914,12 +913,14 @@ const styles = StyleSheet.create({
   },
   sliderTrackActive: {
     position: 'absolute',
+    top: 22,
     height: 4,
     borderRadius: 2,
     backgroundColor: '#2F6BFF',
   },
   sliderHandle: {
     position: 'absolute',
+    top: 12,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -942,7 +943,7 @@ const styles = StyleSheet.create({
   },
   sliderTooltip: {
     position: 'absolute',
-    top: -28,
+    top: -16,
     width: 44,
     alignItems: 'center',
     backgroundColor: '#1F2937',

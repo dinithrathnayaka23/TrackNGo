@@ -3,6 +3,8 @@ package com.trackngo.chat.internal.entity;
 
 import com.trackngo.chat.internal.entity.converters.ParticipantTypeConverter;
 import com.trackngo.chat.internal.entity.enums.ParticipantType;
+import com.trackngo.chat.internal.entity.converter.MessageTypeConverter;
+import com.trackngo.chat.internal.entity.enums.MessageType;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -47,6 +49,10 @@ public class Conversation {
 
     @Column(name = "last_message", columnDefinition = "TEXT")
     private String lastMessage;
+
+    @Convert(converter = MessageTypeConverter.class)
+    @Column(name = "last_message_type")
+    private MessageType lastMessageType;
 
     @Column(name = "last_message_timestamp")
     private LocalDateTime lastMessageTimestamp;

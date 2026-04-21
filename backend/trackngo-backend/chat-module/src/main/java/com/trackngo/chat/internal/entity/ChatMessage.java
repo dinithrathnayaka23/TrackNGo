@@ -33,14 +33,38 @@ public class ChatMessage {
     @Column(name = "sender_type", nullable = false)
     private ParticipantType senderType;
 
+    @Column(name = "recipient_id")
+    private Long recipientId;
+
     @Column(name = "message_type")
     private MessageType messageType;
 
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "client_message_id")
+    private String clientMessageId;
+
     @Column(name = "media_url", columnDefinition = "TEXT")
     private String mediaUrl;
+
+    @Column(name = "compressed_media_url", columnDefinition = "TEXT")
+    private String compressedMediaUrl;
+
+    @Column(name = "file_name")
+    private String fileName;
+
+    @Column(name = "media_mime_type")
+    private String mediaMimeType;
+
+    @Column(name = "media_size_bytes")
+    private Long mediaSizeBytes;
+
+    @Column(name = "compressed_size_bytes")
+    private Long compressedSizeBytes;
+
+    @Column(name = "duration_seconds")
+    private Integer durationSeconds;
 
     @Column(name = "latitude")
     private Double latitude;

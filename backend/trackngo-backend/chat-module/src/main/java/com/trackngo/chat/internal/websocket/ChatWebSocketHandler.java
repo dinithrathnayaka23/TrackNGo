@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.chat.api.MessageService;
 import com.trackngo.chat.api.dto.MessageDto;
+import com.trackngo.chat.api.dto.PresenceDto;
 import com.trackngo.chat.api.dto.TypingIndicatorDto;
+import com.trackngo.chat.internal.service.ChatPresenceService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
@@ -48,6 +50,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final MessageService messageService;
     private final ObjectMapper objectMapper;
     private final SimpMessagingTemplate stompTemplate;
+    private final ChatPresenceService chatPresenceService;
 
     /** Active WebSocket sessions indexed by session ID. */
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
@@ -59,10 +62,12 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, Set<Long>> sessionConversations = new ConcurrentHashMap<>();
 
     public ChatWebSocketHandler(MessageService messageService, ObjectMapper objectMapper,
-                                SimpMessagingTemplate stompTemplate) {
+                                SimpMessagingTemplate stompTemplate,
+                                ChatPresenceService chatPresenceService) {
         this.messageService = messageService;
         this.objectMapper = objectMapper;
         this.stompTemplate = stompTemplate;
+        this.chatPresenceService = chatPresenceService;
     }
 
     /**
@@ -89,6 +94,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 case "UNSUBSCRIBE" -> handleUnsubscribe(session, root);
                 case "SEND_MESSAGE" -> handleSendMessage(session, root);
                 case "TYPING" -> handleTyping(session, root);
+                case "PRESENCE" -> handlePresence(session, root);
                 default -> sendError(session, "Unknown action: " + action);
             }
         } catch (Exception e) {
@@ -116,6 +122,10 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                     }
                 }
             }
+        }
+        PresenceDto presence = chatPresenceService.markOffline(sessionId);
+        if (presence != null) {
+            broadcastPresence(presence);
         }
         log.info("WebSocket disconnected: sessionId={}", sessionId);
     }
@@ -159,7 +169,58 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    /**
+     * Broadcasts an event to every raw WebSocket session currently registered
+     * for a user. Admin web uses this for shared support inbox updates before
+     * it knows a brand-new conversation ID.
+     */
+    public void broadcastToUser(Long userId, String event, Object data) {
+        Set<String> sessionIds = chatPresenceService.getSessionIdsForUser(userId);
+        if (sessionIds.isEmpty()) {
+            return;
+        }
+
+        String json = buildEventJson(event, data);
+        if (json == null) {
+            return;
+        }
+
+        TextMessage textMessage = new TextMessage(json);
+        for (String sessionId : sessionIds) {
+            WebSocketSession ws = sessions.get(sessionId);
+            if (ws != null && ws.isOpen()) {
+                try {
+                    ws.sendMessage(textMessage);
+                } catch (IOException e) {
+                    log.warn("Failed to send user event to session {}: {}", sessionId, e.getMessage());
+                }
+            }
+        }
+    }
+
     // ── Private dispatch methods ────────────────────────────────────────
+
+    /**
+     * Broadcasts a presence update to every chat socket client.
+     *
+     * @param presence the current presence state
+     */
+    public void broadcastPresence(PresenceDto presence) {
+        String json = buildEventJson("PRESENCE", presence);
+        if (json != null) {
+            TextMessage textMessage = new TextMessage(json);
+            for (WebSocketSession ws : sessions.values()) {
+                if (ws != null && ws.isOpen()) {
+                    try {
+                        ws.sendMessage(textMessage);
+                    } catch (IOException e) {
+                        log.warn("Failed to send presence to session {}: {}", ws.getId(), e.getMessage());
+                    }
+                }
+            }
+        }
+        stompTemplate.convertAndSend("/topic/presence", presence);
+    }
 
     /**
      * Subscribes the session to receive events for a conversation.
@@ -231,32 +292,29 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            Set<String> subscriberIds = conversationSubs.get(indicator.getConversationId());
-            if (subscriberIds == null || subscriberIds.isEmpty()) {
-                return;
-            }
-
-            String json = buildEventJson("TYPING", indicator);
-            if (json == null) {
-                return;
-            }
-
-            TextMessage textMessage = new TextMessage(json);
-            for (String sessionId : subscriberIds) {
-                if (sessionId.equals(session.getId())) {
-                    continue;
-                }
-                WebSocketSession ws = sessions.get(sessionId);
-                if (ws != null && ws.isOpen()) {
-                    ws.sendMessage(textMessage);
-                }
-            }
+            broadcastToConversation(indicator.getConversationId(), "TYPING", indicator);
         } catch (Exception e) {
             log.warn("Error processing typing indicator", e);
         }
     }
 
     // ── Utility methods ─────────────────────────────────────────────────
+
+    /**
+     * Registers or clears the current raw WebSocket session from chat presence.
+     */
+    private void handlePresence(WebSocketSession session, JsonNode root) {
+        JsonNode data = root.path("data");
+        Long userId = data.path("userId").asLong(root.path("userId").asLong(0));
+        boolean online = data.path("online").asBoolean(root.path("online").asBoolean(true));
+        PresenceDto presence = online
+                ? chatPresenceService.markOnline(session.getId(), userId)
+                : chatPresenceService.markOffline(session.getId());
+
+        if (presence != null) {
+            broadcastPresence(presence);
+        }
+    }
 
     /**
      * Builds a JSON string with the standard envelope: {"event": "...", "data": ...}.

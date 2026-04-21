@@ -94,6 +94,29 @@ public class ConversationServiceImpl implements ConversationService {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponseDto<ConversationDto> getSupportConversations(Long supportAdminId, int page,
+                                                                     int size, String query) {
+        if (supportAdminId == null || supportAdminId <= 0) {
+            throw new BusinessException("Invalid support admin ID: " + supportAdminId);
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Conversation> result;
+        if (query != null && !query.isBlank()) {
+            result = conversationRepository.findSupportConversationsWithSearch(
+                    supportAdminId, ParticipantType.ADMIN, query, pageable);
+        } else {
+            result = conversationRepository.findSupportConversations(
+                    supportAdminId, ParticipantType.ADMIN, pageable);
+        }
+        return toPagedResponse(result.map(this::toDto));
+    }
+
+    /**
      * Retrieves a conversation entity by ID or throws ResourceNotFoundException.
      * Used internally by other chat-module services.
      *
@@ -115,12 +138,13 @@ public class ConversationServiceImpl implements ConversationService {
                 .conversationId(entity.getConversationId())
                 .participant1Id(entity.getParticipant1Id())
                 .participant2Id(entity.getParticipant2Id())
-                .participant1Type(entity.getParticipant1Type().name())
-                .participant2Type(entity.getParticipant2Type().name())
+                .participant1Type(toApiParticipantType(entity.getParticipant1Type()))
+                .participant2Type(toApiParticipantType(entity.getParticipant2Type()))
                 .participant1Unread(entity.getParticipant1Unread())
                 .participant2Unread(entity.getParticipant2Unread())
                 .lastMessage(entity.getLastMessage())
-                .lastMessageType(null)
+                .lastMessageType(entity.getLastMessageType() == null
+                        ? null : entity.getLastMessageType().name())
                 .lastMessageTimestamp(entity.getLastMessageTimestamp() == null
                         ? null : entity.getLastMessageTimestamp().toString())
                 .build();
@@ -136,6 +160,16 @@ public class ConversationServiceImpl implements ConversationService {
         }
         return conversationRepository.findUserTypeByUserId(userId)
                 .orElse("passenger");
+    }
+
+    private String toApiParticipantType(ParticipantType type) {
+        if (type == null) {
+            return null;
+        }
+        if (type == ParticipantType.CORPORATE) {
+            return "CORPORATE_USER";
+        }
+        return type.name();
     }
 
     /**

@@ -4,8 +4,10 @@ import {
   Alert,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -27,6 +29,7 @@ import { ImageViewerModal } from "../../components/ImageViewerModal";
 import type { RootStackParamList } from "../../navigation/types";
 import {
   deleteMessage,
+  getPresenceSnapshot,
   getConversationMessages,
   markConversationDelivered,
   markConversationRead,
@@ -36,7 +39,13 @@ import {
 import { chatSocket } from "../../services/chatSocket";
 import { getUserProfile } from "../../services/userProfileApi";
 import { useSession } from "../../store/sessionStore";
-import type { ChatMessage, UserProfile, UserType } from "../../types/chat";
+import type {
+  ChatMessage,
+  MessageStatus,
+  PresenceUpdate,
+  UserProfile,
+  UserType,
+} from "../../types/chat";
 import { resolveAssetUrl } from "../../utils/media";
 import {
   applyStatusUpdates,
@@ -62,6 +71,29 @@ type ChatRoomListItem =
       label: string;
     };
 
+const WAVEFORM_BARS = [10, 22, 12, 38, 18, 54, 26, 44, 14, 62, 34, 48, 20, 56, 28, 40, 16, 30];
+const MESSAGE_STATUS_RANK: Record<MessageStatus, number> = {
+  SENT: 0,
+  DELIVERED: 1,
+  READ: 2,
+};
+
+function sameUserId(left?: number | string | null, right?: number | string | null) {
+  if (left == null || right == null) {
+    return false;
+  }
+  return Number(left) === Number(right);
+}
+
+function presenceListHasUser(
+  userIds: PresenceUpdate["onlineUserIds"],
+  userId: number,
+) {
+  return Array.isArray(userIds)
+    ? userIds.some((onlineUserId) => sameUserId(onlineUserId, userId))
+    : false;
+}
+
 function formatDuration(seconds?: number | null) {
   const totalSeconds = Math.max(0, Math.round(seconds ?? 0));
   const minutes = Math.floor(totalSeconds / 60);
@@ -69,14 +101,16 @@ function formatDuration(seconds?: number | null) {
   return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
-function getImageTag(message: ChatMessage) {
-  if (message.fileName?.trim()) {
-    return message.fileName.trim();
+function mostAdvancedStatus(current?: MessageStatus, incoming?: MessageStatus) {
+  if (!incoming) {
+    return current;
   }
-  if (message.content.trim()) {
-    return message.content.trim();
+  if (!current) {
+    return incoming;
   }
-  return "Photo";
+  return MESSAGE_STATUS_RANK[incoming] > MESSAGE_STATUS_RANK[current]
+    ? incoming
+    : current;
 }
 
 function buildOutgoingMessage(params: {
@@ -220,20 +254,29 @@ function MessageRow({
               color={iconColor}
             />
           </Pressable>
-          <View
-            style={[
-              styles.voiceWave,
-              isOutgoing ? styles.voiceWaveOutgoing : null,
-            ]}
-          />
-          <Text
-            style={[
-              styles.voiceTime,
-              isOutgoing ? styles.voiceTimeOutgoing : null,
-            ]}
-          >
-            {formatDuration(message.durationSeconds)}
-          </Text>
+          <View style={styles.voiceWaveWrap}>
+            <View style={styles.voiceWave}>
+              {WAVEFORM_BARS.map((height, index) => (
+                <View
+                  key={`${message.messageId ?? message.clientMessageId ?? "voice"}-${index}`}
+                  style={[
+                    styles.voiceWaveBar,
+                    isOutgoing ? styles.voiceWaveBarOutgoing : null,
+                    isAudioPlaying && index % 3 === 0 ? styles.voiceWaveBarActive : null,
+                    { height: Math.max(4, Math.round((height / 100) * 32)) },
+                  ]}
+                />
+              ))}
+            </View>
+            <Text
+              style={[
+                styles.voiceTime,
+                isOutgoing ? styles.voiceTimeOutgoing : null,
+              ]}
+            >
+              {formatDuration(message.durationSeconds)}
+            </Text>
+          </View>
         </Pressable>
         {isOutgoing ? renderOutgoingMeta() : renderIncomingMeta()}
       </View>
@@ -242,41 +285,49 @@ function MessageRow({
 
   const renderImageBubble = () => (
     <View>
-      <Pressable style={styles.imageBubble} {...deleteProps}>
-        <Pressable
-          onPress={() => resolvedMediaUrl && onOpenImage(resolvedMediaUrl)}
-          disabled={!resolvedMediaUrl}
-        >
-          <Image
-            source={{ uri: resolvedMediaUrl! }}
-            style={styles.messageImage}
-          />
-          <View style={styles.imageTag}>
-            <Text style={styles.imageTagText}>{getImageTag(message)}</Text>
-          </View>
-        </Pressable>
+      <Pressable
+        style={styles.imageBubble}
+        onPress={() => resolvedMediaUrl && onOpenImage(resolvedMediaUrl)}
+        disabled={!resolvedMediaUrl}
+        {...deleteProps}
+      >
+        <Image
+          source={{ uri: resolvedMediaUrl! }}
+          style={styles.messageImage}
+        />
       </Pressable>
       {isOutgoing ? renderOutgoingMeta() : renderIncomingMeta()}
     </View>
   );
 
   const renderLocationBubble = () => {
-    const bubbleStyle = isOutgoing ? styles.bubbleRight : styles.bubbleLeft;
-    const textStyle = isOutgoing
-      ? styles.bubbleRightText
-      : styles.bubbleLeftText;
-
     return (
       <View>
         <Pressable
-          style={bubbleStyle}
+          style={styles.locationCard}
           onPress={() => onOpenLocation(message)}
           {...deleteProps}
         >
-          <Text style={textStyle}>Shared location</Text>
-          <Text style={[textStyle, styles.locationSubtitle]}>
-            {message.latitude?.toFixed(5)}, {message.longitude?.toFixed(5)}
-          </Text>
+          <View style={styles.locationMap}>
+            <View style={[styles.mapRoad, styles.mapRoadOne]} />
+            <View style={[styles.mapRoad, styles.mapRoadTwo]} />
+            <View style={[styles.mapRoadVertical, styles.mapRoadThree]} />
+            <View style={[styles.mapRoadVertical, styles.mapRoadFour]} />
+            <View style={[styles.mapBlock, styles.mapBlockOne]} />
+            <View style={[styles.mapBlock, styles.mapBlockTwo]} />
+            <MaterialCommunityIcons
+              name="map-marker"
+              size={52}
+              color="#EF4444"
+              style={styles.locationMarker}
+            />
+          </View>
+          <View style={styles.locationFooter}>
+            <Text style={styles.locationFooterTitle}>Shared location</Text>
+            <Text style={styles.locationFooterCoords}>
+              {message.latitude?.toFixed(5)}, {message.longitude?.toFixed(5)}
+            </Text>
+          </View>
         </Pressable>
         {isOutgoing ? renderOutgoingMeta() : renderIncomingMeta()}
       </View>
@@ -330,17 +381,25 @@ export function ChatRoomScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [otherTyping, setOtherTyping] = useState(false);
+  const [otherOnline, setOtherOnline] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingActive, setRecordingActive] = useState(false);
+  const [recordingElapsed, setRecordingElapsed] = useState(0);
   const [sending, setSending] = useState(false);
   const [otherProfile, setOtherProfile] = useState<UserProfile | null>(null);
   const [playingAudioUrl, setPlayingAudioUrl] = useState<string | null>(null);
   const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
+  const [attachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localTypingActiveRef = useRef(false);
   const unsubscribeRef = useRef<() => void>(() => undefined);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const currentAudioUrlRef = useRef<string | null>(null);
+  const recordingStartedAtRef = useRef(0);
+  const pendingStatusByMessageIdRef = useRef<Record<number, MessageStatus>>({});
 
   const headerTitle = getParticipantTitle(
     otherUserType,
@@ -352,6 +411,11 @@ export function ChatRoomScreen({ route, navigation }: Props) {
     otherUserType,
     otherProfile,
   );
+  const bottomInset = keyboardVisible ? 0 : insets.bottom;
+  const keyboardLift =
+    Platform.OS === "android" && keyboardVisible
+      ? Math.max(0, keyboardHeight - insets.bottom)
+      : 0;
 
   const listItems = useMemo<ChatRoomListItem[]>(() => {
     const items: ChatRoomListItem[] = [];
@@ -381,6 +445,22 @@ export function ChatRoomScreen({ route, navigation }: Props) {
 
     return items;
   }, [messages]);
+
+  const applyPendingStatus = useCallback((message: ChatMessage) => {
+    if (!message.messageId) {
+      return message;
+    }
+
+    const pendingStatus = pendingStatusByMessageIdRef.current[message.messageId];
+    if (!pendingStatus) {
+      return message;
+    }
+
+    return {
+      ...message,
+      status: mostAdvancedStatus(message.status, pendingStatus),
+    };
+  }, []);
 
   const openLocation = useCallback((message: ChatMessage) => {
     if (message.latitude == null || message.longitude == null) {
@@ -444,15 +524,35 @@ export function ChatRoomScreen({ route, navigation }: Props) {
     }
   }, [conversationId, currentUser]);
 
+  const applyPresenceUpdate = useCallback(
+    (presence: PresenceUpdate) => {
+      if (Array.isArray(presence.onlineUserIds)) {
+        setOtherOnline(presenceListHasUser(presence.onlineUserIds, otherUserId));
+        return;
+      }
+
+      if (sameUserId(presence.userId, otherUserId)) {
+        setOtherOnline(presence.online);
+      }
+    },
+    [otherUserId],
+  );
+
   useEffect(() => {
     if (!currentUser) {
       return;
     }
 
-    chatSocket.connect();
+    chatSocket.connect(currentUser.userId);
+    const unsubscribePresence = chatSocket.subscribePresence(
+      applyPresenceUpdate,
+    );
+    void getPresenceSnapshot()
+      .then(applyPresenceUpdate)
+      .catch(() => undefined);
     unsubscribeRef.current = chatSocket.subscribeConversation(conversationId, {
       onMessage: (message) => {
-        setMessages((prev) => mergeMessage(prev, message));
+        setMessages((prev) => mergeMessage(prev, applyPendingStatus(message)));
         if (message.senderId !== currentUser.userId) {
           void markReadDelivered();
         }
@@ -463,6 +563,13 @@ export function ChatRoomScreen({ route, navigation }: Props) {
         }
       },
       onStatus: (updates) => {
+        updates.forEach((update) => {
+          pendingStatusByMessageIdRef.current[update.messageId] =
+            mostAdvancedStatus(
+              pendingStatusByMessageIdRef.current[update.messageId],
+              update.status,
+            ) ?? update.status;
+        });
         setMessages((prev) => applyStatusUpdates(prev, updates));
       },
       onDeleted: (event) => {
@@ -504,6 +611,7 @@ export function ChatRoomScreen({ route, navigation }: Props) {
         });
       }
       unsubscribeRef.current();
+      unsubscribePresence();
       chatSocket.disconnect();
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
@@ -511,9 +619,17 @@ export function ChatRoomScreen({ route, navigation }: Props) {
       if (soundRef.current) {
         void soundRef.current.unloadAsync();
         soundRef.current = null;
+        currentAudioUrlRef.current = null;
       }
     };
-  }, [conversationId, currentUser, loadPage, markReadDelivered]);
+  }, [
+    applyPendingStatus,
+    applyPresenceUpdate,
+    conversationId,
+    currentUser,
+    loadPage,
+    markReadDelivered,
+  ]);
 
   useEffect(() => {
     let mounted = true;
@@ -533,6 +649,40 @@ export function ChatRoomScreen({ route, navigation }: Props) {
       mounted = false;
     };
   }, [otherUserId]);
+
+  useEffect(() => {
+    if (!recordingActive) {
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setRecordingElapsed(
+        Math.floor((Date.now() - recordingStartedAtRef.current) / 1000),
+      );
+    }, 250);
+
+    return () => clearInterval(timer);
+  }, [recordingActive]);
+
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSubscription = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardVisible(true);
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const pushTypingState = useCallback(
     (typing: boolean) => {
@@ -592,15 +742,16 @@ export function ChatRoomScreen({ route, navigation }: Props) {
           conversationId,
           message,
         });
-        setMessages((prev) => mergeMessage(prev, saved));
-        return saved;
+        const savedWithPendingStatus = applyPendingStatus(saved);
+        setMessages((prev) => mergeMessage(prev, savedWithPendingStatus));
+        return savedWithPendingStatus;
       } catch {
         removeOptimisticMessage(message.clientMessageId);
         Alert.alert(failureTitle, failureMessage);
         throw new Error("Message persistence failed");
       }
     },
-    [conversationId, removeOptimisticMessage],
+    [applyPendingStatus, conversationId, removeOptimisticMessage],
   );
 
   const sendText = async () => {
@@ -638,27 +789,14 @@ export function ChatRoomScreen({ route, navigation }: Props) {
     }
   };
 
-  const pickAndSendImage = async () => {
-    if (!currentUser || sending) {
-      return;
-    }
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permission needed", "Photo library permission is required.");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: false,
-      quality: 0.85,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    });
-
-    if (result.canceled) {
+  const uploadAndSendImageAsset = async (
+    asset: ImagePicker.ImagePickerAsset,
+    failureMessage: string,
+  ) => {
+    if (!currentUser) {
       return;
     }
 
-    const asset = result.assets[0];
     setSending(true);
     try {
       let upload;
@@ -670,7 +808,7 @@ export function ChatRoomScreen({ route, navigation }: Props) {
           compressed: false,
         });
       } catch {
-        Alert.alert("Upload failed", "Could not upload selected image.");
+        Alert.alert("Upload failed", failureMessage);
         return;
       }
 
@@ -691,11 +829,61 @@ export function ChatRoomScreen({ route, navigation }: Props) {
       await persistOutgoingMessage(
         message,
         "Send failed",
-        "Could not save the selected image message.",
+        "Could not save the image message.",
       );
     } finally {
       setSending(false);
     }
+  };
+
+  const pickAndSendImage = async () => {
+    if (!currentUser || sending) {
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Photo library permission is required.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: false,
+      quality: 0.85,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    await uploadAndSendImageAsset(asset, "Could not upload selected image.");
+  };
+
+  const captureAndSendImage = async () => {
+    if (!currentUser || sending) {
+      return;
+    }
+
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Camera permission is required.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false,
+      quality: 0.85,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    await uploadAndSendImageAsset(asset, "Could not upload captured image.");
   };
 
   const startRecording = async () => {
@@ -721,9 +909,33 @@ export function ChatRoomScreen({ route, navigation }: Props) {
       await rec.startAsync();
       setRecording(rec);
       setRecordingActive(true);
+      setRecordingElapsed(0);
+      recordingStartedAtRef.current = Date.now();
     } catch {
       Alert.alert("Recording failed", "Could not start recording.");
     }
+  };
+
+  const cancelRecording = async () => {
+    if (!recording) {
+      setRecordingActive(false);
+      setRecordingElapsed(0);
+      return;
+    }
+
+    try {
+      await recording.stopAndUnloadAsync();
+    } catch {
+      // The recording may already be stopped; discard either way.
+    }
+
+    setRecording(null);
+    setRecordingActive(false);
+    setRecordingElapsed(0);
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+    });
   };
 
   const stopRecordingAndSend = async () => {
@@ -737,6 +949,7 @@ export function ChatRoomScreen({ route, navigation }: Props) {
       const status = await recording.getStatusAsync();
       setRecording(null);
       setRecordingActive(false);
+      setRecordingElapsed(0);
 
       if (!uri) {
         throw new Error("Missing recording URI.");
@@ -792,6 +1005,7 @@ export function ChatRoomScreen({ route, navigation }: Props) {
       setSending(false);
       setRecordingActive(false);
       setRecording(null);
+      setRecordingElapsed(0);
     }
   };
 
@@ -898,16 +1112,22 @@ export function ChatRoomScreen({ route, navigation }: Props) {
   };
 
   const openAttachmentMenu = () => {
-    Alert.alert("Share", "Choose what to send", [
-      { text: "Photo", onPress: () => void pickAndSendImage() },
-      { text: "Location", onPress: () => void sendLocation() },
-      { text: "Cancel", style: "cancel" },
-    ]);
+    setAttachmentMenuVisible(true);
+  };
+
+  const closeAttachmentMenu = () => {
+    setAttachmentMenuVisible(false);
+  };
+
+  const runAttachmentAction = (action: () => void) => {
+    closeAttachmentMenu();
+    action();
   };
 
   const stopAudioPlayback = useCallback(async () => {
     const currentSound = soundRef.current;
     soundRef.current = null;
+    currentAudioUrlRef.current = null;
     setPlayingAudioUrl(null);
 
     if (!currentSound) {
@@ -934,7 +1154,7 @@ export function ChatRoomScreen({ route, navigation }: Props) {
         playsInSilentModeIOS: true,
       });
 
-      if (playingAudioUrl === url && soundRef.current) {
+      if (currentAudioUrlRef.current === url && soundRef.current) {
         const status = await soundRef.current.getStatusAsync();
         if (status.isLoaded && status.isPlaying) {
           await soundRef.current.pauseAsync();
@@ -942,9 +1162,11 @@ export function ChatRoomScreen({ route, navigation }: Props) {
           return;
         }
 
-        await soundRef.current.playAsync();
-        setPlayingAudioUrl(url);
-        return;
+        if (status.isLoaded) {
+          await soundRef.current.playAsync();
+          setPlayingAudioUrl(url);
+          return;
+        }
       }
 
       await stopAudioPlayback();
@@ -955,6 +1177,7 @@ export function ChatRoomScreen({ route, navigation }: Props) {
       );
 
       soundRef.current = sound;
+      currentAudioUrlRef.current = url;
       setPlayingAudioUrl(url);
       sound.setOnPlaybackStatusUpdate((status) => {
         if (!status.isLoaded) {
@@ -965,6 +1188,7 @@ export function ChatRoomScreen({ route, navigation }: Props) {
           setPlayingAudioUrl(null);
           if (soundRef.current === sound) {
             soundRef.current = null;
+            currentAudioUrlRef.current = null;
           }
           void sound.unloadAsync();
         }
@@ -1004,16 +1228,13 @@ export function ChatRoomScreen({ route, navigation }: Props) {
     Alert.alert("Delete failed", "Cannot delete this message.");
   };
 
-  const onDeleteMessage = (message: ChatMessage) => {
-    if (
-      !currentUser ||
-      message.senderId !== currentUser.userId ||
-      message.deleted === true ||
-      !message.messageId
-    ) {
+  const confirmDeleteMessage = (message: ChatMessage) => {
+    if (!currentUser || !message.messageId) {
       return;
     }
 
+    const userId = currentUser.userId;
+    const messageId = message.messageId;
     Alert.alert("Delete message", "Do you want to delete this message?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -1021,12 +1242,12 @@ export function ChatRoomScreen({ route, navigation }: Props) {
         style: "destructive",
         onPress: async () => {
           const originalMessage = message;
-          applyDeletedLocally(message.messageId!);
+          applyDeletedLocally(messageId);
 
           try {
             await deleteMessage({
-              messageId: message.messageId!,
-              userId: currentUser.userId,
+              messageId,
+              userId,
             });
           } catch {
             setMessages((prev) =>
@@ -1054,8 +1275,9 @@ export function ChatRoomScreen({ route, navigation }: Props) {
     >
       <KeyboardAvoidingView
         style={styles.safeArea}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : insets.top}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        enabled={Platform.OS === "ios"}
+        keyboardVerticalOffset={0}
       >
         <View style={styles.headerRow}>
           <Pressable style={styles.backButton} onPress={navigation.goBack}>
@@ -1079,12 +1301,19 @@ export function ChatRoomScreen({ route, navigation }: Props) {
                   </Text>
                 </View>
               )}
-              <View style={styles.headerStatus} />
+              {otherOnline ? <View style={styles.headerStatus} /> : null}
             </View>
             <View>
               <Text style={styles.headerTitle}>{headerTitle}</Text>
-              <Text style={styles.headerStatusText}>
-                {otherTyping ? "typing..." : "Online"}
+              <Text
+                style={[
+                  styles.headerStatusText,
+                  otherOnline
+                    ? styles.headerStatusOnlineText
+                    : styles.headerStatusOfflineText,
+                ]}
+              >
+                {otherTyping ? "typing..." : otherOnline ? "Online" : "Offline"}
               </Text>
             </View>
           </View>
@@ -1103,7 +1332,7 @@ export function ChatRoomScreen({ route, navigation }: Props) {
             style={styles.messageList}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingBottom: 12 + insets.bottom },
+              { paddingBottom: 12 + bottomInset },
             ]}
             onEndReached={() => {
               if (!loadingMore && !last) {
@@ -1133,12 +1362,12 @@ export function ChatRoomScreen({ route, navigation }: Props) {
                   isAudioPlaying={
                     item.message.messageType === "VOICE" &&
                     !!item.message.mediaUrl &&
-                    playingAudioUrl === item.message.mediaUrl
+                    playingAudioUrl === resolveAssetUrl(item.message.mediaUrl)
                   }
                   onPressAudio={playAudio}
                   onOpenImage={setViewerImageUrl}
                   onOpenLocation={openLocation}
-                  onLongPressDelete={() => onDeleteMessage(item.message)}
+                  onLongPressDelete={() => confirmDeleteMessage(item.message)}
                 />
               )
             }
@@ -1169,42 +1398,93 @@ export function ChatRoomScreen({ route, navigation }: Props) {
           />
         )}
 
-        <View style={[styles.inputBar, { paddingBottom: 10 + insets.bottom }]}>
-          <Pressable style={styles.inputIcon} onPress={openAttachmentMenu}>
-            <MaterialCommunityIcons name="plus" size={20} color="#64748B" />
-          </Pressable>
-          <View style={styles.inputField}>
-            <TextInput
-              style={styles.inputText}
-              value={input}
-              placeholder="Type a message..."
-              placeholderTextColor="#A6B0C3"
-              onChangeText={onInputChange}
-            />
-          </View>
-          <Pressable
-            style={styles.sendButton}
-            onPress={
-              input.trim().length > 0
-                ? sendText
-                : recordingActive
-                  ? stopRecordingAndSend
-                  : startRecording
-            }
-            disabled={sending}
-          >
-            <MaterialCommunityIcons
-              name={
+        <View
+          style={[
+            styles.composerArea,
+            { paddingBottom: 10 + bottomInset + keyboardLift },
+          ]}
+        >
+          {recordingActive ? (
+            <View style={styles.recordingBanner}>
+              <View style={styles.recordingInfo}>
+                <View style={styles.recordingMic}>
+                  <MaterialCommunityIcons name="microphone" size={13} color="#FFFFFF" />
+                </View>
+                <View>
+                  <Text style={styles.recordingTitle}>Recording voice</Text>
+                  <View style={styles.recordingMeta}>
+                    <Text style={styles.recordingTime}>{formatDuration(recordingElapsed)}</Text>
+                    <View style={styles.recordingWave}>
+                      {WAVEFORM_BARS.slice(0, 12).map((height, index) => (
+                        <View
+                          key={`recording-wave-${index}`}
+                          style={[
+                            styles.recordingWaveBar,
+                            { height: Math.max(4, Math.round((height / 100) * 16)) },
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              </View>
+              <Pressable style={styles.recordingCancel} onPress={() => void cancelRecording()} disabled={sending}>
+                <MaterialCommunityIcons name="close" size={18} color="#B42318" />
+              </Pressable>
+            </View>
+          ) : null}
+          <View style={styles.inputBar}>
+            <Pressable
+              style={[
+                styles.inputIcon,
+                recordingActive ? styles.disabledControl : null,
+              ]}
+              onPress={openAttachmentMenu}
+              disabled={recordingActive || sending}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color="#64748B" />
+            </Pressable>
+            <View style={styles.inputField}>
+              <TextInput
+                style={styles.inputText}
+                value={input}
+                placeholder={
+                  recordingActive
+                    ? "Recording voice..."
+                    : "Type a message..."
+                }
+                placeholderTextColor="#A6B0C3"
+                onChangeText={onInputChange}
+                editable={!recordingActive && !sending}
+              />
+            </View>
+            <Pressable
+              style={[
+                styles.sendButton,
+                recordingActive ? styles.recordingStopButton : null,
+              ]}
+              onPress={
                 input.trim().length > 0
-                  ? "send"
+                  ? sendText
                   : recordingActive
-                    ? "stop"
-                    : "microphone"
+                    ? stopRecordingAndSend
+                    : startRecording
               }
-              size={18}
-              color="#FFFFFF"
-            />
-          </Pressable>
+              disabled={sending}
+            >
+              <MaterialCommunityIcons
+                name={
+                  input.trim().length > 0
+                    ? "send"
+                    : recordingActive
+                      ? "stop"
+                      : "microphone"
+                }
+                size={18}
+                color="#FFFFFF"
+              />
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -1213,6 +1493,43 @@ export function ChatRoomScreen({ route, navigation }: Props) {
         imageUrl={viewerImageUrl ?? ""}
         onClose={() => setViewerImageUrl(null)}
       />
+      <Modal
+        visible={attachmentMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeAttachmentMenu}
+      >
+        <Pressable style={styles.attachmentBackdrop} onPress={closeAttachmentMenu}>
+          <Pressable style={styles.attachmentSheet}>
+            <Text style={styles.attachmentTitle}>Share</Text>
+            <Text style={styles.attachmentSubtitle}>Choose what to send</Text>
+            <Pressable
+              style={styles.attachmentOption}
+              onPress={() => runAttachmentAction(() => void captureAndSendImage())}
+            >
+              <MaterialCommunityIcons name="camera" size={20} color="#1A73E8" />
+              <Text style={styles.attachmentOptionText}>Camera</Text>
+            </Pressable>
+            <Pressable
+              style={styles.attachmentOption}
+              onPress={() => runAttachmentAction(() => void pickAndSendImage())}
+            >
+              <MaterialCommunityIcons name="image" size={20} color="#1A73E8" />
+              <Text style={styles.attachmentOptionText}>Photo</Text>
+            </Pressable>
+            <Pressable
+              style={styles.attachmentOption}
+              onPress={() => runAttachmentAction(() => void sendLocation())}
+            >
+              <MaterialCommunityIcons name="map-marker" size={20} color="#1A73E8" />
+              <Text style={styles.attachmentOptionText}>Location</Text>
+            </Pressable>
+            <Pressable style={styles.attachmentCancel} onPress={closeAttachmentMenu}>
+              <Text style={styles.attachmentCancelText}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1284,7 +1601,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 11,
     fontWeight: "600",
+  },
+  headerStatusOnlineText: {
     color: "#22C55E",
+  },
+  headerStatusOfflineText: {
+    color: "#94A3B8",
   },
   headerSpacer: {
     width: 34,
@@ -1391,9 +1713,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    borderRadius: 16,
-    paddingVertical: 8,
+    borderRadius: 14,
+    paddingVertical: 10,
     paddingHorizontal: 10,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   voiceBubbleIncoming: {
     backgroundColor: "#FFFFFF",
@@ -1404,9 +1731,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#1A73E8",
   },
   voicePlay: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1416,52 +1743,149 @@ const styles = StyleSheet.create({
   voicePlayOutgoing: {
     backgroundColor: "rgba(255,255,255,0.18)",
   },
-  voiceWave: {
-    width: 90,
-    height: 18,
-    backgroundColor: "#E5ECF7",
-    borderRadius: 10,
+  voiceWaveWrap: {
+    minWidth: 132,
   },
-  voiceWaveOutgoing: {
-    backgroundColor: "rgba(255,255,255,0.34)",
+  voiceWave: {
+    width: 126,
+    height: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  voiceWaveBar: {
+    width: 3,
+    borderRadius: 3,
+    backgroundColor: "#8AA7BD",
+    opacity: 0.72,
+  },
+  voiceWaveBarOutgoing: {
+    backgroundColor: "rgba(255,255,255,0.48)",
+  },
+  voiceWaveBarActive: {
+    opacity: 1,
   },
   voiceTime: {
+    marginTop: 2,
     fontSize: 10,
     fontWeight: "700",
-    color: "#64748B",
+    color: "#788598",
   },
   voiceTimeOutgoing: {
-    color: "#FFFFFF",
+    color: "rgba(255,255,255,0.76)",
   },
   imageBubble: {
     width: 220,
     borderRadius: 14,
-    borderWidth: 2,
-    borderColor: "#1A73E8",
     overflow: "hidden",
   },
   messageImage: {
     width: "100%",
     height: 130,
   },
-  imageTag: {
-    position: "absolute",
-    right: 8,
-    bottom: 8,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    maxWidth: 160,
+  locationCard: {
+    width: 220,
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: "#DDE5F0",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
-  imageTagText: {
-    color: "#FFFFFF",
+  locationMap: {
+    height: 130,
+    overflow: "hidden",
+    backgroundColor: "#172331",
+  },
+  mapRoad: {
+    position: "absolute",
+    height: 12,
+    borderRadius: 12,
+    backgroundColor: "#334456",
+    borderWidth: 1,
+    borderColor: "rgba(15,23,42,0.24)",
+  },
+  mapRoadVertical: {
+    position: "absolute",
+    width: 12,
+    borderRadius: 12,
+    backgroundColor: "#3B4B5D",
+    borderWidth: 1,
+    borderColor: "rgba(15,23,42,0.22)",
+  },
+  mapRoadOne: {
+    left: -26,
+    top: 28,
+    width: 280,
+    transform: [{ rotate: "-13deg" }],
+  },
+  mapRoadTwo: {
+    left: -14,
+    top: 84,
+    width: 260,
+    transform: [{ rotate: "8deg" }],
+  },
+  mapRoadThree: {
+    left: 70,
+    top: -28,
+    height: 190,
+    transform: [{ rotate: "23deg" }],
+  },
+  mapRoadFour: {
+    left: 154,
+    top: -24,
+    height: 180,
+    transform: [{ rotate: "-9deg" }],
+  },
+  mapBlock: {
+    position: "absolute",
+    borderRadius: 12,
+    backgroundColor: "rgba(34,49,65,0.75)",
+    borderWidth: 1,
+    borderColor: "#34475A",
+  },
+  mapBlockOne: {
+    left: 28,
+    top: 20,
+    width: 64,
+    height: 48,
+  },
+  mapBlockTwo: {
+    right: 20,
+    bottom: 28,
+    width: 80,
+    height: 48,
+  },
+  locationMarker: {
+    position: "absolute",
+    left: 84,
+    top: 36,
+    shadowColor: "#EF4444",
+    shadowOpacity: 0.42,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  locationFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+    backgroundColor: "#DDE5F0",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  locationFooterTitle: {
     fontSize: 10,
     fontWeight: "700",
+    color: "#465468",
   },
-  locationSubtitle: {
-    marginTop: 4,
-    opacity: 0.92,
+  locationFooterCoords: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#465468",
   },
   centered: {
     flex: 1,
@@ -1492,15 +1916,77 @@ const styles = StyleSheet.create({
     color: "#6C8195",
     fontSize: 14,
   },
-  inputBar: {
+  composerArea: {
     paddingHorizontal: 12,
     paddingTop: 10,
     backgroundColor: "#F7F9FC",
+    borderTopWidth: 1,
+    borderTopColor: "#E6ECF3",
+  },
+  recordingBanner: {
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#FECDD3",
+    backgroundColor: "#FFF1F2",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  recordingInfo: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  recordingMic: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recordingTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#B42318",
+  },
+  recordingMeta: {
+    marginTop: 3,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#E6ECF3",
+  },
+  recordingTime: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#64748B",
+  },
+  recordingWave: {
+    height: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  recordingWaveBar: {
+    width: 2,
+    borderRadius: 2,
+    backgroundColor: "rgba(239,68,68,0.72)",
+  },
+  recordingCancel: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inputBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   inputIcon: {
     width: 36,
@@ -1537,5 +2023,68 @@ const styles = StyleSheet.create({
     backgroundColor: "#1A73E8",
     alignItems: "center",
     justifyContent: "center",
+  },
+  recordingStopButton: {
+    backgroundColor: "#EF4444",
+  },
+  disabledControl: {
+    opacity: 0.42,
+  },
+  attachmentBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.32)",
+    justifyContent: "flex-end",
+    paddingHorizontal: 14,
+    paddingBottom: 18,
+  },
+  attachmentSheet: {
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 10,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.18,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 6,
+  },
+  attachmentTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#1F2937",
+  },
+  attachmentSubtitle: {
+    marginTop: 3,
+    marginBottom: 10,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#8A94A6",
+  },
+  attachmentOption: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+  },
+  attachmentOptionText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1F2937",
+  },
+  attachmentCancel: {
+    marginTop: 8,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+  },
+  attachmentCancelText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#B42318",
   },
 });

@@ -20,14 +20,18 @@ import { ADMIN_SUPPORT_USER_ID } from "../../config/env";
 import type { RootStackParamList } from "../../navigation/types";
 import {
   createConversation,
+  getPresenceSnapshot,
   getUserConversations,
-  searchUserConversations,
 } from "../../services/chatApi";
+import { chatSocket } from "../../services/chatSocket";
 import { getUserProfile } from "../../services/userProfileApi";
 import { useSession } from "../../store/sessionStore";
 import type {
+  ChatMessage,
   ConversationDto,
+  PresenceUpdate,
   SessionUser,
+  TypingIndicator,
   UserProfile,
 } from "../../types/chat";
 import {
@@ -50,6 +54,118 @@ function getConversationTimeLabel(timestamp?: string | null) {
   return dayLabel || "";
 }
 
+function toPresenceUserId(value: number | string) {
+  return Number(value);
+}
+
+function timestampValue(timestamp?: string | null) {
+  if (!timestamp) {
+    return null;
+  }
+  const value = new Date(timestamp).getTime();
+  return Number.isNaN(value) ? null : value;
+}
+
+function messagePreview(message: ChatMessage) {
+  if (message.deleted) {
+    return "Message deleted";
+  }
+  if (message.messageType === "IMAGE") {
+    return "Photo";
+  }
+  if (message.messageType === "VOICE") {
+    return "Voice message";
+  }
+  if (message.messageType === "LOCATION") {
+    return "Shared location";
+  }
+  return message.content || "No messages yet";
+}
+
+function compareByRecentActivity(a: ConversationDto, b: ConversationDto) {
+  const aTime = timestampValue(a.lastMessageTimestamp) ?? 0;
+  const bTime = timestampValue(b.lastMessageTimestamp) ?? 0;
+  return bTime - aTime;
+}
+
+function normalizeSearchValue(value?: string | number | null) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function isSupportConversation(
+  conversation: ConversationDto,
+  currentUser: SessionUser,
+) {
+  const other = getOtherParticipant(conversation, currentUser);
+  return other.userType === "ADMIN" && other.userId === ADMIN_SUPPORT_USER_ID;
+}
+
+function matchesConversationSearch(
+  conversation: ConversationDto,
+  currentUser: SessionUser,
+  profilesById: Record<number, UserProfile>,
+  query: string,
+) {
+  const normalizedQuery = normalizeSearchValue(query);
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const other = getOtherParticipant(conversation, currentUser);
+  const profile = profilesById[other.userId];
+  const searchableValues = [
+    getParticipantTitle(other.userType, other.userId, profile),
+    formatConversationPreview(conversation),
+    profile?.fullName,
+    profile?.companyName,
+    profile?.contactPersonName,
+    profile?.email,
+    other.userType,
+    other.userId,
+  ];
+
+  return searchableValues.some((value) =>
+    normalizeSearchValue(value).includes(normalizedQuery),
+  );
+}
+
+function mergeMessageIntoConversation(
+  conversation: ConversationDto,
+  message: ChatMessage,
+  currentUser: SessionUser,
+) {
+  const messageTime = timestampValue(message.createdAt);
+  const currentTime = timestampValue(conversation.lastMessageTimestamp);
+  const shouldReplacePreview =
+    currentTime === null || messageTime === null || messageTime >= currentTime;
+
+  if (!shouldReplacePreview) {
+    return conversation;
+  }
+
+  const isNewIncoming =
+    message.senderId !== currentUser.userId &&
+    (currentTime === null || (messageTime !== null && messageTime > currentTime));
+  const next: ConversationDto = {
+    ...conversation,
+    lastMessage: messagePreview(message),
+    lastMessageType: message.messageType ?? "TEXT",
+    lastMessageTimestamp: message.createdAt ?? new Date().toISOString(),
+  };
+
+  if (isNewIncoming) {
+    if (conversation.participant1Id === currentUser.userId) {
+      next.participant1Unread = conversation.participant1Unread + 1;
+    } else if (conversation.participant2Id === currentUser.userId) {
+      next.participant2Unread = conversation.participant2Unread + 1;
+    }
+  }
+
+  return next;
+}
+
 export function ChatListScreen({ navigation }: Props) {
   const { currentUser } = useSession();
   const { top: topInset } = useSafeAreaInsets();
@@ -67,6 +183,19 @@ export function ChatListScreen({ navigation }: Props) {
   const [supportConversation, setSupportConversation] =
     useState<ConversationDto | null>(null);
   const supportConversationRef = useRef<ConversationDto | null>(null);
+  const supportConversationPromiseRef = useRef<Promise<ConversationDto | null> | null>(
+    null,
+  );
+  const [onlineByUserId, setOnlineByUserId] = useState<Record<number, boolean>>(
+    {},
+  );
+  const [typingByConversationId, setTypingByConversationId] = useState<
+    Record<number, boolean>
+  >({});
+  const [screenFocused, setScreenFocused] = useState(false);
+  const typingClearTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>(
+    {},
+  );
 
   const trimmed = useMemo(() => query.trim(), [query]);
 
@@ -78,12 +207,17 @@ export function ChatListScreen({ navigation }: Props) {
     supportConversationRef.current = supportConversation;
   }, [supportConversation]);
 
+  useEffect(
+    () => () => {
+      Object.values(typingClearTimersRef.current).forEach((timer) =>
+        clearTimeout(timer),
+      );
+    },
+    [],
+  );
+
   const needsPersistentSupportChat = useCallback((user: SessionUser) => {
-    return (
-      user.userType === "PASSENGER" ||
-      user.userType === "DRIVER" ||
-      user.userType === "CORPORATE_USER"
-    );
+    return user.userId !== ADMIN_SUPPORT_USER_ID;
   }, []);
 
   const getOtherParticipantFor = useCallback(
@@ -111,6 +245,10 @@ export function ChatListScreen({ navigation }: Props) {
         const other = getOtherParticipantFor(conversation, currentUser);
         const isAdminSupport =
           other.userType === "ADMIN" && other.userId === ADMIN_SUPPORT_USER_ID;
+
+        if (other.userType === "ADMIN" && !isAdminSupport) {
+          return false;
+        }
 
         if (!isAdminSupport) {
           return true;
@@ -140,10 +278,112 @@ export function ChatListScreen({ navigation }: Props) {
     [dedupeConversations],
   );
 
+  const pinAndSortConversations = useCallback(
+    (conversations: ConversationDto[]) => {
+      const deduped = dedupeConversations(conversations);
+      const pinnedId = supportConversationRef.current?.conversationId;
+      const pinned = pinnedId
+        ? deduped.find((item) => item.conversationId === pinnedId)
+        : null;
+      const rest = deduped
+        .filter((item) => item.conversationId !== pinned?.conversationId)
+        .sort(compareByRecentActivity);
+
+      return pinned ? [pinned, ...rest] : rest;
+    },
+    [dedupeConversations],
+  );
+
+  const applyPresenceUpdate = useCallback((presence: PresenceUpdate) => {
+    if (Array.isArray(presence.onlineUserIds)) {
+      setOnlineByUserId(
+        presence.onlineUserIds.reduce<Record<number, boolean>>(
+          (next, userId) => {
+            const normalizedUserId = toPresenceUserId(userId);
+            if (Number.isFinite(normalizedUserId)) {
+              next[normalizedUserId] = true;
+            }
+            return next;
+          },
+          {},
+        ),
+      );
+      return;
+    }
+
+    setOnlineByUserId((current) => {
+      const normalizedUserId = toPresenceUserId(presence.userId);
+      if (!Number.isFinite(normalizedUserId)) {
+        return current;
+      }
+      if (presence.online) {
+        return current[normalizedUserId]
+          ? current
+          : { ...current, [normalizedUserId]: true };
+      }
+
+      if (!current[normalizedUserId]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[normalizedUserId];
+      return next;
+    });
+  }, []);
+
+  const setConversationTyping = useCallback(
+    (conversationId: number, typing: boolean) => {
+      const existingTimer = typingClearTimersRef.current[conversationId];
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        delete typingClearTimersRef.current[conversationId];
+      }
+
+      setTypingByConversationId((current) => {
+        if (typing) {
+          return current[conversationId]
+            ? current
+            : { ...current, [conversationId]: true };
+        }
+        if (!current[conversationId]) {
+          return current;
+        }
+        const next = { ...current };
+        delete next[conversationId];
+        return next;
+      });
+
+      if (typing) {
+        typingClearTimersRef.current[conversationId] = setTimeout(() => {
+          setTypingByConversationId((current) => {
+            if (!current[conversationId]) {
+              return current;
+            }
+            const next = { ...current };
+            delete next[conversationId];
+            return next;
+          });
+          delete typingClearTimersRef.current[conversationId];
+        }, 3500);
+      }
+    },
+    [],
+  );
+
+  const handleTyping = useCallback(
+    (typing: TypingIndicator) => {
+      if (!currentUser || typing.userId === currentUser.userId) {
+        return;
+      }
+      setConversationTyping(typing.conversationId, typing.typing);
+    },
+    [currentUser, setConversationTyping],
+  );
+
   const loadMissingProfiles = useCallback(
     async (conversations: ConversationDto[]) => {
       if (!currentUser || conversations.length === 0) {
-        return;
+        return profilesRef.current;
       }
 
       const ids = conversations
@@ -155,7 +395,7 @@ export function ChatListScreen({ navigation }: Props) {
         .filter((id) => !profilesRef.current[id]);
 
       if (ids.length === 0) {
-        return;
+        return profilesRef.current;
       }
 
       const fetched = await Promise.all(
@@ -168,15 +408,15 @@ export function ChatListScreen({ navigation }: Props) {
         }),
       );
 
-      setProfilesById((prev) => {
-        const next = { ...prev };
-        fetched.forEach((profile) => {
-          if (profile) {
-            next[profile.userId] = profile;
-          }
-        });
-        return next;
+      const nextProfiles = { ...profilesRef.current };
+      fetched.forEach((profile) => {
+        if (profile) {
+          nextProfiles[profile.userId] = profile;
+        }
       });
+      profilesRef.current = nextProfiles;
+      setProfilesById(nextProfiles);
+      return nextProfiles;
     },
     [currentUser],
   );
@@ -187,18 +427,33 @@ export function ChatListScreen({ navigation }: Props) {
       return null;
     }
 
-    try {
-      const conversation = await createConversation({
-        user1Id: currentUser.userId,
-        user2Id: ADMIN_SUPPORT_USER_ID,
-      });
-      setSupportConversation(conversation);
-      await loadMissingProfiles([conversation]);
-      return conversation;
-    } catch {
-      setSupportConversation(null);
-      return null;
+    if (supportConversationRef.current) {
+      return supportConversationRef.current;
     }
+
+    if (supportConversationPromiseRef.current) {
+      return supportConversationPromiseRef.current;
+    }
+
+    supportConversationPromiseRef.current = (async () => {
+      try {
+        const conversation = await createConversation({
+          user1Id: currentUser.userId,
+          user2Id: ADMIN_SUPPORT_USER_ID,
+        });
+        supportConversationRef.current = conversation;
+        setSupportConversation(conversation);
+        await loadMissingProfiles([conversation]);
+        return conversation;
+      } catch {
+        setSupportConversation(null);
+        return null;
+      } finally {
+        supportConversationPromiseRef.current = null;
+      }
+    })();
+
+    return supportConversationPromiseRef.current;
   }, [currentUser, loadMissingProfiles, needsPersistentSupportChat]);
 
   const loadPage = useCallback(
@@ -218,20 +473,13 @@ export function ChatListScreen({ navigation }: Props) {
       }
 
       try {
+        const searching = trimmed.length > 0;
         let support = supportConversationRef.current;
-        const response =
-          trimmed.length > 0
-            ? await searchUserConversations({
-                userId: currentUser.userId,
-                q: trimmed,
-                page: targetPage,
-                size: 20,
-              })
-            : await getUserConversations({
-                userId: currentUser.userId,
-                page: targetPage,
-                size: 20,
-              });
+        const response = await getUserConversations({
+          userId: currentUser.userId,
+          page: searching ? 0 : targetPage,
+          size: searching ? 100 : 20,
+        });
 
         if (reset && currentUser && needsPersistentSupportChat(currentUser)) {
           const existingSupport = response.content.find((conversation) => {
@@ -244,6 +492,7 @@ export function ChatListScreen({ navigation }: Props) {
 
           if (existingSupport) {
             support = existingSupport;
+            supportConversationRef.current = existingSupport;
             setSupportConversation(existingSupport);
           } else {
             support = await ensureSupportConversation();
@@ -260,14 +509,26 @@ export function ChatListScreen({ navigation }: Props) {
           : response.content;
 
         const dedupedMerged = dedupeConversations(merged);
+        const profilesSnapshot = await loadMissingProfiles(dedupedMerged);
+        const visibleMerged = searching
+          ? dedupedMerged.filter(
+              (conversation) =>
+                isSupportConversation(conversation, currentUser) ||
+                matchesConversationSearch(
+                  conversation,
+                  currentUser,
+                  profilesSnapshot,
+                  trimmed,
+                ),
+            )
+          : dedupedMerged;
 
-        await loadMissingProfiles(dedupedMerged);
-        setPage(response.page);
-        setLast(response.last);
+        setPage(searching ? 0 : response.page);
+        setLast(searching ? true : response.last);
         setError(null);
         setItems((prev) =>
           reset
-            ? dedupedMerged
+            ? visibleMerged
             : mergeWithSupportConversation(
                 [...prev, ...response.content],
                 support,
@@ -297,39 +558,168 @@ export function ChatListScreen({ navigation }: Props) {
     ],
   );
 
-  useEffect(() => {
-    setItems([]);
-    setPage(0);
-    setLast(false);
-    setProfilesById({});
-    setSupportConversation(null);
-    loadPage(0, true);
-  }, [loadPage]);
+  const updateConversationFromSocket = useCallback(
+    (message: ChatMessage) => {
+      if (!currentUser || !message.conversationId) {
+        return;
+      }
+
+      if (message.senderId !== currentUser.userId) {
+        setConversationTyping(message.conversationId, false);
+      }
+
+      let updatedConversation: ConversationDto | null = null;
+      let missingConversation = false;
+      setItems((current) => {
+        const next = current.map((conversation) => {
+          if (conversation.conversationId !== message.conversationId) {
+            return conversation;
+          }
+
+          const updated = mergeMessageIntoConversation(
+            conversation,
+            message,
+            currentUser,
+          );
+          updatedConversation = updated;
+          return updated;
+        });
+
+        if (!updatedConversation) {
+          missingConversation = true;
+          return current;
+        }
+
+        return pinAndSortConversations(next);
+      });
+
+      if (missingConversation && !trimmed) {
+        void loadPage(0, true);
+      }
+
+      const resolvedUpdatedConversation =
+        updatedConversation as ConversationDto | null;
+      if (
+        resolvedUpdatedConversation &&
+        supportConversationRef.current?.conversationId ===
+          resolvedUpdatedConversation.conversationId
+      ) {
+        setSupportConversation(resolvedUpdatedConversation);
+      }
+
+      if (resolvedUpdatedConversation) {
+        void loadMissingProfiles([resolvedUpdatedConversation]);
+      }
+    },
+    [
+      currentUser,
+      loadMissingProfiles,
+      loadPage,
+      pinAndSortConversations,
+      setConversationTyping,
+      trimmed,
+    ],
+  );
 
   useFocusEffect(
     useCallback(() => {
+      setScreenFocused(true);
       if (currentUser) {
+        setItems([]);
+        setPage(0);
+        setLast(false);
+        setProfilesById({});
+        supportConversationRef.current = null;
+        supportConversationPromiseRef.current = null;
+        setSupportConversation(null);
         loadPage(0, true);
       }
+      return () => {
+        setScreenFocused(false);
+      };
     }, [currentUser, loadPage]),
   );
+
+  const conversationIdsKey = useMemo(
+    () =>
+      items
+        .map((item) => item.conversationId)
+        .sort((a, b) => a - b)
+        .join(","),
+    [items],
+  );
+
+  useEffect(() => {
+    if (!screenFocused || !currentUser) {
+      return undefined;
+    }
+
+    chatSocket.connect(currentUser.userId);
+    const conversationIds = conversationIdsKey
+      .split(",")
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    const unsubscribePresence = chatSocket.subscribePresence(
+      applyPresenceUpdate,
+    );
+    void getPresenceSnapshot()
+      .then(applyPresenceUpdate)
+      .catch(() => undefined);
+    const unsubscribers = conversationIds.map((conversationId) =>
+      chatSocket.subscribeConversation(conversationId, {
+        onMessage: updateConversationFromSocket,
+        onTyping: handleTyping,
+        onStatus: () => undefined,
+        onDeleted: () => {
+          void loadPage(0, true);
+        },
+      }),
+    );
+
+    return () => {
+      unsubscribePresence();
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      chatSocket.disconnect();
+    };
+  }, [
+    applyPresenceUpdate,
+    conversationIdsKey,
+    currentUser,
+    handleTyping,
+    loadPage,
+    screenFocused,
+    updateConversationFromSocket,
+  ]);
 
   const onOpenConversation = (conversation: ConversationDto) => {
     if (!currentUser) {
       return;
     }
 
+    let openedConversation: ConversationDto | null = null;
     setItems((prev) =>
       prev.map((item) => {
         if (item.conversationId !== conversation.conversationId) {
           return item;
         }
         if (item.participant1Id === currentUser.userId) {
-          return { ...item, participant1Unread: 0 };
+          openedConversation = { ...item, participant1Unread: 0 };
+          return openedConversation;
         }
-        return { ...item, participant2Unread: 0 };
+        openedConversation = { ...item, participant2Unread: 0 };
+        return openedConversation;
       }),
     );
+    const resolvedOpenedConversation =
+      openedConversation as ConversationDto | null;
+    if (
+      resolvedOpenedConversation &&
+      supportConversationRef.current?.conversationId ===
+        resolvedOpenedConversation.conversationId
+    ) {
+      setSupportConversation(resolvedOpenedConversation);
+    }
 
     const other = getOtherParticipant(conversation, currentUser);
     navigation.navigate("ChatRoom", {
@@ -363,7 +753,7 @@ export function ChatListScreen({ navigation }: Props) {
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
-          placeholder="Search messages..."
+          placeholder="Search by name or message..."
           placeholderTextColor="#A6B0C3"
           returnKeyType="search"
         />
@@ -398,6 +788,8 @@ export function ChatListScreen({ navigation }: Props) {
               other.userType,
               otherProfile,
             );
+            const isOnline = onlineByUserId[other.userId];
+            const isTyping = typingByConversationId[item.conversationId] === true;
 
             return (
               <Pressable
@@ -414,21 +806,36 @@ export function ChatListScreen({ navigation }: Props) {
                       </Text>
                     </View>
                   )}
-                  {unread > 0 ? <View style={styles.statusDot} /> : null}
+                  {isOnline ? <View style={styles.onlineDot} /> : null}
                 </View>
 
                 <View style={styles.chatBody}>
                   <Text style={styles.chatTitle} numberOfLines={1}>
                     {title}
                   </Text>
-                  <Text style={styles.chatSubtitle} numberOfLines={1}>
-                    {formatConversationPreview(item)}
+                  <Text
+                    style={[
+                      styles.chatSubtitle,
+                      isTyping ? styles.chatTypingSubtitle : null,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {isTyping ? "typing..." : formatConversationPreview(item)}
                   </Text>
                 </View>
 
-                <Text style={styles.chatTime}>
-                  {getConversationTimeLabel(item.lastMessageTimestamp)}
-                </Text>
+                <View style={styles.chatMeta}>
+                  <Text style={styles.chatTime}>
+                    {getConversationTimeLabel(item.lastMessageTimestamp)}
+                  </Text>
+                  {unread > 0 ? (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadBadgeText}>
+                        {unread > 99 ? "99+" : unread}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </Pressable>
             );
           }}
@@ -533,6 +940,8 @@ const styles = StyleSheet.create({
   },
   avatarWrap: {
     position: "relative",
+    width: 44,
+    height: 44,
   },
   avatar: {
     width: 44,
@@ -553,19 +962,20 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#475569",
   },
-  statusDot: {
+  onlineDot: {
     position: "absolute",
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
     backgroundColor: "#22C55E",
     borderWidth: 2,
     borderColor: "#FFFFFF",
-    bottom: 2,
-    right: 2,
+    bottom: 1,
+    right: 1,
   },
   chatBody: {
     flex: 1,
+    minWidth: 0,
   },
   chatTitle: {
     fontSize: 13,
@@ -578,10 +988,34 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#8A94A6",
   },
+  chatTypingSubtitle: {
+    fontWeight: "800",
+    color: "#1A73E8",
+  },
+  chatMeta: {
+    minWidth: 42,
+    alignItems: "flex-end",
+    justifyContent: "center",
+    gap: 6,
+  },
   chatTime: {
     fontSize: 10,
     fontWeight: "700",
     color: "#94A3B8",
+  },
+  unreadBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#1A73E8",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+  },
+  unreadBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
   centered: {
     flex: 1,

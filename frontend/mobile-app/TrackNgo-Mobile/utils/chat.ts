@@ -159,6 +159,9 @@ export function formatConversationPreview(conversation: ConversationDto) {
   if (conversation.lastMessageType === "VOICE") {
     return "Voice message";
   }
+  if (conversation.lastMessageType === "LOCATION") {
+    return "Shared location";
+  }
   return conversation.lastMessage;
 }
 

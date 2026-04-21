@@ -265,43 +265,52 @@ INSERT INTO trip_booking (trip_booking_id, passenger_count, advance_payment, sta
 
 
 -- =============================================
--- CONVERSATIONS (6 records)
+-- CONVERSATIONS (8 records)
+-- Customer support uses admin user 1 as the shared support mailbox.
 -- =============================================
 
-INSERT INTO conversation (conversation_id, participant_1_id, participant_1_type, participant_2_id, participant_2_type, participant_1_unread, participant_2_unread, last_message, last_message_type, last_message_timestamp) VALUES
-(1, 4, 'passenger', 14, 'driver',    0, 2, 'Where is the bus now?',       'text', NOW()),
-(2, 5, 'passenger', 15, 'driver',    1, 0, 'Is booking confirmed?',     'text', DATE_SUB(NOW(), INTERVAL 2 HOUR)),
-(3, 4, 'passenger', 1,  'admin',     0, 1, 'There is a payment issue', 'text', DATE_SUB(NOW(), INTERVAL 1 DAY)),
-(4, 6, 'passenger', 16, 'driver',    2, 0, 'How are you?',                           'location', DATE_SUB(NOW(), INTERVAL 3 HOUR)),
-(5, 22, 'corporate', 2, 'admin',     0, 3, 'Contract renewal regarding',                             'text', DATE_SUB(NOW(), INTERVAL 5 HOUR)),
-(6, 8, 'passenger', 17, 'driver',    1, 1, 'Pick up location sinhalen kiyannako?',                  'text', DATE_SUB(NOW(), INTERVAL 30 MINUTE));
+INSERT INTO conversation (conversation_id, participant_1_id, participant_1_type, participant_2_id, participant_2_type, participant_1_unread, participant_2_unread, last_message, last_message_type, last_message_timestamp, created_at, updated_at) VALUES
+(1, 4,  'passenger', 14, 'driver',    0, 2, 'Not yet',                                      'text',     DATE_SUB(NOW(), INTERVAL 19 MINUTE), DATE_SUB(NOW(), INTERVAL 2 DAY),    DATE_SUB(NOW(), INTERVAL 19 MINUTE)),
+(2, 5,  'passenger', 15, 'driver',    1, 0, 'Thank you! Can we stop at Ramboda Falls?',     'text',     DATE_SUB(NOW(), INTERVAL 2 HOUR),   DATE_SUB(NOW(), INTERVAL 3 DAY),    DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(3, 4,  'passenger', 1,  'admin',     0, 1, 'TXN-20250115-0042',                            'text',     DATE_SUB(NOW(), INTERVAL 1 DAY),    DATE_SUB(NOW(), INTERVAL 4 DAY),    DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(4, 6,  'passenger', 16, 'driver',    2, 0, '[Location]',                                   'location', DATE_SUB(NOW(), INTERVAL 3 HOUR),   DATE_SUB(NOW(), INTERVAL 5 DAY),    DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(5, 22, 'corporate', 2,  'admin',     0, 3, 'Thank you. Our agent will contact you within 24 hours', 'text', DATE_SUB(NOW(), INTERVAL 5 HOUR), DATE_SUB(NOW(), INTERVAL 2 DAY), DATE_SUB(NOW(), INTERVAL 5 HOUR)),
+(6, 8,  'passenger', 17, 'driver',    1, 1, 'Will call when ready',                         'text',     DATE_SUB(NOW(), INTERVAL 30 MINUTE), DATE_SUB(NOW(), INTERVAL 1 DAY),   DATE_SUB(NOW(), INTERVAL 30 MINUTE)),
+(7, 5,  'passenger', 1,  'admin',     0, 2, 'The cancellation was submitted yesterday.',     'text',     DATE_SUB(NOW(), INTERVAL 18 MINUTE), DATE_SUB(NOW(), INTERVAL 12 HOUR), DATE_SUB(NOW(), INTERVAL 18 MINUTE)),
+(8, 8,  'passenger', 1,  'admin',     0, 2, '[Location]',                                   'location', DATE_SUB(NOW(), INTERVAL 6 MINUTE),  DATE_SUB(NOW(), INTERVAL 1 HOUR),  DATE_SUB(NOW(), INTERVAL 6 MINUTE));
 
 
 -- =============================================
--- CHAT MESSAGES (20 records)
+-- CHAT MESSAGES (26 records)
 -- =============================================
 
-INSERT INTO chat_message (message_id, conversation_id, sender_id, recipient_id, sender_type, message_type, content, status, is_read, read_by_participant_1, read_by_participant_2) VALUES
-(1, 1, 4,  14, 'passenger', 'text',     'Hello! Where is the bus now?',                                           'read',      true,  true,  true),
-(2, 1, 14, 4,  'driver',    'text',     'At Kadawatha junction, will come in 20 mins',                            'read',      true,  true,  true),
-(3, 1, 4,  14, 'passenger', 'text',     'Okay, I will wait',                                                      'read',      true,  true,  true),
-(4, 1, 14, 4,  'driver',    'text',     'Did you take from Peradeniya toll?',                                      'delivered', false, false, true),
-(5, 1, 4,  14, 'passenger', 'text',     'Not yet',                                                                 'delivered', false, true,  false),
-(6, 2, 5,  15, 'passenger', 'text',     'My booking for March 20 to Nuwara Eliya confirmed?',                      'read',      true,  true,  true),
-(7, 2, 15, 5,  'driver',    'text',     'Yes, confirmed! I will pick you from Kandy clock tower at 7am',           'read',      true,  true,  true),
-(8, 2, 5,  15, 'passenger', 'text',     'Thank you! Can we stop at Ramboda Falls?',                                'sent',      false, true,  false),
-(9, 3, 4,  1,  'passenger', 'text',     'I paid via PayHere but booking shows pending',                            'read',      true,  true,  true),
-(10, 3, 1, 4,  'admin',     'text',     'Did you give transaction ID?',                                            'read',      true,  true,  true),
-(11, 3, 4, 1,  'passenger', 'text',     'TXN-20250115-0042',                                                       'sent',      false, true,  false),
-(12, 4, 6, 16, 'passenger', 'text',     'Please come for the Yala trip on the mentioned time',                     'read',      true,  true,  true),
-(13, 4, 16,6,  'driver',    'text',     'I will come at 5.30',                                                     'read',      true,  true,  true),
-(14, 4, 6, 16, 'passenger', 'location', '6.3705, 80.7447',                                                         'sent',      false, true,  false),
-(15, 5, 22,2,  'corporate', 'text',     'Dialog contract renewal for next year - need 2 buses',                    'read',      true,  true,  true),
-(16, 5, 2, 22, 'admin',     'text',     'Thank you. Our agent will contact you within 24 hours',                   'sent',      false, false, true),
-(17, 6, 8, 17, 'passenger', 'text',     'Can we talk about pick up time?',                                         'read',      true,  true,  true),
-(18, 6, 17,8,  'driver',    'text',     'How about 6.15?',                                                         'read',      true,  true,  true),
-(19, 6, 8, 17, 'passenger', 'text',     'Okay',                                                                    'delivered', false, true,  false),
-(20, 6, 17,8,  'driver',    'text',     'Will call when ready',                                                    'delivered', false, false, true);
+INSERT INTO chat_message (message_id, conversation_id, sender_id, recipient_id, sender_type, message_type, content, status, client_message_id, media_url, compressed_media_url, file_name, media_mime_type, media_size_bytes, compressed_size_bytes, duration_seconds, latitude, longitude, is_read, read_by_participant_1, read_by_participant_2, created_at) VALUES
+(1,  1, 4,  14, 'passenger', 'text',     'Hello! Where is the bus now?',                              'read',      'seed-1',  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 26 MINUTE)),
+(2,  1, 14, 4,  'driver',    'text',     'At Kadawatha junction, will come in 20 mins',               'read',      'seed-2',  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 25 MINUTE)),
+(3,  1, 4,  14, 'passenger', 'text',     'Okay, I will wait',                                         'read',      'seed-3',  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 23 MINUTE)),
+(4,  1, 14, 4,  'driver',    'text',     'Did you take from Peradeniya toll?',                        'delivered', 'seed-4',  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, false, true,  DATE_SUB(NOW(), INTERVAL 21 MINUTE)),
+(5,  1, 4,  14, 'passenger', 'text',     'Not yet',                                                    'delivered', 'seed-5',  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, true,  false, DATE_SUB(NOW(), INTERVAL 19 MINUTE)),
+(6,  2, 5,  15, 'passenger', 'text',     'My booking for March 20 to Nuwara Eliya confirmed?',         'read',      'seed-6',  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(7,  2, 15, 5,  'driver',    'text',     'Yes, confirmed! I will pick you from Kandy clock tower at 7am', 'read',   'seed-7',  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 119 MINUTE)),
+(8,  2, 5,  15, 'passenger', 'text',     'Thank you! Can we stop at Ramboda Falls?',                   'sent',      'seed-8',  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, true,  false, DATE_SUB(NOW(), INTERVAL 118 MINUTE)),
+(9,  3, 4,  1,  'passenger', 'text',     'I paid via PayHere but booking shows pending',               'read',      'seed-9',  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(10, 3, 1,  4,  'admin',     'text',     'Did you give transaction ID?',                               'read',      'seed-10', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_ADD(DATE_SUB(NOW(), INTERVAL 1 DAY), INTERVAL 2 MINUTE)),
+(11, 3, 4,  1,  'passenger', 'text',     'TXN-20250115-0042',                                          'sent',      'seed-11', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, true,  false, DATE_ADD(DATE_SUB(NOW(), INTERVAL 1 DAY), INTERVAL 4 MINUTE)),
+(12, 4, 6,  16, 'passenger', 'text',     'Please come for the Yala trip on the mentioned time',        'read',      'seed-12', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(13, 4, 16, 6,  'driver',    'text',     'I will come at 5.30',                                        'read',      'seed-13', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 179 MINUTE)),
+(14, 4, 6,  16, 'passenger', 'location', '',                                                          'sent',      'seed-14', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 6.37050000, 80.74470000, false, true, false, DATE_SUB(NOW(), INTERVAL 178 MINUTE)),
+(15, 5, 22, 2,  'corporate', 'text',     'Dialog contract renewal for next year - need 2 buses',       'read',      'seed-15', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 5 HOUR)),
+(16, 5, 2,  22, 'admin',     'text',     'Thank you. Our agent will contact you within 24 hours',      'sent',      'seed-16', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, false, true, DATE_SUB(NOW(), INTERVAL 299 MINUTE)),
+(17, 6, 8,  17, 'passenger', 'text',     'Can we talk about pick up time?',                            'read',      'seed-17', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 36 MINUTE)),
+(18, 6, 17, 8,  'driver',    'text',     'How about 6.15?',                                            'read',      'seed-18', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 34 MINUTE)),
+(19, 6, 8,  17, 'passenger', 'text',     'Okay',                                                       'delivered', 'seed-19', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, true,  false, DATE_SUB(NOW(), INTERVAL 32 MINUTE)),
+(20, 6, 17, 8,  'driver',    'text',     'Will call when ready',                                       'delivered', 'seed-20', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, false, true,  DATE_SUB(NOW(), INTERVAL 30 MINUTE)),
+(21, 7, 5,  1,  'passenger', 'text',     'Can you check my refund status?',                            'sent',      'seed-21', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, true,  false, DATE_SUB(NOW(), INTERVAL 20 MINUTE)),
+(22, 7, 5,  1,  'passenger', 'text',     'The cancellation was submitted yesterday.',                  'sent',      'seed-22', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, true,  false, DATE_SUB(NOW(), INTERVAL 18 MINUTE)),
+(23, 8, 8,  1,  'passenger', 'text',     'I need help changing my pickup point',                       'sent',      'seed-23', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, true,  false, DATE_SUB(NOW(), INTERVAL 10 MINUTE)),
+(24, 8, 1,  8,  'admin',     'text',     'Sure, please send the new pickup location.',                 'read',      'seed-24', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,  true,  true,  DATE_SUB(NOW(), INTERVAL 8 MINUTE)),
+(25, 8, 8,  1,  'passenger', 'text',     'I will send it now.',                                        'sent',      'seed-25', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, true,  false, DATE_SUB(NOW(), INTERVAL 7 MINUTE)),
+(26, 8, 8,  1,  'passenger', 'location', '',                                                          'sent',      'seed-26', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 6.92707900, 79.86124400, false, true, false, DATE_SUB(NOW(), INTERVAL 6 MINUTE));
 
 
 -- =============================================

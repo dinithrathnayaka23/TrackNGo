@@ -10,7 +10,7 @@ import {
   faTriangleExclamation,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   createEmergencyNumber,
   fetchEmergencyNumbers,
@@ -44,8 +44,15 @@ function Settings() {
   const [saveError, setSaveError] = useState('')
 
   const activeRow = rows.find((row) => row.isActive)
+  const activeRowText = activeRow
+    ? `Active: ${activeRow.label}`
+    : loading && rows.length === 0
+      ? 'Loading active row...'
+      : error
+        ? 'Unable to load active row'
+        : 'No active row found'
 
-  async function loadRows() {
+  const loadRows = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
@@ -57,7 +64,11 @@ function Settings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    void loadRows()
+  }, [loadRows])
 
   function openModal() {
     setModalOpen(true)
@@ -169,7 +180,7 @@ function Settings() {
             <div className="mt-5">
               <h2 className="text-lg font-extrabold text-[#111827]">Configure Emergency Numbers</h2>
               <p className="mt-1 text-sm text-[#64748b]">
-                {activeRow ? `Active: ${activeRow.label}` : 'No active row loaded'}
+                {activeRowText}
               </p>
             </div>
 

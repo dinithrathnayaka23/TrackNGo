@@ -24,6 +24,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MessageController {
 
+    private static final Long SUPPORT_ADMIN_ID = 1L;
+
     private final MessageService messageService;
     private final ChatWebSocketHandler chatWebSocketHandler;
 
@@ -63,6 +65,11 @@ public class MessageController {
         MessageDto saved = messageService.sendMessage(dto);
         chatWebSocketHandler.broadcastToConversation(
                 saved.getConversationId(), "NEW_MESSAGE", saved);
+        if (SUPPORT_ADMIN_ID.equals(saved.getRecipientId())
+                || SUPPORT_ADMIN_ID.equals(saved.getSenderId())) {
+            chatWebSocketHandler.broadcastToUser(
+                    SUPPORT_ADMIN_ID, "SUPPORT_INBOX_UPDATED", saved);
+        }
         return saved;
     }
 

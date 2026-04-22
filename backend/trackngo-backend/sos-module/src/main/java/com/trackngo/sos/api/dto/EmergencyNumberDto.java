@@ -10,4 +10,5 @@ public class EmergencyNumberDto {
     private String ambulance;
     private String police;
     private String helpCenter;
+    private Boolean isActive;
 }

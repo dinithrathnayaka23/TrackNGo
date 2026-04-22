@@ -59,9 +59,17 @@ public class MessageServiceImpl implements MessageService {
         entity.setConversation(conversation);
         entity.setSenderId(dto.getSenderId());
         entity.setSenderType(senderType);
+        entity.setRecipientId(resolveRecipientId(conversation, dto.getSenderId()));
         entity.setMessageType(messageType);
         entity.setContent(dto.getContent() == null ? "" : dto.getContent().trim());
+        entity.setClientMessageId(dto.getClientMessageId());
         entity.setMediaUrl(dto.getMediaUrl());
+        entity.setCompressedMediaUrl(dto.getCompressedMediaUrl());
+        entity.setFileName(dto.getFileName());
+        entity.setMediaMimeType(dto.getMediaMimeType());
+        entity.setMediaSizeBytes(dto.getMediaSizeBytes());
+        entity.setCompressedSizeBytes(dto.getCompressedSizeBytes());
+        entity.setDurationSeconds(dto.getDurationSeconds());
         entity.setLatitude(dto.getLatitude());
         entity.setLongitude(dto.getLongitude());
         entity.setRead(false);
@@ -69,6 +77,7 @@ public class MessageServiceImpl implements MessageService {
 
         incrementUnreadCount(conversation, dto.getSenderId());
         conversation.setLastMessage(buildPreview(entity));
+        conversation.setLastMessageType(messageType);
         conversation.setLastMessageTimestamp(LocalDateTime.now());
 
         ChatMessage saved = messageRepository.save(entity);
@@ -270,6 +279,16 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /**
+     * Finds the other participant in a two-party conversation.
+     */
+    private Long resolveRecipientId(Conversation conversation, Long senderId) {
+        if (senderId.equals(conversation.getParticipant1Id())) {
+            return conversation.getParticipant2Id();
+        }
+        return conversation.getParticipant1Id();
+    }
+
+    /**
      * Increments the unread count for the OTHER participant (not the sender).
      */
     private void incrementUnreadCount(Conversation conversation, Long senderId) {
@@ -316,10 +335,12 @@ public class MessageServiceImpl implements MessageService {
                 .ifPresentOrElse(
                         last -> {
                             conversation.setLastMessage(buildPreview(last));
+                            conversation.setLastMessageType(last.getMessageType());
                             conversation.setLastMessageTimestamp(last.getCreatedAt());
                         },
                         () -> {
                             conversation.setLastMessage(null);
+                            conversation.setLastMessageType(null);
                             conversation.setLastMessageTimestamp(null);
                         });
         conversationRepository.save(conversation);
@@ -344,12 +365,18 @@ public class MessageServiceImpl implements MessageService {
                 .conversationId(conversation.getConversationId())
                 .senderId(entity.getSenderId())
                 .recipientId(recipientId)
-                .senderType(entity.getSenderType().name())
+                .senderType(toApiParticipantType(entity.getSenderType()))
                 .content(entity.getContent())
                 .messageType(entity.getMessageType().name())
                 .status(status)
-                .clientMessageId(clientMessageId)
+                .clientMessageId(clientMessageId != null ? clientMessageId : entity.getClientMessageId())
                 .mediaUrl(entity.getMediaUrl())
+                .compressedMediaUrl(entity.getCompressedMediaUrl())
+                .fileName(entity.getFileName())
+                .mediaMimeType(entity.getMediaMimeType())
+                .mediaSizeBytes(entity.getMediaSizeBytes())
+                .compressedSizeBytes(entity.getCompressedSizeBytes())
+                .durationSeconds(entity.getDurationSeconds())
                 .latitude(entity.getLatitude())
                 .longitude(entity.getLongitude())
                 .readByParticipant1(readByP1)
@@ -357,6 +384,16 @@ public class MessageServiceImpl implements MessageService {
                 .deleted(entity.isDeleted())
                 .createdAt(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null)
                 .build();
+    }
+
+    private String toApiParticipantType(ParticipantType type) {
+        if (type == null) {
+            return null;
+        }
+        if (type == ParticipantType.CORPORATE) {
+            return "CORPORATE_USER";
+        }
+        return type.name();
     }
 }
 

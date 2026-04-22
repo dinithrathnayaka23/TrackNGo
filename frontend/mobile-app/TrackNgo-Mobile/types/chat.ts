@@ -63,6 +63,12 @@ export interface TypingIndicator {
   typing: boolean;
 }
 
+export interface PresenceUpdate {
+  userId: number;
+  online: boolean;
+  onlineUserIds?: number[];
+}
+
 export interface MediaUploadResponse {
   fileName: string;
   mediaUrl: string;

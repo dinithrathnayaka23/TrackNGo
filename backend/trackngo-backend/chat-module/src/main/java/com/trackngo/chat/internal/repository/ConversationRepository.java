@@ -2,6 +2,7 @@
 package com.trackngo.chat.internal.repository;
 
 import com.trackngo.chat.internal.entity.Conversation;
+import com.trackngo.chat.internal.entity.enums.ParticipantType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -40,15 +41,76 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
 
     /**
      * Retrieves paginated conversations for a user filtered by search keyword
-     * matching against the last message text.
+     * matching against the latest message and participant profile names.
      */
-    @Query("""
-            SELECT c FROM Conversation c
-            WHERE (c.participant1Id = :userId OR c.participant2Id = :userId)
-              AND c.participant1Id <> c.participant2Id
-              AND LOWER(COALESCE(c.lastMessage, '')) LIKE LOWER(CONCAT('%', :q, '%'))
-            ORDER BY c.updatedAt DESC
-            """)
+    @Query(value = """
+            SELECT
+                c.conversation_id,
+                c.participant_1_id,
+                c.participant_1_type,
+                c.participant_2_id,
+                c.participant_2_type,
+                c.participant_1_unread,
+                c.participant_2_unread,
+                c.last_message,
+                c.last_message_type,
+                c.last_message_timestamp,
+                c.created_at,
+                c.updated_at
+            FROM conversation c
+            LEFT JOIN `user` u1 ON u1.user_id = c.participant_1_id
+            LEFT JOIN `user` u2 ON u2.user_id = c.participant_2_id
+            LEFT JOIN corporate_user cu1 ON cu1.corporate_user_id = c.participant_1_id
+            LEFT JOIN corporate_user cu2 ON cu2.corporate_user_id = c.participant_2_id
+            WHERE (c.participant_1_id = :userId OR c.participant_2_id = :userId)
+              AND c.participant_1_id <> c.participant_2_id
+              AND (
+                  LOWER(COALESCE(c.last_message, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(TRIM(CONCAT(COALESCE(u1.first_name, ''), ' ', COALESCE(u1.last_name, '')))) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(TRIM(CONCAT(COALESCE(u2.first_name, ''), ' ', COALESCE(u2.last_name, '')))) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u1.first_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u1.last_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u2.first_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u2.last_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u1.email, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u2.email, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u1.user_type, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u2.user_type, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(cu1.company_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(cu2.company_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(cu1.contact_person_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(cu2.contact_person_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+              )
+            ORDER BY c.updated_at DESC
+            """,
+            countQuery = """
+            SELECT COUNT(*)
+            FROM conversation c
+            LEFT JOIN `user` u1 ON u1.user_id = c.participant_1_id
+            LEFT JOIN `user` u2 ON u2.user_id = c.participant_2_id
+            LEFT JOIN corporate_user cu1 ON cu1.corporate_user_id = c.participant_1_id
+            LEFT JOIN corporate_user cu2 ON cu2.corporate_user_id = c.participant_2_id
+            WHERE (c.participant_1_id = :userId OR c.participant_2_id = :userId)
+              AND c.participant_1_id <> c.participant_2_id
+              AND (
+                  LOWER(COALESCE(c.last_message, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(TRIM(CONCAT(COALESCE(u1.first_name, ''), ' ', COALESCE(u1.last_name, '')))) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(TRIM(CONCAT(COALESCE(u2.first_name, ''), ' ', COALESCE(u2.last_name, '')))) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u1.first_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u1.last_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u2.first_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u2.last_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u1.email, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u2.email, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u1.user_type, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(u2.user_type, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(cu1.company_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(cu2.company_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(cu1.contact_person_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+                  OR LOWER(COALESCE(cu2.contact_person_name, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+              )
+            """,
+            nativeQuery = true)
     Page<Conversation> findUserConversationsWithSearch(@Param("userId") Long userId,
                                                        @Param("q") String q,
                                                        Pageable pageable);
@@ -59,5 +121,35 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
      */
     @Query(value = "SELECT user_type FROM user WHERE user_id = :userId", nativeQuery = true)
     Optional<String> findUserTypeByUserId(@Param("userId") Long userId);
+
+    /**
+     * Retrieves conversations attached to the shared admin-support user.
+     */
+    @Query("""
+            SELECT c FROM Conversation c
+            WHERE ((c.participant1Id = :supportAdminId AND c.participant1Type = :supportType)
+                OR (c.participant2Id = :supportAdminId AND c.participant2Type = :supportType))
+            ORDER BY c.updatedAt DESC
+            """)
+    Page<Conversation> findSupportConversations(
+            @Param("supportAdminId") Long supportAdminId,
+            @Param("supportType") ParticipantType supportType,
+            Pageable pageable);
+
+    /**
+     * Retrieves support conversations filtered by latest message text.
+     */
+    @Query("""
+            SELECT c FROM Conversation c
+            WHERE ((c.participant1Id = :supportAdminId AND c.participant1Type = :supportType)
+                OR (c.participant2Id = :supportAdminId AND c.participant2Type = :supportType))
+              AND LOWER(COALESCE(c.lastMessage, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+            ORDER BY c.updatedAt DESC
+            """)
+    Page<Conversation> findSupportConversationsWithSearch(
+            @Param("supportAdminId") Long supportAdminId,
+            @Param("supportType") ParticipantType supportType,
+            @Param("q") String q,
+            Pageable pageable);
 }
 

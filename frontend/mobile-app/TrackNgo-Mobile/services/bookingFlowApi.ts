@@ -22,6 +22,7 @@ export interface BusSearchResult {
   fee: number;
   driverName: string;
   driverRating: number;
+  routeName: string;
 }
 
 export interface RouteStopInfo {
@@ -100,9 +101,13 @@ export async function searchBuses(
   return res.data ?? [];
 }
 
-export async function getBusDetails(busId: number): Promise<BusDetailResult> {
+export async function getBusDetails(busId: number, from?: string, to?: string): Promise<BusDetailResult> {
+  const params: Record<string, string> = {};
+  if (from) params.from = from;
+  if (to) params.to = to;
   const res = await httpGet<ApiResponse<BusDetailResult>>(
     `/api/booking-flow/buses/${busId}/details`,
+    Object.keys(params).length > 0 ? params : undefined,
   );
   return res.data;
 }

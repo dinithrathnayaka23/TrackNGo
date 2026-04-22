@@ -53,7 +53,7 @@ export default function BusDetailsScreen() {
   const busId = Number(params.busId ?? '0');
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? new Date().toISOString().split('T')[0];
+  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const price = params.price ?? '0';
   const adults = params.adults ?? '1';
   const children = params.children ?? '0';
@@ -64,7 +64,7 @@ export default function BusDetailsScreen() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getBusDetails(busId);
+      const data = await getBusDetails(busId, from, to);
       setDetails(data);
     } catch (e: any) {
       console.error('[BusDetails] load failed', e);
@@ -72,7 +72,7 @@ export default function BusDetailsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [busId]);
+  }, [busId, from, to]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -134,6 +134,9 @@ export default function BusDetailsScreen() {
               <Text style={styles.busRoute}>
                 {from}  {'→'}  {to}
               </Text>
+              {details.routeName ? (
+                <Text style={styles.routeLabel}>{details.routeName} Bus</Text>
+              ) : null}
             </View>
             <View style={styles.busBadge}>
               <Ionicons name="bus" size={16} color="#94A3B8" />
@@ -218,7 +221,7 @@ export default function BusDetailsScreen() {
                     date,
                     busType: details.busType,
                     depart: details.startTime,
-                    price,
+                    price: String(details.fee),
                     busBrand: details.busBrand,
                     amenities: JSON.stringify(details.amenities),
                     viewOnly: 'true',
@@ -262,7 +265,7 @@ export default function BusDetailsScreen() {
                 date,
                 busType: details.busType,
                 depart: details.startTime,
-                price,
+                price: String(details.fee),
                 adults,
                 children,
                 busBrand: details.busBrand,
@@ -271,7 +274,7 @@ export default function BusDetailsScreen() {
             })
           }>
           <Text style={styles.bookButtonText}>Book Seat</Text>
-          <Text style={styles.bookSubText}>LKR {Number(price).toLocaleString('en-US')} / person</Text>
+          <Text style={styles.bookSubText}>LKR {Number(details.fee).toLocaleString('en-US')} / person</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -347,6 +350,12 @@ const styles = StyleSheet.create({
   busRoute: {
     fontSize: 11,
     color: '#94A3B8',
+  },
+  routeLabel: {
+    fontSize: 10,
+    color: '#2F6BFF',
+    fontWeight: '600',
+    marginTop: 2,
   },
   busBadge: {
     width: 28,

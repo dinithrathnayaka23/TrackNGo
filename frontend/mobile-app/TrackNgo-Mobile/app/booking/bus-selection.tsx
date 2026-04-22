@@ -53,7 +53,7 @@ export default function BusSelectionScreen() {
 
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? new Date().toISOString().split('T')[0];
+  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const passengers = params.passengers ?? '1';
   const adults = params.adults ?? '1';
   const children = params.children ?? '0';
@@ -165,6 +165,9 @@ export default function BusSelectionScreen() {
                 <View>
                   <Text style={styles.busId}>{bus.busNumber}</Text>
                   <Text style={styles.busType}>{bus.busBrand}  •  {bus.busType}</Text>
+                  {bus.routeName ? (
+                    <Text style={styles.routeLabel}>{bus.routeName} Bus</Text>
+                  ) : null}
                 </View>
               </View>
               <View style={styles.ratingPill}>
@@ -355,6 +358,12 @@ const styles = StyleSheet.create({
   busType: {
     fontSize: 10,
     color: '#94A3B8',
+  },
+  routeLabel: {
+    fontSize: 10,
+    color: '#2F6BFF',
+    fontWeight: '600',
+    marginTop: 2,
   },
   ratingPill: {
     flexDirection: 'row',

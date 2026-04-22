@@ -1,4 +1,5 @@
 import { httpGet, httpPost } from "./http";
+import { API_BASE_URL } from "../config/env";
 
 /* ── Shared wrapper ──────────────────────────────────── */
 interface ApiResponse<T> {
@@ -84,6 +85,49 @@ export interface CreateBookingRequest {
   passengerId: number;
   fromLocation: string;
   toLocation: string;
+  originalAmount?: number;
+  discountAmount?: number;
+  promotionId?: number | null;
+  promoCode?: string;
+}
+
+export interface PromotionSummary {
+  promotionId: number;
+  name: string;
+  description: string;
+  targetType: string;
+  discountType: string;
+  discountValue: number;
+  promoCode: string | null;
+  regularCustomerMinCompletedBookings: number | null;
+  maxBookings: number;
+  usedBookings: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PromotionQuoteRequest {
+  passengerId: number;
+  busId: number;
+  fromLocation: string;
+  toLocation: string;
+  originalAmount: number;
+  promoCode?: string;
+}
+
+export interface PromotionQuoteResult {
+  promotionId: number | null;
+  name: string | null;
+  targetType: string | null;
+  discountType: string | null;
+  discountValue: number | null;
+  promoCode: string | null;
+  originalAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  message: string;
+  eligiblePromotions: PromotionSummary[];
 }
 
 /* ── API calls ───────────────────────────────────────── */
@@ -152,6 +196,36 @@ export async function createBooking(
     request,
   );
   return res.data;
+}
+
+export async function quotePromotion(
+  request: PromotionQuoteRequest,
+): Promise<PromotionQuoteResult> {
+  const url = new URL("/api/booking-flow/promotions/quote", API_BASE_URL).toString();
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  const text = await response.text();
+  let body: ApiResponse<PromotionQuoteResult> | null = null;
+  if (text) {
+    try {
+      body = JSON.parse(text) as ApiResponse<PromotionQuoteResult>;
+    } catch {
+      body = null;
+    }
+  }
+
+  if (!response.ok || !body?.success) {
+    throw new Error(body?.message || "Promo code could not be applied.");
+  }
+
+  return body.data;
 }
 
 /* ── Stripe checkout session ──────────────────────────── */

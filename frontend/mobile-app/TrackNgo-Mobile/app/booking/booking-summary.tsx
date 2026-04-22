@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -13,10 +14,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getBusImage } from '../../utils/busImage';
+import { PromotionQuoteResult, quotePromotion } from '../../services/bookingFlowApi';
+import { useSession } from '../../store/sessionStore';
 
 export default function BookingSummaryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { currentUser } = useSession();
   const params = useLocalSearchParams<{
     from?: string;
     to?: string;
@@ -39,7 +43,6 @@ export default function BookingSummaryScreen() {
   const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const seats = params.seats ? params.seats.split(',') : ['3A', '3B'];
   const pricePerSeat = Number(params.pricePerSeat ?? '1500') || 1500;
-  const totalPrice = Number(params.totalPrice ?? `${pricePerSeat * seats.length}`) || pricePerSeat * seats.length;
   const busBrand = params.busBrand ?? '';
   const amenities: string[] = (() => { try { return JSON.parse(params.amenities ?? '[]'); } catch { return []; } })();
   const busImage = getBusImage(busBrand, amenities);
@@ -49,6 +52,9 @@ export default function BookingSummaryScreen() {
   const [email, setEmail] = useState('kamal.p@example.com');
   const [specialRequest, setSpecialRequest] = useState('');
   const [promoCode, setPromoCode] = useState('');
+  const [appliedPromotion, setAppliedPromotion] = useState<PromotionQuoteResult | null>(null);
+  const [promoMessage, setPromoMessage] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [errors, setErrors] = useState<{ fullName?: string; mobile?: string; email?: string }>({});
@@ -85,9 +91,38 @@ export default function BookingSummaryScreen() {
   };
 
   const serviceFee = 200;
-  const discount = 0;
   const baseFare = pricePerSeat * seats.length;
-  const finalAmount = baseFare + serviceFee - discount;
+  const originalAmount = baseFare + serviceFee;
+  const discount = Number(appliedPromotion?.discountAmount ?? 0);
+  const finalAmount = Math.max(originalAmount - discount, 0);
+  const passengerId = currentUser?.userId ?? 0;
+
+  const requestPromotionQuote = useCallback(async (code?: string) => {
+    if (!Number(busId)) return;
+    setPromoLoading(true);
+    setPromoMessage('');
+    try {
+      const quote = await quotePromotion({
+        passengerId,
+        busId: Number(busId),
+        fromLocation: from,
+        toLocation: to,
+        originalAmount,
+        promoCode: code?.trim() || undefined,
+      });
+      setAppliedPromotion(quote.promotionId ? quote : null);
+      setPromoMessage(quote.promotionId ? `${quote.name} applied.` : code?.trim() ? quote.message : '');
+    } catch (error) {
+      setAppliedPromotion(null);
+      setPromoMessage(error instanceof Error && error.message ? error.message : 'Promo code could not be applied.');
+    } finally {
+      setPromoLoading(false);
+    }
+  }, [busId, from, originalAmount, passengerId, to]);
+
+  useEffect(() => {
+    requestPromotionQuote();
+  }, [requestPromotionQuote]);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -250,14 +285,32 @@ export default function BookingSummaryScreen() {
               <TextInput
                 style={styles.promoInput}
                 value={promoCode}
-                onChangeText={setPromoCode}
+                onChangeText={(text) => {
+                  setPromoCode(text);
+                  if (!text.trim()) {
+                    requestPromotionQuote();
+                  }
+                }}
                 placeholder="Enter Promo Code"
                 placeholderTextColor="#94A3B8"
+                autoCapitalize="characters"
               />
-              <Pressable style={styles.promoButton}>
-                <Text style={styles.promoButtonText}>Apply</Text>
+              <Pressable
+                style={[styles.promoButton, promoLoading && styles.promoButtonDisabled]}
+                disabled={promoLoading}
+                onPress={() => requestPromotionQuote(promoCode)}>
+                {promoLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.promoButtonText}>Apply</Text>
+                )}
               </Pressable>
             </View>
+            {promoMessage ? (
+              <Text style={[styles.promoMessage, appliedPromotion ? styles.promoMessageSuccess : styles.promoMessageMuted]}>
+                {promoMessage}
+              </Text>
+            ) : null}
 
             <View style={styles.costRow}>
               <Text style={styles.costLabel}>Base Fare (x{seats.length})</Text>
@@ -268,7 +321,7 @@ export default function BookingSummaryScreen() {
               <Text style={styles.costValue}>LKR {serviceFee.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
             </View>
             <View style={styles.costRow}>
-              <Text style={[styles.costLabel, { color: '#22C55E' }]}>Discount</Text>
+              <Text style={[styles.costLabel, { color: '#22C55E' }]}>Promotion Discount</Text>
               <Text style={[styles.costValue, { color: '#22C55E' }]}>- LKR {discount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
             </View>
             <View style={styles.divider} />
@@ -324,6 +377,10 @@ export default function BookingSummaryScreen() {
                   date,
                   seats: seats.join(','),
                   totalPrice: String(finalAmount),
+                  originalAmount: String(originalAmount),
+                  discountAmount: String(discount),
+                  promotionId: appliedPromotion?.promotionId ? String(appliedPromotion.promotionId) : '',
+                  promoCode: appliedPromotion?.promoCode ?? '',
                   fullName,
                   mobile,
                   email,
@@ -626,11 +683,27 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 20,
     justifyContent: 'center',
+    minWidth: 78,
+    alignItems: 'center',
+  },
+  promoButtonDisabled: {
+    opacity: 0.6,
   },
   promoButtonText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  promoMessage: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  promoMessageSuccess: {
+    color: '#16A34A',
+  },
+  promoMessageMuted: {
+    color: '#64748B',
   },
   costRow: {
     flexDirection: 'row',

@@ -12,6 +12,7 @@ import CorporateDetail from '../pages/dashboard/CorporateDetail'
 import RoutesPage from '../pages/dashboard/RoutesPage'
 import Driver from '../pages/dashboard/Driver'
 import Passenger from '../pages/dashboard/Passenger'
+import Promotions from '../pages/dashboard/Promotions'
 import Users from '../pages/dashboard/Users'
 
 function DashboardRoutes() {
@@ -32,6 +33,7 @@ function DashboardRoutes() {
         <Route path="users/corporate-users" element={<Users />} />
         <Route path="cooperate" element={<Navigate to="/dashboard/corporate" replace />} />
         <Route path="complaints" element={<Complaints />} />
+        <Route path="promotions" element={<Promotions />} />
         <Route path="routes" element={<RoutesPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

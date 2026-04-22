@@ -3,6 +3,8 @@ package com.trackngo.booking.internal.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.api.dto.BookingFlowDtos.*;
+import com.trackngo.booking.api.dto.PromotionDtos.PromotionQuoteResult;
+import com.trackngo.commons.exception.BusinessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -23,10 +25,12 @@ public class BookingFlowService {
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
+    private final PromotionService promotionService;
 
-    public BookingFlowService(JdbcTemplate jdbc, ObjectMapper mapper) {
+    public BookingFlowService(JdbcTemplate jdbc, ObjectMapper mapper, PromotionService promotionService) {
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.promotionService = promotionService;
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -289,12 +293,43 @@ public class BookingFlowService {
         // 0) Ensure a passenger record exists for this user (FK requirement)
         ensurePassengerExists(req.passengerId());
 
+        BigDecimal payableAmount = req.totalAmount();
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        Long appliedPromotionId = null;
+        boolean promotionRequested = req.promotionId() != null
+                || (req.promoCode() != null && !req.promoCode().isBlank());
+
+        if (promotionRequested) {
+            BigDecimal originalAmount = req.originalAmount() != null ? req.originalAmount() : req.totalAmount();
+            PromotionQuoteResult quote = promotionService.quoteForBooking(
+                    req.passengerId(),
+                    req.busId(),
+                    req.fromLocation(),
+                    req.toLocation(),
+                    originalAmount,
+                    req.promoCode(),
+                    true
+            );
+
+            if (req.promotionId() != null && !req.promotionId().equals(quote.promotionId())) {
+                throw new BusinessException("Selected promotion is no longer available for this booking.");
+            }
+            if (req.totalAmount() == null || req.totalAmount().subtract(quote.finalAmount()).abs().compareTo(new BigDecimal("0.01")) > 0) {
+                throw new BusinessException("Booking amount changed. Please refresh the payment summary and try again.");
+            }
+
+            payableAmount = quote.finalAmount();
+            discountAmount = quote.discountAmount();
+            appliedPromotionId = quote.promotionId();
+        }
+
         String txnId = "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         String bookingRef = "BK-" + req.journeyDate().replace("-", "")
                 + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
 
         // 1) Insert payment
         KeyHolder paymentKeyHolder = new GeneratedKeyHolder();
+        BigDecimal finalPayableAmount = payableAmount;
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement(
                     "INSERT INTO payment (transaction_id, payment_method, payment_status, amount) VALUES (?,?,?,?)",
@@ -303,7 +338,7 @@ public class BookingFlowService {
             ps.setString(1, txnId);
             ps.setString(2, req.paymentMethod() != null ? req.paymentMethod() : "stripe");
             ps.setString(3, "success");
-            ps.setBigDecimal(4, req.totalAmount());
+            ps.setBigDecimal(4, finalPayableAmount);
             return ps;
         }, paymentKeyHolder);
         Long paymentId = paymentKeyHolder.getKey().longValue();
@@ -322,7 +357,7 @@ public class BookingFlowService {
                 req.journeyTime(),
                 seatNumbers,
                 req.specialRequest(),
-                req.totalAmount(),
+                payableAmount,
                 "confirmed",
                 req.passengerId(),
                 req.busId(),
@@ -331,6 +366,8 @@ public class BookingFlowService {
                 req.fromLocation(),
                 req.toLocation()
         );
+
+        promotionService.redeem(appliedPromotionId, req.passengerId(), bookingRef, discountAmount);
 
         // 4) Look up bus info for response
         Map<String, Object> bus = jdbc.queryForMap(
@@ -350,7 +387,7 @@ public class BookingFlowService {
                 "confirmed",
                 txnId,
                 seatNumbers,
-                req.totalAmount(),
+                payableAmount,
                 (String) bus.get("bus_number"),
                 fromLoc,
                 toLoc,

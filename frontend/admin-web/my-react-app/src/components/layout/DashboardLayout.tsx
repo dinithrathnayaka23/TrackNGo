@@ -29,6 +29,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
     buses: "Buses",
     booking: "Bookings",
     complaints: "Complaints",
+    promotions: "Promotions",
     routes: "Routes",
   };
   const subSegment = location.pathname.split("/")[3] || "";

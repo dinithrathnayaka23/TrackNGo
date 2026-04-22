@@ -33,6 +33,10 @@ function formatTime(value: number) {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
+function normalizeStopKey(value: string) {
+  return value.trim().toLowerCase().replace(/[-\s]+/g, '');
+}
+
 export default function SearchBusesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -214,6 +218,23 @@ export default function SearchBusesScreen() {
       return;
     }
 
+    const stopMap = new Map(allStops.map((stop) => [normalizeStopKey(stop), stop]));
+    const resolvedFrom = stopMap.get(normalizeStopKey(trimmedFrom));
+    const resolvedTo = stopMap.get(normalizeStopKey(trimmedTo));
+
+    if (!resolvedFrom || !resolvedTo) {
+      Alert.alert(
+        'Select valid stops',
+        'Please choose start and end locations from the route stop suggestions.',
+      );
+      return;
+    }
+
+    if (normalizeStopKey(resolvedFrom) === normalizeStopKey(resolvedTo)) {
+      Alert.alert('Invalid route', 'From and To cannot be the same location.');
+      return;
+    }
+
     const yyyy = selectedDate.getFullYear();
     const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
     const dd = String(selectedDate.getDate()).padStart(2, '0');
@@ -221,8 +242,8 @@ export default function SearchBusesScreen() {
     router.push({
       pathname: '/booking/bus-selection',
       params: {
-        from: trimmedFrom,
-        to: trimmedTo,
+        from: resolvedFrom,
+        to: resolvedTo,
         date: `${yyyy}-${mm}-${dd}`,
         passengers: String(adults + children),
         adults: String(adults),

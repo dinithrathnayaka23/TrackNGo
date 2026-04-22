@@ -53,6 +53,7 @@ const CATEGORY_OPTIONS = [
 
 const PRIORITY_OPTIONS: PriorityLevel[] = ["Low", "Medium", "High"];
 const COMPLAINT_TYPE_LABELS: Record<string, string> = {
+  late_arrival: "Late Arrival",
   driver_behavior: "Driver Behavior",
   bus_condition: "Bus Condition",
   route_issue: "Route Issue",
@@ -60,6 +61,17 @@ const COMPLAINT_TYPE_LABELS: Record<string, string> = {
   booking_issue: "Booking Issue",
   safety_concern: "Safety Concern",
   other: "Other",
+};
+
+const COMPLAINT_TYPE_VALUES: Record<string, string> = {
+  "late arrival": "late_arrival",
+  "driver behavior": "driver_behavior",
+  "bus condition": "bus_condition",
+  "route issue": "route_issue",
+  "safety concern": "safety_concern",
+  "payment issue": "payment_issue",
+  "booking issue": "booking_issue",
+  other: "other",
 };
 
 export default function ComplaintScreen() {
@@ -463,24 +475,7 @@ export default function ComplaintScreen() {
 }
 
 function toComplaintTypeValue(category: string): string {
-  switch (category.trim().toLowerCase()) {
-    case "late arrival":
-      return "route_issue";
-    case "driver behavior":
-      return "driver_behavior";
-    case "bus condition":
-      return "bus_condition";
-    case "route issue":
-      return "route_issue";
-    case "payment issue":
-      return "payment_issue";
-    case "booking issue":
-      return "booking_issue";
-    case "safety concern":
-      return "safety_concern";
-    default:
-      return "other";
-  }
+  return COMPLAINT_TYPE_VALUES[category.trim().toLowerCase()] ?? "other";
 }
 
 function guessImageExtension(mimeType?: string | null): string {

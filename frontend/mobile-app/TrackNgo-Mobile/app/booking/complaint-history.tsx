@@ -24,6 +24,7 @@ type ComplaintItem = {
 };
 
 const COMPLAINT_TYPE_LABELS: Record<string, string> = {
+  late_arrival: "Late Arrival",
   driver_behavior: "Driver Behavior",
   bus_condition: "Bus Condition",
   route_issue: "Route Issue",

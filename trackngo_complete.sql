@@ -301,7 +301,7 @@ CREATE TABLE complaint (
     complaint_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     image TEXT,
     booking_reference VARCHAR(50),
-    complaint_type ENUM('driver_behavior', 'bus_condition', 'route_issue', 'payment_issue', 'booking_issue', 'safety_concern', 'other') NOT NULL,
+    complaint_type ENUM('late_arrival', 'driver_behavior', 'bus_condition', 'route_issue', 'payment_issue', 'booking_issue', 'safety_concern', 'other') NOT NULL,
     priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
     description TEXT NOT NULL,
     status ENUM('pending', 'under_review', 'resolved', 'rejected') DEFAULT 'pending',

@@ -28,6 +28,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ComplaintServiceImpl implements ComplaintService {
     private static final Set<String> ALLOWED_COMPLAINT_TYPES = Set.of(
+        "late_arrival",
         "driver_behavior",
         "bus_condition",
         "route_issue",
@@ -53,6 +54,7 @@ public class ComplaintServiceImpl implements ComplaintService {
             "idx_booking_reference",
             "ALTER TABLE complaint ADD INDEX idx_booking_reference (booking_reference)"
         );
+        ensureComplaintTypeAllowsLateArrival();
     }
 
     @Override
@@ -201,6 +203,37 @@ public class ComplaintServiceImpl implements ComplaintService {
         }
     }
 
+    private void ensureComplaintTypeAllowsLateArrival() {
+        String columnType = jdbc.queryForObject(
+            """
+            SELECT column_type
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+              AND table_name = 'complaint'
+              AND column_name = 'complaint_type'
+            """,
+            String.class
+        );
+
+        if (columnType != null && !columnType.contains("'late_arrival'")) {
+            jdbc.execute(
+                """
+                ALTER TABLE complaint
+                MODIFY complaint_type ENUM(
+                    'late_arrival',
+                    'driver_behavior',
+                    'bus_condition',
+                    'route_issue',
+                    'payment_issue',
+                    'booking_issue',
+                    'safety_concern',
+                    'other'
+                ) NOT NULL
+                """
+            );
+        }
+    }
+
     private String resolvePastPassengerBookingReference(String email, String bookingReference) {
         if (bookingReference == null) {
             throw new BusinessException("Booking reference is required for passenger complaints");
@@ -245,9 +278,6 @@ public class ComplaintServiceImpl implements ComplaintService {
 
     private String normalizeComplaintType(String rawValue) {
         String normalized = normalizeKey(rawValue);
-        if ("late_arrival".equals(normalized)) {
-            return "route_issue";
-        }
         if (!ALLOWED_COMPLAINT_TYPES.contains(normalized)) {
             throw new BusinessException("Invalid complaint type");
         }

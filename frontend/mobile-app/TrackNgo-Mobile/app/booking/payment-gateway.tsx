@@ -103,6 +103,8 @@ export default function PaymentGatewayScreen() {
         paymentMethod: 'stripe',
         totalAmount: totalPrice,
         passengerId: currentUser?.userId ?? 0,
+        fromLocation: from,
+        toLocation: to,
       });
       router.push({
         pathname: '/booking/booking-confirmation',

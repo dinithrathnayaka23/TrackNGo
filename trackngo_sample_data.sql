@@ -6,7 +6,7 @@
 -- =============================================
 
 -- =============================================
--- USERS (26 records)
+-- USERS (32 records)
 -- =============================================
 
 INSERT INTO user (user_id, first_name, last_name, email, password, user_type, is_email_verified, is_active, language_preference, theme_preference, last_login) VALUES
@@ -35,7 +35,13 @@ INSERT INTO user (user_id, first_name, last_name, email, password, user_type, is
 (23, 'Ruwan',   'Abeysekara',   'hr@johnkeellsgroup.lk',       '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'corporate', true,  true,  'si', 'auto',  NULL),
 (24, 'Thilini', 'Ratnayake',    'transport@hayleys.lk',        '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'corporate', true,  true,  'en', 'dark',  NULL),
 (25, 'Pradeep', 'Gunawardena',  'admin@virtusatech.lk',        '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'corporate', false, true,  'en', 'light', NULL),
-(26, 'Nalika',  'Jayasuriya',   'staff@sltelecom.lk',          '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'corporate', true,  true,  'si', 'light', NULL);
+(26, 'Nalika',  'Jayasuriya',   'staff@sltelecom.lk',          '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'corporate', true,  true,  'si', 'light', NULL),
+(27, 'Dinesh',  'Gamage',       'dinesh.g@gmail.com',          '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'si', 'light', NULL),
+(28, 'Tharindu','Wijesekara',   'tharindu.w@gmail.com',        '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'en', 'dark',  NULL),
+(29, 'Kelum',   'Jayathilaka',  'kelum.j@gmail.com',           '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'si', 'auto',  NULL),
+(30, 'Buddhika','Senanayake',   'buddhika.s@gmail.com',        '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'en', 'light', NULL),
+(31, 'Harsha',  'Munasinghe',   'harsha.m@gmail.com',          '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    false, true,  'si', 'dark',  NULL),
+(32, 'Sampath', 'Rathnayake',   'sampath.r@gmail.com',         '$2a$10$E6A/9lJIRKfoTDKU0UpQ4.tbLDAoP8uu8kDeDPbrFrwXoMGk33HsK', 'driver',    true,  true,  'en', 'light', NULL);
 
 -- =============================================
 -- ADMINS (3 records)
@@ -87,7 +93,13 @@ INSERT INTO driver (driver_id, licence_expiry, years_of_experience, profile_phot
 (18, '2026-07-10', 10, NULL, '7890567890', '+94712221005', true,  'B5678901', 310000.00, 'active',    true,  4.70, '2014-08-30'),
 (19, '2027-11-25', 7,  NULL, '7890678901', '+94712221006', true,  'B6789012', 175000.00, 'on_leave',  true,  4.30, '2017-02-14'),
 (20, '2025-05-08', 3,  NULL, '7890789012', '+94712221007', false, 'B7890123',  45000.00, 'active',    false, 0.00, '2021-06-01'),
-(21, '2029-01-15', 20, NULL, '7890890123', '+94712221008', true,  'B8901234', 680000.00, 'active',    true,  4.95, '2004-09-20');
+(21, '2029-01-15', 20, NULL, '7890890123', '+94712221008', true,  'B8901234', 680000.00, 'active',    true,  4.95, '2004-09-20'),
+(27, '2028-05-15', 6,  NULL, '7890901234', '+94712221009', true,  'B9012345', 120000.00, 'active',    true,  4.20, '2018-04-12'),
+(28, '2027-09-20', 9,  NULL, '7891012345', '+94712221010', true,  'B0123456',  95000.00, 'active',    true,  4.50, '2017-01-25'),
+(29, '2028-01-10', 4,  NULL, '7891123456', '+94712221011', true,  'B1230001',  78000.00, 'active',    true,  4.10, '2020-08-18'),
+(30, '2027-11-30', 11, NULL, '7891234567', '+94712221012', true,  'B1230002', 250000.00, 'active',    true,  4.65, '2013-06-05'),
+(31, '2026-08-05', 3,  NULL, '7891345678', '+94712221013', false, 'B1230003',  42000.00, 'active',    true,  3.90, '2021-11-20'),
+(32, '2028-04-18', 7,  NULL, '7891456789', '+94712221014', true,  'B1230004', 165000.00, 'active',    true,  4.35, '2017-09-03');
 
 
 -- =============================================
@@ -107,12 +119,12 @@ INSERT INTO corporate_user (corporate_user_id, address, company_name, profile_ph
 -- =============================================
 
 INSERT INTO route (route_id, route_name, route_code, route_type, start_location, end_location, est_distance_difference, estimated_time_duration, fee, active_buses, is_active) VALUES
-(1, 'Colombo to Kandy Express',       'R001', 'highway',       'Colombo Fort',       'Kandy',            115.50, 165, 450.00,  2, true),
-(2, 'Colombo to Galle Highway',       'R002', 'highway',       'Colombo Fort',       'Galle',            119.00, 100, 400.00,  1, true),
-(3, 'Colombo to Jaffna Long Distance','R003', 'long_distance', 'Colombo Fort',       'Jaffna',           396.00, 480, 1800.00, 1, true),
-(4, 'Kandy to Nuwara Eliya',          'R004', 'highway',       'Kandy',              'Nuwara Eliya',     79.00,  120, 350.00,  1, true),
-(5, 'Colombo to Matara',              'R005', 'highway',       'Colombo Fort',       'Matara',           160.00, 150, 550.00,  1, true),
-(6, 'Colombo to Negombo',             'R006', 'highway',       'Colombo Fort',       'Negombo',          37.00,  60,  200.00,  1, true);
+(1, 'Colombo to Kandy Express',       'R001', 'highway',       'Colombo Fort',       'Kandy',            115.50, 165, 450.00,  3, true),
+(2, 'Colombo to Galle Highway',       'R002', 'highway',       'Colombo Fort',       'Galle',            119.00, 100, 400.00,  2, true),
+(3, 'Colombo to Jaffna Long Distance','R003', 'long_distance', 'Colombo Fort',       'Jaffna',           396.00, 480, 1800.00, 2, true),
+(4, 'Kandy to Nuwara Eliya',          'R004', 'highway',       'Kandy',              'Nuwara Eliya',     79.00,  120, 350.00,  2, true),
+(5, 'Colombo to Matara',              'R005', 'highway',       'Colombo Fort',       'Matara',           160.00, 150, 550.00,  2, true),
+(6, 'Colombo to Negombo',             'R006', 'highway',       'Colombo Fort',       'Negombo',          37.00,  60,  200.00,  2, true);
 
 
 -- =============================================
@@ -189,7 +201,15 @@ INSERT INTO bus (bus_id, bus_number, bus_brand, start_time, end_time, registrati
 (7, 'TB-0201', 'Rosa Bus',      NULL,        NULL,        'WP CAB-0201', '["ac","wifi","charging_ports"]',                 25, 'excellent', 'trip_booking',  'active',      '2027-01-31', 20, NULL),
 (8, 'TB-0202', 'TATA Motors',   NULL,        NULL,        'WP CAB-0202', '["ac"]',                                        30, 'good',      'trip_booking',  'active',      '2026-09-30', NULL, NULL),
 (9, 'CB-0301', 'Ashok Leyland', '06:00:00', '20:00:00', 'WP CAB-0301', '["ac","wifi","charging_ports"]',                 40, 'excellent', 'corporate',     'active',      '2026-12-31', 19, NULL),
-(10, 'CB-0302', 'Rosa Bus',      '06:00:00', '20:00:00', 'WP CAB-0302', '["ac","charging_ports"]',                        35, 'good',      'corporate',     'maintenance', '2026-07-31', NULL, NULL);
+(10, 'CB-0302', 'Rosa Bus',      '06:00:00', '20:00:00', 'WP CAB-0302', '["ac","charging_ports"]',                        35, 'good',      'corporate',     'maintenance', '2026-07-31', NULL, NULL),
+-- Additional Non-AC and extra buses for realistic search results
+(11, 'NB-0134', 'Ashok Leyland', '06:00:00', '22:30:00', 'WP KAD-0134', '["charging_ports"]',                              42, 'good',      'highway',       'active',      '2026-10-15', 27, 1),
+(12, 'NB-0156', 'TATA Motors',   '07:00:00', '23:00:00', 'WP KAD-0156', '["wifi"]',                                         38, 'fair',      'highway',       'active',      '2026-05-20', 28, 1),
+(13, 'NB-0178', 'Ashok Leyland', '06:30:00', '21:30:00', 'WP GAL-0178', '["charging_ports"]',                              40, 'good',      'highway',       'active',      '2026-08-31', 29, 2),
+(14, 'NB-0190', 'TATA Motors',   '05:00:00', '21:00:00', 'WP JAF-0190', '["wifi","charging_ports"]',                       48, 'good',      'long_distance', 'active',      '2027-02-28', 30, 3),
+(15, 'NB-0212', 'Ashok Leyland', '07:30:00', '19:30:00', 'CP NUW-0212', '["charging_ports"]',                              36, 'good',      'highway',       'active',      '2026-09-30', 31, 4),
+(16, 'NB-0234', 'TATA Motors',   '05:30:00', '22:00:00', 'WP MAT-0234', '["wifi"]',                                         44, 'fair',      'highway',       'active',      '2026-07-15', 32, 5),
+(17, 'NB-0256', 'Ashok Leyland', '07:00:00', '20:30:00', 'WP NEG-0256', '["charging_ports"]',                              38, 'good',      'highway',       'active',      '2026-11-30', NULL, 6);
 
 
 -- =============================================
@@ -429,17 +449,17 @@ INSERT INTO payment (payment_id, transaction_id, payment_method, payment_status,
 -- SEAT BOOKINGS (10 records)
 -- =============================================
 
-INSERT INTO seat_booking (seat_booking_id, booking_reference, journey_date, journey_time, seat_number, special_request, total_amount, status, passenger_id, bus_id, route_id, payment_id) VALUES
-(1, 'SB-20250115-001', '2026-04-15', '06:00:00', 'A1,A2',    'Window seats please',         900.00,  'completed', 4,  1, 1, 1),
-(2, 'SB-20250115-002', '2025-01-15', '06:00:00', 'B3',       NULL,                          450.00,  'completed', 5,  1, 1, 3),
-(3, 'SB-20250116-001', '2025-01-16', '07:00:00', 'A5',       'Front seat preferred',        400.00,  'completed', 6,  2, 2, 4),
-(4, 'SB-20250120-001', '2025-01-20', '04:30:00', 'C1,C2,C3', 'Traveling with family',      5400.00,  'completed', 8,  3, 3, 5),
-(5, 'SB-20250125-001', '2025-01-25', '06:00:00', 'B1',       NULL,                          450.00,  'completed', 9,  1, 1, 6),
-(6, 'SB-20250201-001', '2025-02-01', '05:00:00', 'A3,A4',    'AC seat required',           1100.00,  'completed', 11, 5, 5, 7),
-(7, 'SB-20250210-001', '2025-02-10', '06:30:00', 'D2',       NULL,                          200.00,  'cancelled', 12, 6, 6, 9),
-(8, 'SB-20250301-001', '2025-03-01', '05:00:00', 'A1',       NULL,                         1800.00,  'confirmed', 7,  3, 3, 10),
-(9, 'SB-20250315-001', '2025-03-15', '07:00:00', 'B2,B3',    'Elderly passenger, need AC',  700.00,  'confirmed', 10, 4, 4, NULL),
-(10, 'SB-20250401-001', '2025-04-01', '05:00:00', 'E5',       NULL,                         1800.00,  'confirmed', 4,  3, 3, NULL);
+INSERT INTO seat_booking (seat_booking_id, booking_reference, journey_date, journey_time, seat_number, special_request, total_amount, status, passenger_id, bus_id, route_id, payment_id, from_stop, to_stop) VALUES
+(1, 'SB-20250115-001', '2026-04-15', '06:00:00', 'A1,A2',    'Window seats please',         900.00,  'completed', 4,  1, 1, 1,    'Kadawatha', 'Kandy'),
+(2, 'SB-20250115-002', '2025-01-15', '06:00:00', 'B3',       NULL,                          450.00,  'completed', 5,  1, 1, 3,    'Colombo Fort', 'Kandy'),
+(3, 'SB-20250116-001', '2025-01-16', '07:00:00', 'A5',       'Front seat preferred',        400.00,  'completed', 6,  2, 2, 4,    'Colombo Fort', 'Galle'),
+(4, 'SB-20250120-001', '2025-01-20', '04:30:00', 'C1,C2,C3', 'Traveling with family',      5400.00,  'completed', 8,  3, 3, 5,    'Colombo Fort', 'Jaffna'),
+(5, 'SB-20250125-001', '2025-01-25', '06:00:00', 'B1',       NULL,                          450.00,  'completed', 9,  1, 1, 6,    'Colombo Fort', 'Peradeniya'),
+(6, 'SB-20250201-001', '2025-02-01', '05:00:00', 'A3,A4',    'AC seat required',           1100.00,  'completed', 11, 5, 5, 7,    'Colombo Fort', 'Matara'),
+(7, 'SB-20250210-001', '2025-02-10', '06:30:00', 'D2',       NULL,                          200.00,  'cancelled', 12, 6, 6, 9,    'Colombo Fort', 'Negombo'),
+(8, 'SB-20250301-001', '2025-03-01', '05:00:00', 'A1',       NULL,                         1800.00,  'confirmed', 7,  3, 3, 10,   'Colombo Fort', 'Jaffna'),
+(9, 'SB-20250315-001', '2025-03-15', '07:00:00', 'B2,B3',    'Elderly passenger, need AC',  700.00,  'confirmed', 10, 4, 4, NULL,  'Kandy', 'Nuwara Eliya'),
+(10, 'SB-20250401-001', '2025-04-01', '05:00:00', 'E5',       NULL,                         1800.00,  'confirmed', 4,  3, 3, NULL,  'Colombo Fort', 'Jaffna');
 
 
 -- =============================================

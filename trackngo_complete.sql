@@ -303,7 +303,7 @@ CREATE TABLE complaint (
     complaint_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     image TEXT,
     booking_reference VARCHAR(50),
-    complaint_type ENUM('driver_behavior', 'bus_condition', 'route_issue', 'payment_issue', 'booking_issue', 'safety_concern', 'other') NOT NULL,
+    complaint_type ENUM('driver_behavior', 'bus_condition', 'route_issue', 'late_arrival', 'payment_issue', 'booking_issue', 'safety_concern', 'other') NOT NULL,
     priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
     description TEXT NOT NULL,
     status ENUM('pending', 'under_review', 'resolved', 'rejected') DEFAULT 'pending',
@@ -497,6 +497,8 @@ CREATE TABLE seat_booking (
     bus_id BIGINT NOT NULL,
     route_id BIGINT NOT NULL,
     payment_id BIGINT,
+    from_stop VARCHAR(255) COMMENT 'Passenger boarding stop name',
+    to_stop VARCHAR(255) COMMENT 'Passenger alighting stop name',
 
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
     FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,

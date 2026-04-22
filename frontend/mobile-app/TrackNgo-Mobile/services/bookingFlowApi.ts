@@ -82,6 +82,8 @@ export interface CreateBookingRequest {
   paymentMethod: string;
   totalAmount: number;
   passengerId: number;
+  fromLocation: string;
+  toLocation: string;
 }
 
 /* ── API calls ───────────────────────────────────────── */

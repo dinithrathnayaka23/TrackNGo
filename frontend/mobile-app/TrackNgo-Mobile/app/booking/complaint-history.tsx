@@ -27,6 +27,7 @@ const COMPLAINT_TYPE_LABELS: Record<string, string> = {
   driver_behavior: "Driver Behavior",
   bus_condition: "Bus Condition",
   route_issue: "Route Issue",
+  late_arrival: "Late Arrival",
   payment_issue: "Payment Issue",
   booking_issue: "Booking Issue",
   safety_concern: "Safety Concern",

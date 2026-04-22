@@ -37,6 +37,16 @@ public class BookingFlowService {
        ═══════════════════════════════════════════════════════════ */
     public List<BusSearchResult> searchBuses(String from, String to, String date, String busCategory) {
         boolean filterCategory = busCategory != null && !busCategory.isBlank();
+        String normalizedFrom = normalizeStopKey(from);
+        String normalizedTo = normalizeStopKey(to);
+
+        if (normalizedFrom.isBlank() || normalizedTo.isBlank()) {
+            return List.of();
+        }
+
+        if (normalizedFrom.equals(normalizedTo)) {
+            return List.of();
+        }
 
         // Find buses on routes that contain both from-stop and to-stop
         // with from-stop having a lower priority (earlier on the route)
@@ -57,9 +67,9 @@ public class BookingFlowService {
             FROM bus b
             JOIN route r ON b.route_id = r.route_id
             JOIN route_stop rs_from ON rs_from.route_id = r.route_id
-                                    AND LOWER(rs_from.name) LIKE ?
+                                                                        AND LOWER(REPLACE(REPLACE(TRIM(rs_from.name), '-', ''), ' ', '')) = ?
             JOIN route_stop rs_to   ON rs_to.route_id   = r.route_id
-                                    AND LOWER(rs_to.name) LIKE ?
+                                                                        AND LOWER(REPLACE(REPLACE(TRIM(rs_to.name), '-', ''), ' ', '')) = ?
             LEFT JOIN driver d ON b.driver_id = d.driver_id
             LEFT JOIN `user` u ON d.driver_id = u.user_id
             WHERE rs_from.priority < rs_to.priority
@@ -69,12 +79,9 @@ public class BookingFlowService {
             ORDER BY b.start_time
             """;
 
-        String fromPattern = "%" + from.trim().toLowerCase() + "%";
-        String toPattern = "%" + to.trim().toLowerCase() + "%";
-
         List<Map<String, Object>> rows = filterCategory
-            ? jdbc.queryForList(sql, fromPattern, toPattern, busCategory.trim().toLowerCase())
-            : jdbc.queryForList(sql, fromPattern, toPattern);
+            ? jdbc.queryForList(sql, normalizedFrom, normalizedTo, busCategory.trim().toLowerCase())
+            : jdbc.queryForList(sql, normalizedFrom, normalizedTo);
 
         List<BusSearchResult> results = new ArrayList<>();
         for (Map<String, Object> row : rows) {
@@ -174,14 +181,14 @@ public class BookingFlowService {
                     toBigDecimal(row.get("est_distance_difference")), fromStop, toStop);
 
             // Find stop-specific times from the loaded stops
-            String fromLower = fromStop.trim().toLowerCase();
-            String toLower = toStop.trim().toLowerCase();
+            String fromLower = normalizeStopKey(fromStop);
+            String toLower = normalizeStopKey(toStop);
             for (BusDetailResult.RouteStopInfo stop : stops) {
-                if (stop.name().toLowerCase().contains(fromLower)) {
+                if (normalizeStopKey(stop.name()).equals(fromLower)) {
                     // Convert "hh:mm a" (12-hr) to "HH:mm" (24-hr) for consistency
                     displayStartTime = convertTo24Hr(stop.estimatedTime());
                 }
-                if (stop.name().toLowerCase().contains(toLower)) {
+                if (normalizeStopKey(stop.name()).equals(toLower)) {
                     displayEndTime = convertTo24Hr(stop.estimatedTime());
                 }
             }
@@ -315,8 +322,8 @@ public class BookingFlowService {
         String seatNumbers = String.join(",", req.seatNumbers());
         jdbc.update(
                 "INSERT INTO seat_booking (booking_reference, journey_date, journey_time, seat_number, " +
-                "special_request, total_amount, status, passenger_id, bus_id, route_id, payment_id) " +
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                "special_request, total_amount, status, passenger_id, bus_id, route_id, payment_id, from_stop, to_stop) " +
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 bookingRef,
                 req.journeyDate(),
                 req.journeyTime(),
@@ -327,7 +334,9 @@ public class BookingFlowService {
                 req.passengerId(),
                 req.busId(),
                 routeId,
-                paymentId
+                paymentId,
+                req.fromLocation(),
+                req.toLocation()
         );
 
         // 4) Look up bus info for response
@@ -337,6 +346,12 @@ public class BookingFlowService {
                 req.busId()
         );
 
+        // Use passenger's from/to stops if provided, otherwise fall back to route endpoints
+        String fromLoc = req.fromLocation() != null && !req.fromLocation().isBlank()
+                ? req.fromLocation() : (String) bus.get("start_location");
+        String toLoc = req.toLocation() != null && !req.toLocation().isBlank()
+                ? req.toLocation() : (String) bus.get("end_location");
+
         return new BookingConfirmationResult(
                 bookingRef,
                 "confirmed",
@@ -344,8 +359,8 @@ public class BookingFlowService {
                 seatNumbers,
                 req.totalAmount(),
                 (String) bus.get("bus_number"),
-                (String) bus.get("start_location"),
-                (String) bus.get("end_location"),
+                fromLoc,
+                toLoc,
                 req.journeyDate(),
                 req.journeyTime()
         );
@@ -358,6 +373,7 @@ public class BookingFlowService {
         String sql = """
             SELECT sb.booking_reference, sb.status, sb.seat_number, sb.total_amount,
                    sb.journey_date, sb.journey_time,
+                   sb.from_stop, sb.to_stop,
                    b.bus_number, r.start_location, r.end_location,
                    p.transaction_id
             FROM seat_booking sb
@@ -368,6 +384,10 @@ public class BookingFlowService {
             """;
         Map<String, Object> row = jdbc.queryForMap(sql, bookingRef);
 
+        // Use passenger's from/to stops if saved, otherwise fall back to route endpoints
+        String fromLoc = row.get("from_stop") != null ? (String) row.get("from_stop") : (String) row.get("start_location");
+        String toLoc = row.get("to_stop") != null ? (String) row.get("to_stop") : (String) row.get("end_location");
+
         return new BookingConfirmationResult(
                 (String) row.get("booking_reference"),
                 (String) row.get("status"),
@@ -375,8 +395,8 @@ public class BookingFlowService {
                 (String) row.get("seat_number"),
                 toBigDecimal(row.get("total_amount")),
                 (String) row.get("bus_number"),
-                (String) row.get("start_location"),
-                (String) row.get("end_location"),
+                fromLoc,
+                toLoc,
                 row.get("journey_date") != null ? row.get("journey_date").toString() : null,
                 formatTime(row.get("journey_time"))
         );
@@ -427,22 +447,31 @@ public class BookingFlowService {
     private BigDecimal calculateSegmentFareForRoute(Long routeId, BigDecimal routeFee,
                                                      BigDecimal totalDistance,
                                                      String fromStop, String toStop) {
-        String distSql = """
-            SELECT name, distance_from_start FROM route_stop
-            WHERE route_id = ? AND (LOWER(name) LIKE ? OR LOWER(name) LIKE ?)
-            ORDER BY priority
-            """;
-        String fromPattern = "%" + fromStop.trim().toLowerCase() + "%";
-        String toPattern = "%" + toStop.trim().toLowerCase() + "%";
-
-        List<Map<String, Object>> distRows = jdbc.queryForList(distSql, routeId, fromPattern, toPattern);
-
-        if (distRows.size() < 2 || totalDistance.compareTo(BigDecimal.ZERO) <= 0) {
+        if (totalDistance.compareTo(BigDecimal.ZERO) <= 0) {
             return routeFee;
         }
 
-        BigDecimal fromDist = toBigDecimal(distRows.get(0).get("distance_from_start"));
-        BigDecimal toDist = toBigDecimal(distRows.get(distRows.size() - 1).get("distance_from_start"));
+        String stopSql = """
+            SELECT distance_from_start
+            FROM route_stop
+            WHERE route_id = ?
+              AND LOWER(REPLACE(REPLACE(TRIM(name), '-', ''), ' ', '')) = ?
+            ORDER BY priority
+            LIMIT 1
+            """;
+
+        String normalizedFrom = normalizeStopKey(fromStop);
+        String normalizedTo = normalizeStopKey(toStop);
+
+        List<BigDecimal> fromDistances = jdbc.queryForList(stopSql, BigDecimal.class, routeId, normalizedFrom);
+        List<BigDecimal> toDistances = jdbc.queryForList(stopSql, BigDecimal.class, routeId, normalizedTo);
+
+        if (fromDistances.isEmpty() || toDistances.isEmpty()) {
+            return routeFee;
+        }
+
+        BigDecimal fromDist = fromDistances.get(0);
+        BigDecimal toDist = toDistances.get(0);
         BigDecimal segmentDistance = toDist.subtract(fromDist);
 
         if (segmentDistance.compareTo(BigDecimal.ZERO) <= 0) return routeFee;
@@ -544,6 +573,16 @@ public class BookingFlowService {
         if (obj == null) return 0.0;
         if (obj instanceof Number n) return n.doubleValue();
         return Double.parseDouble(obj.toString());
+    }
+
+    private String normalizeStopKey(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim()
+                .toLowerCase(Locale.ROOT)
+                .replace("-", "")
+                .replace(" ", "");
     }
 
     private void ensurePassengerExists(Long userId) {

@@ -1,7 +1,26 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { chatSocket } from "../services/chatSocket";
 import { SessionProvider, useSession } from "../store/sessionStore";
+
+function GlobalPresenceConnection() {
+  const { currentUser } = useSession();
+
+  useEffect(() => {
+    if (!currentUser) {
+      return undefined;
+    }
+
+    chatSocket.connect(currentUser.userId);
+    return () => {
+      chatSocket.disconnect();
+    };
+  }, [currentUser]);
+
+  return null;
+}
 
 function RootLayoutNav() {
   const { currentUser, loading } = useSession();
@@ -30,6 +49,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SessionProvider>
+        <GlobalPresenceConnection />
         <RootLayoutNav />
         <StatusBar style="dark" />
       </SessionProvider>

@@ -56,6 +56,25 @@ public class ConversationController {
     }
 
     /**
+     * Retrieves the shared customer-support inbox. Every admin sees the same
+     * mailbox because passengers chat with the single support participant.
+     *
+     * @param supportAdminId admin user ID used as the support identity
+     * @param page           zero-based page index
+     * @param size           number of items per page
+     * @param q              optional search keyword applied to latest message text
+     * @return paginated support conversations
+     */
+    @GetMapping("/admin/support/conversations")
+    public PagedResponseDto<ConversationDto> getSupportConversations(
+            @RequestParam(name = "supportAdminId", defaultValue = "1") Long supportAdminId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "30") int size,
+            @RequestParam(name = "q", required = false) String q) {
+        return conversationService.getSupportConversations(supportAdminId, page, size, q);
+    }
+
+    /**
      * Creates a new conversation between two users, or returns the existing one
      * if a conversation already exists between them.
      * Participant types are optional; if omitted, they are resolved from the user table.

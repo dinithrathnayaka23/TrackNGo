@@ -5,6 +5,7 @@ import type {
   MessageDeleteEvent,
   MessageStatusUpdate,
   PagedResponse,
+  PresenceUpdate,
 } from "../types/chat";
 import { httpDelete, httpGet, httpPost, httpPostForm } from "./http";
 
@@ -102,6 +103,10 @@ export async function markConversationRead(params: {
     `/api/conversations/${conversationId}/read`,
     { userId },
   );
+}
+
+export async function getPresenceSnapshot() {
+  return httpGet<PresenceUpdate>("/api/chat/presence");
 }
 
 export async function uploadMedia(params: {

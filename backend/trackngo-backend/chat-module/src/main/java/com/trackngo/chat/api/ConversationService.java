@@ -35,5 +35,18 @@ public interface ConversationService {
      */
     PagedResponseDto<ConversationDto> getUserConversations(Long userId, int page,
                                                            int size, String query);
+
+    /**
+     * Retrieves the shared customer-support inbox for admins.
+     * All admins read and reply through the same support participant.
+     *
+     * @param supportAdminId the admin user ID used as the shared support identity
+     * @param page           zero-based page index
+     * @param size           page size
+     * @param query          optional search keyword
+     * @return a paged list of support conversations
+     */
+    PagedResponseDto<ConversationDto> getSupportConversations(Long supportAdminId, int page,
+                                                              int size, String query);
 }
 

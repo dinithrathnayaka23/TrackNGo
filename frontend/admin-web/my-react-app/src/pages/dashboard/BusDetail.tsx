@@ -14,7 +14,6 @@ import {
   faScrewdriverWrench,
   faSnowflake,
   faStar,
-  faToilet,
   faTrash,
   faTv,
   faUsers,
@@ -212,72 +211,7 @@ const initialAmenities: Amenity[] = [
   { key: "cctv", name: "CCTV", icon: faVideo, enabled: false },
 ];
 
-type DriverTripRecord = {
-  tripId: string;
-  driverId: string;
-};
 
-const driverTripRecords: DriverTripRecord[] = [
-  ...Array.from({ length: 128 }, (_, index) => ({
-    tripId: `TRP-892-${String(index + 1).padStart(3, "0")}`,
-    driverId: "DRV-892",
-  })),
-  ...Array.from({ length: 97 }, (_, index) => ({
-    tripId: `TRP-415-${String(index + 1).padStart(3, "0")}`,
-    driverId: "DRV-415",
-  })),
-  ...Array.from({ length: 74 }, (_, index) => ({
-    tripId: `TRP-233-${String(index + 1).padStart(3, "0")}`,
-    driverId: "DRV-233",
-  })),
-  ...Array.from({ length: 112 }, (_, index) => ({
-    tripId: `TRP-761-${String(index + 1).padStart(3, "0")}`,
-    driverId: "DRV-761",
-  })),
-  ...Array.from({ length: 95 }, (_, index) => ({
-    tripId: `TRP-501-${String(index + 1).padStart(3, "0")}`,
-    driverId: "DRV-501",
-  })),
-  ...Array.from({ length: 83 }, (_, index) => ({
-    tripId: `TRP-602-${String(index + 1).padStart(3, "0")}`,
-    driverId: "DRV-602",
-  })),
-  ...Array.from({ length: 105 }, (_, index) => ({
-    tripId: `TRP-710-${String(index + 1).padStart(3, "0")}`,
-    driverId: "DRV-710",
-  })),
-];
-
-const getTripCountForDriver = (driverId: string): number =>
-  driverTripRecords.filter((record) => record.driverId === driverId).length;
-
-const initialDriver: Driver = {
-  name: "Dinesh Gamage",
-  id: "DRV-892",
-  phone: "0711526987",
-  rating: "4.9",
-  trips: getTripCountForDriver("DRV-892"),
-};
-
-const driverDirectory: Record<string, string> = {
-  "dinesh gamage": "DRV-892",
-  "kasun perera": "DRV-415",
-  "nimal silva": "DRV-233",
-  "amila fernando": "DRV-761",
-  "lahiru mudalige": "DRV-501",
-  "ashen senarathna": "DRV-602",
-  "david ross": "DRV-710",
-};
-
-const initialBusInfo: BusInfo = {
-  code: "ND-1151",
-  seats: "45",
-  brand: "King Long",
-  condition: "Super-Luxury",
-  type: "Highway",
-  insuranceExp: "Nov 2026",
-  status: "Active",
-};
 
 const generateBusRevenue = (seed: number): BusRevenuePoint[] => {
   const start = new Date("2026-01-26");
@@ -299,64 +233,6 @@ const generateBusRevenue = (seed: number): BusRevenuePoint[] => {
   });
 };
 const revenueChartLabelIndexes = [0, 5, 10, 15, 20, 25, 29];
-
-type BusDetailEntry = {
-  busInfo: BusInfo;
-  driver: Driver;
-  image: string;
-  revenueSeed: number;
-};
-
-const BUS_DETAIL_MAP: Record<string, BusDetailEntry> = {
-  "nd-1151": {
-    busInfo: { code: "ND-1151", seats: "42", brand: "Ashok Leyland", condition: "Semi-Luxury", type: "Highway", insuranceExp: "Nov 2026", status: "Active" },
-    driver: { name: "Lahiru Mudalige", id: "DRV-501", phone: "0712345678", rating: "4.7", trips: getTripCountForDriver("DRV-501") },
-    image: "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=480&q=80&fit=crop",
-    revenueSeed: 0,
-  },
-  "nc-2344": {
-    busInfo: { code: "NC-2344", seats: "54", brand: "Ashok Leyland", condition: "Normal", type: "City", insuranceExp: "Mar 2027", status: "Active" },
-    driver: { name: "Lahiru Mudalige", id: "DRV-501", phone: "0712345678", rating: "4.7", trips: getTripCountForDriver("DRV-501") },
-    image: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=480&q=80&fit=crop",
-    revenueSeed: 1,
-  },
-  "nj-1539": {
-    busInfo: { code: "NJ-1539", seats: "36", brand: "Volvo 9600", condition: "Super-Luxury", type: "Highway", insuranceExp: "Jul 2026", status: "Active" },
-    driver: { name: "Ashen Senarathna", id: "DRV-602", phone: "0719876543", rating: "4.8", trips: getTripCountForDriver("DRV-602") },
-    image: "https://images.unsplash.com/photo-1557223562-6c77ef16210f?w=480&q=80&fit=crop",
-    revenueSeed: 2,
-  },
-  "nc-1212": {
-    busInfo: { code: "NC-1212", seats: "40", brand: "Volvo 9600", condition: "Luxury", type: "Highway", insuranceExp: "Sep 2026", status: "Active" },
-    driver: { name: "David Ross", id: "DRV-710", phone: "0714567890", rating: "4.6", trips: getTripCountForDriver("DRV-710") },
-    image: "https://images.unsplash.com/photo-1494515843206-f3117d3f51b7?w=480&q=80&fit=crop",
-    revenueSeed: 3,
-  },
-  "nb-3301": {
-    busInfo: { code: "NB-3301", seats: "50", brand: "Tata Marcopolo", condition: "Semi-Luxury", type: "Expressway", insuranceExp: "Jan 2027", status: "Maintenance" },
-    driver: { name: "Kasun Perera", id: "DRV-415", phone: "0776543210", rating: "4.5", trips: getTripCountForDriver("DRV-415") },
-    image: "https://images.unsplash.com/photo-1561361513-2d000a50f0dc?w=480&q=80&fit=crop",
-    revenueSeed: 4,
-  },
-  "nd-4420": {
-    busInfo: { code: "ND-4420", seats: "45", brand: "King Long", condition: "Normal", type: "City", insuranceExp: "May 2026", status: "Maintenance" },
-    driver: { name: "Nimal Silva", id: "DRV-233", phone: "0723456789", rating: "4.3", trips: getTripCountForDriver("DRV-233") },
-    image: "https://images.unsplash.com/photo-1464219789935-c2d9d9aba644?w=480&q=80&fit=crop",
-    revenueSeed: 5,
-  },
-  "nc-5501": {
-    busInfo: { code: "NC-5501", seats: "38", brand: "Ashok Leyland", condition: "Luxury", type: "Expressway", insuranceExp: "Aug 2026", status: "Active" },
-    driver: { name: "Amila Fernando", id: "DRV-761", phone: "0718765432", rating: "4.8", trips: getTripCountForDriver("DRV-761") },
-    image: "https://images.unsplash.com/photo-1622631601750-b9ef0ecc69f7?w=480&q=80&fit=crop",
-    revenueSeed: 6,
-  },
-  "nj-6610": {
-    busInfo: { code: "NJ-6610", seats: "44", brand: "Volvo 9600", condition: "Super-Luxury", type: "Highway", insuranceExp: "Dec 2026", status: "Active" },
-    driver: { name: "Dinesh Gamage", id: "DRV-892", phone: "0711526987", rating: "4.9", trips: getTripCountForDriver("DRV-892") },
-    image: "https://images.unsplash.com/photo-1587036325238-17e478fa5248?w=480&q=80&fit=crop",
-    revenueSeed: 7,
-  },
-};
 
 function BusDetail() {
   const { busId } = useParams<{ busId: string }>();
@@ -467,7 +343,6 @@ function BusDetail() {
 
         // Map seat layout from API rows into LayoutConfig
         if (seatRows && seatRows.length > 0) {
-          const hasBackRow = seatRows.some((r) => r.lastRow && r.lastRow.length > 0);
           const normalRows = seatRows.filter((r) => !r.lastRow || r.lastRow.length === 0);
           const backRow = seatRows.find((r) => r.lastRow && r.lastRow.length > 0);
           const leftPer = normalRows.length > 0 ? normalRows[0].left.length : 2;

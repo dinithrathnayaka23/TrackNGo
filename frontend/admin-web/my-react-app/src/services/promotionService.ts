@@ -1,4 +1,4 @@
-const API_BASE = '/api/admin/buses/promotions'
+const API_BASE = '/api/admin/promotions'
 
 type ApiResponse<T> = {
   success: boolean

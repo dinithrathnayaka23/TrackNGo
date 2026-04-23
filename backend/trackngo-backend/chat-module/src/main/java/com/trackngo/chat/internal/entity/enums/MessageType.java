@@ -4,7 +4,7 @@ import lombok.Getter;
 
 /**
  * Type of a chat message.
- * Maps to the MySQL ENUM('text','image','voice','location').
+ * Maps to the MySQL ENUM('text','image','voice','location','system').
  */
 @Getter
 public enum MessageType {
@@ -12,7 +12,8 @@ public enum MessageType {
     TEXT("text"),
     IMAGE("image"),
     VOICE("voice"),
-    LOCATION("location");
+    LOCATION("location"),
+    SYSTEM("system");
 
     private final String dbValue;
 

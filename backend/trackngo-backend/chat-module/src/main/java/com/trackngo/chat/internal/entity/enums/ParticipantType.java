@@ -32,6 +32,9 @@ public enum ParticipantType {
         if (value == null) {
             return null;
         }
+        if ("corporate_user".equalsIgnoreCase(value) || "CORPORATE_USER".equalsIgnoreCase(value)) {
+            return CORPORATE;
+        }
         for (ParticipantType type : values()) {
             if (type.dbValue.equalsIgnoreCase(value) || type.name().equalsIgnoreCase(value)) {
                 return type;

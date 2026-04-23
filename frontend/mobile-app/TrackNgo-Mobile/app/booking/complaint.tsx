@@ -465,7 +465,7 @@ export default function ComplaintScreen() {
 function toComplaintTypeValue(category: string): string {
   switch (category.trim().toLowerCase()) {
     case "late arrival":
-      return "route_issue";
+      return "late_arrival";
     case "driver behavior":
       return "driver_behavior";
     case "bus condition":

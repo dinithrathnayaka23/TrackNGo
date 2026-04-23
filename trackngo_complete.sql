@@ -467,6 +467,25 @@ CREATE TABLE corporate_contract (
 -- LEVEL 4: DEPENDENT ON LEVEL 3
 -- =============================================
 
+CREATE TABLE promotion (
+    promotion_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(160) NOT NULL,
+    description TEXT,
+    target_type ENUM('HIGHWAY', 'LONG_DISTANCE', 'HIGHWAY_AND_LONG_DISTANCE', 'REGULAR_CUSTOMERS', 'PROMO_CODE') NOT NULL,
+    discount_type ENUM('PERCENTAGE', 'FIXED_AMOUNT') NOT NULL,
+    discount_value DECIMAL(10, 2) NOT NULL,
+    promo_code VARCHAR(60) UNIQUE,
+    regular_customer_min_completed_bookings INT,
+    max_bookings INT NOT NULL,
+    used_bookings INT NOT NULL DEFAULT 0,
+    status ENUM('ACTIVE', 'CANCELLED', 'ENDED') NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_status_target (status, target_type),
+    INDEX idx_promo_code (promo_code)
+);
+
 CREATE TABLE payment (
     payment_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     transaction_id VARCHAR(100) UNIQUE NOT NULL,
@@ -510,6 +529,22 @@ CREATE TABLE seat_booking (
     INDEX idx_journey (journey_date, journey_time),
     INDEX idx_reference (booking_reference),
     INDEX idx_payment (payment_id)
+);
+
+CREATE TABLE promotion_redemption (
+    redemption_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    promotion_id BIGINT NOT NULL,
+    passenger_id BIGINT NOT NULL,
+    booking_reference VARCHAR(50) UNIQUE NOT NULL,
+    discount_amount DECIMAL(10, 2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (promotion_id) REFERENCES promotion(promotion_id) ON DELETE CASCADE,
+    FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
+    FOREIGN KEY (booking_reference) REFERENCES seat_booking(booking_reference) ON DELETE CASCADE,
+    INDEX idx_promotion (promotion_id),
+    INDEX idx_passenger (passenger_id),
+    INDEX idx_created (created_at DESC)
 );
 
 CREATE TABLE rating (

@@ -47,6 +47,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/complaints", "/api/complaints/mine").permitAll()
                 .requestMatchers("/api/admin/buses/**").permitAll()
                 .requestMatchers("/api/admin/complaints/**").permitAll()
+                .requestMatchers("/api/admin/promotions", "/api/admin/promotions/**").permitAll()
                 .requestMatchers("/api/admin/emergency-numbers/**").permitAll()
                 .requestMatchers("/api/admin/support/**").permitAll()
                 .requestMatchers("/bus-sharer.html").permitAll()

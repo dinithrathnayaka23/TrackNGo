@@ -1,12 +1,18 @@
 package com.trackngo.sos.internal.service;
 
+import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
 import com.trackngo.sos.api.EmergencyNumberService;
+import com.trackngo.sos.api.dto.AdminEmergencyNumberDtos.SaveEmergencyNumberRequest;
 import com.trackngo.sos.api.dto.EmergencyNumberDto;
 import com.trackngo.sos.internal.entity.EmergencyNumber;
 import com.trackngo.sos.internal.repository.EmergencyNumberRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -15,9 +21,83 @@ public class EmergencyNumberServiceImpl implements EmergencyNumberService {
 
     @Override
     public EmergencyNumberDto getActiveEmergencyNumbers() {
-        EmergencyNumber entity = repository.findByIsActiveTrue()
+        EmergencyNumber entity = repository.findFirstByIsActiveTrueOrderByEmergencyIdAsc()
                 .orElseThrow(() -> new ResourceNotFoundException("No active emergency numbers found"));
         return toDto(entity);
+    }
+
+    @Override
+    public List<EmergencyNumberDto> listEmergencyNumbers() {
+        return repository.findAll(Sort.by(Sort.Direction.ASC, "emergencyId"))
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public EmergencyNumberDto createEmergencyNumber(SaveEmergencyNumberRequest request) {
+        validate(request);
+
+        EmergencyNumber entity = new EmergencyNumber();
+        applyRequest(entity, request);
+
+        if (Boolean.TRUE.equals(request.isActive())) {
+            repository.deactivateAll();
+            entity.setIsActive(true);
+        } else if (repository.countByIsActiveTrue() == 0) {
+            entity.setIsActive(true);
+        }
+
+        return toDto(repository.save(entity));
+    }
+
+    @Override
+    @Transactional
+    public EmergencyNumberDto updateEmergencyNumber(Long emergencyId, SaveEmergencyNumberRequest request) {
+        validate(request);
+
+        EmergencyNumber entity = repository.findById(emergencyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Emergency number not found"));
+
+        boolean wasActive = Boolean.TRUE.equals(entity.getIsActive());
+        boolean shouldBeActive = Boolean.TRUE.equals(request.isActive());
+
+        if (!shouldBeActive && wasActive && repository.countByIsActiveTrue() <= 1) {
+            throw new BusinessException("At least one emergency number row must remain active");
+        }
+
+        applyRequest(entity, request);
+
+        if (shouldBeActive) {
+            repository.deactivateAllExcept(emergencyId);
+            entity.setIsActive(true);
+        }
+
+        return toDto(repository.save(entity));
+    }
+
+    private void validate(SaveEmergencyNumberRequest request) {
+        if (isBlank(request.label())
+                || isBlank(request.fireBrigade())
+                || isBlank(request.ambulance())
+                || isBlank(request.police())
+                || isBlank(request.helpCenter())) {
+            throw new BusinessException("Label, fire brigade, ambulance, police, and help center are required");
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    private void applyRequest(EmergencyNumber entity, SaveEmergencyNumberRequest request) {
+        entity.setLabel(request.label().trim());
+        entity.setFireBrigade(request.fireBrigade().trim());
+        entity.setAmbulance(request.ambulance().trim());
+        entity.setPolice(request.police().trim());
+        entity.setHelpCenter(request.helpCenter().trim());
+        entity.setIsActive(Boolean.TRUE.equals(request.isActive()));
     }
 
     private EmergencyNumberDto toDto(EmergencyNumber entity) {
@@ -28,6 +108,7 @@ public class EmergencyNumberServiceImpl implements EmergencyNumberService {
         dto.setAmbulance(entity.getAmbulance());
         dto.setPolice(entity.getPolice());
         dto.setHelpCenter(entity.getHelpCenter());
+        dto.setIsActive(entity.getIsActive());
         return dto;
     }
 }

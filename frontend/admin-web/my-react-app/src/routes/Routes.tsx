@@ -10,6 +10,7 @@ import Complaints from '../pages/dashboard/Complaints'
 import Corporate from '../pages/dashboard/Corporate'
 import CorporateDetail from '../pages/dashboard/CorporateDetail'
 import RoutesPage from '../pages/dashboard/RoutesPage'
+import Settings from '../pages/dashboard/Settings'
 import Driver from '../pages/dashboard/Driver'
 import Passenger from '../pages/dashboard/Passenger'
 import Promotions from '../pages/dashboard/Promotions'
@@ -35,6 +36,7 @@ function DashboardRoutes() {
         <Route path="complaints" element={<Complaints />} />
         <Route path="promotions" element={<Promotions />} />
         <Route path="routes" element={<RoutesPage />} />
+        <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </DashboardLayout>

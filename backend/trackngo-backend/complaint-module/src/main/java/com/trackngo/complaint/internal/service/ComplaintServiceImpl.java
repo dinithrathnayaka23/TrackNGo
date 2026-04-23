@@ -31,6 +31,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         "driver_behavior",
         "bus_condition",
         "route_issue",
+        "late_arrival",
         "payment_issue",
         "booking_issue",
         "safety_concern",
@@ -245,9 +246,6 @@ public class ComplaintServiceImpl implements ComplaintService {
 
     private String normalizeComplaintType(String rawValue) {
         String normalized = normalizeKey(rawValue);
-        if ("late_arrival".equals(normalized)) {
-            return "route_issue";
-        }
         if (!ALLOWED_COMPLAINT_TYPES.contains(normalized)) {
             throw new BusinessException("Invalid complaint type");
         }

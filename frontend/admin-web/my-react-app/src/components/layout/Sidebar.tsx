@@ -6,6 +6,7 @@ import {
   faChartColumn,
   faChartSimple,
   faComment,
+  faGear,
   faLocationDot,
   faPercent,
   faTriangleExclamation,
@@ -30,6 +31,7 @@ const navItems = [
   { to: '/dashboard/complaints', label: 'Complaints', icon: faTriangleExclamation, section: 'System' },
   { to: '/dashboard/analytics', label: 'Analytics', icon: faChartColumn, section: 'System' },
   { to: '/dashboard/chat', label: 'Chat', icon: faComment, section: 'System' },
+  { to: '/dashboard/settings', label: 'Settings', icon: faGear, section: 'System' },
 ]
 
 type SidebarProps = {

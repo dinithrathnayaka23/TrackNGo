@@ -60,7 +60,11 @@ export default function BusSelectionScreen() {
   const busType = params.busType ?? '';
   const timeStart = params.timeStart ?? '';
   const timeEnd = params.timeEnd ?? '';
-  const busCategory = params.busCategory ?? '';
+  const busCategoryRaw = params.busCategory ?? '';
+  const busCategory =
+    busCategoryRaw === 'highway' || busCategoryRaw === 'long_distance'
+      ? busCategoryRaw
+      : '';
 
   const [buses, setBuses] = useState<BusSearchResult[]>([]);
   const [loading, setLoading] = useState(true);

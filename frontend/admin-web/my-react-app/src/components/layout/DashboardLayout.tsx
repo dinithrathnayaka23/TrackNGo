@@ -99,6 +99,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
     buses: "Buses",
     booking: "Bookings",
     complaints: "Complaints",
+    promotions: "Promotions",
     routes: "Routes",
     settings: "Settings",
   };

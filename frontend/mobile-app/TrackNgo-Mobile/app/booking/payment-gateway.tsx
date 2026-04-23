@@ -29,6 +29,10 @@ export default function PaymentGatewayScreen() {
     date?: string;
     seats?: string;
     totalPrice?: string;
+    originalAmount?: string;
+    discountAmount?: string;
+    promotionId?: string;
+    promoCode?: string;
     fullName?: string;
     mobile?: string;
     email?: string;
@@ -43,6 +47,10 @@ export default function PaymentGatewayScreen() {
   const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const seats = params.seats ?? '';
   const totalPrice = Number(params.totalPrice ?? '2500') || 2500;
+  const originalAmount = Number(params.originalAmount ?? params.totalPrice ?? '2500') || totalPrice;
+  const discountAmount = Number(params.discountAmount ?? '0') || 0;
+  const promotionId = params.promotionId ? Number(params.promotionId) : null;
+  const promoCode = params.promoCode ?? '';
   const fullName = params.fullName ?? '';
   const mobile = params.mobile ?? '';
   const email = params.email ?? '';
@@ -105,6 +113,10 @@ export default function PaymentGatewayScreen() {
         passengerId: currentUser?.userId ?? 0,
         fromLocation: from,
         toLocation: to,
+        originalAmount,
+        discountAmount,
+        promotionId,
+        promoCode,
       });
       router.push({
         pathname: '/booking/booking-confirmation',
@@ -130,7 +142,7 @@ export default function PaymentGatewayScreen() {
     } finally {
       setProcessingResult(false);
     }
-  }, [sessionId, seats, busId, date, depart, specialRequest, totalPrice, currentUser, router]);
+  }, [sessionId, seats, busId, date, depart, specialRequest, totalPrice, currentUser, router, originalAmount, discountAmount, promotionId, promoCode]);
 
   const handleWebViewMessage = useCallback(async (event: WebViewMessageEvent) => {
     try {
@@ -225,6 +237,11 @@ export default function PaymentGatewayScreen() {
             <Text style={styles.amountValue}>
               LKR {totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </Text>
+            {discountAmount > 0 && (
+              <Text style={styles.discountText}>
+                Saved LKR {discountAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </Text>
+            )}
           </View>
 
           {/* Trip Summary */}
@@ -252,6 +269,18 @@ export default function PaymentGatewayScreen() {
               <Text style={styles.summaryLabel}>Seats</Text>
               <Text style={styles.summaryValue}>{seats}</Text>
             </View>
+            {discountAmount > 0 && (
+              <>
+                <View style={styles.divider} />
+                <View style={styles.summaryRow}>
+                  <Ionicons name="pricetag-outline" size={18} color="#22C55E" />
+                  <Text style={styles.summaryLabel}>Discount</Text>
+                  <Text style={[styles.summaryValue, styles.discountValue]}>
+                    - LKR {discountAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
 
           {/* Payment methods info */}
@@ -340,6 +369,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#111827',
   },
+  discountText: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
   /* Trip Summary Card */
   summaryCard: {
     backgroundColor: '#FFFFFF',
@@ -366,6 +401,9 @@ const styles = StyleSheet.create({
     color: '#111827',
     flex: 1,
     textAlign: 'right',
+  },
+  discountValue: {
+    color: '#16A34A',
   },
   divider: {
     height: 1,

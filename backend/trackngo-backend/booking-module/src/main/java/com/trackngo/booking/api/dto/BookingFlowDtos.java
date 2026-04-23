@@ -73,7 +73,11 @@ public final class BookingFlowDtos {
             BigDecimal totalAmount,
             Long passengerId,
             String fromLocation,
-            String toLocation
+            String toLocation,
+            BigDecimal originalAmount,
+            BigDecimal discountAmount,
+            Long promotionId,
+            String promoCode
     ) {}
 
     /* ── Booking confirmation ─────────────────────────────── */

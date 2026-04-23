@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/admin/promotions", "/api/admin/buses/promotions"})
+@RequestMapping("/api/admin/promotions")
 public class AdminPromotionController {
 
     private final PromotionService promotionService;

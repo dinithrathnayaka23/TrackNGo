@@ -54,7 +54,7 @@ public class AdminBusService {
                    b.start_time, b.end_time, b.registration_number, b.insurance_exp_date,
                    b.driver_id, b.route_id,
                    CONCAT(u.first_name, ' ', u.last_name) AS driver_name,
-                   r.route_name
+                   r.route_name, r.estimated_time_duration
             FROM bus b
             LEFT JOIN driver d ON b.driver_id = d.driver_id
             LEFT JOIN `user` u ON d.driver_id = u.user_id
@@ -79,7 +79,7 @@ public class AdminBusService {
                     (String) row.get("route_name"),
                     toLongNullable(row.get("route_id")),
                     formatTime(row.get("start_time")),
-                    formatTime(row.get("end_time")),
+                    computeEndTime(row.get("start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("end_time")),
                     (String) row.get("registration_number"),
                     row.get("insurance_exp_date") != null ? row.get("insurance_exp_date").toString() : null
             ));
@@ -96,7 +96,7 @@ public class AdminBusService {
                    b.driver_id, b.route_id,
                    CONCAT(u.first_name, ' ', u.last_name) AS driver_name,
                    d.phone_number AS driver_phone, d.average_rating,
-                   r.route_name, r.fee
+                   r.route_name, r.fee, r.estimated_time_duration
             FROM bus b
             LEFT JOIN driver d ON b.driver_id = d.driver_id
             LEFT JOIN `user` u ON d.driver_id = u.user_id
@@ -116,7 +116,7 @@ public class AdminBusService {
                 (String) row.get("status"),
                 parseAmenities(row.get("amenities")),
                 formatTime(row.get("start_time")),
-                formatTime(row.get("end_time")),
+                computeEndTime(row.get("start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("end_time")),
                 (String) row.get("registration_number"),
                 row.get("insurance_exp_date") != null ? row.get("insurance_exp_date").toString() : null,
                 toLongNullable(row.get("driver_id")),
@@ -283,9 +283,10 @@ public class AdminBusService {
     }
 
     public List<RouteOption> getRouteOptions() {
-        String sql = "SELECT route_id, route_name FROM route WHERE is_active = 1 ORDER BY route_name";
+        String sql = "SELECT route_id, route_name, estimated_time_duration FROM route WHERE is_active = 1 ORDER BY route_name";
         return jdbc.query(sql, (rs, rowNum) ->
-                new RouteOption(rs.getLong("route_id"), rs.getString("route_name")));
+                new RouteOption(rs.getLong("route_id"), rs.getString("route_name"),
+                        rs.getObject("estimated_time_duration", Integer.class)));
     }
 
     /* ── Helpers ──────────────────────────────────────────── */
@@ -314,6 +315,50 @@ public class AdminBusService {
         if (timeObj instanceof Time t) return t.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"));
         if (timeObj instanceof LocalTime lt) return lt.format(DateTimeFormatter.ofPattern("HH:mm"));
         return timeObj.toString();
+    }
+
+    private LocalTime toLocalTime(Object timeObj) {
+        if (timeObj == null) return null;
+        if (timeObj instanceof Time t) return t.toLocalTime();
+        if (timeObj instanceof LocalTime lt) return lt;
+        try { return LocalTime.parse(timeObj.toString().substring(0, 5)); } catch (Exception e) { return null; }
+    }
+
+    /**
+     * If the bus has a route assigned, compute end_time = start_time + route.estimated_time_duration.
+     * This ensures that whenever the route duration changes, the displayed end time is always accurate.
+     */
+    private String computeEndTime(Object startObj, Object routeIdObj, Object durationObj, Object storedEndObj) {
+        if (routeIdObj != null && startObj != null && durationObj != null) {
+            int mins = ((Number) durationObj).intValue();
+            if (mins > 0) {
+                LocalTime start = toLocalTime(startObj);
+                if (start != null) {
+                    return start.plusMinutes(mins).format(DateTimeFormatter.ofPattern("HH:mm"));
+                }
+            }
+        }
+        return formatTime(storedEndObj);
+    }
+
+    /**
+     * When saving a bus, look up the route's duration and compute end_time = start_time + duration.
+     * Falls back to the provided endTime when no route is assigned.
+     */
+    private String resolveEndTime(String startTime, Long routeId, String fallbackEndTime) {
+        if (routeId != null && startTime != null && !startTime.isEmpty()) {
+            try {
+                Integer durationMins = jdbc.queryForObject(
+                        "SELECT estimated_time_duration FROM route WHERE route_id = ?",
+                        Integer.class, routeId);
+                if (durationMins != null && durationMins > 0) {
+                    return LocalTime.parse(startTime.length() > 5 ? startTime.substring(0, 5) : startTime)
+                            .plusMinutes(durationMins)
+                            .format(DateTimeFormatter.ofPattern("HH:mm"));
+                }
+            } catch (Exception ignored) {}
+        }
+        return fallbackEndTime;
     }
 
     private Long toLong(Object obj) {

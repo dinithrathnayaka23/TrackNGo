@@ -93,6 +93,7 @@ export type DriverOption = {
 export type RouteOption = {
   routeId: number;
   routeName: string;
+  durationMins: number;
 };
 
 /* ── API calls ────────────────────────────────────────────── */

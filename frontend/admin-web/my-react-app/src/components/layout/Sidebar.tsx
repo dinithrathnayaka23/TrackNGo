@@ -76,9 +76,9 @@ function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         </div>
       </div>
 
-      <div className="flex-1 space-y-6 overflow-y-auto px-3 py-3">
+      <div className="flex-1 space-y-2 overflow-y-hidden px-3 py-3">
         <div className="animate-dash-in" style={{ animationDelay: '80ms' }}>
-          <p className="mb-3 px-4 text-xs font-semibold uppercase tracking-wide text-[#9aa5bc]">Main Menu</p>
+          <p className="mb-1 px-4 text-xs font-semibold uppercase tracking-wide text-[#9aa5bc]">Main Menu</p>
           <nav className="space-y-1">
             {mainMenu.map((item) => (
               <NavLink
@@ -95,7 +95,7 @@ function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         </div>
 
         <div className="animate-dash-in" style={{ animationDelay: '120ms' }}>
-          <p className="mb-3 px-4 text-xs font-semibold uppercase tracking-wide text-[#9aa5bc]">System</p>
+          <p className="mb-1 px-4 text-xs font-semibold uppercase tracking-wide text-[#9aa5bc]">System</p>
           <nav className="space-y-1">
             {systemMenu.map((item) => (
               <NavLink

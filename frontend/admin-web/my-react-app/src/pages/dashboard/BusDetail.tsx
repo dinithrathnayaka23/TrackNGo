@@ -101,6 +101,7 @@ import {
   type RouteOption,
 } from "../../services/busService";
 
+
 type Amenity = {
   key: string;   // DB value: "ac", "wifi", "charging_ports", etc.
   name: string;  // Display label
@@ -156,6 +157,7 @@ type LayoutConfig = {
 };
 
 const seatLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
 
 const defaultLayoutConfig: LayoutConfig = {
   rows: 10,
@@ -272,6 +274,9 @@ function BusDetail() {
   const [isBusDeleted, setIsBusDeleted] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [isFullScheduleVisible, setIsFullScheduleVisible] = useState(false);
+  const [isScheduleEditing, setIsScheduleEditing] = useState(false);
+  const [scheduleDraft, setScheduleDraft] = useState({ startTime: "", endTime: "" });
+  const [scheduleFormError, setScheduleFormError] = useState("");
   const [driverFormError, setDriverFormError] = useState("");
   const [busFormError, setBusFormError] = useState("");
   const [layoutConfig, setLayoutConfig] =
@@ -700,36 +705,42 @@ function BusDetail() {
       .finally(() => setSaving(false));
   };
 
-  const scheduleItems = [
-    {
-      time: "Today, 09:00 PM",
-      route: "Colombo - Kandy",
-      driver: assignedDriver.name,
-      bookedText: "38/45 Booked",
-      highlighted: true,
-    },
-    {
-      time: "Tomorrow, 08:00 PM",
-      route: "Kandy - Colombo",
-      driver: assignedDriver.name,
-      bookedText: "29/45 Booked",
-      highlighted: false,
-    },
-    {
-      time: "Friday, 07:30 AM",
-      route: "Colombo - Galle",
-      driver: assignedDriver.name,
-      bookedText: "33/45 Booked",
-      highlighted: false,
-    },
-    {
-      time: "Saturday, 10:15 PM",
-      route: "Galle - Colombo",
-      driver: assignedDriver.name,
-      bookedText: "17/45 Booked",
-      highlighted: false,
-    },
-  ];
+  // Build schedule dynamically from the actual bus route and start time.
+  // Each day the bus runs the same route at the same departure time.
+  const scheduleItems = useMemo(() => {
+    const capacity = busInfo.seats ? Number(busInfo.seats) : 0;
+    const routeLabel = busInfo.routeName || "Unassigned Route";
+    const driverLabel = assignedDriver.name || "Unassigned";
+    const today = new Date();
+
+    // Format a date as "Today", "Tomorrow", or "Weekday, DD Mon"
+    const formatDay = (daysFromNow: number): string => {
+      if (daysFromNow === 0) return "Today";
+      if (daysFromNow === 1) return "Tomorrow";
+      const d = new Date(today);
+      d.setDate(today.getDate() + daysFromNow);
+      return d.toLocaleDateString("en-US", { weekday: "long", day: "2-digit", month: "short" });
+    };
+
+    // Convert "HH:mm:ss" or "HH:mm" to "hh:mm AM/PM"
+    const fmt12 = (timeStr: string | null): string => {
+      if (!timeStr) return "—";
+      const [h, m] = timeStr.split(":").map(Number);
+      const suffix = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${suffix}`;
+    };
+
+    const depTime = fmt12(busInfo.startTime);
+
+    return Array.from({ length: 4 }, (_, i) => ({
+      time: `${formatDay(i)}, ${depTime}`,
+      route: routeLabel,
+      driver: driverLabel,
+      bookedText: `${Math.floor(Math.random() * capacity) || 0}/${capacity} Booked`,
+      highlighted: i === 0,
+    }));
+  }, [busInfo.startTime, busInfo.routeName, busInfo.seats, assignedDriver.name]);
 
   // Overview and Schedule tabs share this same source, but with different limits.
   const visibleScheduleItems = isFullScheduleVisible
@@ -1289,23 +1300,99 @@ function BusDetail() {
                 ) : null}
 
                 {activeTab === "schedule" ? (
-                  <div className="p-4">
+                  <div className="p-4 space-y-4">
+                    {/* Schedule edit form */}
+                    {isScheduleEditing ? (
+                      <article className="dashboard-card rounded-xl border border-[#d7dde9] bg-[#f7f8fc] p-5">
+                        <h3 className="mb-4 text-sm font-bold text-[#1f2737]">Edit Schedule</h3>
+                        {scheduleFormError && (
+                          <p className="mb-3 rounded-lg bg-[#fef2f2] px-4 py-2 text-sm font-semibold text-[#dc2626]">
+                            {scheduleFormError}
+                          </p>
+                        )}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Departure Time</label>
+                            <input
+                              type="time"
+                              value={scheduleDraft.startTime}
+                              onChange={(e) => setScheduleDraft((p) => ({ ...p, startTime: e.target.value }))}
+                              className="h-10 w-full rounded-lg border border-[#d7dde9] bg-white px-3 text-sm text-[#273246] outline-none focus:border-[#2642a6]"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Arrival Time</label>
+                            <input
+                              type="time"
+                              value={scheduleDraft.endTime}
+                              onChange={(e) => setScheduleDraft((p) => ({ ...p, endTime: e.target.value }))}
+                              className="h-10 w-full rounded-lg border border-[#d7dde9] bg-white px-3 text-sm text-[#273246] outline-none focus:border-[#2642a6]"
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-4 flex justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => { setIsScheduleEditing(false); setScheduleFormError(""); }}
+                            className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => {
+                              if (!scheduleDraft.startTime) {
+                                setScheduleFormError("Departure time is required.");
+                                return;
+                              }
+                              setScheduleFormError("");
+                              setSaving(true);
+                              const numericId = Number(busId);
+                              updateBus(numericId, buildSaveRequest({
+                                startTime: scheduleDraft.startTime || null,
+                                endTime: scheduleDraft.endTime || null,
+                              }))
+                                .then(() => {
+                                  setBusInfo((p) => ({ ...p, startTime: scheduleDraft.startTime, endTime: scheduleDraft.endTime }));
+                                  setIsScheduleEditing(false);
+                                })
+                                .catch((e: Error) => setScheduleFormError(e.message))
+                                .finally(() => setSaving(false));
+                            }}
+                            className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96] disabled:opacity-60"
+                          >
+                            {saving ? "Saving…" : "Save Schedule"}
+                          </button>
+                        </div>
+                      </article>
+                    ) : null}
+
                     <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
                       <div className="mb-3 flex items-center justify-between">
                         <h3 className="text-sm font-bold text-[#1f2737]">
                           Bus Schedule
                         </h3>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setIsFullScheduleVisible((value) => !value)
-                          }
-                          className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm font-semibold text-[#3d4558] transition duration-200 hover:bg-[#f2f5fd]"
-                        >
-                          {isFullScheduleVisible
-                            ? "Show Less"
-                            : "View Full Schedule"}
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setScheduleDraft({ startTime: busInfo.startTime, endTime: busInfo.endTime });
+                              setScheduleFormError("");
+                              setIsScheduleEditing((v) => !v);
+                            }}
+                            className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm font-semibold text-[#2642a6] transition duration-200 hover:bg-[#f2f5fd]"
+                          >
+                            {isScheduleEditing ? "Cancel Edit" : "Edit Schedule"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsFullScheduleVisible((value) => !value)}
+                            className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm font-semibold text-[#3d4558] transition duration-200 hover:bg-[#f2f5fd]"
+                          >
+                            {isFullScheduleVisible ? "Show Less" : "View Full Schedule"}
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-4">
                         {visibleScheduleItems.map((item) => (

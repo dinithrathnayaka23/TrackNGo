@@ -50,6 +50,8 @@ export interface BusDetailResult {
   amenities: string[];
   fee: number;
   routeName: string;
+  routeDistance?: string;
+  routeDuration?: string;
   routeStops: RouteStopInfo[];
   driver: DriverInfo;
 }

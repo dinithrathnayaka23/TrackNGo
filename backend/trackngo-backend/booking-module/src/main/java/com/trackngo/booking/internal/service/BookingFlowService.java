@@ -60,6 +60,7 @@ public class BookingFlowService {
                    r.fee AS route_fee, r.route_id, r.route_name,
                    r.start_location, r.end_location,
                    r.est_distance_difference AS total_distance,
+                   r.estimated_time_duration,
                    rs_from.distance_from_start AS from_distance,
                    rs_to.distance_from_start   AS to_distance,
                    rs_from.name                AS from_stop_name,
@@ -100,14 +101,21 @@ public class BookingFlowService {
             // Calculate proportional fare based on distance between stops
             BigDecimal fee = calculateSegmentFare(row);
 
-            // Calculate stop-specific times based on bus start_time + estimated_arrival_mins
-            LocalTime busStart = toLocalTime(row.get("start_time"));
-            int fromMins = row.get("from_arrival_mins") != null
-                    ? ((Number) row.get("from_arrival_mins")).intValue() : 0;
-            int toMins = row.get("to_arrival_mins") != null
-                    ? ((Number) row.get("to_arrival_mins")).intValue() : 0;
-            String fromTime = busStart.plusMinutes(fromMins).format(DateTimeFormatter.ofPattern("HH:mm"));
-            String toTime = busStart.plusMinutes(toMins).format(DateTimeFormatter.ofPattern("HH:mm"));
+            // Compute end time using start_time + route.estimated_time_duration (same as admin display)
+            // Falls back to stored end_time if no route duration is set
+            String fromTime = formatTime(row.get("start_time"));
+            LocalTime busStartTime = toLocalTime(row.get("start_time"));
+            String toTime;
+            if (row.get("estimated_time_duration") != null) {
+                int durationMins = ((Number) row.get("estimated_time_duration")).intValue();
+                if (durationMins > 0) {
+                    toTime = busStartTime.plusMinutes(durationMins).format(DateTimeFormatter.ofPattern("HH:mm"));
+                } else {
+                    toTime = formatTime(row.get("end_time"));
+                }
+            } else {
+                toTime = formatTime(row.get("end_time"));
+            }
 
             // Build route label e.g. "Colombo Fort - Kandy"
             String routeName = ((String) row.get("start_location")) + " - " + ((String) row.get("end_location"));
@@ -139,6 +147,7 @@ public class BookingFlowService {
             SELECT b.bus_id, b.bus_number, b.bus_type, b.bus_brand,
                    b.start_time, b.end_time, b.seat_capacity, b.amenities,
                    r.fee, r.route_id, r.route_name, r.est_distance_difference,
+                   r.estimated_time_duration,
                    d.average_rating, d.phone_number AS driver_phone, d.profile_photo,
                    CONCAT(u.first_name, ' ', u.last_name) AS driver_name
             FROM bus b
@@ -153,7 +162,7 @@ public class BookingFlowService {
         Long routeId = ((Number) row.get("route_id")).longValue();
 
         String stopsSql = """
-            SELECT rs.name, rs.estimated_arrival_mins, rs.priority
+            SELECT rs.name, rs.estimated_arrival_mins, rs.distance_from_start, rs.priority
             FROM route_stop rs
             WHERE rs.route_id = ?
             ORDER BY rs.priority
@@ -161,12 +170,35 @@ public class BookingFlowService {
         List<Map<String, Object>> stopRows = jdbc.queryForList(stopsSql, routeId);
 
         LocalTime busStart = toLocalTime(row.get("start_time"));
+        int totalDurationMins = row.get("estimated_time_duration") != null
+                ? ((Number) row.get("estimated_time_duration")).intValue() : 0;
+        double totalDistance = row.get("est_distance_difference") != null
+                ? ((Number) row.get("est_distance_difference")).doubleValue() : 0.0;
+        int totalStops = stopRows.size();
 
         List<BusDetailResult.RouteStopInfo> stops = new ArrayList<>();
-        for (Map<String, Object> s : stopRows) {
-            int mins = s.get("estimated_arrival_mins") != null
+        for (int i = 0; i < totalStops; i++) {
+            Map<String, Object> s = stopRows.get(i);
+            int arrivalMins = s.get("estimated_arrival_mins") != null
                     ? ((Number) s.get("estimated_arrival_mins")).intValue() : 0;
-            LocalTime eta = busStart.plusMinutes(mins);
+
+            int computedMins;
+            if (arrivalMins > 0) {
+                // Use stored value if set
+                computedMins = arrivalMins;
+            } else if (totalDurationMins > 0 && totalDistance > 0
+                    && s.get("distance_from_start") != null) {
+                // Proportional to distance_from_start / total_distance * total_duration
+                double distFromStart = ((Number) s.get("distance_from_start")).doubleValue();
+                computedMins = (int) Math.round((distFromStart / totalDistance) * totalDurationMins);
+            } else if (totalDurationMins > 0 && totalStops > 1) {
+                // Even distribution across stops as fallback
+                computedMins = (int) Math.round((double) i / (totalStops - 1) * totalDurationMins);
+            } else {
+                computedMins = 0;
+            }
+
+            LocalTime eta = busStart.plusMinutes(computedMins);
             String etaStr = eta.format(DateTimeFormatter.ofPattern("hh:mm a"));
             stops.add(new BusDetailResult.RouteStopInfo(
                     (String) s.get("name"),
@@ -177,25 +209,39 @@ public class BookingFlowService {
 
         // Calculate segment-based fare if from/to stops are provided
         BigDecimal fee = toBigDecimal(row.get("fee"));
-        String displayStartTime = formatTime(row.get("start_time"));
-        String displayEndTime = formatTime(row.get("end_time"));
-
         if (fromStop != null && !fromStop.isBlank() && toStop != null && !toStop.isBlank()) {
             fee = calculateSegmentFareForRoute(routeId, fee,
                     toBigDecimal(row.get("est_distance_difference")), fromStop, toStop);
+        }
 
-            // Find stop-specific times from the loaded stops
-            String fromLower = normalizeStopKey(fromStop);
-            String toLower = normalizeStopKey(toStop);
-            for (BusDetailResult.RouteStopInfo stop : stops) {
-                if (normalizeStopKey(stop.name()).equals(fromLower)) {
-                    // Convert "hh:mm a" (12-hr) to "HH:mm" (24-hr) for consistency
-                    displayStartTime = convertTo24Hr(stop.estimatedTime());
-                }
-                if (normalizeStopKey(stop.name()).equals(toLower)) {
-                    displayEndTime = convertTo24Hr(stop.estimatedTime());
-                }
+        // Compute end time using start_time + route.estimated_time_duration (same as admin display)
+        String displayStartTime = formatTime(row.get("start_time"));
+        String displayEndTime;
+        if (row.get("estimated_time_duration") != null) {
+            int durationMins = ((Number) row.get("estimated_time_duration")).intValue();
+            if (durationMins > 0) {
+                displayEndTime = toLocalTime(row.get("start_time"))
+                        .plusMinutes(durationMins)
+                        .format(DateTimeFormatter.ofPattern("HH:mm"));
+            } else {
+                displayEndTime = formatTime(row.get("end_time"));
             }
+        } else {
+            displayEndTime = formatTime(row.get("end_time"));
+        }
+
+        // Format route distance and duration
+        String routeDistance = null;
+        if (row.get("est_distance_difference") != null) {
+            double dist = ((Number) row.get("est_distance_difference")).doubleValue();
+            routeDistance = dist + " km";
+        }
+        String routeDuration = null;
+        if (row.get("estimated_time_duration") != null) {
+            int totalMins = ((Number) row.get("estimated_time_duration")).intValue();
+            int hours = totalMins / 60;
+            int mins = totalMins % 60;
+            routeDuration = (hours > 0 ? hours + "h " : "") + mins + "m";
         }
 
         return new BusDetailResult(
@@ -209,6 +255,8 @@ public class BookingFlowService {
                 parseAmenities(row.get("amenities")),
                 fee,
                 (String) row.get("route_name"),
+                routeDistance,
+                routeDuration,
                 stops,
                 row.get("driver_name") != null
                     ? new BusDetailResult.DriverInfo(
@@ -467,7 +515,8 @@ public class BookingFlowService {
         BigDecimal fromDist = toBigDecimal(row.get("from_distance"));
         BigDecimal toDist = toBigDecimal(row.get("to_distance"));
 
-        if (totalDistance.compareTo(BigDecimal.ZERO) <= 0) return routeFee;
+        if (totalDistance == null || totalDistance.compareTo(BigDecimal.ZERO) <= 0) return routeFee;
+        if (fromDist == null || toDist == null) return routeFee;
 
         BigDecimal segmentDistance = toDist.subtract(fromDist);
         if (segmentDistance.compareTo(BigDecimal.ZERO) <= 0) return routeFee;
@@ -484,7 +533,7 @@ public class BookingFlowService {
     private BigDecimal calculateSegmentFareForRoute(Long routeId, BigDecimal routeFee,
                                                      BigDecimal totalDistance,
                                                      String fromStop, String toStop) {
-        if (totalDistance.compareTo(BigDecimal.ZERO) <= 0) {
+        if (totalDistance == null || totalDistance.compareTo(BigDecimal.ZERO) <= 0) {
             return routeFee;
         }
 
@@ -509,6 +558,7 @@ public class BookingFlowService {
 
         BigDecimal fromDist = fromDistances.get(0);
         BigDecimal toDist = toDistances.get(0);
+        if (fromDist == null || toDist == null) return routeFee;
         BigDecimal segmentDistance = toDist.subtract(fromDist);
 
         if (segmentDistance.compareTo(BigDecimal.ZERO) <= 0) return routeFee;

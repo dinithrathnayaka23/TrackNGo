@@ -191,6 +191,16 @@ export default function BusDetailsScreen() {
             </View>
             );
           })}
+          {(details.routeDistance || details.routeDuration) && (
+            <View style={styles.routeMetaRow}>
+              {details.routeDistance && (
+                <Text style={styles.routeMetaText}>📏 {details.routeDistance}</Text>
+              )}
+              {details.routeDuration && (
+                <Text style={styles.routeMetaText}>⏱ {details.routeDuration}</Text>
+              )}
+            </View>
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>Vehicle & Driver</Text>
@@ -465,6 +475,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#94A3B8',
     marginTop: 2,
+  },
+  routeMetaRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  routeMetaText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
   },
   vehicleCard: {
     backgroundColor: '#FFFFFF',

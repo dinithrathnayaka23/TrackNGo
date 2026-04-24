@@ -47,6 +47,8 @@ public final class BookingFlowDtos {
             List<String> amenities,
             BigDecimal fee,
             String routeName,
+            String routeDistance,
+            String routeDuration,
             List<RouteStopInfo> routeStops,
             DriverInfo driver
     ) {

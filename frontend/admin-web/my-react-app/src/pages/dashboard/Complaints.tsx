@@ -34,20 +34,23 @@ type SortDir = 'asc' | 'desc' | null
 const PER_PAGE = 5
 const BACKEND_BASE_URL = 'http://localhost:8080'
 
-function priorityBadge(priority: string) {
+/** Returns the badge color classes used for complaint priority pills. */
+export function priorityBadge(priority: string) {
   if (priority === 'High') return 'bg-[#dc2626] text-white'
   if (priority === 'Medium') return 'bg-[#f59e0b] text-white'
   return 'bg-[#64748b] text-white'
 }
 
-function statusBadge(status: string) {
+/** Returns the badge color classes used for complaint status pills. */
+export function statusBadge(status: string) {
   if (status === 'Pending') return 'bg-[#fee2e2] text-[#dc2626]'
   if (status === 'Under Review') return 'bg-[#dbeafe] text-[#2563eb]'
   if (status === 'Rejected') return 'bg-[#f3f4f6] text-[#6b7280]'
   return 'bg-[#dcfce7] text-[#047857]'
 }
 
-function resolveImageUrl(url: string) {
+/** Resolves relative evidence image paths against the backend base URL. */
+export function resolveImageUrl(url: string) {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
     return url
@@ -57,7 +60,8 @@ function resolveImageUrl(url: string) {
   return new URL(normalizedPath, BACKEND_BASE_URL).toString()
 }
 
-function formatCreatedDate(isoDate: string | null) {
+/** Formats an ISO complaint date into a readable label for the admin UI. */
+export function formatCreatedDate(isoDate: string | null) {
   if (!isoDate) {
     return '--'
   }
@@ -76,20 +80,23 @@ function formatCreatedDate(isoDate: string | null) {
   })
 }
 
-function toEditableStatus(status: string): ComplaintStatus {
+/** Converts any stored complaint status into the editable select option set. */
+export function toEditableStatus(status: string): ComplaintStatus {
   if (status === 'Under Review') return 'Under Review'
   if (status === 'Resolved') return 'Resolved'
   if (status === 'Rejected') return 'Rejected'
   return 'Pending'
 }
 
-function toApiStatus(status: ComplaintStatus): string {
+/** Converts the admin-facing status label into the backend status payload. */
+export function toApiStatus(status: ComplaintStatus): string {
   if (status === 'Under Review') {
     return 'under_review'
   }
   return status.toLowerCase()
 }
 
+/** Renders the complaints management dashboard used by admin users. */
 function Complaints() {
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [loading, setLoading] = useState(true)
@@ -110,6 +117,7 @@ function Complaints() {
   const [savingComplaint, setSavingComplaint] = useState(false)
   const [saveError, setSaveError] = useState('')
 
+  /** Loads the complaint list once when the page is opened. */
   useEffect(() => {
     let active = true
 
@@ -134,6 +142,7 @@ function Complaints() {
     }
   }, [])
 
+  /** Keeps the modal editor state aligned with the currently selected complaint. */
   useEffect(() => {
     if (!selectedComplaint) {
       setAdminResponseDraft('')
@@ -212,6 +221,7 @@ function Complaints() {
     setPage((currentPage) => Math.min(currentPage, totalPages))
   }, [totalPages])
 
+  /** Cycles the complaint id sort direction between ascending, descending, and default. */
   function toggleSort() {
     setSortDir((previous) => {
       if (!previous) return 'asc'
@@ -220,6 +230,7 @@ function Complaints() {
     })
   }
 
+  /** Loads detailed complaint information and opens the modal view. */
   async function openComplaintDetail(complaintId: string) {
     try {
       setDetailLoading(true)
@@ -235,6 +246,7 @@ function Complaints() {
     }
   }
 
+  /** Resets every modal-specific state field and closes the complaint detail view. */
   function closeDetailModal() {
     setSelectedComplaint(null)
     setDetailError('')
@@ -245,6 +257,7 @@ function Complaints() {
     setSavingComplaint(false)
   }
 
+  /** Saves complaint review changes and refreshes the complaint data shown in the dashboard. */
   async function handleComplaintUpdate() {
     if (!selectedComplaint) {
       return
@@ -295,6 +308,7 @@ function Complaints() {
     return pages
   }, [page, totalPages])
 
+  /** Exports the currently filtered complaint list as a PDF report. */
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: 'landscape' })
 

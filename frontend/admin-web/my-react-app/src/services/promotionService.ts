@@ -6,6 +6,7 @@ type ApiResponse<T> = {
   data: T
 }
 
+// Unwraps the shared API envelope and turns backend failures into readable errors.
 async function handleResponse<T>(res: Response): Promise<T> {
   const text = await res.text()
   let body: ApiResponse<T> | null = null
@@ -65,11 +66,13 @@ export type SavePromotionPayload = {
   maxBookings: number
 }
 
+// Loads the full promotion list used by the admin dashboard page.
 export async function fetchPromotions(): Promise<Promotion[]> {
   const res = await fetch(API_BASE)
   return handleResponse<Promotion[]>(res)
 }
 
+// Creates a new promotion with the normalized payload produced by the form.
 export async function createPromotion(payload: SavePromotionPayload): Promise<Promotion> {
   const res = await fetch(API_BASE, {
     method: 'POST',
@@ -79,6 +82,7 @@ export async function createPromotion(payload: SavePromotionPayload): Promise<Pr
   return handleResponse<Promotion>(res)
 }
 
+// Updates an existing promotion by id with the latest admin form values.
 export async function updatePromotion(promotionId: number, payload: SavePromotionPayload): Promise<Promotion> {
   const res = await fetch(`${API_BASE}/${promotionId}`, {
     method: 'PUT',
@@ -88,6 +92,7 @@ export async function updatePromotion(promotionId: number, payload: SavePromotio
   return handleResponse<Promotion>(res)
 }
 
+// Cancels an active promotion without removing its history from the list.
 export async function cancelPromotion(promotionId: number): Promise<Promotion> {
   const res = await fetch(`${API_BASE}/${promotionId}/cancel`, {
     method: 'PATCH',
@@ -95,6 +100,7 @@ export async function cancelPromotion(promotionId: number): Promise<Promotion> {
   return handleResponse<Promotion>(res)
 }
 
+// Deletes a non-active promotion permanently from the admin dashboard.
 export async function deletePromotion(promotionId: number): Promise<void> {
   const res = await fetch(`${API_BASE}/${promotionId}`, {
     method: 'DELETE',

@@ -200,6 +200,7 @@ export async function createBooking(
   return res.data;
 }
 
+// Fetches the promotion quote that should be applied to the current booking summary.
 export async function quotePromotion(
   request: PromotionQuoteRequest,
 ): Promise<PromotionQuoteResult> {

@@ -76,6 +76,7 @@ export default function BookingSummaryScreen() {
 
   const [errors, setErrors] = useState<{ fullName?: string; mobile?: string; email?: string }>({});
 
+  // Validates the passenger contact fields before allowing checkout.
   const validateFields = (): boolean => {
     const newErrors: typeof errors = {};
     const trimmedName = fullName.trim();
@@ -114,6 +115,7 @@ export default function BookingSummaryScreen() {
   const finalAmount = Math.max(originalAmount - discount, 0);
   const passengerId = currentUser?.userId ?? 0;
 
+  // Requests the best available promotion quote for the current trip and optional promo code.
   const requestPromotionQuote = useCallback(async (code?: string) => {
     if (!Number(busId)) return;
     setPromoLoading(true);
@@ -137,6 +139,7 @@ export default function BookingSummaryScreen() {
     }
   }, [busId, from, originalAmount, passengerId, to]);
 
+  // Loads the default promotion quote as soon as the trip summary is ready.
   useEffect(() => {
     requestPromotionQuote();
   }, [requestPromotionQuote]);
@@ -304,6 +307,7 @@ export default function BookingSummaryScreen() {
                 value={promoCode}
                 onChangeText={(text) => {
                   setPromoCode(text);
+                  // Reverts to the automatic promotion quote when the manual code is cleared.
                   if (!text.trim()) {
                     requestPromotionQuote();
                   }
@@ -379,6 +383,7 @@ export default function BookingSummaryScreen() {
             style={[styles.ctaButton, !agreedToTerms && styles.ctaButtonDisabled]}
             disabled={!agreedToTerms}
             onPress={() => {
+              // Prevents the payment step until the passenger details are complete.
               if (!validateFields()) {
                 Alert.alert('Missing Information', 'Please fix the highlighted fields before proceeding.');
                 return;

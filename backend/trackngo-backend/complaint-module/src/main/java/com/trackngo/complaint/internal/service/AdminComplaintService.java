@@ -31,12 +31,14 @@ public class AdminComplaintService {
     private final ComplaintRepository repository;
     private final ObjectMapper objectMapper;
 
+    /** Creates the admin complaint service with its data and JSON helpers. */
     public AdminComplaintService(JdbcTemplate jdbc, ComplaintRepository repository, ObjectMapper objectMapper) {
         this.jdbc = jdbc;
         this.repository = repository;
         this.objectMapper = objectMapper;
     }
 
+    /** Loads complaint rows for the admin dashboard list. */
     public List<AdminComplaintListItem> listComplaints() {
         String sql = """
             SELECT
@@ -68,6 +70,7 @@ public class AdminComplaintService {
             .toList();
     }
 
+    /** Updates the complaint review status and stores the optional admin response. */
     public void updateComplaint(Long complaintId, AdminComplaintUpdateRequest request) {
         Complaint complaint = repository.findById(complaintId)
             .orElseThrow(() -> new ResourceNotFoundException("Complaint not found"));
@@ -79,6 +82,7 @@ public class AdminComplaintService {
         repository.save(complaint);
     }
 
+    /** Loads the detailed admin view for a single complaint. */
     public AdminComplaintDetail getComplaintDetail(Long complaintId) {
         String sql = """
             SELECT
@@ -116,6 +120,7 @@ public class AdminComplaintService {
         return toAdminDetail(rows.get(0));
     }
 
+    /** Converts a dashboard row into the list item shown in the admin UI. */
     private AdminComplaintListItem toAdminListItem(Map<String, Object> row) {
         long complaintId = ((Number) row.get("complaint_id")).longValue();
         LocalDateTime createdAt = toLocalDateTime(row.get("created_at"));
@@ -152,6 +157,7 @@ public class AdminComplaintService {
         );
     }
 
+    /** Converts a query row into the admin complaint detail payload. */
     private AdminComplaintDetail toAdminDetail(Map<String, Object> row) {
         long complaintId = ((Number) row.get("complaint_id")).longValue();
         LocalDateTime createdAt = toLocalDateTime(row.get("created_at"));
@@ -186,10 +192,12 @@ public class AdminComplaintService {
         );
     }
 
+    /** Builds the public complaint code displayed in the admin UI. */
     private String formatComplaintCode(long complaintId) {
         return String.format("#CP-%04d", complaintId);
     }
 
+    /** Converts the stored complaint type key into a readable label. */
     private String toComplaintTypeLabel(String complaintType) {
         return switch (normalizeKey(complaintType)) {
             case "late_arrival" -> "Late Arrival";
@@ -203,6 +211,7 @@ public class AdminComplaintService {
         };
     }
 
+    /** Converts the stored complaint status key into a readable label. */
     private String toStatusLabel(String status) {
         return switch (normalizeKey(status)) {
             case "under_review" -> "Under Review";
@@ -212,6 +221,7 @@ public class AdminComplaintService {
         };
     }
 
+    /** Converts a normalized key into a simple title-cased label. */
     private String toTitleCase(String rawValue) {
         String normalized = normalizeKey(rawValue);
         if (normalized.isBlank()) {
@@ -220,6 +230,7 @@ public class AdminComplaintService {
         return Character.toUpperCase(normalized.charAt(0)) + normalized.substring(1);
     }
 
+    /** Validates and normalizes an admin complaint status value. */
     private String normalizeStatus(String rawValue) {
         String normalized = normalizeKey(rawValue);
         return switch (normalized) {
@@ -229,6 +240,7 @@ public class AdminComplaintService {
         };
     }
 
+    /** Normalizes user-facing keys so lookups use a predictable format. */
     private String normalizeKey(String value) {
         if (value == null) {
             return "";
@@ -236,17 +248,20 @@ public class AdminComplaintService {
         return value.trim().toLowerCase(Locale.ROOT).replace('-', '_');
     }
 
+    /** Builds a full name from the first and last name parts. */
     private String buildFullName(String firstName, String lastName) {
         String fullName = (firstName + " " + lastName).trim();
         return fullName.replaceAll("\\s+", " ");
     }
 
+    /** Builds passenger initials for compact list displays. */
     private String buildInitials(String firstName, String lastName) {
         String first = firstName.isBlank() ? "" : firstName.substring(0, 1).toUpperCase(Locale.ROOT);
         String last = lastName.isBlank() ? "" : lastName.substring(0, 1).toUpperCase(Locale.ROOT);
         return first + last;
     }
 
+    /** Converts supported JDBC timestamp values into a LocalDateTime. */
     private LocalDateTime toLocalDateTime(Object value) {
         if (value instanceof Timestamp timestamp) {
             return timestamp.toLocalDateTime();
@@ -257,10 +272,12 @@ public class AdminComplaintService {
         return null;
     }
 
+    /** Trims text input and returns an empty string when no value exists. */
     private String trimToEmpty(String value) {
         return value == null ? "" : value.trim();
     }
 
+    /** Trims text input and converts blank values to null. */
     private String trimToNull(String value) {
         if (value == null) {
             return null;
@@ -269,11 +286,13 @@ public class AdminComplaintService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    /** Returns a display-safe label for optional text fields. */
     private String defaultLabel(String value) {
         String trimmed = trimToNull(value);
         return trimmed != null ? trimmed : "--";
     }
 
+    /** Parses image data from either JSON arrays or single stored URLs. */
     private List<String> parseImages(String rawValue) {
         String trimmed = trimToNull(rawValue);
         if (trimmed == null) {

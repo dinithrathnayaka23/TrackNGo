@@ -4,6 +4,7 @@ import java.util.List;
 
 public final class AdminComplaintDtos {
 
+    /** Prevents instantiation of this DTO container. */
     private AdminComplaintDtos() {}
 
     public record AdminComplaintListItem(

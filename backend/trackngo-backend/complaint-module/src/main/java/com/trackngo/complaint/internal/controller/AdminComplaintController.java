@@ -14,20 +14,24 @@ import java.util.List;
 public class AdminComplaintController {
     private final AdminComplaintService service;
 
+    /** Creates the admin complaint controller with its service dependency. */
     public AdminComplaintController(AdminComplaintService service) {
         this.service = service;
     }
 
+    /** Returns the complaint list used by the admin dashboard. */
     @GetMapping
     public ApiResponse<List<AdminComplaintListItem>> listComplaints() {
         return ApiResponse.ok("Complaints", service.listComplaints());
     }
 
+    /** Returns the full admin view for one complaint. */
     @GetMapping("/{complaintId}")
     public ApiResponse<AdminComplaintDetail> getComplaintDetail(@PathVariable Long complaintId) {
         return ApiResponse.ok("Complaint detail", service.getComplaintDetail(complaintId));
     }
 
+    /** Updates the complaint review status and admin response. */
     @PutMapping("/{complaintId}")
     public ApiResponse<Void> updateComplaint(
             @PathVariable Long complaintId,

@@ -53,6 +53,7 @@ const CATEGORY_OPTIONS = [
 
 const PRIORITY_OPTIONS: PriorityLevel[] = ["Low", "Medium", "High"];
 const COMPLAINT_TYPE_LABELS: Record<string, string> = {
+  late_arrival: "Late Arrival",
   driver_behavior: "Driver Behavior",
   bus_condition: "Bus Condition",
   route_issue: "Route Issue",
@@ -62,6 +63,7 @@ const COMPLAINT_TYPE_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+/** Renders the complaint submission screen and the latest complaint summary for the passenger. */
 export default function ComplaintScreen() {
   const router = useRouter();
   const { currentUser } = useSession();
@@ -78,6 +80,7 @@ export default function ComplaintScreen() {
   const [loadingComplaints, setLoadingComplaints] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  /** Converts API complaint data into the smaller UI card model used by this screen. */
   const mapComplaintDtoToItem = useCallback((item: ComplaintDto): ComplaintItem => {
     const typeLabel =
       COMPLAINT_TYPE_LABELS[item.complaintType] ?? item.complaintType;
@@ -101,6 +104,7 @@ export default function ComplaintScreen() {
     };
   }, []);
 
+  /** Loads the current user's complaint history and keeps the preview list in sync. */
   const loadComplaints = useCallback(async () => {
     if (!currentUser) {
       setComplaints([]);
@@ -126,6 +130,7 @@ export default function ComplaintScreen() {
     }, [loadComplaints]),
   );
 
+  /** Adds a chosen image asset to the evidence list shown in the form. */
   const addEvidenceAsset = (asset: ImagePicker.ImagePickerAsset) => {
     setEvidence((current) => [
       ...current,
@@ -140,6 +145,7 @@ export default function ComplaintScreen() {
     ]);
   };
 
+  /** Opens the photo library so the user can attach complaint evidence. */
   const pickEvidenceFromGallery = async () => {
     if (evidence.length >= 4) {
       Alert.alert("Limit reached", "You can upload up to 4 images only.");
@@ -168,6 +174,7 @@ export default function ComplaintScreen() {
     addEvidenceAsset(result.assets[0]);
   };
 
+  /** Opens the camera so the user can capture new complaint evidence. */
   const captureEvidenceImage = async () => {
     if (evidence.length >= 4) {
       Alert.alert("Limit reached", "You can upload up to 4 images only.");
@@ -197,6 +204,7 @@ export default function ComplaintScreen() {
     addEvidenceAsset(result.assets[0]);
   };
 
+  /** Lets the user choose whether evidence should come from the gallery or camera. */
   const openEvidencePicker = () => {
     Alert.alert("Add Evidence", "Choose image source", [
       { text: "Gallery", onPress: () => void pickEvidenceFromGallery() },
@@ -205,10 +213,12 @@ export default function ComplaintScreen() {
     ]);
   };
 
+  /** Removes a single image from the evidence list. */
   const removeEvidenceImage = (id: string) => {
     setEvidence((current) => current.filter((item) => item.id !== id));
   };
 
+  /** Validates the form, uploads evidence, submits the complaint, and refreshes the preview list. */
   const handleSubmit = async () => {
     if (!selectedCategory) {
       Alert.alert("Missing category", "Please select a complaint category.");
@@ -462,7 +472,8 @@ export default function ComplaintScreen() {
   );
 }
 
-function toComplaintTypeValue(category: string): string {
+/** Converts a complaint label shown in the UI into the API enum value expected by the backend. */
+export function toComplaintTypeValue(category: string): string {
   switch (category.trim().toLowerCase()) {
     case "late arrival":
       return "late_arrival";
@@ -483,7 +494,8 @@ function toComplaintTypeValue(category: string): string {
   }
 }
 
-function guessImageExtension(mimeType?: string | null): string {
+/** Picks a filename extension for uploaded evidence when the picker does not provide one. */
+export function guessImageExtension(mimeType?: string | null): string {
   if (!mimeType) {
     return "jpg";
   }

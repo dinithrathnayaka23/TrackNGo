@@ -22,20 +22,24 @@ public class AdminPromotionController {
 
     private final PromotionService promotionService;
 
+    /** Creates the admin promotion controller with its service dependency. */
     public AdminPromotionController(PromotionService promotionService) {
         this.promotionService = promotionService;
     }
 
+    /** Returns all promotions shown in the admin dashboard. */
     @GetMapping
     public ApiResponse<List<PromotionSummary>> listPromotions() {
         return ApiResponse.ok("Promotions", promotionService.listPromotions());
     }
 
+    /** Creates a new promotion from the admin request payload. */
     @PostMapping
     public ApiResponse<PromotionSummary> createPromotion(@RequestBody SavePromotionRequest request) {
         return ApiResponse.ok("Promotion created", promotionService.createPromotion(request));
     }
 
+    /** Updates an existing promotion from the admin request payload. */
     @PutMapping("/{promotionId}")
     public ApiResponse<PromotionSummary> updatePromotion(
             @PathVariable Long promotionId,
@@ -44,11 +48,13 @@ public class AdminPromotionController {
         return ApiResponse.ok("Promotion updated", promotionService.updatePromotion(promotionId, request));
     }
 
+    /** Cancels an existing promotion so it can no longer be used. */
     @PatchMapping("/{promotionId}/cancel")
     public ApiResponse<PromotionSummary> cancelPromotion(@PathVariable Long promotionId) {
         return ApiResponse.ok("Promotion cancelled", promotionService.cancelPromotion(promotionId));
     }
 
+    /** Deletes a promotion that is no longer active. */
     @DeleteMapping("/{promotionId}")
     public ApiResponse<Void> deletePromotion(@PathVariable Long promotionId) {
         promotionService.deleteInactivePromotion(promotionId);

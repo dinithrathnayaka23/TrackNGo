@@ -36,6 +36,7 @@ async function authHeaders(): Promise<Record<string, string> | undefined> {
   return token ? { Authorization: `Bearer ${token}` } : undefined;
 }
 
+/** Submits a new complaint for the current mobile user. */
 export async function createComplaint(
   payload: CreateComplaintRequest,
   userId?: number,
@@ -50,6 +51,7 @@ export async function createComplaint(
   return res.data;
 }
 
+/** Loads the complaints submitted by the current mobile user. */
 export async function getMyComplaints(userId?: number): Promise<ComplaintDto[]> {
   const headers = await authHeaders();
   const res = await httpGet<ApiResponse<ComplaintDto[]>>(

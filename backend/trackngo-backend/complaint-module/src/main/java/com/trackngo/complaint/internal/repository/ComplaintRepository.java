@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
+    /** Returns complaints that belong to the passenger account matched by email. */
     @Query(value = """
         SELECT c.*
         FROM complaint c

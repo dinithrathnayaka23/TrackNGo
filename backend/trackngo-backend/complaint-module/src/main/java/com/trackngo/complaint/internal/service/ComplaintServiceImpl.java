@@ -44,6 +44,7 @@ public class ComplaintServiceImpl implements ComplaintService {
     private final EventPublisher eventPublisher;
     private final JdbcTemplate jdbc;
 
+    /** Ensures the complaint table contains the booking reference support required by this module. */
     @PostConstruct
     void ensureComplaintSchema() {
         ensureColumnExists(
@@ -56,6 +57,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         );
     }
 
+    /** Creates a complaint, validates passenger ownership, and publishes a created event. */
     @Override
     public ComplaintDto create(String email, ComplaintDto dto) {
         Complaint entity = new Complaint();
@@ -65,12 +67,14 @@ public class ComplaintServiceImpl implements ComplaintService {
         return toDto(saved);
     }
 
+    /** Returns one complaint as a DTO. */
     @Override
     public ComplaintDto get(Long id) {
         return toDto(repository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Complaint not found")));
     }
 
+    /** Returns all complaints ordered from newest to oldest. */
     @Override
     public List<ComplaintDto> getAll() {
         return repository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
@@ -79,6 +83,7 @@ public class ComplaintServiceImpl implements ComplaintService {
             .toList();
     }
 
+    /** Returns the complaints owned by the given passenger email. */
     @Override
     public List<ComplaintDto> getMine(String email) {
         return repository.findOwnedByEmail(email)
@@ -87,6 +92,7 @@ public class ComplaintServiceImpl implements ComplaintService {
             .toList();
     }
 
+    /** Updates complaint fields and keeps the resolved timestamp consistent with the status. */
     @Override
     public ComplaintDto update(Long id, ComplaintDto dto) {
         Complaint entity = repository.findById(id)
@@ -109,11 +115,13 @@ public class ComplaintServiceImpl implements ComplaintService {
         return toDto(repository.save(entity));
     }
 
+    /** Deletes a complaint by its identifier. */
     @Override
     public void delete(Long id) {
         repository.deleteById(id);
     }
 
+    /** Populates a new complaint entity while enforcing passenger-only submission rules. */
     private void applyCreateFields(Complaint entity, ComplaintDto dto, String email) {
         Map<String, Object> owner = resolveOwner(email);
         long userId = ((Number) owner.get("user_id")).longValue();
@@ -142,6 +150,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         }
     }
 
+    /** Loads the base user record for the authenticated complaint owner. */
     private Map<String, Object> resolveOwner(String email) {
         try {
             return jdbc.queryForMap(
@@ -153,6 +162,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         }
     }
 
+    /** Verifies that the specialized profile row exists for the complaint owner. */
     private void ensureSubtypeExists(String tableName, String columnName, long userId) {
         Boolean exists = jdbc.queryForObject(
             "SELECT EXISTS(SELECT 1 FROM " + tableName + " WHERE " + columnName + " = ?)",
@@ -164,6 +174,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         }
     }
 
+    /** Adds a missing complaint column during startup. */
     private void ensureColumnExists(String columnName, String alterSql) {
         Boolean exists = jdbc.queryForObject(
             """
@@ -183,6 +194,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         }
     }
 
+    /** Adds a missing complaint index during startup. */
     private void ensureIndexExists(String indexName, String alterSql) {
         Boolean exists = jdbc.queryForObject(
             """
@@ -202,6 +214,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         }
     }
 
+    /** Confirms the booking belongs to the passenger and happened in the past. */
     private String resolvePastPassengerBookingReference(String email, String bookingReference) {
         if (bookingReference == null) {
             throw new BusinessException("Booking reference is required for passenger complaints");
@@ -244,6 +257,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         return bookingReference;
     }
 
+    /** Normalizes and validates the complaint type. */
     private String normalizeComplaintType(String rawValue) {
         String normalized = normalizeKey(rawValue);
         if (!ALLOWED_COMPLAINT_TYPES.contains(normalized)) {
@@ -252,6 +266,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         return normalized;
     }
 
+    /** Normalizes the complaint priority and applies the default when omitted. */
     private String normalizePriority(String rawValue) {
         String normalized = normalizeKey(rawValue);
         if (normalized.isBlank()) {
@@ -263,6 +278,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         return normalized;
     }
 
+    /** Normalizes the complaint status and applies the default when omitted. */
     private String normalizeStatus(String rawValue) {
         String normalized = normalizeKey(rawValue);
         if (normalized.isBlank()) {
@@ -274,6 +290,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         return normalized;
     }
 
+    /** Ensures the complaint description contains a non-blank value. */
     private String requireDescription(String value) {
         String trimmed = trimToNull(value);
         if (trimmed == null) {
@@ -282,6 +299,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         return trimmed;
     }
 
+    /** Converts user input into the normalized key format used by validations. */
     private String normalizeKey(String value) {
         if (value == null) {
             return "";
@@ -292,6 +310,7 @@ public class ComplaintServiceImpl implements ComplaintService {
             .replace(' ', '_');
     }
 
+    /** Trims text input and converts blank values to null. */
     private String trimToNull(String value) {
         if (value == null) {
             return null;
@@ -300,6 +319,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    /** Maps a complaint entity into the API DTO returned by the module. */
     private ComplaintDto toDto(Complaint entity) {
         ComplaintDto dto = new ComplaintDto();
         dto.setId(entity.getId());

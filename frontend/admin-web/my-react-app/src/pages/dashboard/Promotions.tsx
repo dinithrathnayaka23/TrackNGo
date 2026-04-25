@@ -57,13 +57,15 @@ const emptyForm: PromotionForm = {
   maxBookings: '100',
 }
 
-function statusClass(status: Promotion['status']) {
+// Maps promotion status values to the badge styles shown in the admin table.
+export function statusClass(status: Promotion['status']) {
   if (status === 'ACTIVE') return 'bg-[#dcfce7] text-[#047857]'
   if (status === 'ENDED') return 'bg-[#e0e7ff] text-[#3730a3]'
   return 'bg-[#fee2e2] text-[#b91c1c]'
 }
 
-function toForm(promotion: Promotion): PromotionForm {
+// Converts an existing promotion record into the editable form state.
+export function toForm(promotion: Promotion): PromotionForm {
   return {
     name: promotion.name,
     description: promotion.description ?? '',
@@ -76,7 +78,8 @@ function toForm(promotion: Promotion): PromotionForm {
   }
 }
 
-function toPayload(form: PromotionForm): SavePromotionPayload {
+// Normalizes form input values into the payload expected by the promotion API.
+export function toPayload(form: PromotionForm): SavePromotionPayload {
   const payload: SavePromotionPayload = {
     name: form.name.trim(),
     description: form.description.trim(),
@@ -95,7 +98,8 @@ function toPayload(form: PromotionForm): SavePromotionPayload {
   return payload
 }
 
-function formatDiscount(promotion: Promotion) {
+// Formats the promotion discount in the same style used by the admin table.
+export function formatDiscount(promotion: Promotion) {
   if (promotion.discountType === 'PERCENTAGE') return `${Number(promotion.discountValue).toFixed(0)}%`
   return `LKR ${Number(promotion.discountValue).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 }
@@ -116,6 +120,7 @@ function Promotions() {
     [promotions],
   )
 
+  // Reloads the promotion list and refreshes the dashboard summary cards.
   const loadPromotions = async () => {
     setLoading(true)
     setError('')
@@ -143,11 +148,13 @@ function Promotions() {
     return () => window.clearTimeout(timer)
   }, [error, success])
 
+  // Resets the form back to the default create-promotion state.
   const resetForm = () => {
     setForm(emptyForm)
     setEditingId(null)
   }
 
+  // Validates promotion fields before the form data is sent to the backend.
   const validate = () => {
     if (!form.name.trim()) return 'Promotion name is required.'
     if (Number(form.discountValue) <= 0) return 'Discount value must be greater than 0.'
@@ -158,6 +165,7 @@ function Promotions() {
     return ''
   }
 
+  // Creates a new promotion or saves edits to the selected promotion.
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     setError('')
@@ -189,6 +197,7 @@ function Promotions() {
     }
   }
 
+  // Loads an active promotion into the form so admins can update it.
   const handleEdit = (promotion: Promotion) => {
     if (promotion.status !== 'ACTIVE') return
     setForm(toForm(promotion))
@@ -198,6 +207,7 @@ function Promotions() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  // Cancels an active promotion and updates the current list in place.
   const handleCancel = async (promotion: Promotion) => {
     if (promotion.status !== 'ACTIVE') return
     setError('')
@@ -211,6 +221,7 @@ function Promotions() {
     }
   }
 
+  // Deletes a non-active promotion from the admin list.
   const handleDelete = async (promotion: Promotion) => {
     if (promotion.status === 'ACTIVE') return
     setError('')

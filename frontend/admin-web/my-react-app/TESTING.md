@@ -1,6 +1,6 @@
-# Admin Complaint Test Guide
+# Admin Dashboard Test Guide
 
-This admin web app now includes unit tests for the complaint dashboard and complaint service.
+This admin web app now includes unit tests for both the complaint dashboard flow and the promotion dashboard flow.
 
 ## Test Folder Structure
 
@@ -9,9 +9,13 @@ my-react-app/
 |-- src/
 |   |-- __tests__/
 |   |   |-- pages/dashboard/Complaints.test.tsx
-|   |   `-- services/complaintService.test.ts
+|   |   |-- pages/dashboard/Promotions.test.tsx
+|   |   |-- services/complaintService.test.ts
+|   |   `-- services/promotionService.test.ts
 |   |-- pages/dashboard/Complaints.tsx
-|   `-- services/complaintService.ts
+|   |-- pages/dashboard/Promotions.tsx
+|   |-- services/complaintService.ts
+|   `-- services/promotionService.ts
 |-- src/test/setup.ts
 `-- TESTING.md
 ```
@@ -24,6 +28,11 @@ my-react-app/
 - complaint update flow for admin review actions
 - complaint service API calls and id normalization
 - helper logic for status conversion and date or image formatting
+- promotion list loading and dashboard summary counts
+- promotion form validation and normalized creation payloads
+- promotion edit, cancel, and remove actions
+- promotion service API calls for list, create, update, cancel, and delete
+- helper logic for promotion badge styling, form mapping, and discount formatting
 
 ## How To Run
 
@@ -46,8 +55,16 @@ npx vitest run src/__tests__/pages/dashboard/Complaints.test.tsx
 npx vitest run src/__tests__/services/complaintService.test.ts
 ```
 
+Run only the promotion tests:
+
+```bash
+npx vitest run src/__tests__/pages/dashboard/Promotions.test.tsx
+npx vitest run src/__tests__/services/promotionService.test.ts
+```
+
 ## Notes
 
 - The page tests mock the complaint service and PDF libraries so they stay focused on complaint UI behavior.
-- The service tests mock `fetch` and verify the admin complaint endpoints directly.
-- Complaint-related production functions now include short comments to explain each responsibility quickly.
+- The promotion page tests mock the promotion service so they stay focused on admin workflow behavior.
+- The service tests mock `fetch` and verify the admin complaint and promotion endpoints directly.
+- Complaint-related and promotion-related production functions now include short comments to explain each responsibility quickly.

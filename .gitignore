@@ -3,7 +3,7 @@ node_modules/
 package-lock.json
 yarn.lock
 
-# Expo
+# Expo / React Native
 .expo/
 .expo-shared/
 
@@ -32,7 +32,6 @@ logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
 
 # IDE
@@ -46,29 +45,7 @@ pnpm-debug.log*
 *.swp
 *.swo
 *~
-*.local
 
-# OS files
+# OS
 Thumbs.db
 .DS_Store
-
-# Mobile app specific
-frontend/mobile-app/TrackNgo-Mobile/node_modules/
-frontend/mobile-app/TrackNgo-Mobile/.expo/
-frontend/mobile-app/TrackNgo-Mobile/.expo-shared/
-
-# Admin web specific
-frontend/admin-web/my-react-app/node_modules/
-frontend/admin-web/my-react-app/dist/
-
-# Backend
-backend/trackngo-backend/target/
-backend/trackngo-backend/**/target/
-backend/trackngo-backend/.idea/
-backend/trackngo-backend/**/.idea/
-
-# Configuration with secrets (local only)
-backend/trackngo-backend/app/src/main/resources/application.yml
-backend/trackngo-backend/app/src/main/resources/application.properties
-backend/trackngo-backend/app/src/main/resources/application-*.yml
-backend/trackngo-backend/app/src/main/resources/application-*.properties

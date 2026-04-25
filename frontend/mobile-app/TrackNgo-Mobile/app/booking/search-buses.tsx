@@ -239,6 +239,7 @@ export default function SearchBusesScreen() {
     const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
     const dd = String(selectedDate.getDate()).padStart(2, '0');
 
+    const isAllDay = range.start === 0 && range.end === 1;
     router.push({
       pathname: '/booking/bus-selection',
       params: {
@@ -249,8 +250,10 @@ export default function SearchBusesScreen() {
         adults: String(adults),
         children: String(children),
         busType,
-        timeStart: formatTime(range.start),
-        timeEnd: formatTime(range.end),
+        ...(isAllDay ? {} : {
+          timeStart: formatTime(range.start),
+          timeEnd: formatTime(range.end),
+        }),
         ...(busCategory ? { busCategory } : {}),
       },
     });

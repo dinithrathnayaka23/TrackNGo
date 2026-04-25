@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getBusImage } from '../../utils/busImage';
 import { PromotionQuoteResult, quotePromotion } from '../../services/bookingFlowApi';
 import { useSession } from '../../store/sessionStore';
+import { getUserProfile } from '../../services/userProfileApi';
 
 export default function BookingSummaryScreen() {
   const router = useRouter();
@@ -47,9 +48,25 @@ export default function BookingSummaryScreen() {
   const amenities: string[] = (() => { try { return JSON.parse(params.amenities ?? '[]'); } catch { return []; } })();
   const busImage = getBusImage(busBrand, amenities);
 
-  const [fullName, setFullName] = useState('Kamal Perera');
-  const [mobile, setMobile] = useState('+94 77 123 4567');
-  const [email, setEmail] = useState('kamal.p@example.com');
+  const [fullName, setFullName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
+
+  // Load the logged-in user's profile to pre-fill contact details
+  useEffect(() => {
+    if (!currentUser) return;
+    getUserProfile(currentUser.userId)
+      .then((profile) => {
+        setFullName(
+          profile.fullName?.trim() ||
+          profile.contactPersonName?.trim() ||
+          ''
+        );
+        setMobile(profile.phoneNumber?.trim() ?? '');
+        setEmail(profile.email?.trim() ?? '');
+      })
+      .catch(() => {});
+  }, [currentUser]);
   const [specialRequest, setSpecialRequest] = useState('');
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromotion, setAppliedPromotion] = useState<PromotionQuoteResult | null>(null);

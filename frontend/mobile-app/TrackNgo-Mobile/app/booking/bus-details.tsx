@@ -194,7 +194,10 @@ export default function BusDetailsScreen() {
           {(details.routeDistance || details.routeDuration) && (
             <View style={styles.routeMetaRow}>
               {details.routeDistance && (
-                <Text style={styles.routeMetaText}>📏 {details.routeDistance}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="map-marker-distance" size={14} color="#64748B" />
+                  <Text style={styles.routeMetaText}>{details.routeDistance}</Text>
+                </View>
               )}
               {details.routeDuration && (
                 <Text style={styles.routeMetaText}>⏱ {details.routeDuration}</Text>

@@ -15,10 +15,12 @@ public class PromotionController {
 
     private final PromotionService promotionService;
 
+    /** Creates the booking-flow promotion controller with its service dependency. */
     public PromotionController(PromotionService promotionService) {
         this.promotionService = promotionService;
     }
 
+    /** Returns the best matching promotion quote for the requested booking context. */
     @PostMapping("/quote")
     public ApiResponse<PromotionQuoteResult> quote(@RequestBody PromotionQuoteRequest request) {
         return ApiResponse.ok("Promotion quote", promotionService.quote(request));

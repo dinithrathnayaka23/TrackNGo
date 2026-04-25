@@ -6,6 +6,7 @@ import java.util.List;
 
 public final class PromotionDtos {
 
+    /** Prevents instantiation of this DTO container. */
     private PromotionDtos() {}
 
     public record PromotionSummary(

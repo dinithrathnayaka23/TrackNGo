@@ -16,6 +16,7 @@ import java.util.List;
 public class EmergencyContactServiceImpl implements EmergencyContactService {
     private final EmergencyContactRepository repository;
 
+    /** Loads the owner's emergency contacts and maps them into DTOs. */
     @Override
     public List<EmergencyContactDto> getContactsByOwner(Long ownerId, String ownerType) {
         return repository.findByOwnerIdAndOwnerTypeOrderByCreatedAtDesc(ownerId, ownerType)
@@ -24,6 +25,7 @@ public class EmergencyContactServiceImpl implements EmergencyContactService {
                 .toList();
     }
 
+    /** Saves a new emergency contact after normalizing the owner type. */
     @Override
     public EmergencyContactDto addContact(CreateEmergencyContactRequest request) {
         EmergencyContact entity = new EmergencyContact();
@@ -35,6 +37,7 @@ public class EmergencyContactServiceImpl implements EmergencyContactService {
         return toDto(repository.save(entity));
     }
 
+    /** Deletes the selected emergency contact if it exists. */
     @Override
     public void deleteContact(Long contactId) {
         if (!repository.existsById(contactId)) {
@@ -43,6 +46,7 @@ public class EmergencyContactServiceImpl implements EmergencyContactService {
         repository.deleteById(contactId);
     }
 
+    /** Converts the emergency contact entity into the API DTO. */
     private EmergencyContactDto toDto(EmergencyContact entity) {
         EmergencyContactDto dto = new EmergencyContactDto();
         dto.setContactId(entity.getContactId());

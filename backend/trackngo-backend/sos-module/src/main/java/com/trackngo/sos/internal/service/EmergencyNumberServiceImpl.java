@@ -19,6 +19,7 @@ import java.util.List;
 public class EmergencyNumberServiceImpl implements EmergencyNumberService {
     private final EmergencyNumberRepository repository;
 
+    /** Returns the first active emergency number row. */
     @Override
     public EmergencyNumberDto getActiveEmergencyNumbers() {
         EmergencyNumber entity = repository.findFirstByIsActiveTrueOrderByEmergencyIdAsc()
@@ -26,6 +27,7 @@ public class EmergencyNumberServiceImpl implements EmergencyNumberService {
         return toDto(entity);
     }
 
+    /** Returns all emergency number rows ordered for the admin dashboard. */
     @Override
     public List<EmergencyNumberDto> listEmergencyNumbers() {
         return repository.findAll(Sort.by(Sort.Direction.ASC, "emergencyId"))
@@ -34,6 +36,7 @@ public class EmergencyNumberServiceImpl implements EmergencyNumberService {
                 .toList();
     }
 
+    /** Creates a new emergency number row and keeps at least one row active. */
     @Override
     @Transactional
     public EmergencyNumberDto createEmergencyNumber(SaveEmergencyNumberRequest request) {
@@ -52,6 +55,7 @@ public class EmergencyNumberServiceImpl implements EmergencyNumberService {
         return toDto(repository.save(entity));
     }
 
+    /** Updates an existing emergency number row while preserving active-row rules. */
     @Override
     @Transactional
     public EmergencyNumberDto updateEmergencyNumber(Long emergencyId, SaveEmergencyNumberRequest request) {
@@ -77,6 +81,7 @@ public class EmergencyNumberServiceImpl implements EmergencyNumberService {
         return toDto(repository.save(entity));
     }
 
+    /** Validates the required fields for emergency number administration. */
     private void validate(SaveEmergencyNumberRequest request) {
         if (isBlank(request.label())
                 || isBlank(request.fireBrigade())
@@ -87,10 +92,12 @@ public class EmergencyNumberServiceImpl implements EmergencyNumberService {
         }
     }
 
+    /** Checks whether a string is null, empty, or only whitespace. */
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
 
+    /** Copies the normalized request values onto the entity. */
     private void applyRequest(EmergencyNumber entity, SaveEmergencyNumberRequest request) {
         entity.setLabel(request.label().trim());
         entity.setFireBrigade(request.fireBrigade().trim());
@@ -100,6 +107,7 @@ public class EmergencyNumberServiceImpl implements EmergencyNumberService {
         entity.setIsActive(Boolean.TRUE.equals(request.isActive()));
     }
 
+    /** Converts the emergency number entity into the API DTO. */
     private EmergencyNumberDto toDto(EmergencyNumber entity) {
         EmergencyNumberDto dto = new EmergencyNumberDto();
         dto.setEmergencyId(entity.getEmergencyId());

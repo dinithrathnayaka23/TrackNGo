@@ -37,7 +37,8 @@ type QuickAction = {
   subtitle: string;
 };
 
-function buildQuickActions(data: EmergencyNumberDto | null): QuickAction[] {
+// Builds the quick-call tiles from the active emergency number record.
+export function buildQuickActions(data: EmergencyNumberDto | null): QuickAction[] {
   if (!data) return [];
   return [
     { icon: "medical-bag", title: "Ambulance", subtitle: data.ambulance },
@@ -65,6 +66,7 @@ export function SosScreen({ navigation }: Props) {
   const [sosSent, setSosSent] = useState(false);
   const [informEmergencyContacts, setInformEmergencyContacts] = useState(true);
 
+  // Loads the currently active emergency contact numbers shown on the SOS screen.
   useEffect(() => {
     getActiveEmergencyNumbers()
       .then(setEmergencyData)
@@ -74,11 +76,13 @@ export function SosScreen({ navigation }: Props) {
 
   const quickActions = buildQuickActions(emergencyData);
 
+  // Opens the phone dialer with a sanitized emergency number.
   const handleCall = (number: string) => {
     const cleaned = number.replace(/[^0-9+]/g, "");
     Linking.openURL(`tel:${cleaned}`);
   };
 
+  // Parses a route parameter into a numeric coordinate when possible.
   const parseCoordinate = (value?: string): number | null => {
     if (!value) {
       return null;
@@ -87,6 +91,7 @@ export function SosScreen({ navigation }: Props) {
     return Number.isFinite(parsed) ? parsed : null;
   };
 
+  // Resolves the current user location from route params or device GPS permission flow.
   const getLoggedUserLocation = async (): Promise<{
     latitude: number;
     longitude: number;
@@ -116,6 +121,7 @@ export function SosScreen({ navigation }: Props) {
     };
   };
 
+  // Sends the SOS alert to the backend and optionally mirrors the message through direct SMS.
   const handleTriggerSos = async () => {
     if (!currentUser) {
       Alert.alert("Login required", "Please log in before sending SOS alerts.");
@@ -206,6 +212,7 @@ export function SosScreen({ navigation }: Props) {
         </Text>
 
         <Pressable
+          testID="trigger-sos-button"
           style={[
             styles.sosRing,
             sosSent ? styles.sosRingSuccess : undefined,
@@ -239,6 +246,7 @@ export function SosScreen({ navigation }: Props) {
         )}
 
         <Pressable
+          testID="inform-emergency-contacts-toggle"
           style={styles.checkboxRow}
           onPress={() => setInformEmergencyContacts((prev) => !prev)}
           disabled={triggering || sosSent}
@@ -272,6 +280,7 @@ export function SosScreen({ navigation }: Props) {
             quickActions.map((item) => (
               <Pressable
                 key={item.title}
+                testID={`quick-action-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
                 style={styles.gridItem}
                 onPress={() => handleCall(item.subtitle)}
               >

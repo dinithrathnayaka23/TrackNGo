@@ -33,6 +33,7 @@ public class SosAlertServiceImpl implements SosAlertService {
     private final JdbcTemplate jdbcTemplate;
     private final SmsProvider smsProvider;
 
+    /** Ensures the SOS table contains the optional route and bus columns used by the service. */
     @PostConstruct
     public void ensureSosAlertColumns() {
         try {
@@ -45,6 +46,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         }
     }
 
+    /** Creates an SOS alert, enriches it with bus details, and optionally notifies emergency contacts. */
     @Override
     public SosAlertDto triggerAlert(TriggerSosAlertRequest request) {
         if (request == null || (request.getPassengerId() == null && request.getDriverId() == null)) {
@@ -106,6 +108,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         return toDto(saved);
     }
 
+    /** Loads active SOS alerts together with passenger, driver, route, and emergency contact details. */
     @Override
     public List<SosAlertDto> getActiveAlerts() {
         String sql = """
@@ -207,6 +210,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         }).toList();
     }
 
+    /** Resolves an SOS alert and records which admin handled it. */
     @Override
     public SosAlertDto resolveAlert(Long sosId, Long adminId) {
         SosAlert alert = repository.findById(sosId)
@@ -218,6 +222,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         return toDto(alert);
     }
 
+    /** Marks an SOS alert as a false alarm and records which admin handled it. */
     @Override
     public SosAlertDto dismissAlert(Long sosId, Long adminId) {
         SosAlert alert = repository.findById(sosId)
@@ -229,6 +234,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         return toDto(alert);
     }
 
+    /** Converts the SOS alert entity into the API DTO returned by the service. */
     private SosAlertDto toDto(SosAlert alert) {
         SosAlertDto dto = new SosAlertDto();
         dto.setSosId(alert.getSosId());
@@ -245,11 +251,13 @@ public class SosAlertServiceImpl implements SosAlertService {
         return dto;
     }
 
+    /** Joins first and last names into a single display name. */
     private static String joinName(String firstName, String lastName) {
         String joined = ((firstName == null ? "" : firstName.trim()) + " " + (lastName == null ? "" : lastName.trim())).trim();
         return joined.isBlank() ? null : joined;
     }
 
+    /** Trims a string and converts blank values to null. */
     private static String trimToNull(String value) {
         if (value == null) {
             return null;
@@ -258,6 +266,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    /** Sends SOS SMS notifications to the trigger owner's emergency contacts when enabled. */
     private void notifyEmergencyContactsIfRequested(SosAlert alert, TriggerSosAlertRequest request) {
         if (request == null || !Boolean.TRUE.equals(request.getNotifyEmergencyContacts())) {
             return;
@@ -307,6 +316,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         }
     }
 
+    /** Builds the SMS body shared with emergency contacts for an SOS alert. */
     private String buildEmergencySmsMessage(SosAlert alert, String ownerType, Long ownerId) {
         String userName = resolveUserName(ownerId);
         String typeLabel = "passenger".equals(ownerType) ? "Passenger" : "Driver";
@@ -341,6 +351,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         return message.toString();
     }
 
+    /** Resolves a user display name for SMS notifications. */
     private String resolveUserName(Long userId) {
         if (userId == null) {
             return null;
@@ -364,6 +375,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         return joinName((String) userRow.get("first_name"), (String) userRow.get("last_name"));
     }
 
+    /** Adds a missing SOS table column when the schema has not yet been migrated. */
     private void ensureColumnExists(String columnName, String definition) {
         Integer count = jdbcTemplate.queryForObject(
             """

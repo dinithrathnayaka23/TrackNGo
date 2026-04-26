@@ -9,61 +9,15 @@ import {
   faWindowMinimize,
   faUserShield,
 } from "@fortawesome/free-solid-svg-icons";
-
-const API_BASE = "http://127.0.0.1:8080";
-
-type EmergencyContact = {
-  contactId: number;
-  name: string;
-  teleNumber: string;
-  relationship: string | null;
-};
-
-type SosAlertData = {
-  sosId: number;
-  sharedLocation: string | null;
-  status: string;
-  triggeredAt: string;
-  resolvedAt: string | null;
-  passengerId: number | null;
-  driverId: number | null;
-  triggeredByType: string;
-  name: string;
-  phoneNumber: string | null;
-  profilePhoto: string | null;
-  routeName: string | null;
-  busNumber: string | null;
-  startLocation: string | null;
-  endLocation: string | null;
-  passengerName: string | null;
-  passengerPhoneNumber: string | null;
-  driverName: string | null;
-  driverPhoneNumber: string | null;
-  emergencyContacts: EmergencyContact[];
-};
-
-type EmergencyServiceNumbers = {
-  ambulance: string;
-  police: string;
-  fireBrigade: string;
-};
-
-type ApiResponse<T> = {
-  success: boolean;
-  message: string;
-  data: T;
-};
-
-async function readApiResponse<T>(res: Response): Promise<ApiResponse<T> | null> {
-  const text = await res.text();
-  if (!text) return null;
-
-  try {
-    return JSON.parse(text) as ApiResponse<T>;
-  } catch {
-    return null;
-  }
-}
+import {
+  fetchActiveEmergencyNumbers,
+  fetchActiveSosAlerts,
+  SOS_API_BASE,
+  type EmergencyServiceNumbers,
+  type SosAlertData,
+  type SosAlertStatusAction,
+  updateSosAlertStatus,
+} from "../services/sosAlertService";
 
 const DEFAULT_EMERGENCY_NUMBERS: EmergencyServiceNumbers = {
   ambulance: "1990",
@@ -71,7 +25,8 @@ const DEFAULT_EMERGENCY_NUMBERS: EmergencyServiceNumbers = {
   fireBrigade: "110",
 };
 
-function parseGps(
+// Parses a latitude and longitude pair from the alert's shared location string.
+export function parseGps(
   location: string | null,
 ): { lat: number; lng: number; label: string } | null {
   if (!location) return null;
@@ -87,7 +42,8 @@ function parseGps(
   };
 }
 
-function formatTime(isoStr: string): string {
+// Formats an alert timestamp for the SOS popup header.
+export function formatTime(isoStr: string): string {
   const d = new Date(isoStr);
   return d.toLocaleTimeString("en-GB", {
     hour: "2-digit",
@@ -107,18 +63,17 @@ function SosAlertPopup() {
   >("");
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  // Poll for active alerts every 5 seconds
+  // Polls the backend for active alerts and the latest emergency numbers.
   useEffect(() => {
     let active = true;
 
     const fetchAlerts = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/sos-alerts/active`);
-        const json = await readApiResponse<SosAlertData[]>(res);
-        if (active && json?.success && json.data) {
-          setAlerts(json.data);
+        const data = await fetchActiveSosAlerts();
+        if (active) {
+          setAlerts(data);
           // If no more active alerts, reset state
-          if (json.data.length === 0) {
+          if (data.length === 0) {
             setMinimized(false);
             setCurrentIndex(0);
           }
@@ -130,15 +85,14 @@ function SosAlertPopup() {
 
     const fetchEmergencyNumbers = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/emergency-numbers/active`);
-        const json = await readApiResponse<Partial<EmergencyServiceNumbers>>(res);
-        if (active && json?.success && json.data) {
+        const data = await fetchActiveEmergencyNumbers();
+        if (active && data) {
           setEmergencyNumbers({
             ambulance:
-              json.data.ambulance || DEFAULT_EMERGENCY_NUMBERS.ambulance,
-            police: json.data.police || DEFAULT_EMERGENCY_NUMBERS.police,
+              data.ambulance || DEFAULT_EMERGENCY_NUMBERS.ambulance,
+            police: data.police || DEFAULT_EMERGENCY_NUMBERS.police,
             fireBrigade:
-              json.data.fireBrigade || DEFAULT_EMERGENCY_NUMBERS.fireBrigade,
+              data.fireBrigade || DEFAULT_EMERGENCY_NUMBERS.fireBrigade,
           });
         }
       } catch {
@@ -186,12 +140,11 @@ function SosAlertPopup() {
     ? `Call Driver of ${alert.busNumber}`
     : "Call Driver";
 
-  const handleStatusChange = async (action: "resolve" | "dismiss") => {
+  // Sends the selected alert action and removes the handled alert from the popup list.
+  const handleStatusChange = async (action: SosAlertStatusAction) => {
     setUpdatingStatus(true);
     try {
-      await fetch(`${API_BASE}/api/sos-alerts/${alert.sosId}/${action}`, {
-        method: "PUT",
-      });
+      await updateSosAlertStatus(alert.sosId, action);
       setAlerts((prev) => prev.filter((a) => a.sosId !== alert.sosId));
       setCurrentIndex(0);
       setSelectedStatus("");
@@ -394,7 +347,7 @@ function SosAlertPopup() {
                       src={
                         alert.profilePhoto.startsWith("http")
                           ? alert.profilePhoto
-                          : `${API_BASE}/${alert.profilePhoto}`
+                          : `${SOS_API_BASE}/${alert.profilePhoto}`
                       }
                       alt={alert.name}
                       className="h-full w-full object-cover"
@@ -536,6 +489,7 @@ function SosAlertPopup() {
               {/* Status dropdown + OK button */}
               <div className="flex items-center gap-2">
                 <select
+                  aria-label="SOS status action"
                   value={selectedStatus}
                   onChange={(e) =>
                     setSelectedStatus(
@@ -568,6 +522,7 @@ function SosAlertPopup() {
                     <button
                       key={alerts[i].sosId}
                       type="button"
+                      aria-label={`View SOS alert ${i + 1}`}
                       onClick={() => {
                         setCurrentIndex(i);
                         setSelectedStatus("");

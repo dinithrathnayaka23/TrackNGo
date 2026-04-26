@@ -1,6 +1,6 @@
 # Admin Dashboard Test Guide
 
-This admin web app now includes unit tests for both the complaint dashboard flow and the promotion dashboard flow.
+This admin web app now includes unit tests for complaint, promotion, and SOS dashboard flows.
 
 ## Test Folder Structure
 
@@ -8,14 +8,18 @@ This admin web app now includes unit tests for both the complaint dashboard flow
 my-react-app/
 |-- src/
 |   |-- __tests__/
+|   |   |-- components/SosAlertPopup.test.tsx
 |   |   |-- pages/dashboard/Complaints.test.tsx
 |   |   |-- pages/dashboard/Promotions.test.tsx
 |   |   |-- services/complaintService.test.ts
-|   |   `-- services/promotionService.test.ts
+|   |   |-- services/promotionService.test.ts
+|   |   `-- services/sosAlertService.test.ts
+|   |-- components/SosAlertPopup.tsx
 |   |-- pages/dashboard/Complaints.tsx
 |   |-- pages/dashboard/Promotions.tsx
 |   |-- services/complaintService.ts
-|   `-- services/promotionService.ts
+|   |-- services/promotionService.ts
+|   `-- services/sosAlertService.ts
 |-- src/test/setup.ts
 `-- TESTING.md
 ```
@@ -33,6 +37,10 @@ my-react-app/
 - promotion edit, cancel, and remove actions
 - promotion service API calls for list, create, update, cancel, and delete
 - helper logic for promotion badge styling, form mapping, and discount formatting
+- SOS alert popup loading, minimizing, reopening, and status updates
+- SOS emergency-number shortcut rendering and emergency-contact display
+- SOS service API calls for active alerts, active emergency numbers, and alert status updates
+- helper logic for SOS GPS parsing and time formatting
 
 ## How To Run
 
@@ -62,9 +70,17 @@ npx vitest run src/__tests__/pages/dashboard/Promotions.test.tsx
 npx vitest run src/__tests__/services/promotionService.test.ts
 ```
 
+Run only the SOS tests:
+
+```bash
+npx vitest run src/__tests__/components/SosAlertPopup.test.tsx
+npx vitest run src/__tests__/services/sosAlertService.test.ts
+```
+
 ## Notes
 
 - The page tests mock the complaint service and PDF libraries so they stay focused on complaint UI behavior.
 - The promotion page tests mock the promotion service so they stay focused on admin workflow behavior.
-- The service tests mock `fetch` and verify the admin complaint and promotion endpoints directly.
-- Complaint-related and promotion-related production functions now include short comments to explain each responsibility quickly.
+- The SOS popup tests mock the SOS service so they stay focused on alert workflow behavior.
+- The service tests mock `fetch` and verify the admin complaint, promotion, and SOS endpoints directly.
+- Complaint-related, promotion-related, and SOS-related production functions now include short comments to explain each responsibility quickly.

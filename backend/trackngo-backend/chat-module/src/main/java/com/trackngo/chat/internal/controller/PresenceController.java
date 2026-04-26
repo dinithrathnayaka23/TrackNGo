@@ -18,6 +18,7 @@ public class PresenceController {
 
     private final ChatPresenceService chatPresenceService;
 
+    /** Returns the latest global chat presence snapshot for reconnecting clients. */
     @GetMapping
     public PresenceDto getPresenceSnapshot() {
         return chatPresenceService.snapshot();

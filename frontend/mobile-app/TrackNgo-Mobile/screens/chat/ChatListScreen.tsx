@@ -46,7 +46,8 @@ import {
 
 type Props = NativeStackScreenProps<RootStackParamList, "ChatList">;
 
-function getConversationTimeLabel(timestamp?: string | null) {
+// Formats the right-side timestamp shown for each conversation row.
+export function getConversationTimeLabel(timestamp?: string | null) {
   const dayLabel = formatDayLabel(timestamp);
   if (dayLabel === "Today") {
     return formatTime(timestamp) || dayLabel;
@@ -54,11 +55,13 @@ function getConversationTimeLabel(timestamp?: string | null) {
   return dayLabel || "";
 }
 
-function toPresenceUserId(value: number | string) {
+// Normalizes websocket presence payload values into numeric user ids.
+export function toPresenceUserId(value: number | string) {
   return Number(value);
 }
 
-function timestampValue(timestamp?: string | null) {
+// Converts an ISO timestamp into a numeric sort value when possible.
+export function timestampValue(timestamp?: string | null) {
   if (!timestamp) {
     return null;
   }
@@ -66,7 +69,8 @@ function timestampValue(timestamp?: string | null) {
   return Number.isNaN(value) ? null : value;
 }
 
-function messagePreview(message: ChatMessage) {
+// Builds the latest-message preview text shown in the chat list.
+export function messagePreview(message: ChatMessage) {
   if (message.deleted) {
     return "Message deleted";
   }
@@ -82,19 +86,22 @@ function messagePreview(message: ChatMessage) {
   return message.content || "No messages yet";
 }
 
-function compareByRecentActivity(a: ConversationDto, b: ConversationDto) {
+// Sorts conversations so the most recently active thread appears first.
+export function compareByRecentActivity(a: ConversationDto, b: ConversationDto) {
   const aTime = timestampValue(a.lastMessageTimestamp) ?? 0;
   const bTime = timestampValue(b.lastMessageTimestamp) ?? 0;
   return bTime - aTime;
 }
 
-function normalizeSearchValue(value?: string | number | null) {
+// Lowercases and trims values before chat-list search matching.
+export function normalizeSearchValue(value?: string | number | null) {
   return String(value ?? "")
     .trim()
     .toLowerCase();
 }
 
-function isSupportConversation(
+// Identifies the pinned customer-support conversation for the current user.
+export function isSupportConversation(
   conversation: ConversationDto,
   currentUser: SessionUser,
 ) {
@@ -102,7 +109,8 @@ function isSupportConversation(
   return other.userType === "ADMIN" && other.userId === ADMIN_SUPPORT_USER_ID;
 }
 
-function matchesConversationSearch(
+// Checks whether a conversation matches the current chat-list search query.
+export function matchesConversationSearch(
   conversation: ConversationDto,
   currentUser: SessionUser,
   profilesById: Record<number, UserProfile>,
@@ -131,7 +139,8 @@ function matchesConversationSearch(
   );
 }
 
-function mergeMessageIntoConversation(
+// Applies an incoming message to a conversation preview and unread counters.
+export function mergeMessageIntoConversation(
   conversation: ConversationDto,
   message: ChatMessage,
   currentUser: SessionUser,
@@ -216,10 +225,12 @@ export function ChatListScreen({ navigation }: Props) {
     [],
   );
 
+  // Determines whether the signed-in user should always keep a support thread pinned.
   const needsPersistentSupportChat = useCallback((user: SessionUser) => {
     return user.userId !== ADMIN_SUPPORT_USER_ID;
   }, []);
 
+  // Resolves the non-current participant for a conversation row.
   const getOtherParticipantFor = useCallback(
     (conversation: ConversationDto, user: SessionUser) => {
       return getOtherParticipant(conversation, user);
@@ -227,6 +238,7 @@ export function ChatListScreen({ navigation }: Props) {
     [],
   );
 
+  // Removes duplicate rows and keeps only one shared support conversation in the list.
   const dedupeConversations = useCallback(
     (conversations: ConversationDto[]) => {
       if (!currentUser) {
@@ -263,6 +275,7 @@ export function ChatListScreen({ navigation }: Props) {
     [currentUser, getOtherParticipantFor],
   );
 
+  // Pins the support conversation at the top while removing duplicates from the loaded page.
   const mergeWithSupportConversation = useCallback(
     (conversations: ConversationDto[], support?: ConversationDto | null) => {
       const pinned = support ?? supportConversationRef.current;
@@ -278,6 +291,7 @@ export function ChatListScreen({ navigation }: Props) {
     [dedupeConversations],
   );
 
+  // Sorts conversations by recency while preserving the pinned support thread.
   const pinAndSortConversations = useCallback(
     (conversations: ConversationDto[]) => {
       const deduped = dedupeConversations(conversations);
@@ -294,6 +308,7 @@ export function ChatListScreen({ navigation }: Props) {
     [dedupeConversations],
   );
 
+  // Applies the latest presence snapshot or websocket presence delta to the chat list.
   const applyPresenceUpdate = useCallback((presence: PresenceUpdate) => {
     if (Array.isArray(presence.onlineUserIds)) {
       setOnlineByUserId(
@@ -331,6 +346,7 @@ export function ChatListScreen({ navigation }: Props) {
     });
   }, []);
 
+  // Tracks transient typing state for the visible conversation list rows.
   const setConversationTyping = useCallback(
     (conversationId: number, typing: boolean) => {
       const existingTimer = typingClearTimersRef.current[conversationId];
@@ -370,6 +386,7 @@ export function ChatListScreen({ navigation }: Props) {
     [],
   );
 
+  // Handles incoming typing events from the websocket connection.
   const handleTyping = useCallback(
     (typing: TypingIndicator) => {
       if (!currentUser || typing.userId === currentUser.userId) {
@@ -380,6 +397,7 @@ export function ChatListScreen({ navigation }: Props) {
     [currentUser, setConversationTyping],
   );
 
+  // Loads any participant profiles that are still missing from the local profile cache.
   const loadMissingProfiles = useCallback(
     async (conversations: ConversationDto[]) => {
       if (!currentUser || conversations.length === 0) {
@@ -421,6 +439,7 @@ export function ChatListScreen({ navigation }: Props) {
     [currentUser],
   );
 
+  // Ensures a dedicated support conversation exists for non-admin users.
   const ensureSupportConversation = useCallback(async () => {
     if (!currentUser || !needsPersistentSupportChat(currentUser)) {
       setSupportConversation(null);
@@ -456,6 +475,7 @@ export function ChatListScreen({ navigation }: Props) {
     return supportConversationPromiseRef.current;
   }, [currentUser, loadMissingProfiles, needsPersistentSupportChat]);
 
+  // Loads one page of conversations and optionally resets the visible list state.
   const loadPage = useCallback(
     async (targetPage: number, reset = false) => {
       console.log(
@@ -558,6 +578,7 @@ export function ChatListScreen({ navigation }: Props) {
     ],
   );
 
+  // Merges websocket messages into the conversation list preview and unread state.
   const updateConversationFromSocket = useCallback(
     (message: ChatMessage) => {
       if (!currentUser || !message.conversationId) {
@@ -729,6 +750,7 @@ export function ChatListScreen({ navigation }: Props) {
     });
   };
 
+  // Returns the user to the dashboard from the mobile chat list.
   const onBack = useCallback(() => {
     navigation.replace("Dashboard");
   }, [navigation]);
@@ -793,6 +815,7 @@ export function ChatListScreen({ navigation }: Props) {
 
             return (
               <Pressable
+                testID={`conversation-${item.conversationId}`}
                 style={styles.chatItem}
                 onPress={() => onOpenConversation(item)}
               >

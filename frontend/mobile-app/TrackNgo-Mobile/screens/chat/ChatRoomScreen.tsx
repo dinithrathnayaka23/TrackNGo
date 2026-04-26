@@ -78,14 +78,19 @@ const MESSAGE_STATUS_RANK: Record<MessageStatus, number> = {
   READ: 2,
 };
 
-function sameUserId(left?: number | string | null, right?: number | string | null) {
+// Compares ids safely when websocket payloads mix string and number values.
+export function sameUserId(
+  left?: number | string | null,
+  right?: number | string | null,
+) {
   if (left == null || right == null) {
     return false;
   }
   return Number(left) === Number(right);
 }
 
-function presenceListHasUser(
+// Checks whether the presence snapshot contains the target participant id.
+export function presenceListHasUser(
   userIds: PresenceUpdate["onlineUserIds"],
   userId: number,
 ) {
@@ -94,14 +99,19 @@ function presenceListHasUser(
     : false;
 }
 
-function formatDuration(seconds?: number | null) {
+// Formats an audio duration into the mm:ss label used by voice messages.
+export function formatDuration(seconds?: number | null) {
   const totalSeconds = Math.max(0, Math.round(seconds ?? 0));
   const minutes = Math.floor(totalSeconds / 60);
   const remainingSeconds = totalSeconds % 60;
   return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
-function mostAdvancedStatus(current?: MessageStatus, incoming?: MessageStatus) {
+// Keeps whichever message status represents the furthest delivery progress.
+export function mostAdvancedStatus(
+  current?: MessageStatus,
+  incoming?: MessageStatus,
+) {
   if (!incoming) {
     return current;
   }
@@ -113,7 +123,8 @@ function mostAdvancedStatus(current?: MessageStatus, incoming?: MessageStatus) {
     : current;
 }
 
-function buildOutgoingMessage(params: {
+// Builds the optimistic message object inserted before the backend confirms send.
+export function buildOutgoingMessage(params: {
   conversationId: number;
   senderId: number;
   senderType: "PASSENGER" | "DRIVER" | "ADMIN" | "CORPORATE_USER";

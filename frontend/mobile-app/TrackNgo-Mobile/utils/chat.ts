@@ -20,11 +20,13 @@ type ParticipantProfileLike =
   | null
   | undefined;
 
+// Trims optional profile values and treats blank strings as missing data.
 function cleanValue(value?: string | null) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 }
 
+// Normalizes flexible profile inputs into one shared participant shape.
 function toProfileLike(profile?: ParticipantProfileLike) {
   if (typeof profile === "string") {
     return {
@@ -38,6 +40,7 @@ function toProfileLike(profile?: ParticipantProfileLike) {
   return profile ?? null;
 }
 
+// Returns the participant on the other side of a two-user conversation.
 export function getOtherParticipant(
   conversation: ConversationDto,
   currentUser: SessionUser,
@@ -54,6 +57,7 @@ export function getOtherParticipant(
       };
 }
 
+// Maps internal user-type values into readable labels for the UI.
 export function getRoleLabel(userType: SessionUser["userType"]) {
   if (userType === "CORPORATE_USER") {
     return "Corporate User";
@@ -67,6 +71,7 @@ export function getRoleLabel(userType: SessionUser["userType"]) {
   return "Passenger";
 }
 
+// Prefers the user type found in the participant profile when it is available.
 export function resolveParticipantUserType(
   userType: SessionUser["userType"],
   profile?: ParticipantProfileLike,
@@ -90,6 +95,7 @@ export function resolveParticipantUserType(
   return userType;
 }
 
+// Builds the title shown for a participant in chat headers and list rows.
 export function getParticipantTitle(
   userType: SessionUser["userType"],
   userId: number,
@@ -124,6 +130,7 @@ export function getParticipantTitle(
   return `${personName} - ${getRoleLabel(resolvedUserType)}`;
 }
 
+// Chooses the fallback avatar letter when no participant image exists.
 export function getParticipantAvatarFallback(
   userType: SessionUser["userType"],
   profile?: ParticipantProfileLike,
@@ -143,12 +150,14 @@ export function getParticipantAvatarFallback(
   return "P";
 }
 
+// Returns a cleaned avatar URL for the participant profile when present.
 export function getParticipantAvatarUri(
   profile?: Pick<UserProfile, "profilePhoto"> | null,
 ) {
   return cleanValue(profile?.profilePhoto) ?? null;
 }
 
+// Converts the latest-message metadata into a short conversation preview.
 export function formatConversationPreview(conversation: ConversationDto) {
   if (!conversation.lastMessage) {
     return "No messages yet";
@@ -165,6 +174,7 @@ export function formatConversationPreview(conversation: ConversationDto) {
   return conversation.lastMessage;
 }
 
+// Formats an ISO timestamp into a short local time label for chat UI.
 export function formatTime(iso?: string | null) {
   if (!iso) {
     return "";
@@ -176,6 +186,7 @@ export function formatTime(iso?: string | null) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+// Maps a timestamp into Today, Yesterday, or a local calendar date label.
 export function formatDayLabel(iso?: string | null) {
   if (!iso) {
     return "";
@@ -202,6 +213,7 @@ export function formatDayLabel(iso?: string | null) {
   return date.toLocaleDateString();
 }
 
+// Inserts or replaces a message in local state using server or client ids.
 export function mergeMessage(existing: ChatMessage[], incoming: ChatMessage) {
   const id = incoming.messageId;
   const clientId = incoming.clientMessageId;
@@ -220,6 +232,7 @@ export function mergeMessage(existing: ChatMessage[], incoming: ChatMessage) {
   return [incoming, ...existing];
 }
 
+// Applies delivery and read-status updates to the matching local messages.
 export function applyStatusUpdates(
   messages: ChatMessage[],
   updates: Array<{ messageId: number; status: MessageStatus }>,
@@ -240,6 +253,7 @@ export function applyStatusUpdates(
   });
 }
 
+// Maps a message status into the tick text and color shown in the UI.
 export function statusTick(status?: MessageStatus) {
   if (status === "READ") {
     return { text: "✓✓", color: "#1e88e5" };

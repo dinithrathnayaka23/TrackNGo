@@ -27,7 +27,8 @@ import {
 
 type Props = NativeStackScreenProps<RootStackParamList, "EmergencyContacts">;
 
-function mapUserTypeToOwnerType(userType: string): string {
+// Maps the signed-in mobile user type to the owner type expected by the SOS APIs.
+export function mapUserTypeToOwnerType(userType: string): string {
   switch (userType) {
     case "DRIVER":
       return "driver";
@@ -52,6 +53,7 @@ export function EmergencyContactsScreen({ navigation }: Props) {
     currentUser?.userType ?? "PASSENGER",
   );
 
+  // Loads the current user's emergency contact list whenever the screen gains focus.
   const loadContacts = useCallback(async () => {
     if (!currentUser) return;
     try {
@@ -71,6 +73,7 @@ export function EmergencyContactsScreen({ navigation }: Props) {
     }, [loadContacts]),
   );
 
+  // Confirms and removes the selected emergency contact from the list.
   const handleDelete = (contact: EmergencyContactDto) => {
     Alert.alert(
       "Delete Contact",
@@ -95,6 +98,7 @@ export function EmergencyContactsScreen({ navigation }: Props) {
     );
   };
 
+  // Validates and saves a new emergency contact, then updates the visible list.
   const handleAdd = async () => {
     if (!name.trim() || !teleNumber.trim()) {
       Alert.alert("Validation", "Name and phone number are required.");
@@ -158,7 +162,10 @@ export function EmergencyContactsScreen({ navigation }: Props) {
                   </Text>
                 ) : null}
               </View>
-              <Pressable onPress={() => handleDelete(contact)}>
+              <Pressable
+                testID={`delete-contact-${contact.contactId}`}
+                onPress={() => handleDelete(contact)}
+              >
                 <MaterialCommunityIcons
                   name="trash-can-outline"
                   size={18}
@@ -169,6 +176,7 @@ export function EmergencyContactsScreen({ navigation }: Props) {
           ))}
 
           <Pressable
+            testID="open-add-contact-modal"
             style={styles.addRow}
             onPress={() => setModalVisible(true)}
           >
@@ -228,6 +236,7 @@ export function EmergencyContactsScreen({ navigation }: Props) {
 
             <View style={styles.modalButtons}>
               <Pressable
+                testID="cancel-add-contact"
                 style={styles.cancelButton}
                 onPress={() => {
                   setModalVisible(false);
@@ -239,6 +248,7 @@ export function EmergencyContactsScreen({ navigation }: Props) {
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </Pressable>
               <Pressable
+                testID="save-contact-button"
                 style={styles.saveButton}
                 onPress={handleAdd}
                 disabled={saving}

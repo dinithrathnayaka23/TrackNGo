@@ -15,6 +15,7 @@ interface ApiResponse<T> {
   data: T;
 }
 
+// Loads the emergency contacts owned by the selected passenger or driver.
 export async function getEmergencyContacts(ownerId: number, ownerType: string) {
   const res = await httpGet<ApiResponse<EmergencyContactDto[]>>(
     "/api/emergency-contacts",
@@ -23,6 +24,7 @@ export async function getEmergencyContacts(ownerId: number, ownerType: string) {
   return res.data;
 }
 
+// Creates a new emergency contact using the normalized mobile payload.
 export async function addEmergencyContact(params: {
   ownerId: number;
   ownerType: string;
@@ -44,6 +46,7 @@ export async function addEmergencyContact(params: {
   return res.data;
 }
 
+// Deletes an emergency contact by id.
 export async function deleteEmergencyContact(contactId: number) {
   const res = await httpDelete<ApiResponse<void>>(
     `/api/emergency-contacts/${contactId}`,

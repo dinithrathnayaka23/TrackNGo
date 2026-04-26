@@ -14,7 +14,8 @@ export interface SosMessageParams {
   sharedLocation?: string;
 }
 
-function buildSosMessage(params: SosMessageParams): string {
+// Builds the SMS body that is shared with the user's emergency contacts.
+export function buildSosMessage(params: SosMessageParams): string {
   const typeLabel = params.userType === "PASSENGER" ? "Passenger" : "Driver";
   let message = `TrackNGo SOS : ${typeLabel} ${params.userName} triggered an emergency.`;
 
@@ -37,6 +38,7 @@ function buildSosMessage(params: SosMessageParams): string {
   return message;
 }
 
+// Sends the SOS message directly from the device to the user's emergency contacts.
 export async function sendSosSmsDirect(
   params: SosMessageParams,
 ): Promise<{ sent: boolean; contactCount: number }> {

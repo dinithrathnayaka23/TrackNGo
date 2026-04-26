@@ -25,6 +25,7 @@ interface ApiResponse<T> {
   data: T;
 }
 
+// Loads the currently active emergency number row used by the SOS screen.
 export async function getActiveEmergencyNumbers(): Promise<EmergencyNumberDto> {
   const res = await httpGet<ApiResponse<EmergencyNumberDto>>(
     "/api/emergency-numbers/active",
@@ -32,6 +33,7 @@ export async function getActiveEmergencyNumbers(): Promise<EmergencyNumberDto> {
   return res.data;
 }
 
+// Sends the mobile SOS payload to the backend trigger endpoint.
 export async function triggerSosAlert(
   payload: TriggerSosAlertRequest,
 ): Promise<void> {

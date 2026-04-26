@@ -19,93 +19,28 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
 } from 'react'
-
-type UserType = 'PASSENGER' | 'DRIVER' | 'ADMIN' | 'CORPORATE_USER' | 'CORPORATE'
-type MessageType = 'TEXT' | 'IMAGE' | 'VOICE' | 'LOCATION' | 'SYSTEM'
-type MessageStatus = 'SENT' | 'DELIVERED' | 'READ'
-
-type PagedResponse<T> = {
-  content: T[]
-  page: number
-  size: number
-  totalElements: number
-  totalPages: number
-  last: boolean
-}
-
-type ConversationDto = {
-  conversationId: number
-  participant1Id: number
-  participant2Id: number
-  participant1Type: UserType
-  participant2Type: UserType
-  participant1Unread: number
-  participant2Unread: number
-  lastMessage: string | null
-  lastMessageType: MessageType | null
-  lastMessageTimestamp: string | null
-}
-
-type ChatMessage = {
-  messageId?: number
-  conversationId?: number
-  senderId: number
-  recipientId?: number
-  senderType?: UserType
-  content: string
-  messageType?: MessageType
-  status?: MessageStatus
-  clientMessageId?: string
-  mediaUrl: string | null
-  compressedMediaUrl: string | null
-  fileName: string | null
-  mediaMimeType: string | null
-  mediaSizeBytes: number | null
-  compressedSizeBytes: number | null
-  durationSeconds: number | null
-  latitude: number | null
-  longitude: number | null
-  readByParticipant1?: boolean
-  readByParticipant2?: boolean
-  createdAt?: string
-  deleted?: boolean
-}
-
-type MessageDeleteEvent = {
-  conversationId: number
-  messageId: number
-  deletedByUserId: number
-  deletedAt: string
-}
-
-type MessageStatusUpdate = {
-  conversationId: number
-  messageId: number
-  status: MessageStatus
-}
-
-type PresenceUpdate = {
-  userId: number
-  online: boolean
-  onlineUserIds?: number[]
-}
-
-type TypingIndicator = {
-  conversationId: number
-  userId: number
-  typing: boolean
-}
-
-type UserProfile = {
-  userId: number
-  fullName: string | null
-  phoneNumber: string | null
-  email: string | null
-  profilePhoto: string | null
-  companyName?: string | null
-  contactPersonName?: string | null
-  userType: UserType
-}
+import {
+  deleteConversationMessage,
+  fetchChatUserProfile,
+  fetchConversationMessages,
+  fetchPresenceSnapshot,
+  fetchSupportConversations,
+  markConversationRead,
+  sendConversationMessage,
+  uploadChatMedia,
+} from '../../services/chatAdminService'
+import type {
+  ChatMessage,
+  ConversationDto,
+  MessageDeleteEvent,
+  MessageStatus,
+  MessageStatusUpdate,
+  MessageType,
+  PresenceUpdate,
+  TypingIndicator,
+  UserProfile,
+  UserType,
+} from '../../services/chatAdminService'
 
 type WsEnvelope =
   | { event: 'NEW_MESSAGE'; data: ChatMessage }
@@ -135,17 +70,6 @@ const ADMIN_FORCE_OFFLINE_EVENT = 'trackngo:admin-force-offline'
 const OFFLINE_SOCKET_CLOSE_DELAY_MS = 120
 const WAVEFORM_BARS = [10, 22, 12, 38, 18, 54, 26, 44, 14, 62, 34, 48, 20, 56, 28, 40, 16, 30]
 
-function appendQuery(path: string, query?: Record<string, string | number | undefined>) {
-  const params = new URLSearchParams()
-  Object.entries(query ?? {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== '') {
-      params.set(key, String(value))
-    }
-  })
-  const suffix = params.toString()
-  return suffix ? `${path}?${suffix}` : path
-}
-
 function getContextMenuPosition(clientX: number, clientY: number) {
   const maxX = Math.max(CONTEXT_MENU_MARGIN, window.innerWidth - CONTEXT_MENU_WIDTH - CONTEXT_MENU_MARGIN)
   const maxY = Math.max(CONTEXT_MENU_MARGIN, window.innerHeight - CONTEXT_MENU_HEIGHT - CONTEXT_MENU_MARGIN)
@@ -155,98 +79,8 @@ function getContextMenuPosition(clientX: number, clientY: number) {
   }
 }
 
-async function fetchJson<T>(
-  path: string,
-  options?: RequestInit,
-  query?: Record<string, string | number | undefined>,
-): Promise<T> {
-  const response = await fetch(appendQuery(path, query), {
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(options?.headers ?? {}),
-    },
-  })
-
-  if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(detail || `Request failed with ${response.status}`)
-  }
-
-  return response.json() as Promise<T>
-}
-
-async function getSupportConversations(params: { page?: number; size?: number; q?: string }) {
-  return fetchJson<PagedResponse<ConversationDto>>('/api/admin/support/conversations', undefined, {
-    supportAdminId: SUPPORT_ADMIN_ID,
-    page: params.page ?? 0,
-    size: params.size ?? 40,
-    q: params.q,
-  })
-}
-
-async function getConversationMessages(conversationId: number) {
-  return fetchJson<PagedResponse<ChatMessage>>(
-    `/api/conversations/${conversationId}/messages`,
-    undefined,
-    { page: 0, size: 80 },
-  )
-}
-
-async function sendConversationMessage(conversationId: number, message: ChatMessage) {
-  return fetchJson<ChatMessage>(
-    `/api/conversations/${conversationId}/messages`,
-    {
-      method: 'POST',
-      body: JSON.stringify(message),
-    },
-  )
-}
-
-async function markConversationRead(conversationId: number) {
-  return fetchJson<MessageStatusUpdate[]>(
-    `/api/conversations/${conversationId}/read`,
-    { method: 'POST' },
-    { userId: SUPPORT_ADMIN_ID },
-  )
-}
-
-async function deleteMessage(messageId: number) {
-  return fetchJson<MessageDeleteEvent>(
-    `/api/messages/${messageId}`,
-    { method: 'DELETE' },
-    { userId: SUPPORT_ADMIN_ID },
-  )
-}
-
-async function getPresenceSnapshot() {
-  return fetchJson<PresenceUpdate>('/api/chat/presence')
-}
-
-async function getUserProfile(userId: number) {
-  return fetchJson<UserProfile>(`/api/users/${userId}/profile`)
-}
-
-async function uploadMedia(file: File) {
-  const form = new FormData()
-  form.append('file', file)
-  const response = await fetch('/api/media/upload', {
-    method: 'POST',
-    body: form,
-  })
-  if (!response.ok) {
-    throw new Error(await response.text())
-  }
-  return response.json() as Promise<{
-    fileName: string
-    mediaUrl: string
-    mimeType: string
-    sizeBytes: number
-  }>
-}
-
-function getBackendOrigin() {
+// Resolves the backend origin used for media links and websocket fallbacks.
+export function getBackendOrigin() {
   const configured = String(import.meta.env.VITE_API_BASE_URL ?? '').trim()
   if (configured) return configured.replace(/\/$/, '')
   if (window.location.port && window.location.port !== '8080') {
@@ -255,6 +89,7 @@ function getBackendOrigin() {
   return window.location.origin
 }
 
+// Builds the websocket URL for the admin chat connection.
 function getWsUrl() {
   const explicit = String(import.meta.env.VITE_CHAT_WS_URL ?? '').trim()
   if (explicit) return explicit
@@ -262,17 +97,20 @@ function getWsUrl() {
   return `${origin}/ws/chat`
 }
 
-function resolveAssetUrl(url?: string | null) {
+// Expands relative media paths into absolute URLs that the admin UI can render.
+export function resolveAssetUrl(url?: string | null) {
   const trimmed = url?.trim()
   if (!trimmed) return null
   if (/^(https?:|data:|blob:)/i.test(trimmed)) return trimmed
   return new URL(trimmed, getBackendOrigin()).toString()
 }
 
-function normalizeUserType(userType: UserType): Exclude<UserType, 'CORPORATE'> {
+// Normalizes legacy corporate user values into the single dashboard-friendly variant.
+export function normalizeUserType(userType: UserType): Exclude<UserType, 'CORPORATE'> {
   return userType === 'CORPORATE' ? 'CORPORATE_USER' : userType
 }
 
+// Maps participant roles into the labels shown beside admin chat names.
 function roleLabel(userType: UserType) {
   const normalized = normalizeUserType(userType)
   if (normalized === 'CORPORATE_USER') return 'Corporate User'
@@ -281,7 +119,8 @@ function roleLabel(userType: UserType) {
   return 'Admin'
 }
 
-function getOtherParticipant(conversation: ConversationDto) {
+// Returns the non-admin participant for the selected support conversation.
+export function getOtherParticipant(conversation: ConversationDto) {
   const participant1IsSupport =
     conversation.participant1Id === SUPPORT_ADMIN_ID &&
     normalizeUserType(conversation.participant1Type) === 'ADMIN'
@@ -299,6 +138,7 @@ function getOtherParticipant(conversation: ConversationDto) {
   }
 }
 
+// Reads the unread count that belongs to the support-admin side of the conversation.
 function getSupportUnread(conversation: ConversationDto) {
   if (conversation.participant1Id === SUPPORT_ADMIN_ID) {
     return conversation.participant1Unread
@@ -306,15 +146,18 @@ function getSupportUnread(conversation: ConversationDto) {
   return conversation.participant2Unread
 }
 
+// Chooses the best human-readable participant name from profile data.
 function getParticipantName(userId: number, profile?: UserProfile) {
   return profile?.contactPersonName?.trim() || profile?.fullName?.trim() || `User ${userId}`
 }
 
-function getParticipantDisplayTitle(userId: number, userType: UserType, profile?: UserProfile) {
+// Builds the participant title shown in the chat list and active-chat header.
+export function getParticipantDisplayTitle(userId: number, userType: UserType, profile?: UserProfile) {
   const resolvedType = normalizeUserType(profile?.userType ?? userType)
   return `${getParticipantName(userId, profile)} - ${roleLabel(resolvedType)}`
 }
 
+// Chooses the fallback avatar initial when a profile photo is unavailable.
 function avatarFallback(userType: UserType, profile?: UserProfile) {
   const resolvedType = normalizeUserType(profile?.userType ?? userType)
   if (resolvedType === 'DRIVER') return 'D'
@@ -323,20 +166,23 @@ function avatarFallback(userType: UserType, profile?: UserProfile) {
   return 'P'
 }
 
-function formatTime(iso?: string | null) {
+// Formats message timestamps into short time labels for the admin chat UI.
+export function formatTime(iso?: string | null) {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-function formatDuration(seconds?: number | null) {
+// Formats voice-message durations into the mm:ss label used by the player.
+export function formatDuration(seconds?: number | null) {
   const totalSeconds = Math.max(0, Math.round(seconds ?? 0))
   const minutes = Math.floor(totalSeconds / 60)
   const remainingSeconds = totalSeconds % 60
   return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`
 }
 
+// Picks the most compatible browser recording MIME type for voice messages.
 function getRecordingMimeType() {
   if (typeof MediaRecorder === 'undefined') return ''
   return (
@@ -349,13 +195,15 @@ function getRecordingMimeType() {
   )
 }
 
+// Converts a recording MIME type into the uploaded audio filename extension.
 function getAudioExtension(mimeType: string) {
   if (mimeType.includes('mp4')) return 'm4a'
   if (mimeType.includes('ogg')) return 'ogg'
   return 'webm'
 }
 
-function formatDay(iso?: string | null) {
+// Maps timestamps into Today, Yesterday, or a calendar date label for chat rows.
+export function formatDay(iso?: string | null) {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
@@ -373,13 +221,15 @@ function formatDay(iso?: string | null) {
   return `${day}/${month}/${date.getFullYear()}`
 }
 
-function previewText(conversation: ConversationDto) {
+// Builds the list-preview text shown beneath each support conversation title.
+export function previewText(conversation: ConversationDto) {
   if (conversation.lastMessageType === 'IMAGE') return 'Photo'
   if (conversation.lastMessageType === 'VOICE') return 'Voice message'
   if (conversation.lastMessageType === 'LOCATION') return 'Shared location'
   return conversation.lastMessage || 'No messages yet'
 }
 
+// Filters out empty conversations that have never produced a previewable message.
 function hasMessages(conversation: ConversationDto) {
   return Boolean(
     conversation.lastMessageTimestamp ||
@@ -388,12 +238,14 @@ function hasMessages(conversation: ConversationDto) {
   )
 }
 
+// Converts timestamps into sortable numeric values when conversation previews update.
 function timestampValue(timestamp?: string | null) {
   if (!timestamp) return null
   const value = new Date(timestamp).getTime()
   return Number.isNaN(value) ? null : value
 }
 
+// Converts incoming message payloads into the preview text used by the inbox list.
 function messagePreviewText(message: ChatMessage) {
   if (message.deleted) return 'Message deleted'
   if (message.messageType === 'IMAGE') return 'Photo'
@@ -402,7 +254,8 @@ function messagePreviewText(message: ChatMessage) {
   return message.content || 'No messages yet'
 }
 
-function mergeMessage(existing: ChatMessage[], incoming: ChatMessage) {
+// Inserts or replaces a message using backend ids or optimistic client ids.
+export function mergeMessage(existing: ChatMessage[], incoming: ChatMessage) {
   const index = existing.findIndex((item) => {
     if (incoming.messageId && item.messageId === incoming.messageId) return true
     return Boolean(incoming.clientMessageId && item.clientMessageId === incoming.clientMessageId)
@@ -416,7 +269,8 @@ function mergeMessage(existing: ChatMessage[], incoming: ChatMessage) {
   return [incoming, ...existing]
 }
 
-function applyStatusUpdates(messages: ChatMessage[], updates: MessageStatusUpdate[]) {
+// Applies delivery and read-status updates to the currently loaded message list.
+export function applyStatusUpdates(messages: ChatMessage[], updates: MessageStatusUpdate[]) {
   if (updates.length === 0) return messages
   const statusById = new Map(updates.map((update) => [update.messageId, update.status]))
   return messages.map((message) => {
@@ -584,7 +438,7 @@ function Chat() {
     const fetched = await Promise.all(
       missingIds.map(async (id) => {
         try {
-          return await getUserProfile(id)
+          return await fetchChatUserProfile(id)
         } catch {
           return null
         }
@@ -600,10 +454,11 @@ function Chat() {
     })
   }, [])
 
+  // Loads the support inbox and keeps the current thread selection in sync.
   const loadConversations = useCallback(async () => {
     setLoadingConversations(true)
     try {
-      const response = await getSupportConversations({
+      const response = await fetchSupportConversations({
         page: 0,
         size: 60,
       })
@@ -624,6 +479,7 @@ function Chat() {
     }
   }, [loadProfiles])
 
+  // Applies presence snapshots and websocket deltas to the online badge map.
   const applyPresenceUpdate = useCallback((presence: PresenceUpdate) => {
     if (Array.isArray(presence.onlineUserIds)) {
       const onlineUsers = presence.onlineUserIds.reduce<Record<number, boolean>>((next, userId) => {
@@ -647,6 +503,7 @@ function Chat() {
     })
   }, [])
 
+  // Tracks temporary typing state for visible support conversations.
   const setConversationTyping = useCallback((conversationId: number, typing: boolean) => {
     const existingTimer = typingClearTimersRef.current[conversationId]
     if (existingTimer) {
@@ -677,11 +534,13 @@ function Chat() {
     }
   }, [])
 
+  // Ignores self-typing events and updates the inbox typing badge state.
   const handleTypingEvent = useCallback((typing: TypingIndicator) => {
     if (typing.userId === SUPPORT_ADMIN_ID || !typing.conversationId) return
     setConversationTyping(typing.conversationId, typing.typing)
   }, [setConversationTyping])
 
+  // Sends typing updates for the active admin conversation over the websocket.
   const sendTypingState = useCallback((conversationId: number, typing: boolean) => {
     const socket = socketRef.current
     if (!socket || socket.readyState !== WebSocket.OPEN) return
@@ -695,6 +554,7 @@ function Chat() {
     }))
   }, [])
 
+  // Converts composer changes into typing start and stop events.
   const pushLocalTypingState = useCallback((typing: boolean) => {
     if (!activeConversationId) return
 
@@ -715,6 +575,7 @@ function Chat() {
     }
   }, [activeConversationId, sendTypingState])
 
+  // Clears the unread badge for the currently opened support conversation.
   const resetSupportUnread = useCallback((conversationId: number) => {
     setConversations((current) =>
       current.map((conversation) =>
@@ -775,7 +636,7 @@ function Chat() {
     }
 
     setLoadingMessages(true)
-    void getConversationMessages(activeConversationId)
+    void fetchConversationMessages(activeConversationId)
       .then((response) => {
         setMessages(response.content)
         return markConversationRead(activeConversationId)
@@ -867,7 +728,7 @@ function Chat() {
   }, [applyPresenceUpdate, handleTypingEvent, loadConversations, resetSupportUnread, updateConversationPreview])
 
   useEffect(() => {
-    void getPresenceSnapshot()
+    void fetchPresenceSnapshot()
       .then(applyPresenceUpdate)
       .catch(() => {
         // The websocket will continue receiving live presence updates if the snapshot request fails.
@@ -1061,6 +922,7 @@ function Chat() {
     [activeConversation, activeParticipant],
   )
 
+  // Inserts the optimistic outgoing message and reconciles it with the saved backend copy.
   const sendMessage = useCallback(async (message: ChatMessage) => {
     if (!activeConversation) return
     setSending(true)
@@ -1077,6 +939,7 @@ function Chat() {
     }
   }, [activeConversation, updateConversationPreview])
 
+  // Updates the composer value and manages local typing timeouts.
   const handleDraftChange = useCallback((value: string) => {
     setDraftMessage(value)
 
@@ -1100,6 +963,7 @@ function Chat() {
     }
   }, [pushLocalTypingState])
 
+  // Sends the current text draft as a plain support-chat message.
   const handleSendText = useCallback(() => {
     const text = draftMessage.trim()
     if (!text || sending) return
@@ -1110,6 +974,7 @@ function Chat() {
     void sendMessage(message)
   }, [buildOutgoingMessage, draftMessage, pushLocalTypingState, sendMessage, sending])
 
+  // Uploads attachments and sends them as image or voice chat messages.
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -1117,7 +982,7 @@ function Chat() {
 
     try {
       setSending(true)
-      const uploaded = await uploadMedia(file)
+      const uploaded = await uploadChatMedia(file)
       const type: MessageType = uploaded.mimeType?.startsWith('image/') ? 'IMAGE' : 'VOICE'
       const message = buildOutgoingMessage('', type, {
         mediaUrl: uploaded.mediaUrl,
@@ -1221,7 +1086,7 @@ function Chat() {
         `voice-${Date.now()}.${getAudioExtension(mimeType)}`,
         { type: mimeType },
       )
-      const uploaded = await uploadMedia(file)
+      const uploaded = await uploadChatMedia(file)
       const message = buildOutgoingMessage('', 'VOICE', {
         mediaUrl: uploaded.mediaUrl,
         fileName: uploaded.fileName,
@@ -1257,6 +1122,7 @@ function Chat() {
     void startRecording()
   }, [draftMessage, handleSendText, recordingActive, startRecording, stopRecordingAndSend])
 
+  // Deletes a support-admin message and restores it locally if the request fails.
   const handleDeleteMessage = async (message: ChatMessage) => {
     if (!message.messageId || message.senderId !== SUPPORT_ADMIN_ID || message.deleted) return
     setDeleteMenu(null)
@@ -1271,7 +1137,7 @@ function Chat() {
     )
 
     try {
-      await deleteMessage(message.messageId)
+      await deleteConversationMessage(message.messageId)
     } catch (err) {
       setMessages((current) =>
         current.map((item) => (item.messageId === original.messageId ? original : item)),

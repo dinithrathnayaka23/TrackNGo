@@ -9,6 +9,7 @@ import type {
 } from "../types/chat";
 import { httpDelete, httpGet, httpPost, httpPostForm } from "./http";
 
+// Loads one paged slice of the current user's conversations for the chat list.
 export async function getUserConversations(params: {
   userId: number;
   page?: number;
@@ -26,6 +27,7 @@ export async function getUserConversations(params: {
   );
 }
 
+// Creates or returns the shared conversation between two users.
 export async function createConversation(params: {
   user1Id: number;
   user2Id: number;
@@ -37,6 +39,7 @@ export async function createConversation(params: {
   });
 }
 
+// Searches the current user's conversations using the provided keyword.
 export async function searchUserConversations(params: {
   userId: number;
   q: string;
@@ -54,6 +57,7 @@ export async function searchUserConversations(params: {
   );
 }
 
+// Loads one page of messages for a specific conversation thread.
 export async function getConversationMessages(params: {
   conversationId: number;
   page?: number;
@@ -71,6 +75,7 @@ export async function getConversationMessages(params: {
   );
 }
 
+// Sends a new chat message payload to the backend conversation endpoint.
 export async function sendConversationMessage(params: {
   conversationId: number;
   message: ChatMessage;
@@ -83,6 +88,7 @@ export async function sendConversationMessage(params: {
   );
 }
 
+// Marks unseen messages as delivered for the current conversation participant.
 export async function markConversationDelivered(params: {
   conversationId: number;
   userId: number;
@@ -94,6 +100,7 @@ export async function markConversationDelivered(params: {
   );
 }
 
+// Marks unseen messages as read for the current conversation participant.
 export async function markConversationRead(params: {
   conversationId: number;
   userId: number;
@@ -105,10 +112,12 @@ export async function markConversationRead(params: {
   );
 }
 
+// Retrieves the latest online-user snapshot used by the chat presence UI.
 export async function getPresenceSnapshot() {
   return httpGet<PresenceUpdate>("/api/chat/presence");
 }
 
+// Uploads a media file before it is attached to an outgoing chat message.
 export async function uploadMedia(params: {
   uri: string;
   fileName: string;
@@ -128,6 +137,7 @@ export async function uploadMedia(params: {
   });
 }
 
+// Deletes a sent chat message on behalf of the requesting user.
 export async function deleteMessage(params: {
   messageId: number;
   userId: number;

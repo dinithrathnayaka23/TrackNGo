@@ -21,6 +21,7 @@ public class ComplaintController {
     private final ComplaintService service;
     private final JdbcTemplate jdbc;
 
+    /** Resolves the caller email from authentication first, then falls back to a user id lookup. */
     private String resolveEmail(Authentication authentication, Long userId) {
         if (authentication != null
                 && !(authentication instanceof AnonymousAuthenticationToken)
@@ -38,6 +39,7 @@ public class ComplaintController {
         throw new BusinessException("Unauthorized request");
     }
 
+    /** Creates a new complaint for the authenticated passenger. */
     @PostMapping
     public ApiResponse<ComplaintDto> create(
             Authentication authentication,
@@ -47,6 +49,7 @@ public class ComplaintController {
         return ApiResponse.ok("Created", service.create(email, dto));
     }
 
+    /** Returns complaints submitted by the current passenger. */
     @GetMapping("/mine")
     public ApiResponse<List<ComplaintDto>> getMine(
             Authentication authentication,
@@ -55,24 +58,28 @@ public class ComplaintController {
         return ApiResponse.ok("Fetched", service.getMine(email));
     }
 
+    /** Returns a single complaint for admin users. */
     @GetMapping("/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<ComplaintDto> get(@PathVariable Long id) {
         return ApiResponse.ok("Fetched", service.get(id));
     }
 
+    /** Returns every complaint for admin users. */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<List<ComplaintDto>> getAll() {
         return ApiResponse.ok("Fetched", service.getAll());
     }
 
+    /** Updates a complaint for admin users. */
     @PutMapping("/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<ComplaintDto> update(@PathVariable Long id, @Valid @RequestBody ComplaintDto dto) {
         return ApiResponse.ok("Updated", service.update(id, dto));
     }
 
+    /** Deletes a complaint for admin users. */
     @DeleteMapping("/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Void> delete(@PathVariable Long id) {

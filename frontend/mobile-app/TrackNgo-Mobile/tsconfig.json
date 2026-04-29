@@ -4,6 +4,6 @@
     "strict": true,
     "noImplicitAny": true,
     "moduleResolution": "bundler",
-    "types": ["react", "react-native"]
+    "types": ["react", "react-native", "jest"]
   }
 }

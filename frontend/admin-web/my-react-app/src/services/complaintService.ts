@@ -50,17 +50,20 @@ export type AdminComplaintDetail = {
   images: string[]
 }
 
+/** Loads the complaint list shown on the admin dashboard. */
 export async function fetchComplaints(): Promise<AdminComplaint[]> {
   const res = await fetch(API_BASE)
   return handleResponse<AdminComplaint[]>(res)
 }
 
+/** Loads the detail view for a single complaint after stripping its display prefix. */
 export async function fetchComplaintDetail(complaintId: string): Promise<AdminComplaintDetail> {
   const numericId = complaintId.replace(/^\D+/, '')
   const res = await fetch(`${API_BASE}/${numericId}`)
   return handleResponse<AdminComplaintDetail>(res)
 }
 
+/** Sends an admin complaint status update and optional response to the backend. */
 export async function updateComplaint(
   complaintId: string,
   payload: { status: string; adminResponse: string },

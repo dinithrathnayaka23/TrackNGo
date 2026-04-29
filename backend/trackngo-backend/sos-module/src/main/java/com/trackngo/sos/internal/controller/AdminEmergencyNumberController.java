@@ -17,16 +17,19 @@ public class AdminEmergencyNumberController {
         this.service = service;
     }
 
+    /** Returns every emergency number row for admin management. */
     @GetMapping
     public ApiResponse<List<EmergencyNumberDto>> listEmergencyNumbers() {
         return ApiResponse.ok("Emergency numbers", service.listEmergencyNumbers());
     }
 
+    /** Creates a new emergency number row from the admin form. */
     @PostMapping
     public ApiResponse<EmergencyNumberDto> createEmergencyNumber(@RequestBody SaveEmergencyNumberRequest request) {
         return ApiResponse.ok("Emergency number created", service.createEmergencyNumber(request));
     }
 
+    /** Updates the selected emergency number row. */
     @PutMapping("/{emergencyId}")
     public ApiResponse<EmergencyNumberDto> updateEmergencyNumber(
             @PathVariable Long emergencyId,

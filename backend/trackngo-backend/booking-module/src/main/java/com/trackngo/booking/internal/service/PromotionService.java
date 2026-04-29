@@ -26,10 +26,12 @@ public class PromotionService {
 
     private final JdbcTemplate jdbc;
 
+    /** Creates the promotion service with JDBC-based persistence access. */
     public PromotionService(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
 
+    /** Returns promotions ordered for the admin dashboard after closing exhausted promotions. */
     public List<PromotionSummary> listPromotions() {
         endPromotionsThatReachedLimit();
         return jdbc.query("""
@@ -43,6 +45,7 @@ public class PromotionService {
             """, summaryMapper());
     }
 
+    /** Normalizes and persists a new promotion, then returns the stored summary. */
     @Transactional
     public PromotionSummary createPromotion(SavePromotionRequest request) {
         PromotionInput input = normalize(request);
@@ -68,6 +71,7 @@ public class PromotionService {
         return getPromotion(id);
     }
 
+    /** Updates a promotion, restoring ended promotions when capacity becomes available again. */
     @Transactional
     public PromotionSummary updatePromotion(Long promotionId, SavePromotionRequest request) {
         ensurePromotionExists(promotionId);
@@ -99,6 +103,7 @@ public class PromotionService {
         return getPromotion(promotionId);
     }
 
+    /** Cancels a promotion so it can no longer be applied to bookings. */
     @Transactional
     public PromotionSummary cancelPromotion(Long promotionId) {
         ensurePromotionExists(promotionId);
@@ -110,6 +115,7 @@ public class PromotionService {
         return getPromotion(promotionId);
     }
 
+    /** Deletes a promotion only when it is no longer active. */
     @Transactional
     public void deleteInactivePromotion(Long promotionId) {
         ensurePromotionExists(promotionId);
@@ -126,6 +132,7 @@ public class PromotionService {
         jdbc.update("DELETE FROM promotion WHERE promotion_id = ?", promotionId);
     }
 
+    /** Quotes promotions from the API request payload used by the booking flow. */
     public PromotionQuoteResult quote(PromotionQuoteRequest request) {
         return quote(
                 request.passengerId(),
@@ -138,11 +145,13 @@ public class PromotionService {
         );
     }
 
+    /** Quotes promotions directly from booking data that has already been resolved elsewhere. */
     public PromotionQuoteResult quoteForBooking(Long passengerId, Long busId, String fromLocation, String toLocation,
                                                 BigDecimal originalAmount, String promoCode, boolean applyAutomatic) {
         return quote(passengerId, busId, fromLocation, toLocation, requireAmount(originalAmount), promoCode, applyAutomatic);
     }
 
+    /** Marks a promotion as used for a completed booking and records the redemption. */
     @Transactional
     public void redeem(Long promotionId, Long passengerId, String bookingReference, BigDecimal discountAmount) {
         if (promotionId == null) {
@@ -169,6 +178,7 @@ public class PromotionService {
         endPromotionsThatReachedLimit();
     }
 
+    /** Evaluates promotion eligibility and returns the best applicable discount result. */
     private PromotionQuoteResult quote(Long passengerId, Long busId, String fromLocation, String toLocation,
                                        BigDecimal originalAmount, String promoCode, boolean applyAutomatic) {
         endPromotionsThatReachedLimit();
@@ -217,6 +227,7 @@ public class PromotionService {
         );
     }
 
+    /** Returns only promotions that are currently active and still have remaining capacity. */
     private List<PromotionSummary> listActivePromotions() {
         return jdbc.query("""
             SELECT promotion_id, name, description, target_type, discount_type, discount_value,
@@ -229,6 +240,7 @@ public class PromotionService {
             """, summaryMapper());
     }
 
+    /** Loads a single promotion summary by its identifier. */
     private PromotionSummary getPromotion(Long promotionId) {
         return jdbc.queryForObject("""
             SELECT promotion_id, name, description, target_type, discount_type, discount_value,
@@ -239,6 +251,7 @@ public class PromotionService {
             """, summaryMapper(), promotionId);
     }
 
+    /** Ensures that a promotion exists before performing update or delete work. */
     private void ensurePromotionExists(Long promotionId) {
         Integer count = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM promotion WHERE promotion_id = ?",
@@ -250,6 +263,7 @@ public class PromotionService {
         }
     }
 
+    /** Checks whether the promotion rules match the current booking context. */
     private boolean isEligible(PromotionSummary promotion, String busType, int completedBookings, String promoCode) {
         TargetType target = TargetType.valueOf(promotion.targetType());
         return switch (target) {
@@ -261,6 +275,7 @@ public class PromotionService {
         };
     }
 
+    /** Calculates the discount amount and keeps it within the original booking amount. */
     private BigDecimal discountAmount(PromotionSummary promotion, BigDecimal originalAmount) {
         DiscountType discountType = DiscountType.valueOf(promotion.discountType());
         BigDecimal discount = switch (discountType) {
@@ -278,6 +293,7 @@ public class PromotionService {
         return discount.setScale(2, RoundingMode.HALF_UP);
     }
 
+    /** Loads the bus type required to evaluate route-based promotion targets. */
     private String findBusType(Long busId) {
         if (busId == null || busId <= 0) {
             throw new BusinessException("Bus is required to evaluate promotions.");
@@ -289,6 +305,7 @@ public class PromotionService {
         return busTypes.get(0);
     }
 
+    /** Counts completed seat bookings for regular-customer promotion checks. */
     private int countCompletedSeatBookings(Long passengerId) {
         if (passengerId == null || passengerId <= 0) {
             return 0;
@@ -301,6 +318,7 @@ public class PromotionService {
         return count != null ? count : 0;
     }
 
+    /** Automatically ends promotions that have reached their booking limit. */
     private void endPromotionsThatReachedLimit() {
         jdbc.update("""
             UPDATE promotion
@@ -311,6 +329,7 @@ public class PromotionService {
             """, LocalDateTime.now());
     }
 
+    /** Validates and normalizes incoming promotion data before it is stored. */
     private PromotionInput normalize(SavePromotionRequest request) {
         if (request == null) {
             throw new BusinessException("Promotion payload is required.");
@@ -365,6 +384,7 @@ public class PromotionService {
         );
     }
 
+    /** Parses target type aliases used by the admin UI into the backend enum. */
     private TargetType parseTargetType(String raw) {
         String normalized = normalizeEnum(raw);
         for (Map.Entry<String, TargetType> alias : Map.of(
@@ -385,6 +405,7 @@ public class PromotionService {
         }
     }
 
+    /** Parses discount type aliases used by the admin UI into the backend enum. */
     private DiscountType parseDiscountType(String raw) {
         String normalized = normalizeEnum(raw);
         if ("FIXED".equals(normalized) || "AMOUNT".equals(normalized)) {
@@ -397,6 +418,7 @@ public class PromotionService {
         }
     }
 
+    /** Normalizes enum-like request values into uppercase underscore format. */
     private String normalizeEnum(String raw) {
         if (raw == null || raw.isBlank()) {
             throw new BusinessException("Promotion type is required.");
@@ -407,6 +429,7 @@ public class PromotionService {
                 .toUpperCase(Locale.ROOT);
     }
 
+    /** Trims and uppercases promo codes so comparisons stay consistent. */
     private String normalizeCode(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;
@@ -414,6 +437,7 @@ public class PromotionService {
         return raw.trim().toUpperCase(Locale.ROOT);
     }
 
+    /** Ensures a monetary amount exists and is greater than zero. */
     private BigDecimal requireAmount(BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("Amount must be greater than 0.");
@@ -421,6 +445,7 @@ public class PromotionService {
         return amount.setScale(2, RoundingMode.HALF_UP);
     }
 
+    /** Maps a JDBC row into the promotion summary DTO returned by this module. */
     private RowMapper<PromotionSummary> summaryMapper() {
         return (rs, rowNum) -> new PromotionSummary(
                 rs.getLong("promotion_id"),
@@ -439,6 +464,7 @@ public class PromotionService {
         );
     }
 
+    /** Converts SQL timestamps into LocalDateTime values used by the DTOs. */
     private LocalDateTime toLocalDateTime(Timestamp timestamp) {
         return timestamp != null ? timestamp.toLocalDateTime() : null;
     }

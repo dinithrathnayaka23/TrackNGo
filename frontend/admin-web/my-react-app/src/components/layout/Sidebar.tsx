@@ -12,6 +12,7 @@ import {
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
 import adminProfileImage from '../../assets/images/adminDinith.png'
+import authService from '../../services/authService'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: faChartSimple, section: 'Main Menu' },
@@ -37,8 +38,37 @@ type SidebarProps = {
 
 function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const location = useLocation()
+  const adminProfile = authService.getAdminProfile()
+  const fallbackEmail = localStorage.getItem('adminEmail') ?? ''
   const mainMenu = navItems.filter((item) => item.section === 'Main Menu')
   const systemMenu = navItems.filter((item) => item.section === 'System')
+
+  const adminFullName = [adminProfile?.firstName, adminProfile?.lastName]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .join(' ')
+    .trim()
+
+  const formatFallbackName = (value: string) =>
+    value
+      .replace(/[._-]+/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ')
+
+  const fallbackNameFromEmail = adminProfile?.email
+    ? formatFallbackName(adminProfile.email.split('@')[0])
+    : fallbackEmail
+      ? formatFallbackName(fallbackEmail.split('@')[0])
+      : ''
+
+  const adminDisplayName =
+    adminFullName ||
+    fallbackNameFromEmail ||
+    'Admin User'
+
+  const adminEmail = adminProfile?.email || fallbackEmail
+  const adminRoleLabel = adminProfile?.userType?.toLowerCase() === 'admin' ? 'Admin' : 'User'
 
   const linkClasses = (isActive: boolean) =>
     `flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition duration-200 ${
@@ -116,8 +146,8 @@ function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             className="h-9 w-9 rounded-full object-cover"
           />
           <div>
-            <p className="text-xs font-bold text-[#222a3b]">Dinith Rathnayaka</p>
-            <p className="text-xs text-[#5c6679]">Admin</p>
+            <p className="text-xs font-bold text-[#222a3b]">{adminDisplayName}</p>
+            <p className="text-xs text-[#5c6679]">{adminEmail || adminRoleLabel}</p>
           </div>
         </div>
       </div>

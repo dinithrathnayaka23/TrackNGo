@@ -18,6 +18,42 @@ ALTER TABLE chat_message ADD COLUMN IF NOT EXISTS duration_seconds INT NULL;
 ALTER TABLE chat_message ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP NULL;
 ALTER TABLE chat_message ADD COLUMN IF NOT EXISTS read_at TIMESTAMP NULL;
 
+ALTER TABLE bus ADD COLUMN IF NOT EXISTS return_start_time TIME NULL;
+ALTER TABLE bus ADD COLUMN IF NOT EXISTS return_end_time TIME NULL;
+
+-- Backfill return schedules for existing route buses when missing:
+-- return_start_time = forward start + route duration + 45-minute layover
+-- return_end_time   = return_start_time + route duration
+UPDATE bus b
+JOIN route r ON b.route_id = r.route_id
+SET b.return_start_time = COALESCE(
+    b.return_start_time,
+    ADDTIME(
+        b.start_time,
+        SEC_TO_TIME((COALESCE(r.estimated_time_duration, 0) + 45) * 60)
+    )
+)
+WHERE b.route_id IS NOT NULL
+  AND b.start_time IS NOT NULL;
+
+UPDATE bus b
+JOIN route r ON b.route_id = r.route_id
+SET b.return_end_time = COALESCE(
+    b.return_end_time,
+    ADDTIME(
+        COALESCE(
+            b.return_start_time,
+            ADDTIME(
+                b.start_time,
+                SEC_TO_TIME((COALESCE(r.estimated_time_duration, 0) + 45) * 60)
+            )
+        ),
+        SEC_TO_TIME(COALESCE(r.estimated_time_duration, 0) * 60)
+    )
+)
+WHERE b.route_id IS NOT NULL
+  AND b.start_time IS NOT NULL;
+
 -- Ensure unique constraint
 ALTER TABLE conversation ADD CONSTRAINT IF NOT EXISTS unique_participants UNIQUE (
     participant_min_id,

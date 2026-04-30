@@ -23,6 +23,8 @@ public final class AdminBusDtos {
             Long routeId,
             String startTime,
             String endTime,
+            String returnStartTime,
+            String returnEndTime,
             String registrationNumber,
             String insuranceExpDate
     ) {}
@@ -39,6 +41,8 @@ public final class AdminBusDtos {
             List<String> amenities,
             String startTime,
             String endTime,
+            String returnStartTime,
+            String returnEndTime,
             String registrationNumber,
             String insuranceExpDate,
             Long driverId,
@@ -61,6 +65,8 @@ public final class AdminBusDtos {
             List<String> amenities,
             String startTime,
             String endTime,
+            String returnStartTime,
+            String returnEndTime,
             String registrationNumber,
             String insuranceExpDate,
             Long driverId,

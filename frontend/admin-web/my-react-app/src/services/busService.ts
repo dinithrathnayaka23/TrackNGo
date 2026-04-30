@@ -31,6 +31,8 @@ export type BusListItem = {
   routeId: number | null;
   startTime: string | null;
   endTime: string | null;
+  returnStartTime: string | null;
+  returnEndTime: string | null;
   registrationNumber: string;
   insuranceExpDate: string | null;
 };
@@ -46,6 +48,8 @@ export type BusDetail = {
   amenities: string[];
   startTime: string | null;
   endTime: string | null;
+  returnStartTime: string | null;
+  returnEndTime: string | null;
   registrationNumber: string;
   insuranceExpDate: string | null;
   driverId: number | null;
@@ -67,6 +71,8 @@ export type SaveBusRequest = {
   amenities: string[];
   startTime: string | null;
   endTime: string | null;
+  returnStartTime?: string | null;
+  returnEndTime?: string | null;
   registrationNumber: string;
   insuranceExpDate: string;
   driverId: number | null;

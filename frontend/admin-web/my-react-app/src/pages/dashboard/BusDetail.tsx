@@ -127,6 +127,8 @@ type BusInfo = {
   status: "active" | "maintenance" | "inactive";
   startTime: string;
   endTime: string;
+  returnStartTime: string;
+  returnEndTime: string;
   registrationNumber: string;
   routeId: number | null;
   routeName: string;
@@ -262,20 +264,27 @@ function BusDetail() {
   });
   const [busInfo, setBusInfo] = useState<BusInfo>({
     code: "", seats: "0", brand: "", condition: "", type: "", insuranceExp: "",
-    status: "active", startTime: "", endTime: "", registrationNumber: "", routeId: null, routeName: "",
+    status: "active", startTime: "", endTime: "", returnStartTime: "", returnEndTime: "",
+    registrationNumber: "", routeId: null, routeName: "",
   });
   const [isEditBusModalOpen, setIsEditBusModalOpen] = useState(false);
   const [isEditLayoutModalOpen, setIsEditLayoutModalOpen] = useState(false);
   const [busDraft, setBusDraft] = useState<BusInfo>({
     code: "", seats: "0", brand: "", condition: "", type: "", insuranceExp: "",
-    status: "active", startTime: "", endTime: "", registrationNumber: "", routeId: null, routeName: "",
+    status: "active", startTime: "", endTime: "", returnStartTime: "", returnEndTime: "",
+    registrationNumber: "", routeId: null, routeName: "",
   });
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isBusDeleted, setIsBusDeleted] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [isFullScheduleVisible, setIsFullScheduleVisible] = useState(false);
   const [isScheduleEditing, setIsScheduleEditing] = useState(false);
-  const [scheduleDraft, setScheduleDraft] = useState({ startTime: "", endTime: "" });
+  const [scheduleDraft, setScheduleDraft] = useState({
+    startTime: "",
+    endTime: "",
+    returnStartTime: "",
+    returnEndTime: "",
+  });
   const [scheduleFormError, setScheduleFormError] = useState("");
   const [driverFormError, setDriverFormError] = useState("");
   const [busFormError, setBusFormError] = useState("");
@@ -317,6 +326,8 @@ function BusDetail() {
           status: (detail.status as BusInfo["status"]) ?? "active",
           startTime: detail.startTime ?? "",
           endTime: detail.endTime ?? "",
+          returnStartTime: detail.returnStartTime ?? "",
+          returnEndTime: detail.returnEndTime ?? "",
           registrationNumber: detail.registrationNumber ?? "",
           routeId: detail.routeId ?? null,
           routeName: detail.routeName ?? "",
@@ -396,6 +407,8 @@ function BusDetail() {
     busCondition: string;
     startTime: string | null;
     endTime: string | null;
+    returnStartTime: string | null;
+    returnEndTime: string | null;
     registrationNumber: string;
     insuranceExpDate: string;
   }> = {}) => ({
@@ -408,6 +421,8 @@ function BusDetail() {
     amenities: overrides.amenities ?? amenities.filter((a) => a.enabled).map((a) => a.key),
     startTime: overrides.startTime !== undefined ? overrides.startTime : (busInfo.startTime || null),
     endTime: overrides.endTime !== undefined ? overrides.endTime : (busInfo.endTime || null),
+    returnStartTime: overrides.returnStartTime !== undefined ? overrides.returnStartTime : (busInfo.returnStartTime || null),
+    returnEndTime: overrides.returnEndTime !== undefined ? overrides.returnEndTime : (busInfo.returnEndTime || null),
     registrationNumber: overrides.registrationNumber ?? busInfo.registrationNumber,
     insuranceExpDate: overrides.insuranceExpDate ?? busInfo.insuranceExp,
     driverId: overrides.driverId !== undefined ? overrides.driverId : (busData?.driverId ?? null),
@@ -507,6 +522,8 @@ function BusDetail() {
       status: busDraft.status,
       startTime: busDraft.startTime || null,
       endTime: busDraft.endTime || null,
+      returnStartTime: busDraft.returnStartTime || null,
+      returnEndTime: busDraft.returnEndTime || null,
       registrationNumber: busDraft.registrationNumber,
       insuranceExpDate: busDraft.insuranceExp,
       routeId: busDraft.routeId,
@@ -731,16 +748,50 @@ function BusDetail() {
       return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${suffix}`;
     };
 
-    const depTime = fmt12(busInfo.startTime);
+    const forwardTime = fmt12(busInfo.startTime);
+    const returnTime = fmt12(busInfo.returnStartTime);
 
-    return Array.from({ length: 4 }, (_, i) => ({
-      time: `${formatDay(i)}, ${depTime}`,
+    const items = Array.from({ length: 4 }, (_, i) => {
+      const day = formatDay(i);
+      const dayItems: Array<{
+        time: string;
+        route: string;
+        driver: string;
+        bookedText: string;
+        highlighted: boolean;
+      }> = [];
+
+      if (busInfo.startTime) {
+        dayItems.push({
+          time: `${day}, ${forwardTime}`,
+          route: `${routeLabel} (Forward)`,
+          driver: driverLabel,
+          bookedText: `${Math.floor(Math.random() * capacity) || 0}/${capacity} Booked`,
+          highlighted: i === 0,
+        });
+      }
+
+      if (busInfo.returnStartTime) {
+        dayItems.push({
+          time: `${day}, ${returnTime}`,
+          route: `${routeLabel} (Return)`,
+          driver: driverLabel,
+          bookedText: `${Math.floor(Math.random() * capacity) || 0}/${capacity} Booked`,
+          highlighted: false,
+        });
+      }
+
+      return dayItems;
+    }).flat();
+
+    return items.length > 0 ? items : [{
+      time: "No schedule",
       route: routeLabel,
       driver: driverLabel,
-      bookedText: `${Math.floor(Math.random() * capacity) || 0}/${capacity} Booked`,
-      highlighted: i === 0,
-    }));
-  }, [busInfo.startTime, busInfo.routeName, busInfo.seats, assignedDriver.name]);
+      bookedText: `0/${capacity} Booked`,
+      highlighted: true,
+    }];
+  }, [busInfo.startTime, busInfo.returnStartTime, busInfo.routeName, busInfo.seats, assignedDriver.name]);
 
   // Overview and Schedule tabs share this same source, but with different limits.
   const visibleScheduleItems = isFullScheduleVisible
@@ -968,6 +1019,8 @@ function BusDetail() {
                       ["Route", busInfo.routeName || "Not assigned"],
                       ["Start Time", busInfo.startTime || "—"],
                       ["End Time", busInfo.endTime || "—"],
+                      ["Return Start", busInfo.returnStartTime || "—"],
+                      ["Return End", busInfo.returnEndTime || "—"],
                       ["Insurance Exp", busInfo.insuranceExp || "—"],
                     ].map(([key, value]) => (
                       <div
@@ -1312,7 +1365,7 @@ function BusDetail() {
                         )}
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Departure Time</label>
+                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Forward Departure</label>
                             <input
                               type="time"
                               value={scheduleDraft.startTime}
@@ -1321,11 +1374,29 @@ function BusDetail() {
                             />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Arrival Time</label>
+                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Forward Arrival</label>
                             <input
                               type="time"
                               value={scheduleDraft.endTime}
                               onChange={(e) => setScheduleDraft((p) => ({ ...p, endTime: e.target.value }))}
+                              className="h-10 w-full rounded-lg border border-[#d7dde9] bg-white px-3 text-sm text-[#273246] outline-none focus:border-[#2642a6]"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Return Departure</label>
+                            <input
+                              type="time"
+                              value={scheduleDraft.returnStartTime}
+                              onChange={(e) => setScheduleDraft((p) => ({ ...p, returnStartTime: e.target.value }))}
+                              className="h-10 w-full rounded-lg border border-[#d7dde9] bg-white px-3 text-sm text-[#273246] outline-none focus:border-[#2642a6]"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Return Arrival</label>
+                            <input
+                              type="time"
+                              value={scheduleDraft.returnEndTime}
+                              onChange={(e) => setScheduleDraft((p) => ({ ...p, returnEndTime: e.target.value }))}
                               className="h-10 w-full rounded-lg border border-[#d7dde9] bg-white px-3 text-sm text-[#273246] outline-none focus:border-[#2642a6]"
                             />
                           </div>
@@ -1352,9 +1423,17 @@ function BusDetail() {
                               updateBus(numericId, buildSaveRequest({
                                 startTime: scheduleDraft.startTime || null,
                                 endTime: scheduleDraft.endTime || null,
+                                returnStartTime: scheduleDraft.returnStartTime || null,
+                                returnEndTime: scheduleDraft.returnEndTime || null,
                               }))
                                 .then(() => {
-                                  setBusInfo((p) => ({ ...p, startTime: scheduleDraft.startTime, endTime: scheduleDraft.endTime }));
+                                  setBusInfo((p) => ({
+                                    ...p,
+                                    startTime: scheduleDraft.startTime,
+                                    endTime: scheduleDraft.endTime,
+                                    returnStartTime: scheduleDraft.returnStartTime,
+                                    returnEndTime: scheduleDraft.returnEndTime,
+                                  }));
                                   setIsScheduleEditing(false);
                                 })
                                 .catch((e: Error) => setScheduleFormError(e.message))
@@ -1377,7 +1456,12 @@ function BusDetail() {
                           <button
                             type="button"
                             onClick={() => {
-                              setScheduleDraft({ startTime: busInfo.startTime, endTime: busInfo.endTime });
+                              setScheduleDraft({
+                                startTime: busInfo.startTime,
+                                endTime: busInfo.endTime,
+                                returnStartTime: busInfo.returnStartTime,
+                                returnEndTime: busInfo.returnEndTime,
+                              });
                               setScheduleFormError("");
                               setIsScheduleEditing((v) => !v);
                             }}
@@ -1815,6 +1899,20 @@ function BusDetail() {
                 <label htmlFor="bus-end-time" className="mb-1 block text-sm font-semibold text-[#45516b]">End Time</label>
                 <input id="bus-end-time" type="time" value={busDraft.endTime}
                   onChange={(e) => setBusDraft((p) => ({ ...p, endTime: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+              </div>
+              {/* Return Start Time */}
+              <div>
+                <label htmlFor="bus-return-start-time" className="mb-1 block text-sm font-semibold text-[#45516b]">Return Start Time</label>
+                <input id="bus-return-start-time" type="time" value={busDraft.returnStartTime}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, returnStartTime: e.target.value }))}
+                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+              </div>
+              {/* Return End Time */}
+              <div>
+                <label htmlFor="bus-return-end-time" className="mb-1 block text-sm font-semibold text-[#45516b]">Return End Time</label>
+                <input id="bus-return-end-time" type="time" value={busDraft.returnEndTime}
+                  onChange={(e) => setBusDraft((p) => ({ ...p, returnEndTime: e.target.value }))}
                   className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
               </div>
               {/* Insurance Expiry Date */}

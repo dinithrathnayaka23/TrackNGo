@@ -51,7 +51,8 @@ public class AdminBusService {
         String sql = """
             SELECT b.bus_id, b.bus_number, b.bus_brand, b.seat_capacity,
                    b.bus_type, b.bus_condition, b.status, b.amenities,
-                   b.start_time, b.end_time, b.registration_number, b.insurance_exp_date,
+                   b.start_time, b.end_time, b.return_start_time, b.return_end_time,
+                   b.registration_number, b.insurance_exp_date,
                    b.driver_id, b.route_id,
                    CONCAT(u.first_name, ' ', u.last_name) AS driver_name,
                    r.route_name, r.estimated_time_duration
@@ -80,6 +81,8 @@ public class AdminBusService {
                     toLongNullable(row.get("route_id")),
                     formatTime(row.get("start_time")),
                     computeEndTime(row.get("start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("end_time")),
+                    formatTime(row.get("return_start_time")),
+                    computeStoredOrDerivedEndTime(row.get("return_start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("return_end_time")),
                     (String) row.get("registration_number"),
                     row.get("insurance_exp_date") != null ? row.get("insurance_exp_date").toString() : null
             ));
@@ -92,7 +95,8 @@ public class AdminBusService {
         String sql = """
             SELECT b.bus_id, b.bus_number, b.bus_brand, b.seat_capacity,
                    b.bus_type, b.bus_condition, b.status, b.amenities,
-                   b.start_time, b.end_time, b.registration_number, b.insurance_exp_date,
+                   b.start_time, b.end_time, b.return_start_time, b.return_end_time,
+                   b.registration_number, b.insurance_exp_date,
                    b.driver_id, b.route_id,
                    CONCAT(u.first_name, ' ', u.last_name) AS driver_name,
                    d.phone_number AS driver_phone, d.average_rating,
@@ -117,6 +121,8 @@ public class AdminBusService {
                 parseAmenities(row.get("amenities")),
                 formatTime(row.get("start_time")),
                 computeEndTime(row.get("start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("end_time")),
+                formatTime(row.get("return_start_time")),
+                computeStoredOrDerivedEndTime(row.get("return_start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("return_end_time")),
                 (String) row.get("registration_number"),
                 row.get("insurance_exp_date") != null ? row.get("insurance_exp_date").toString() : null,
                 toLongNullable(row.get("driver_id")),
@@ -136,8 +142,8 @@ public class AdminBusService {
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement(
                     "INSERT INTO bus (bus_number, bus_brand, seat_capacity, bus_type, bus_condition, " +
-                    "status, amenities, start_time, end_time, registration_number, insurance_exp_date, " +
-                    "driver_id, route_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "status, amenities, start_time, end_time, return_start_time, return_end_time, " +
+                    "registration_number, insurance_exp_date, driver_id, route_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, req.busNumber());
@@ -149,10 +155,12 @@ public class AdminBusService {
             ps.setString(7, amenitiesJson);
             setNullableTime(ps, 8, req.startTime());
             setNullableTime(ps, 9, req.endTime());
-            ps.setString(10, req.registrationNumber());
-            ps.setString(11, req.insuranceExpDate());
-            setNullableLong(ps, 12, req.driverId());
-            setNullableLong(ps, 13, req.routeId());
+            setNullableTime(ps, 10, req.returnStartTime());
+            setNullableTime(ps, 11, req.returnEndTime());
+            ps.setString(12, req.registrationNumber());
+            ps.setString(13, req.insuranceExpDate());
+            setNullableLong(ps, 14, req.driverId());
+            setNullableLong(ps, 15, req.routeId());
             return ps;
         }, keyHolder);
         return keyHolder.getKey().longValue();
@@ -161,17 +169,31 @@ public class AdminBusService {
     /* ── Update bus ───────────────────────────────────────── */
     public void updateBus(Long busId, SaveBusRequest req) {
         String amenitiesJson = toJson(req.amenities());
-        jdbc.update(
-                "UPDATE bus SET bus_number=?, bus_brand=?, seat_capacity=?, bus_type=?, bus_condition=?, " +
-                "status=?, amenities=?, start_time=?, end_time=?, registration_number=?, insurance_exp_date=?, " +
-                "driver_id=?, route_id=? WHERE bus_id=?",
-                req.busNumber(), req.busBrand(), req.seatCapacity(), req.busType(), req.busCondition(),
-                req.status(), amenitiesJson,
-                req.startTime() != null && !req.startTime().isEmpty() ? req.startTime() : null,
-                req.endTime() != null && !req.endTime().isEmpty() ? req.endTime() : null,
-                req.registrationNumber(), req.insuranceExpDate(),
-                req.driverId(), req.routeId(), busId
-        );
+        jdbc.update(con -> {
+            PreparedStatement ps = con.prepareStatement(
+                    "UPDATE bus SET bus_number=?, bus_brand=?, seat_capacity=?, bus_type=?, bus_condition=?, " +
+                    "status=?, amenities=?, start_time=?, end_time=?, return_start_time=?, return_end_time=?, " +
+                    "registration_number=?, insurance_exp_date=?, " +
+                    "driver_id=?, route_id=? WHERE bus_id=?"
+            );
+            ps.setString(1, req.busNumber());
+            ps.setString(2, req.busBrand());
+            ps.setInt(3, req.seatCapacity());
+            ps.setString(4, req.busType());
+            ps.setString(5, req.busCondition());
+            ps.setString(6, req.status() != null ? req.status() : "active");
+            ps.setString(7, amenitiesJson);
+            setNullableTime(ps, 8, req.startTime());
+            setNullableTime(ps, 9, req.endTime());
+            setNullableTime(ps, 10, req.returnStartTime());
+            setNullableTime(ps, 11, req.returnEndTime());
+            ps.setString(12, req.registrationNumber());
+            ps.setString(13, req.insuranceExpDate());
+            setNullableLong(ps, 14, req.driverId());
+            setNullableLong(ps, 15, req.routeId());
+            ps.setLong(16, busId);
+            return ps;
+        });
     }
 
     /* ── Delete bus ───────────────────────────────────────── */
@@ -339,6 +361,18 @@ public class AdminBusService {
             }
         }
         return formatTime(storedEndObj);
+    }
+
+    /**
+     * Return end time should respect explicitly stored values from admin edits.
+     * If no value is stored, derive from route duration as fallback.
+     */
+    private String computeStoredOrDerivedEndTime(Object startObj, Object routeIdObj, Object durationObj, Object storedEndObj) {
+        String stored = formatTime(storedEndObj);
+        if (stored != null && !stored.isBlank()) {
+            return stored;
+        }
+        return computeEndTime(startObj, routeIdObj, durationObj, storedEndObj);
     }
 
     /**

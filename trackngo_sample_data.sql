@@ -191,25 +191,25 @@ INSERT INTO route_stop (route_id, name, priority, latitude, longitude, distance_
 -- BUSES (10 records)
 -- =============================================
 
-INSERT INTO bus (bus_id, bus_number, bus_brand, start_time, end_time, registration_number, amenities, seat_capacity, bus_condition, bus_type, status, insurance_exp_date, driver_id, route_id) VALUES
-(1, 'NB-0012', 'Ashok Leyland', '05:30:00', '22:00:00', 'WP CAB-0012', '["ac","wifi","charging_ports","entertainment"]', 45, 'excellent', 'highway',       'active',      '2026-08-31', 14, 1),
-(2, 'NB-0034', 'TATA Motors',   '06:00:00', '21:00:00', 'WP CAB-0034', '["ac","charging_ports"]',                       40, 'good',      'highway',       'active',      '2025-12-31', 15, 2),
-(3, 'NB-0056', 'Ashok Leyland', '04:30:00', '23:00:00', 'WP CAB-0056', '["ac","wifi","charging_ports","entertainment"]', 50, 'excellent', 'long_distance', 'active',      '2026-11-30', 16, 3),
-(4, 'NB-0078', 'TATA Motors',   '07:00:00', '20:00:00', 'WP CAB-0078', '["ac"]',                                        35, 'good',      'highway',       'active',      '2026-03-15', 17, 4),
-(5, 'NB-0090', 'Ashok Leyland', '05:00:00', '22:30:00', 'WP CAB-0090', '["ac","charging_ports"]',                       45, 'good',      'highway',       'active',      '2026-06-30', 18, 5),
-(6, 'NB-0112', 'TATA Motors',   '06:30:00', '20:00:00', 'WP CAB-0112', '["ac"]',                                        40, 'fair',      'highway',       'active',      '2025-10-31', 21, 6),
-(7, 'TB-0201', 'Rosa Bus',      NULL,        NULL,        'WP CAB-0201', '["ac","wifi","charging_ports"]',                 25, 'excellent', 'trip_booking',  'active',      '2027-01-31', 20, NULL),
-(8, 'TB-0202', 'TATA Motors',   NULL,        NULL,        'WP CAB-0202', '["ac"]',                                        30, 'good',      'trip_booking',  'active',      '2026-09-30', NULL, NULL),
-(9, 'CB-0301', 'Ashok Leyland', '06:00:00', '20:00:00', 'WP CAB-0301', '["ac","wifi","charging_ports"]',                 40, 'excellent', 'corporate',     'active',      '2026-12-31', 19, NULL),
-(10, 'CB-0302', 'Rosa Bus',      '06:00:00', '20:00:00', 'WP CAB-0302', '["ac","charging_ports"]',                        35, 'good',      'corporate',     'maintenance', '2026-07-31', NULL, NULL),
+INSERT INTO bus (bus_id, bus_number, bus_brand, start_time, end_time, return_start_time, return_end_time, registration_number, amenities, seat_capacity, bus_condition, bus_type, status, insurance_exp_date, driver_id, route_id) VALUES
+(1, 'NB-0012', 'Ashok Leyland', '05:30:00', '22:00:00', '09:00:00', '11:45:00', 'WP CAB-0012', '["ac","wifi","charging_ports","entertainment"]', 45, 'excellent', 'highway',       'active',      '2026-08-31', 14, 1),
+(2, 'NB-0034', 'TATA Motors',   '06:00:00', '21:00:00', '08:25:00', '10:05:00', 'WP CAB-0034', '["ac","charging_ports"]',                       40, 'good',      'highway',       'active',      '2025-12-31', 15, 2),
+(3, 'NB-0056', 'Ashok Leyland', '04:30:00', '23:00:00', '13:15:00', '21:15:00', 'WP CAB-0056', '["ac","wifi","charging_ports","entertainment"]', 50, 'excellent', 'long_distance', 'active',      '2026-11-30', 16, 3),
+(4, 'NB-0078', 'TATA Motors',   '07:00:00', '20:00:00', '09:45:00', '11:45:00', 'WP CAB-0078', '["ac"]',                                        35, 'good',      'highway',       'active',      '2026-03-15', 17, 4),
+(5, 'NB-0090', 'Ashok Leyland', '05:00:00', '22:30:00', '08:15:00', '10:45:00', 'WP CAB-0090', '["ac","charging_ports"]',                       45, 'good',      'highway',       'active',      '2026-06-30', 18, 5),
+(6, 'NB-0112', 'TATA Motors',   '06:30:00', '20:00:00', '08:15:00', '09:15:00', 'WP CAB-0112', '["ac"]',                                        40, 'fair',      'highway',       'active',      '2025-10-31', 21, 6),
+(7, 'TB-0201', 'Rosa Bus',      NULL,        NULL,        NULL,       NULL,       'WP CAB-0201', '["ac","wifi","charging_ports"]',                 25, 'excellent', 'trip_booking',  'active',      '2027-01-31', 20, NULL),
+(8, 'TB-0202', 'TATA Motors',   NULL,        NULL,        NULL,       NULL,       'WP CAB-0202', '["ac"]',                                        30, 'good',      'trip_booking',  'active',      '2026-09-30', NULL, NULL),
+(9, 'CB-0301', 'Ashok Leyland', '06:00:00', '20:00:00', NULL,       NULL,       'WP CAB-0301', '["ac","wifi","charging_ports"]',                 40, 'excellent', 'corporate',     'active',      '2026-12-31', 19, NULL),
+(10, 'CB-0302', 'Rosa Bus',      '06:00:00', '20:00:00', NULL,       NULL,       'WP CAB-0302', '["ac","charging_ports"]',                        35, 'good',      'corporate',     'maintenance', '2026-07-31', NULL, NULL),
 -- Additional Non-AC and extra buses for realistic search results
-(11, 'NB-0134', 'Ashok Leyland', '06:00:00', '22:30:00', 'WP KAD-0134', '["charging_ports"]',                              42, 'good',      'highway',       'active',      '2026-10-15', 27, 1),
-(12, 'NB-0156', 'TATA Motors',   '07:00:00', '23:00:00', 'WP KAD-0156', '["wifi"]',                                         38, 'fair',      'highway',       'active',      '2026-05-20', 28, 1),
-(13, 'NB-0178', 'Ashok Leyland', '06:30:00', '21:30:00', 'WP GAL-0178', '["charging_ports"]',                              40, 'good',      'highway',       'active',      '2026-08-31', 29, 2),
-(14, 'NB-0190', 'TATA Motors',   '05:00:00', '21:00:00', 'WP JAF-0190', '["wifi","charging_ports"]',                       48, 'good',      'long_distance', 'active',      '2027-02-28', 30, 3),
-(15, 'NB-0212', 'Ashok Leyland', '07:30:00', '19:30:00', 'CP NUW-0212', '["charging_ports"]',                              36, 'good',      'highway',       'active',      '2026-09-30', 31, 4),
-(16, 'NB-0234', 'TATA Motors',   '05:30:00', '22:00:00', 'WP MAT-0234', '["wifi"]',                                         44, 'fair',      'highway',       'active',      '2026-07-15', 32, 5),
-(17, 'NB-0256', 'Ashok Leyland', '07:00:00', '20:30:00', 'WP NEG-0256', '["charging_ports"]',                              38, 'good',      'highway',       'active',      '2026-11-30', NULL, 6);
+(11, 'NB-0134', 'Ashok Leyland', '06:00:00', '22:30:00', '09:30:00', '12:15:00', 'WP KAD-0134', '["charging_ports"]',                              42, 'good',      'highway',       'active',      '2026-10-15', 27, 1),
+(12, 'NB-0156', 'TATA Motors',   '07:00:00', '23:00:00', '10:30:00', '13:15:00', 'WP KAD-0156', '["wifi"]',                                         38, 'fair',      'highway',       'active',      '2026-05-20', 28, 1),
+(13, 'NB-0178', 'Ashok Leyland', '06:30:00', '21:30:00', '08:55:00', '10:35:00', 'WP GAL-0178', '["charging_ports"]',                              40, 'good',      'highway',       'active',      '2026-08-31', 29, 2),
+(14, 'NB-0190', 'TATA Motors',   '05:00:00', '21:00:00', '13:45:00', '21:45:00', 'WP JAF-0190', '["wifi","charging_ports"]',                       48, 'good',      'long_distance', 'active',      '2027-02-28', 30, 3),
+(15, 'NB-0212', 'Ashok Leyland', '07:30:00', '19:30:00', '10:15:00', '12:15:00', 'CP NUW-0212', '["charging_ports"]',                              36, 'good',      'highway',       'active',      '2026-09-30', 31, 4),
+(16, 'NB-0234', 'TATA Motors',   '05:30:00', '22:00:00', '08:45:00', '11:15:00', 'WP MAT-0234', '["wifi"]',                                         44, 'fair',      'highway',       'active',      '2026-07-15', 32, 5),
+(17, 'NB-0256', 'Ashok Leyland', '07:00:00', '20:30:00', '08:45:00', '09:45:00', 'WP NEG-0256', '["charging_ports"]',                              38, 'good',      'highway',       'active',      '2026-11-30', NULL, 6);
 
 
 -- =============================================

@@ -93,7 +93,7 @@ class AdminBusServiceTest {
     void updateBus_callsJdbcUpdate() throws Exception {
         SaveBusRequest req = new SaveBusRequest(
                 "NC-1234", "Toyota", 40, "highway", "good",
-                "active", List.of("ac"), "08:00", "12:00",
+                "active", List.of("ac"), "08:00", "12:00", "14:00", "18:00",
                 "REG-001", "2026-12-31", 1L, 2L
         );
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
@@ -191,6 +191,8 @@ class AdminBusServiceTest {
         row.put("amenities", "[\"ac\",\"wifi\"]");
         row.put("start_time", java.sql.Time.valueOf("08:00:00"));
         row.put("end_time", java.sql.Time.valueOf("12:00:00"));
+        row.put("return_start_time", java.sql.Time.valueOf("14:00:00"));
+        row.put("return_end_time", java.sql.Time.valueOf("18:00:00"));
         row.put("registration_number", "REG-001");
         row.put("insurance_exp_date", null);
         row.put("driver_id", null);

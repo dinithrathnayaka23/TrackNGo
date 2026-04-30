@@ -46,6 +46,15 @@ function hasAc(amenities: string[]) {
   return amenities.some((a) => a.toLowerCase() === 'ac')
 }
 
+function formatSchedule(start?: string | null, end?: string | null, returnStart?: string | null, returnEnd?: string | null) {
+  const forward = start && end ? `${start}-${end}` : null
+  const backward = returnStart && returnEnd ? `${returnStart}-${returnEnd}` : null
+  if (forward && backward) return `${forward} | ${backward}`
+  if (forward) return forward
+  if (backward) return backward
+  return '—'
+}
+
 function Buses() {
   const navigate = useNavigate()
   const [buses, setBuses] = useState<BusListItem[]>([])
@@ -74,6 +83,8 @@ function Buses() {
     amenities: [],
     startTime: null,
     endTime: null,
+    returnStartTime: null,
+    returnEndTime: null,
     registrationNumber: '',
     insuranceExpDate: '',
     driverId: null,
@@ -148,7 +159,7 @@ function Buses() {
       b.status.charAt(0).toUpperCase() + b.status.slice(1),
       b.driverName || 'Unassigned',
       b.routeName || 'None',
-      b.startTime && b.endTime ? `${b.startTime} – ${b.endTime}` : '—',
+      formatSchedule(b.startTime, b.endTime, b.returnStartTime, b.returnEndTime),
       b.insuranceExpDate || '—',
     ])
 
@@ -398,7 +409,9 @@ function Buses() {
                 </div>
                 <div className="flex-1 text-right">
                   <p className="text-xs text-[#94a3b8]">Schedule</p>
-                  <p className="mt-0.5 text-sm font-bold text-[#16a34a]">{bus.startTime && bus.endTime ? `${bus.startTime}–${bus.endTime}` : '—'}</p>
+                  <p className="mt-0.5 text-sm font-bold text-[#16a34a]">
+                    {formatSchedule(bus.startTime, bus.endTime, bus.returnStartTime, bus.returnEndTime)}
+                  </p>
                 </div>
               </div>
 
@@ -570,6 +583,28 @@ function Buses() {
                   type="time"
                   value={form.endTime ?? ''}
                   onChange={(e) => setForm({ ...form, endTime: e.target.value || null })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                />
+              </div>
+
+              {/* Return Start Time */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Return Start Time</label>
+                <input
+                  type="time"
+                  value={form.returnStartTime ?? ''}
+                  onChange={(e) => setForm({ ...form, returnStartTime: e.target.value || null })}
+                  className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                />
+              </div>
+
+              {/* Return End Time */}
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-[#334155]">Return End Time</label>
+                <input
+                  type="time"
+                  value={form.returnEndTime ?? ''}
+                  onChange={(e) => setForm({ ...form, returnEndTime: e.target.value || null })}
                   className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
                 />
               </div>

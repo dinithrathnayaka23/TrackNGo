@@ -18,6 +18,9 @@ com\trackngo\sos\api\dto\SosAlertDto.class
 com\trackngo\sos\internal\service\SmsProviderConfig.class
 com\trackngo\sos\internal\entity\SosAlert$SosStatus.class
 com\trackngo\sos\api\dto\CreateEmergencyContactRequest.class
+com\trackngo\sos\api\dto\AdminEmergencyNumberDtos$SaveEmergencyNumberRequest.class
+com\trackngo\sos\internal\controller\AdminEmergencyNumberController.class
+com\trackngo\sos\api\dto\AdminEmergencyNumberDtos.class
 com\trackngo\sos\api\EmergencyContactService.class
 com\trackngo\sos\internal\entity\EmergencyNumber.class
 com\trackngo\sos\internal\repository\EmergencyNumberRepository.class

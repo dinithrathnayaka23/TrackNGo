@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBars,
@@ -9,6 +9,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import Sidebar from "./Sidebar";
 import SosAlertPopup from "../SosAlertPopup";
+import { logoutToLogin } from "../../utils/authSession";
 
 type DashboardLayoutProps = {
   children: ReactNode;
@@ -16,6 +17,7 @@ type DashboardLayoutProps = {
 
 function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const segment = location.pathname.split("/")[2] || "dashboard";
   const labelBySegment: Record<string, string> = {
@@ -44,6 +46,10 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
             : segment === "buses" && subSegment
               ? ["Buses", "Bus Details"]
               : [labelBySegment[segment] ?? "Dashboard"];
+
+  const handleLogout = () => {
+    logoutToLogin(navigate);
+  };
 
   return (
     <div className="min-h-screen bg-[#f3f4f8] text-[#111827]">
@@ -102,6 +108,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="relative flex items-center gap-8">
               <button
                 type="button"
+                onClick={handleLogout}
                 className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-1.5 text-xs font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
               >
                 <FontAwesomeIcon icon={faSignOutAlt} />

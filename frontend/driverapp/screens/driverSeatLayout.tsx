@@ -1,4 +1,4 @@
-import React, { useMemo,useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 
 import {
   View,
@@ -9,18 +9,60 @@ import {
   useWindowDimensions,
   Linking,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
+import { useUser } from '@/context/UserContext';
+import { seatBookingService } from '@/services/seatBookingService';
 
 type SeatStatus = 'boarded' | 'booked' | 'available';
 
+interface Seat {
+  id: string;
+  status: SeatStatus;
+  passenger: { 
+    name: string; 
+    initials: string;
+    phone?: string;
+    seatBookingId?: number;
+  } | null;
+}
+
+interface SeatLayoutRow {
+  rowNum: number;
+  left: string[];
+  right: string[];
+  lastRow: string[] | null;
+}
+
+interface JourneyData {
+  routeName: string;
+  startLocation: string;
+  endLocation: string;
+  busNumber: string;
+  journeyDate: string;
+  journeyTime: string;
+  boardedCount: number;
+  bookedCount: number;
+  totalSeats: number;
+}
+
+interface PassengerDetails {
+  name: string;
+  phone: string;
+  pickupLocation: string;
+  dropoffLocation: string;
+  seatNumber: string;
+  specialRequest?: string;
+}
 
 export default function DriverSeatLayoutScreen() {
   const router = useRouter();
-  const { darkMode} = useTheme();
+  const { darkMode } = useTheme();
+  const { user } = useUser();
   const theme = useMemo(() => ({
     background: darkMode ? '#111' : '#F5F5F5',
     card: darkMode ? '#1E1E1E' : '#FFF',
@@ -30,23 +72,267 @@ export default function DriverSeatLayoutScreen() {
   }), [darkMode]);
   const styles = useMemo(() => createStyles(theme), [theme]);
 
-  const [selectedSeat, setSelectedSeat] = useState('1B');
-  const [seatData, setSeatData] = useState([
-  { id: '1A', status: 'boarded', passenger: null },
-  { id: '1B', status: 'booked', passenger: { name: 'Nimali S.', initials: 'NS' } },
-  { id: '1C', status: 'available', passenger: null },
-  { id: '1D', status: 'available', passenger: null },
-  { id: '2A', status: 'boarded', passenger: null },
-  { id: '2B', status: 'boarded', passenger: null },
-  { id: '2C', status: 'available', passenger: null },
-  { id: '2D', status: 'available', passenger: null },
-]);
+  // State management
+  const [seatData, setSeatData] = useState<Seat[]>([]);
+  const [seatRows, setSeatRows] = useState<SeatLayoutRow[]>([]);
+  const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
+  const [journeyData, setJourneyData] = useState<JourneyData | null>(null);
+  const [selectedPassenger, setSelectedPassenger] = useState<PassengerDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [bookedSeatsMap, setBookedSeatsMap] = useState<
+    Map<string, { passenger: PassengerDetails; seatBookingId: number }>
+  >(new Map());
 
-  type Seat = {
-  id: string;
-  status: SeatStatus;
-  passenger: { name: string; initials: string } | null;
-};
+  // Fetch data on component mount
+  useEffect(() => {
+    if (user?.userId) {
+      loadSeatLayoutData();
+    }
+  }, [user?.userId]);
+
+  const loadSeatLayoutData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🔄 Starting seat layout data load...');
+      console.log('👤 Current user:', user);
+
+      const token = await seatBookingService.getToken();
+      console.log('🔐 Token obtained:', token ? 'Yes' : 'No');
+
+      // Get driver assignment
+      const assignment = await seatBookingService.getDriverAssignment(user!.userId, token);
+      console.log('🚌 Assignment received:', assignment);
+      
+      if (!assignment || !assignment.busId) {
+        setError('No bus assignment found for this driver');
+        setLoading(false);
+        return;
+      }
+
+      // Get bus details
+      const busDetails = await seatBookingService.getBusDetails(assignment.busId, token);
+      console.log('🚌 Bus details received:', busDetails);
+
+      // Get seat layout rows from backend
+      const seatLayout = await seatBookingService.getSeatLayout(assignment.busId, token);
+      console.log('💺 Seat layout rows received:', seatLayout);
+      
+      // Validate seat layout rows
+      if (!Array.isArray(seatLayout)) {
+        console.warn('⚠️ Seat layout is not an array, received:', seatLayout);
+        throw new Error('Invalid seat layout response - expected array of rows');
+      }
+      
+      if (seatLayout.length === 0) {
+        console.warn('⚠️ Seat layout is empty');
+        throw new Error('No seat layout found for this bus');
+      }
+      
+      setSeatRows(seatLayout);
+
+      // Get today's date in YYYY-MM-DD format
+      const today = new Date().toISOString().split('T')[0];
+
+      // Get booked seats for today
+      const bookedSeats = await seatBookingService.getBookedSeats(
+        assignment.busId,
+        today,
+        token
+      );
+      console.log('🎫 Booked seats received:', bookedSeats);
+
+      // Try to get route details for start and end locations
+      let startLocation = 'N/A';
+      let endLocation = 'N/A';
+      
+      // First, try to parse route name if it exists (e.g., "Kandy to Nuwara Eliya")
+      if (assignment.routeName && assignment.routeName.includes(' to ')) {
+        const [start, end] = assignment.routeName.split(' to ').map(s => s.trim());
+        startLocation = start;
+        endLocation = end;
+        console.log('📍 Route locations from route name:', { startLocation, endLocation });
+      } else if (assignment.routeName) {
+        // If route name doesn't contain ' to ', use it as start location
+        startLocation = assignment.routeName;
+        endLocation = 'N/A';
+        console.log('ℹ️ Using route name as start location:', startLocation);
+      }
+      
+      // If we still don't have proper locations, try to get route details from API
+      if ((startLocation === 'N/A' || endLocation === 'N/A') && assignment.routeId) {
+        const routeDetails = await seatBookingService.getRouteDetails(
+          assignment.routeId,
+          token
+        );
+        
+        if (routeDetails) {
+          if (startLocation === 'N/A') startLocation = routeDetails.startLocation || 'N/A';
+          if (endLocation === 'N/A') endLocation = routeDetails.endLocation || 'N/A';
+          console.log('✅ Route locations from API:', { startLocation, endLocation });
+        }
+      }
+
+      // Process and organize seat data
+      const processedSeats = processSeatData(
+        seatLayout,
+        bookedSeats,
+        assignment.seatCapacity
+      );
+
+      // Create booked seats map for quick lookup
+      const bookedMap = new Map();
+      bookedSeats.forEach((booking: any) => {
+        // Handle seat numbers that might be comma-separated
+        const seatNumbers = booking.seatNumber.split(',').map((s: string) => s.trim());
+        
+        seatNumbers.forEach((seatId: string) => {
+          bookedMap.set(seatId, {
+            passenger: {
+              name: booking.passengerName || 'Passenger',
+              phone: booking.passengerPhone || '',
+              pickupLocation: booking.fromStop || 'N/A',
+              dropoffLocation: booking.toStop || 'N/A',
+              seatNumber: seatId,
+              specialRequest: booking.specialRequest,
+            },
+            seatBookingId: booking.seatBookingId,
+          });
+        });
+      });
+
+      setBookedSeatsMap(bookedMap);
+      setSeatData(processedSeats);
+
+      // Set journey data
+      const journeyInfo: JourneyData = {
+        routeName: assignment.routeName,
+        startLocation: startLocation,
+        endLocation: endLocation,
+        busNumber: assignment.busNumber,
+        journeyDate: today,
+        journeyTime: (assignment as any).startTime || '08:00 AM',
+        boardedCount: processedSeats.filter((s: Seat) => s.status === 'boarded').length,
+        bookedCount: processedSeats.filter((s: Seat) => s.status === 'booked').length,
+        totalSeats: processedSeats.length,
+      };
+
+      console.log('📋 Journey data created:', journeyInfo);
+      setJourneyData(journeyInfo);
+
+      // Select first booked seat by default
+      const firstBookedSeat = processedSeats.find((s: Seat) => s.status === 'booked');
+      if (firstBookedSeat) {
+        setSelectedSeat(firstBookedSeat.id);
+        const passengerData = bookedMap.get(firstBookedSeat.id);
+        if (passengerData) {
+          setSelectedPassenger(passengerData.passenger);
+        }
+      }
+    } catch (err) {
+      console.error('❌ Error loading seat layout:', err);
+      
+      // Provide helpful error messages
+      let errorMessage = 'Failed to load seat layout data';
+      
+      if (err instanceof TypeError && err.message.includes('Network request failed')) {
+        errorMessage = 'Cannot connect to backend API. Check:\n1. Backend is running on port 8080\n2. Network connectivity\n3. API URL in .env file';
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processSeatData = (
+    seatLayout: SeatLayoutRow[],
+    bookedSeats: any[],
+    totalCapacity: number
+  ): Seat[] => {
+    if (!Array.isArray(seatLayout) || seatLayout.length === 0) {
+      console.warn('⚠️ Invalid or empty seat layout rows:', seatLayout);
+      return [];
+    }
+
+    if (!Array.isArray(bookedSeats)) {
+      console.warn('⚠️ Invalid booked seats:', bookedSeats);
+      bookedSeats = [];
+    }
+
+    const bookedSeatNumbers = new Set(
+      bookedSeats.flatMap((b: any) => {
+        if (typeof b === 'string' || typeof b === 'number') {
+          return [b.toString()];
+        }
+        const seatNumbers = (b.seatNumber || b.seat || b.seatLabel || b.id || '')
+          .toString()
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0);
+        return seatNumbers;
+      })
+    );
+
+    console.log('🎫 Booked seat numbers set:', bookedSeatNumbers);
+
+    const seats: Seat[] = seatLayout.flatMap((row) => {
+      const rowSeats: Seat[] = [];
+
+      row.left.forEach((label) => {
+        rowSeats.push({ id: label, status: 'available', passenger: null });
+      });
+      row.right.forEach((label) => {
+        rowSeats.push({ id: label, status: 'available', passenger: null });
+      });
+      (row.lastRow || []).forEach((label) => {
+        rowSeats.push({ id: label, status: 'available', passenger: null });
+      });
+
+      return rowSeats;
+    });
+
+    return seats.map((seat) => {
+      if (bookedSeatNumbers.has(seat.id)) {
+        const booking = bookedSeats.find((b: any) => {
+          if (typeof b === 'string' || typeof b === 'number') {
+            return b.toString() === seat.id;
+          }
+          const seatNumbers = (b.seatNumber || b.seat || b.seatLabel || b.id || '')
+            .toString()
+            .split(',')
+            .map((s: string) => s.trim());
+          return seatNumbers.includes(seat.id);
+        });
+
+        return {
+          ...seat,
+          status: 'booked',
+          passenger: {
+            name: booking?.passengerName || 'Passenger',
+            initials: getInitials(booking?.passengerName || 'Passenger'),
+            phone: booking?.passengerPhone || booking?.phone,
+            seatBookingId: booking?.seatBookingId || booking?.bookingId,
+          },
+        };
+      }
+      return seat;
+    });
+  };
+
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .slice(0, 2)
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
+  };
+
 
 
 
@@ -55,7 +341,7 @@ export default function DriverSeatLayoutScreen() {
       case 'boarded':
         return '#22C55E';
       case 'booked':
-        return '#FBBF24';
+        return '#EF4444';
       case 'available':
         return '#D1D5DB';
       default:
@@ -70,7 +356,9 @@ export default function DriverSeatLayoutScreen() {
   };
 
   const handleCall = () => {
-    Linking.openURL('tel:+94771234567');
+    if (selectedPassenger?.phone) {
+      Linking.openURL(`tel:${selectedPassenger.phone}`);
+    }
   };
 
   const handleMessage = () => {
@@ -78,51 +366,150 @@ export default function DriverSeatLayoutScreen() {
   };
 
   const handlePassengerOptions = () => {
-  Alert.alert(
-  'Passenger Options',
-  'Choose an action',
-  [
-    {
-      text: 'Scan QR Code',
-      onPress: () => console.log('Open QR Scanner'),
-    },
-    {
-      text: 'Withdraw Passenger',
-      onPress: () => console.log('Withdraw Passenger'),
-    },
-    {
-      text: 'Cancel',
-      onPress: () => {},
-    },
-  ]
-  );
-  };
-
-  const handleMarkBoarded = () => {
-    const updatedSeats = seatData.map((seat) => {
-    if (seat.id === selectedSeat && seat.status === 'booked') {
-      return {
-        ...seat,
-        status: 'boarded',
-      };
+    if (!selectedSeat || !bookedSeatsMap.has(selectedSeat)) {
+      Alert.alert('Error', 'Please select a booked seat first');
+      return;
     }
-    return seat;
-  });
 
-  setSeatData(updatedSeats);
-  Alert.alert('Success', 'Passenger boarded');
+    Alert.alert(
+      'Passenger Options',
+      'Choose an action',
+      [
+        {
+          text: 'Scan QR Code',
+          onPress: () => {
+            // TODO: Implement QR Scanner
+            console.log('Open QR Scanner for:', selectedSeat);
+          },
+        },
+        {
+          text: 'Mark as Boarded',
+          onPress: handleMarkBoarded,
+        },
+        {
+          text: 'Cancel',
+          onPress: () => { },
+        },
+      ]
+    );
   };
 
-  const renderSeat = (seat: any) => (
+  const handleMarkBoarded = async () => {
+    if (!selectedSeat) return;
+
+    const bookedData = bookedSeatsMap.get(selectedSeat);
+    if (!bookedData) {
+      Alert.alert('Error', 'Seat is not booked');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const token = await seatBookingService.getToken();
+      const success = await seatBookingService.markPassengerBoarded(
+        bookedData.seatBookingId,
+        token
+      );
+
+      if (success) {
+        // Update local seat status
+        const updatedSeats = seatData.map((seat) => {
+          if (seat.id === selectedSeat && seat.status === 'booked') {
+            return {
+              ...seat,
+              status: 'boarded' as SeatStatus,
+            };
+          }
+          return seat;
+        });
+
+        setSeatData(updatedSeats);
+
+        // Update journey data
+        if (journeyData) {
+          setJourneyData({
+            ...journeyData,
+            boardedCount: updatedSeats.filter((s) => s.status === 'boarded').length,
+          });
+        }
+
+        Alert.alert('Success', `Passenger ${selectedPassenger?.name} marked as boarded`);
+      } else {
+        Alert.alert('Error', 'Failed to mark passenger as boarded');
+      }
+    } catch (err) {
+      console.error('Error marking passenger as boarded:', err);
+      Alert.alert('Error', 'Failed to mark passenger as boarded');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSeatPress = (seatId: string) => {
+    setSelectedSeat(seatId);
+
+    // Find and display passenger details if seat is booked
+    const passengerData = bookedSeatsMap.get(seatId);
+    if (passengerData) {
+      setSelectedPassenger(passengerData.passenger);
+    } else {
+      setSelectedPassenger(null);
+    }
+  };
+
+  const renderSeat = (seat: Seat) => (
     <TouchableOpacity
       key={seat.id}
-      style={[styles.seat, getSeatStyles(seat.status)]}
-      onPress={() => setSelectedSeat(seat.id)}
+      style={[
+        styles.seat,
+        getSeatStyles(seat.status),
+        selectedSeat === seat.id && styles.selectedSeat,
+      ]}
+      onPress={() => handleSeatPress(seat.id)}
     >
       <MaterialCommunityIcons name="account" size={20} color="#FFF" />
       <Text style={styles.seatLabel}>{seat.id}</Text>
     </TouchableOpacity>
   );
+
+  // Format date for display
+  const formatDateForDisplay = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  // Render loading state
+  if (loading) {
+    return (
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#0066FF" />
+          <Text style={[styles.loadingText, { color: theme.text }]}>Loading seat layout...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Render error state
+  if (error || !journeyData) {
+    return (
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
+        <View style={styles.centerContainer}>
+          <MaterialCommunityIcons name="alert-circle" size={48} color="#FF6B6B" />
+          <Text style={[styles.errorText, { color: theme.text }]}>{error || 'No data available'}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadSeatLayoutData}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
@@ -132,38 +519,39 @@ export default function DriverSeatLayoutScreen() {
           <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
-          <Text style={styles.tripNumber}>Trip #LK-8992</Text>
+          <Text style={styles.tripNumber}>{journeyData?.busNumber}</Text>
           <View style={styles.routeContainer}>
-            <Text style={styles.routeText}>Colombo</Text>
+            <Text style={styles.routeText}>{journeyData?.startLocation}</Text>
             <MaterialCommunityIcons name="arrow-right" size={14} color="#999" />
-            <Text style={styles.routeText}>Kandy</Text>
+            <Text style={styles.routeText}>{journeyData?.endLocation}</Text>
           </View>
         </View>
-        <TouchableOpacity>
-          <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.text} />
+        <TouchableOpacity onPress={loadSeatLayoutData}>
+          <MaterialCommunityIcons name="refresh" size={24} color={theme.text} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-      showsVerticalScrollIndicator={false}
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ flexGrow: 1 }}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ flexGrow: 1 }}
       >
         {/* Trip Details Section */}
         <View style={styles.tripDetailsSection}>
           <View style={styles.detailCard}>
             <Text style={styles.detailLabel}>Departure</Text>
-            <Text style={styles.detailValue}>08:30 AM</Text>
+            <Text style={styles.detailValue}>{journeyData?.journeyTime}</Text>
+          </View>
+          <View style={styles.detailCard}>
+            <Text style={styles.detailLabel}>Journey Date</Text>
+            <Text style={styles.detailValue}>{formatDateForDisplay(journeyData?.journeyDate || '')}</Text>
           </View>
           <View style={styles.detailCard}>
             <Text style={styles.detailLabel}>Passengers</Text>
-            <Text style={styles.detailValue}>32 /45</Text>
-          </View>
-          <View style={[styles.detailCard, styles.statusCard]}>
-            <Text style={styles.detailLabel}>Status</Text>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>Boarding</Text>
-            </View>
+            <Text style={styles.detailValue}>
+              {journeyData?.bookedCount}/{journeyData?.totalSeats}
+            </Text>
+            <Text style={styles.detailSubtitle}>{journeyData?.boardedCount} boarded</Text>
           </View>
         </View>
 
@@ -174,7 +562,7 @@ export default function DriverSeatLayoutScreen() {
             <Text style={styles.indicatorText}>Boarded</Text>
           </View>
           <View style={styles.indicator}>
-            <View style={[styles.indicatorDot, { backgroundColor: '#FBBF24' }]} />
+            <View style={[styles.indicatorDot, { backgroundColor: '#EF4444' }]} />
             <Text style={styles.indicatorText}>Booked</Text>
           </View>
           <View style={styles.indicator}>
@@ -195,87 +583,135 @@ export default function DriverSeatLayoutScreen() {
 
           {/* Seats Grid */}
           <View style={styles.seatsContainer}>
-            <View style={styles.seatsRow}>
-              {seatData.slice(0, 2).map(renderSeat)}
-            </View>
-            <View style={styles.seatsRow}>
-              {seatData.slice(2, 4).map(renderSeat)}
-            </View>
-            <View style={styles.seatsRow}>
-              {seatData.slice(4, 6).map(renderSeat)}
-            </View>
-            <View style={styles.seatsRow}>
-              {seatData.slice(6, 8).map(renderSeat)}
-            </View>
+            {seatRows.length > 0 ? (
+              <>
+                {seatRows.map((row) => (
+                  <View key={row.rowNum} style={styles.rowGroup}>
+                    <View style={styles.seatsRowGroup}>
+                      <View style={styles.sideSeats}>
+                        {row.left.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || {
+                          id: seatId,
+                          status: 'available',
+                          passenger: null,
+                        }))}
+                      </View>
+
+                      <View style={styles.aisle} />
+
+                      <View style={styles.sideSeats}>
+                        {row.right.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || {
+                          id: seatId,
+                          status: 'available',
+                          passenger: null,
+                        }))}
+                      </View>
+                    </View>
+
+                    {row.lastRow && row.lastRow.length > 0 && (
+                      <View style={styles.backRow}>
+                        {row.lastRow.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || {
+                          id: seatId,
+                          status: 'available',
+                          passenger: null,
+                        }))}
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </>
+            ) : (
+              <Text style={[styles.noSeatsText, { color: theme.secondaryText }]}>
+                No seats available
+              </Text>
+            )}
           </View>
         </View>
 
         {/* Selected Passenger Details */}
-        <View style={styles.passengerDetailsSection}>
-          <View style={styles.passengerHeader}>
-            <View style={styles.passengerAvatar}>
-              <Text style={styles.passengerInitials}>NS</Text>
+        {selectedPassenger && (
+          <View style={styles.passengerDetailsSection}>
+            <View style={styles.passengerHeader}>
+              <View style={styles.passengerAvatar}>
+                <Text style={styles.passengerInitials}>
+                  {getInitials(selectedPassenger.name)}
+                </Text>
+              </View>
+              <View style={styles.passengerInfo}>
+                <Text style={styles.passengerName}>{selectedPassenger.name}</Text>
+                <Text style={styles.seatInfo}>Seat {selectedSeat}</Text>
+              </View>
+              <TouchableOpacity onPress={handlePassengerOptions}>
+                <MaterialCommunityIcons name="pencil" size={20} color="#0066FF" />
+              </TouchableOpacity>
             </View>
-            <View style={styles.passengerInfo}>
-              <Text style={styles.passengerName}>Nimali S.</Text>
-              <Text style={styles.seatInfo}>Seat 1B</Text>
-            </View>
-            <TouchableOpacity onPress={handlePassengerOptions}>
-              <MaterialCommunityIcons name="pencil" size={20} color="#0066FF" />
-            </TouchableOpacity>
           </View>
-        </View>
+        )}
 
         {/* Location Details */}
-        <View style={styles.locationSection}>
-          <View style={styles.locationCard}>
-            <View style={styles.locationIconContainer}>
-              <MaterialCommunityIcons name="map-marker" size={20} color="#000" />
+        {selectedPassenger && (
+          <View style={styles.locationSection}>
+            <View style={styles.locationCard}>
+              <View style={styles.locationIconContainer}>
+                <MaterialCommunityIcons name="map-marker" size={20} color="#000" />
+              </View>
+              <View style={styles.locationDetails}>
+                <Text style={styles.locationLabel}>Pick up</Text>
+                <Text style={styles.locationName}>{selectedPassenger.pickupLocation}</Text>
+              </View>
             </View>
-            <View style={styles.locationDetails}>
-              <Text style={styles.locationLabel}>Pick up</Text>
-              <Text style={styles.locationName}>Fort Station</Text>
-              <Text style={styles.locationTime}>08:15 AM</Text>
-            </View>
-          </View>
 
-          <View style={styles.locationCard}>
-            <View style={styles.locationIconContainer}>
-              <MaterialCommunityIcons name="map-marker" size={20} color="#000" />
-            </View>
-            <View style={styles.locationDetails}>
-              <Text style={styles.locationLabel}>Drop off</Text>
-              <Text style={styles.locationName}>Peradeniya</Text>
+            <View style={styles.locationCard}>
+              <View style={styles.locationIconContainer}>
+                <MaterialCommunityIcons name="map-marker" size={20} color="#000" />
+              </View>
+              <View style={styles.locationDetails}>
+                <Text style={styles.locationLabel}>Drop off</Text>
+                <Text style={styles.locationName}>{selectedPassenger.dropoffLocation}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Special Requests */}
-        <View style={styles.specialRequestsSection}>
-          <Text style={styles.sectionTitle}>Special Requests</Text>
-          <View style={styles.requestItem}>
-            <MaterialCommunityIcons name="bag-suitcase" size={20} color={theme.text} />
-            <Text style={styles.requestText}>Large suitcase in hold</Text>
+        {selectedPassenger?.specialRequest && (
+          <View style={styles.specialRequestsSection}>
+            <Text style={styles.sectionTitle}>Special Requests</Text>
+            <View style={styles.requestItem}>
+              <MaterialCommunityIcons name="bag-suitcase" size={20} color={theme.text} />
+              <Text style={styles.requestText}>{selectedPassenger.specialRequest}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Action Buttons */}
-        <View style={styles.actionButtonsSection}>
-          <TouchableOpacity style={styles.callButton} onPress={handleCall}>
-            <MaterialCommunityIcons name="phone" size={20} color="#FFF" />
-            <Text style={styles.callButtonText}>Call</Text>
-          </TouchableOpacity>
+        {selectedPassenger && (
+          <>
+            <View style={styles.actionButtonsSection}>
+              <TouchableOpacity style={styles.callButton} onPress={handleCall}>
+                <MaterialCommunityIcons name="phone" size={20} color="#FFF" />
+                <Text style={styles.callButtonText}>Call</Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity style={styles.messageButton} onPress={handleMessage}>
-            <MaterialCommunityIcons name="message-text" size={20} color={theme.text} />
-            <Text style={styles.messageButtonText}>Message</Text>
-          </TouchableOpacity>
-        </View>
+              <TouchableOpacity style={styles.messageButton} onPress={handleMessage}>
+                <MaterialCommunityIcons name="message-text" size={20} color={theme.text} />
+                <Text style={styles.messageButtonText}>Message</Text>
+              </TouchableOpacity>
+            </View>
 
-        <TouchableOpacity style={styles.boardButton} onPress={handleMarkBoarded}>
-          <MaterialCommunityIcons name="check" size={20} color="#FFF" />
-          <Text style={styles.boardButtonText}>Mark as Boarded</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.boardButton}
+              onPress={handleMarkBoarded}
+              disabled={seatData.find((s) => s.id === selectedSeat)?.status === 'boarded'}
+            >
+              <MaterialCommunityIcons name="check" size={20} color="#FFF" />
+              <Text style={styles.boardButtonText}>
+                {seatData.find((s) => s.id === selectedSeat)?.status === 'boarded'
+                  ? 'Already Boarded'
+                  : 'Mark as Boarded'}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <View style={styles.spacer} />
       </ScrollView>
@@ -345,6 +781,12 @@ function createStyles(theme: any) {
     fontWeight: '700',
     color: theme.text,
   },
+  detailSubtitle: {
+    fontSize: 11,
+    color: theme.secondaryText,
+    marginTop: 4,
+    fontWeight: '600',
+  },
   statusCard: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -409,10 +851,34 @@ function createStyles(theme: any) {
     fontWeight: '600',
   },
   seatsContainer: {
-    gap: 10,
+    gap: 14,
     backgroundColor: theme.card,
     padding: 12,
     borderRadius: 8,
+  },
+  rowGroup: {
+    marginBottom: 16,
+  },
+  seatsRowGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sideSeats: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  aisle: {
+    width: 20,
+  },
+  backRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
   },
   seatsRow: {
     flexDirection: 'row',
@@ -420,8 +886,8 @@ function createStyles(theme: any) {
     justifyContent: 'center',
   },
   seat: {
-    width: 56,
-    height: 56,
+    width: 45,
+    height: 45,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -599,5 +1065,46 @@ function createStyles(theme: any) {
   spacer: {
     height: 80,
   },
-})
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 12,
+    marginHorizontal: 32,
+  },
+  retryButton: {
+    backgroundColor: '#0066FF',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  noSeatsText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  selectedSeat: {
+    borderWidth: 3,
+    borderColor: '#0066FF',
+  },
+  });
 };
+

@@ -86,7 +86,7 @@ public class ConversationServiceImpl implements ConversationService {
                         .build();
             }
             
-            return toPagedResponse(result.map(this::toDto));
+            return toPagedResponse(result.map(conversation -> toDto(conversation, userId)));
         } catch (Exception ex) {
             log.error("Failed to load conversations for user {}", userId, ex);
             throw new BusinessException("Failed to load conversations: " + ex.getMessage());
@@ -113,7 +113,7 @@ public class ConversationServiceImpl implements ConversationService {
             result = conversationRepository.findSupportConversations(
                     supportAdminId, ParticipantType.ADMIN, pageable);
         }
-        return toPagedResponse(result.map(this::toDto));
+        return toPagedResponse(result.map(conversation -> toDto(conversation, supportAdminId)));
     }
 
     /**
@@ -134,12 +134,34 @@ public class ConversationServiceImpl implements ConversationService {
      * Converts a Conversation entity to its DTO representation.
      */
     ConversationDto toDto(Conversation entity) {
+        return toDto(entity, null);
+    }
+
+    ConversationDto toDto(Conversation entity, Long currentUserId) {
+        Long otherParticipantId = entity.getParticipant1Id();
+        String otherParticipantType = toApiParticipantType(entity.getParticipant1Type());
+        int unreadCount = entity.getParticipant1Unread();
+
+        if (currentUserId != null && currentUserId.equals(entity.getParticipant1Id())) {
+            otherParticipantId = entity.getParticipant2Id();
+            otherParticipantType = toApiParticipantType(entity.getParticipant2Type());
+            unreadCount = entity.getParticipant1Unread();
+        } else if (currentUserId != null && currentUserId.equals(entity.getParticipant2Id())) {
+            otherParticipantId = entity.getParticipant1Id();
+            otherParticipantType = toApiParticipantType(entity.getParticipant1Type());
+            unreadCount = entity.getParticipant2Unread();
+        }
+
         return ConversationDto.builder()
                 .conversationId(entity.getConversationId())
                 .participant1Id(entity.getParticipant1Id())
                 .participant2Id(entity.getParticipant2Id())
                 .participant1Type(toApiParticipantType(entity.getParticipant1Type()))
                 .participant2Type(toApiParticipantType(entity.getParticipant2Type()))
+                .otherParticipantId(otherParticipantId)
+                .otherParticipantName(resolveDisplayName(otherParticipantId))
+                .otherParticipantType(otherParticipantType)
+                .unreadCount(unreadCount)
                 .participant1Unread(entity.getParticipant1Unread())
                 .participant2Unread(entity.getParticipant2Unread())
                 .lastMessage(entity.getLastMessage())
@@ -160,6 +182,14 @@ public class ConversationServiceImpl implements ConversationService {
         }
         return conversationRepository.findUserTypeByUserId(userId)
                 .orElse("passenger");
+    }
+
+    private String resolveDisplayName(Long userId) {
+        if (userId == null) {
+            return "Unknown User";
+        }
+        return conversationRepository.findDisplayNameByUserId(userId)
+                .orElse("User #" + userId);
     }
 
     private String toApiParticipantType(ParticipantType type) {

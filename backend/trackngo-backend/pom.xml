@@ -27,6 +27,7 @@
     <module>booking-module</module>
     <module>tracking-module</module>
     <module>driver-fleet-module</module>
+    <module>driver-module</module>
     <module>payment-module</module>
     <module>notification-module</module>
     <module>complaint-module</module>

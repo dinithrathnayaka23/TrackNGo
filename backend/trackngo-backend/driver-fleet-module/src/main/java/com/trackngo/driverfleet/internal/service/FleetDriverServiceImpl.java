@@ -1,10 +1,10 @@
 package com.trackngo.driverfleet.internal.service;
 
-import com.trackngo.driverfleet.api.DriverService;
+import com.trackngo.driverfleet.api.DriverFleetService;
 import com.trackngo.driverfleet.api.dto.DriverDto;
 import com.trackngo.driverfleet.events.DriverCreatedEvent;
-import com.trackngo.driverfleet.internal.entity.Driver;
-import com.trackngo.driverfleet.internal.repository.DriverRepository;
+import com.trackngo.driverfleet.internal.entity.FleetDriver;
+import com.trackngo.driverfleet.internal.repository.FleetDriverRepository;
 import com.trackngo.commons.events.EventPublisher;
 import com.trackngo.commons.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -14,15 +14,15 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class DriverServiceImpl implements DriverService {
-    private final DriverRepository repository;
+public class FleetDriverServiceImpl implements DriverFleetService {
+    private final FleetDriverRepository repository;
     private final EventPublisher eventPublisher;
 
     @Override
     public DriverDto create(DriverDto dto) {
-        Driver entity = new Driver();
+        FleetDriver entity = new FleetDriver();
         entity.setName(dto.getName());
-        Driver saved = repository.save(entity);
+        FleetDriver saved = repository.save(entity);
         eventPublisher.publish(new DriverCreatedEvent(saved.getId()));
         return toDto(saved);
     }
@@ -40,7 +40,7 @@ public class DriverServiceImpl implements DriverService {
 
     @Override
     public DriverDto update(Long id, DriverDto dto) {
-        Driver entity = repository.findById(id)
+        FleetDriver entity = repository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Driver not found"));
         entity.setName(dto.getName());
         return toDto(repository.save(entity));
@@ -51,7 +51,7 @@ public class DriverServiceImpl implements DriverService {
         repository.deleteById(id);
     }
 
-    private DriverDto toDto(Driver entity) {
+    private DriverDto toDto(FleetDriver entity) {
         DriverDto dto = new DriverDto();
         dto.setId(entity.getId());
         dto.setName(entity.getName());

@@ -5,8 +5,8 @@ import lombok.Data;
 
 @Entity
 @Data
-@Table(name = "buss")
-public class Bus {
+@Table(name = "drivers")
+public class FleetDriver {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

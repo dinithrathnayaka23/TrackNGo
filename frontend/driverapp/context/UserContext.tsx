@@ -1,7 +1,8 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface User {
-  id: string;
+  userId: number;
   firstName: string;
   lastName: string;
   email: string;
@@ -16,18 +17,44 @@ interface UserContextType {
   error: string | null;
   setError: (error: string | null) => void;
   logout: () => void;
+  isInitialized: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUserState] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const logout = () => {
-    setUser(null);
+  // Initialize user from AsyncStorage on app start
+  useEffect(() => {
+    initializeUser();
+  }, []);
+
+  const initializeUser = async () => {
+    try {
+      const savedUser = await AsyncStorage.getItem('user');
+      if (savedUser) {
+        setUserState(JSON.parse(savedUser));
+      }
+    } catch (err) {
+      console.error('Error initializing user from storage:', err);
+    } finally {
+      setIsInitialized(true);
+    }
+  };
+
+  const setUser = (newUser: User | null) => {
+    setUserState(newUser);
+  };
+
+  const logout = async () => {
+    setUserState(null);
     setError(null);
+    await AsyncStorage.removeItem('user');
+    await AsyncStorage.removeItem('token');
   };
 
   const value: UserContextType = {
@@ -38,6 +65,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     error,
     setError,
     logout,
+    isInitialized,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

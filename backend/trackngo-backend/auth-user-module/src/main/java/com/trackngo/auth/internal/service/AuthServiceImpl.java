@@ -31,9 +31,13 @@ public class AuthServiceImpl implements AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new BusinessException("Invalid credentials");
         }
+        if (!"driver".equalsIgnoreCase(user.getUserType())) {
+            throw new BusinessException("Access denied. Driver account required.");
+        }
         String token = jwtUtil.generateToken(user.getEmail(), Map.of("role", user.getUserType(), "userType", user.getUserType()));
         return new AuthResponse(token, user.getId(), user.getUserType(), user.getEmail(), user.getFirstName(), user.getLastName());
     }
+
 
     @Override
     public AuthResponse register(AuthRequest request) {

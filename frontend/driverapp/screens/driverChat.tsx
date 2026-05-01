@@ -1,86 +1,128 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
+  ActivityIndicator,
   FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
   useWindowDimensions,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
+import { useUser } from '@/context/UserContext';
 
 interface Conversation {
   id: string;
   name: string;
-  avatar: string;
   message: string;
   timestamp: string;
-  isOnline?: boolean;
+  participantType: string;
+  unreadCount: number;
+}
+
+interface ConversationResponseItem {
+  conversationId: number;
+  otherParticipantId?: number;
+  otherParticipantName?: string;
+  otherParticipantType?: string;
+  unreadCount?: number;
+  lastMessage?: string;
+  lastMessageTimestamp?: string;
 }
 
 const DriverChatScreen = () => {
   const router = useRouter();
+  const { user } = useUser();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [searchQuery, setSearchQuery] = useState('');
-
-  const conversations: Conversation[] = [
-    {
-      id: '1',
-      name: 'Customer Support',
-      avatar: '👩‍💼',
-      message: 'How can we help you today with your inquiry?',
-      timestamp: 'Yesterday',
-      isOnline: false,
-    },
-    {
-      id: '2',
-      name: 'Driver - Kamal',
-      avatar: '👨‍✈️',
-      message: 'Ok sir.',
-      timestamp: 'Sun',
-      isOnline: false,
-    },
-    {
-      id: '3',
-      name: 'Driver - Suresh',
-      avatar: '👨‍✈️',
-      message: 'I will arrive in 5 mins at the pickup point.',
-      timestamp: '9:15 AM',
-      isOnline: true,
-    },
-  ];
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const isSmallPhone = width < 360;
   const horizontalPadding = isSmallPhone ? 14 : 16;
 
+  useEffect(() => {
+    const fetchConversations = async () => {
+      if (!user?.userId || !user?.token) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const endpoint = new URL(`http://10.43.239.185:8080/api/users/${user.userId}/conversations`);
+        endpoint.searchParams.set('page', '0');
+        endpoint.searchParams.set('size', '20');
+        if (searchQuery.trim()) {
+          endpoint.searchParams.set('q', searchQuery.trim());
+        }
+
+        const response = await fetch(endpoint.toString(), {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch conversations: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        const items: ConversationResponseItem[] = Array.isArray(result.content) ? result.content : [];
+
+        setConversations(
+          items.map((item) => ({
+            id: String(item.conversationId),
+            name: item.otherParticipantName ?? `User #${item.otherParticipantId ?? item.conversationId}`,
+            message: item.lastMessage ?? 'No messages yet',
+            timestamp: formatTimestamp(item.lastMessageTimestamp),
+            participantType: formatParticipantType(item.otherParticipantType),
+            unreadCount: item.unreadCount ?? 0,
+          }))
+        );
+      } catch (fetchError) {
+        console.error('Error fetching driver conversations:', fetchError);
+        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load conversations');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchConversations, 250);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, user?.token, user?.userId]);
+
   const filteredConversations = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-
     if (!query) return conversations;
 
-    return conversations.filter((item) => {
-      return (
-        item.name.toLowerCase().includes(query) ||
-        item.message.toLowerCase().includes(query) ||
-        item.timestamp.toLowerCase().includes(query)
-      );
-    });
+    return conversations.filter((item) => (
+      item.name.toLowerCase().includes(query) ||
+      item.message.toLowerCase().includes(query) ||
+      item.timestamp.toLowerCase().includes(query) ||
+      item.participantType.toLowerCase().includes(query)
+    ));
   }, [conversations, searchQuery]);
 
   const { darkMode } = useTheme();
-  
-    const theme = useMemo(() => ({
+
+  const theme = useMemo(() => ({
     background: darkMode ? '#111' : '#F5F5F5',
     card: darkMode ? '#1E1E1E' : '#FFF',
     text: darkMode ? '#FFF' : '#000',
     secondaryText: darkMode ? '#AAA' : '#666',
     border: darkMode ? '#333' : '#E0E0E0',
-    }), [darkMode]);
+  }), [darkMode]);
 
   const styles = useMemo(
     () =>
@@ -90,22 +132,30 @@ const DriverChatScreen = () => {
         isSmallPhone,
         theme,
       }),
-    [horizontalPadding, insets.bottom, isSmallPhone,theme]
+    [horizontalPadding, insets.bottom, isSmallPhone, theme]
   );
 
   const renderConversation = ({ item }: { item: Conversation }) => (
     <TouchableOpacity
       style={styles.conversationItem}
-      onPress={() => router.push({
-  pathname: '/chat/[id]',
-  params: { id: item.id },
-    })}
+      onPress={() =>
+        router.push({
+          pathname: '/chat/[id]',
+          params: { id: item.id, name: item.name },
+        })
+      }
     >
       <View style={styles.avatarContainer}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{item.avatar}</Text>
+          <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
         </View>
-        {item.isOnline && <View style={styles.onlineIndicator} />}
+        {item.unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadBadgeText}>
+              {item.unreadCount > 99 ? '99+' : item.unreadCount}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.conversationContent}>
@@ -121,6 +171,12 @@ const DriverChatScreen = () => {
         <Text style={styles.conversationMessage} numberOfLines={1}>
           {item.message}
         </Text>
+
+        {!!item.participantType && (
+          <Text style={styles.participantTypeText} numberOfLines={1}>
+            {item.participantType}
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -151,17 +207,76 @@ const DriverChatScreen = () => {
           />
         </View>
 
-        <FlatList
-          data={filteredConversations}
-          renderItem={renderConversation}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-        />
+        {isLoading ? (
+          <View style={styles.centerState}>
+            <ActivityIndicator size="large" color="#0066FF" />
+            <Text style={styles.stateText}>Loading conversations...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.centerState}>
+            <MaterialCommunityIcons name="alert-circle" size={40} color="#FF6B6B" />
+            <Text style={styles.stateText}>{error}</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredConversations}
+            renderItem={renderConversation}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <View style={styles.centerState}>
+                <MaterialCommunityIcons name="chat-outline" size={40} color="#999" />
+                <Text style={styles.stateText}>No conversations found</Text>
+              </View>
+            }
+          />
+        )}
       </View>
     </SafeAreaView>
   );
 };
+
+function getInitials(name: string) {
+  return (
+    name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || 'U'
+  );
+}
+
+function formatParticipantType(type?: string) {
+  if (!type) {
+    return '';
+  }
+
+  return type
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatTimestamp(timestamp?: string) {
+  if (!timestamp) {
+    return '';
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return timestamp;
+  }
+
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
 
 function createStyles({
   horizontalPadding,
@@ -225,6 +340,7 @@ function createStyles({
     listContent: {
       paddingHorizontal: 8,
       paddingBottom: Math.max(16, bottomInset + 8),
+      flexGrow: 1,
     },
     conversationItem: {
       flexDirection: 'row',
@@ -248,18 +364,26 @@ function createStyles({
       alignItems: 'center',
     },
     avatarText: {
-      fontSize: isSmallPhone ? 18 : 20,
+      fontSize: isSmallPhone ? 14 : 16,
+      fontWeight: '700',
+      color: '#FFF',
     },
-    onlineIndicator: {
+    unreadBadge: {
       position: 'absolute',
-      bottom: 0,
-      right: 0,
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-      backgroundColor: '#22c55e',
-      borderWidth: 2,
-      borderColor: '#fff',
+      top: -2,
+      right: -4,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: '#EF4444',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 4,
+    },
+    unreadBadgeText: {
+      color: '#FFF',
+      fontSize: 9,
+      fontWeight: '700',
     },
     conversationContent: {
       flex: 1,
@@ -286,7 +410,26 @@ function createStyles({
     },
     conversationMessage: {
       fontSize: 12,
-      color: '#666',
+      color: theme.secondaryText,
+    },
+    participantTypeText: {
+      fontSize: 10,
+      color: '#999',
+      marginTop: 3,
+      fontWeight: '500',
+    },
+    centerState: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      paddingTop: 40,
+    },
+    stateText: {
+      marginTop: 10,
+      fontSize: 13,
+      color: theme.secondaryText,
+      textAlign: 'center',
     },
   });
 }

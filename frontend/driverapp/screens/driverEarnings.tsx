@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,9 @@ export default function DriverEarningsScreen() {
   const { width } = useWindowDimensions();
 
   const [showWeekly, setShowWeekly] = useState(false);
+  const [profileData, setProfileData] = useState<DriverProfile | null>(null);
+
+  
   
 
   const earningsData: EarningItem[] = [
@@ -73,7 +76,48 @@ export default function DriverEarningsScreen() {
     { day: 'Sun', amount: 2300 },
   ];
 
+  interface DriverProfile {
+  driverEarnings: number;
+}
+
   const [receipt, setReceipt] = useState<EarningItem | null>(null);
+  useEffect(() => {
+  const fetchDriverProfile = async () => {
+    if (!user?.userId || !user?.token) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://10.43.239.185:8080/api/drivers/${user.userId}/profile`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch earnings profile: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setProfileData(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching earnings profile:', error);
+    }
+  };
+
+  fetchDriverProfile();
+}, [user?.userId, user?.token]);
+
+const earningsAmount = profileData?.driverEarnings ?? 0;
+
 
   const maxAmount = Math.max(...weeklyData.map((d) => d.amount));
   const handleExportPDF = async () => {
@@ -175,7 +219,10 @@ export default function DriverEarningsScreen() {
 
         <div class="card">
           <div class="label">Total Earnings</div>
-          <div class="value">LKR 12,500.00</div>
+          <div class="value">LKR ${earningsAmount.toLocaleString('en-US', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}</div>
         </div>
 
         <h3>Weekly Breakdown</h3>
@@ -198,7 +245,10 @@ export default function DriverEarningsScreen() {
         </table>
 
         <div class="total">
-          Net Total: LKR 12,500.00
+          Net Total: LKR ${earningsAmount.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
         </div>
 
         <div class="footer">
@@ -311,7 +361,7 @@ export default function DriverEarningsScreen() {
 
           <View style={styles.earningsCard}>
             <View style={[styles.cardHeader, isCompact && styles.cardHeaderStack]}>
-              <Text style={styles.cardLabel}>Today's Earnings</Text>
+              <Text style={styles.cardLabel}>Your Earnings</Text>
 
               <View style={styles.percentageBadge}>
                 <MaterialCommunityIcons name="trending-up" size={14} color="#22C55E" />
@@ -319,7 +369,9 @@ export default function DriverEarningsScreen() {
               </View>
             </View>
 
-            <Text style={styles.earningsAmountTotal}>LKR 12,500.00</Text>
+            <Text style={styles.earningsAmountTotal}>
+              LKR {earningsAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
             <Text style={styles.updatedText}>Updated just now</Text>
           </View>
 
@@ -543,6 +595,13 @@ function createStyles({
       fontSize: 12,
       color: theme.text,
       fontWeight: '600',
+    },
+    earningsAmount: {
+      fontSize: isSmallPhone ? 22 : 26,
+      fontWeight: '700',
+      color: theme.text,
+      marginVertical: 8,
+      letterSpacing: -0.5,
     },
     percentageBadge: {
       flexDirection: 'row',

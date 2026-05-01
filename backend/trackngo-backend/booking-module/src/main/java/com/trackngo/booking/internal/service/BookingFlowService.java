@@ -480,9 +480,52 @@ public class BookingFlowService {
                 .collect(Collectors.toList());
     }
 
+    /* ═══════════════════════════════════════════════════════════
+       4a. Booked seats with passenger details for a bus + date
+       ═══════════════════════════════════════════════════════════ */
+    public List<BookedSeatInfo> getBookedSeatsWithDetails(Long busId, String date) {
+        String sql = """
+            SELECT
+                sb.seat_booking_id,
+                sb.booking_reference,
+                sb.journey_date,
+                sb.journey_time,
+                sb.seat_number,
+                CONCAT(u.first_name, ' ', u.last_name) as passenger_name,
+                sb.passenger_id,
+                p.mobile_number as passenger_phone,
+                sb.total_amount,
+                sb.status,
+                sb.from_stop,
+                sb.to_stop,
+                sb.special_request
+            FROM seat_booking sb
+            INNER JOIN passenger p ON p.passenger_id = sb.passenger_id
+            INNER JOIN user u ON u.user_id = sb.passenger_id
+            WHERE sb.bus_id = ? AND sb.journey_date = ? AND sb.status != 'cancelled'
+            ORDER BY sb.seat_number
+            """;
+
+        return jdbc.query(sql, (rs, rowNum) -> new BookedSeatInfo(
+            rs.getLong("seat_booking_id"),
+            rs.getString("booking_reference"),
+            rs.getString("journey_date"),
+            rs.getString("journey_time"),
+            rs.getString("seat_number"),
+            rs.getString("passenger_name"),
+            rs.getLong("passenger_id"),
+            rs.getString("passenger_phone"),
+            rs.getBigDecimal("total_amount"),
+            rs.getString("status"),
+            rs.getString("from_stop"),
+            rs.getString("to_stop"),
+            rs.getString("special_request")
+        ), busId, date);
+    }
+
     /*
        4b. Blocked seats for a bus
-    */
+       ═══════════════════════════════════════════════════════════ */
     public List<String> getBlockedSeats(Long busId) {
         String sql = "SELECT seat_label FROM seat_layout WHERE bus_id = ? AND blocked = true";
         return jdbc.queryForList(sql, String.class, busId);

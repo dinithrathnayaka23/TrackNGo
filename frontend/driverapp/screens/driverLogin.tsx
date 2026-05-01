@@ -12,24 +12,62 @@ import {
 } from 'react-native';
 import { Ionicons,MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { driverLogin } from "../services/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useUser } from '@/context/UserContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function DriverLoginScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState('driver2@mail.com');
-  const [password, setPassword] = useState('password');
+  const { setUser } = useUser();
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = () => {
+
+  const handleLogin = async () => {
   setIsLoading(true);
 
-  setTimeout(() => {
+  try {
+    const res = await driverLogin(email, password);
+
+    console.log("FULL RESPONSE:", res);
+
+    const authData = res.data || res;
+
+    if (authData.userType === "driver") {
+      // Extract user data from auth response
+      const userData = {
+        userId: authData.userId,
+        firstName: authData.firstName,
+        lastName: authData.lastName,
+        email: authData.email,
+        token: authData.token,
+      };
+
+      // Store in UserContext
+      setUser(userData);
+
+      // Store in AsyncStorage for persistence
+      await AsyncStorage.setItem("user", JSON.stringify(userData));
+      await AsyncStorage.setItem("token", authData.token);
+
+      router.replace("/(tabs)");
+    }
+    else {
+      alert("Not a driver account");
+    }
+
+  } catch (error: any) {
+    console.log("LOGIN ERROR:", error.message);
+    alert(error.message || "Login failed");
+  } finally {
     setIsLoading(false);
-    router.replace('/(tabs)');
-  }, 1000);};
+  }
+};
 
   const handleGoogleLogin = () => {
     console.log('Google login pressed');
@@ -59,7 +97,7 @@ export default function DriverLoginScreen() {
         {/* TrackNGo Icon */}
         <View style={styles.iconContainer}>
           <View style={styles.iconBox}>
-            <Ionicons name="bus" size={80} color="#ffffff" />
+            <Ionicons name="bus" size={40} color="#ffffff" />
           </View>
         </View>
 
@@ -130,7 +168,7 @@ export default function DriverLoginScreen() {
           </View>
 
           {/* Login Button */}
-          <TouchableOpacity
+          <TouchableOpacity 
             style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
             onPress={handleLogin}
             disabled={isLoading}
@@ -177,12 +215,12 @@ export default function DriverLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F6F7F9',
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 30,
+    paddingHorizontal: 24,
+    paddingVertical: 48,
     justifyContent: 'flex-start',
   },
   iconContainer: {
@@ -191,9 +229,9 @@ const styles = StyleSheet.create({
     marginTop: height > 600 ? 40 : 20,
   },
   iconBox: {
-    width: 120,
-    height: 120,
-    borderRadius: 30,
+    width: 80,
+    height: 80,
+    borderRadius: 16,
     backgroundColor: '#0066FF',
     justifyContent: 'center',
     alignItems: 'center',

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Switch,
   Alert,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -16,12 +17,46 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
+import { formatDate, isLicenseExpired } from '@/utils/dateFormatter';
+
+interface DriverProfile {
+  driverId: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  licenseNumber: string;
+  licenceExpiry: string;
+  yearsOfExperience: number;
+  joinedDate: string;
+  status: string;
+  isVerified: boolean;
+  averageRating: number;
+  driverEarnings: number;
+  profilePhoto?: string;
+  isPhoneVerified: boolean;
+  accountNumber: string;
+  bankName: string;
+}
+
+interface DriverAssignment {
+  busId: number;
+  busNumber: string;
+  busBrand: string;
+  registrationNumber: string;
+  routeId: number | null;
+  routeName?: string | null;
+}
 
 export default function DriverProfileSettingsScreen() {
   const router = useRouter();
   const { user, logout } = useUser();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+
+  const [profileData, setProfileData] = useState<DriverProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const [completionTab, setCompletionTab] = useState('profile');
   const [shareLocation, setShareLocation] = useState(true);
@@ -32,23 +67,89 @@ export default function DriverProfileSettingsScreen() {
   const [smsAlerts, setSmsAlerts] = useState(false);
   const [emailUpdates, setEmailUpdates] = useState(true);
   const [bookingUpdates, setBookingUpdates] = useState(true);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
 
-  const profileCompletion = 85;
-  const driverName = user ? `${user.firstName} ${user.lastName}` : 'Kamal Perera';
+  console.log("USER OBJECT:", user);
+  // Fetch driver profile on component mount
+  useEffect(() => {
+    fetchDriverProfile();
+  }, [user?.userId]);
+
+  const fetchDriverProfile = async () => {
+    if (!user?.userId || !user?.token) {
+      setIsLoadingProfile(false);
+      return;
+    }
+
+    try {
+      setIsLoadingProfile(true);
+      setProfileError(null);
+      
+      // Replace with your actual API URL
+      const response = await fetch(
+        `http://10.43.239.185:8080/api/drivers/${user.userId}/profile-and-assignment`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch profile: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log("DRIVER PROFILE RESPONSE:", result);
+      
+      if (result.success && result.data) {
+      setProfileData(result.data.profile);
+      setAssignment(result.data.assignment);
+
+      console.log("PROFILE:", result.data.profile);
+      console.log("ASSIGNMENT:", result.data.assignment);
+
+      if (result.data.profile.profilePhoto) {
+        setProfileImage(result.data.profile.profilePhoto);
+      }   
+      } else {
+        throw new Error(result.message || 'Failed to fetch profile');
+      }
+    } catch (error) {
+      console.error('Error fetching driver profile:', error);
+      setProfileError(error instanceof Error ? error.message : 'Failed to load profile');
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  const profileCompletion = 100;
+  const driverName = profileData 
+    ? `${profileData.firstName} ${profileData.lastName}` 
+    : (user ? `${user.firstName} ${user.lastName}` : 'Driver');
+  const driverId = profileData?.driverId || user?.userId;
+  const driverEmail = profileData?.email || user?.email;
+  const phoneNumber = profileData?.phoneNumber || '0000000000';
+  const licenseNumber = profileData?.licenseNumber || 'N/A';
+  const licenceExpiry = formatDate(profileData?.licenceExpiry);
+  const joinedDate = formatDate(profileData?.joinedDate);
 
   const isSmallPhone = width < 360;
   const isCompact = width < 390;
   const horizontalPadding = isSmallPhone ? 14 : 16;
 
   const theme = {
-  background: darkMode ? '#111' : '#F5F5F5',
-  card: darkMode ? '#1E1E1E' : '#FFF',
-  text: darkMode ? '#FFF' : '#000',
-  secondaryText: darkMode ? '#AAA' : '#666',
-  border: darkMode ? '#333' : '#E0E0E0',
+    background: darkMode ? '#111' : '#F5F5F5',
+    card: darkMode ? '#1E1E1E' : '#FFF',
+    text: darkMode ? '#FFF' : '#000',
+    secondaryText: darkMode ? '#AAA' : '#666',
+    border: darkMode ? '#333' : '#E0E0E0',
 
-  fontRegular: 'System',
-  fontBold: 'System',
+    fontRegular: 'System',
+    fontBold: 'System',
   };
 
   const styles = useMemo(
@@ -62,7 +163,6 @@ export default function DriverProfileSettingsScreen() {
       }),
     [horizontalPadding, insets.bottom, isSmallPhone, isCompact, darkMode]
   );
-  
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -76,32 +176,53 @@ export default function DriverProfileSettingsScreen() {
       },
     ]);
   };
-  
-  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   const pickImage = async () => {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-  if (!permission.granted) {
-    Alert.alert('Permission Required', 'Please allow gallery access.');
-    return;
-  }
+    if (!permission.granted) {
+      Alert.alert('Permission Required', 'Please allow gallery access.');
+      return;
+    }
 
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
-    aspect: [1, 1],
-    quality: 1,
-  });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
 
-  if (!result.canceled) {
-    setProfileImage(result.assets[0].uri);
-  }
-};
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
 
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+      {isLoadingProfile && (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+          <ActivityIndicator size="large" color="#0066FF" />
+          <Text style={{ marginTop: 10, color: theme.text }}>Loading profile...</Text>
+        </View>
+      )}
+
+      {profileError && (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+          <MaterialCommunityIcons name="alert-circle" size={48} color="#FF6B6B" />
+          <Text style={{ marginTop: 10, color: theme.text, textAlign: 'center', marginHorizontal: 20 }}>
+            {profileError}
+          </Text>
+          <TouchableOpacity
+            style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#0066FF', borderRadius: 8 }}
+            onPress={fetchDriverProfile}
+          >
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!isLoadingProfile && !profileError && (
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
@@ -142,7 +263,7 @@ export default function DriverProfileSettingsScreen() {
               <Text style={styles.profileName} numberOfLines={1}>
                 {driverName}
               </Text>
-              <Text style={styles.profileId}>ID: DRV-082</Text>
+              <Text style={styles.profileId}>ID: DRV-{driverId}</Text>
             </View>
           </View>
 
@@ -151,14 +272,6 @@ export default function DriverProfileSettingsScreen() {
               <Text style={styles.sectionTitle}>Profile Completion</Text>
               <Text style={styles.completionPercent}>{profileCompletion}%</Text>
             </View>
-
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${profileCompletion}%` }]} />
-            </View>
-
-            <Text style={styles.completionSubtitle}>
-              Complete your bank details to reach 100%
-            </Text>
 
             <View style={styles.completionTabs}>
               <TouchableOpacity
@@ -239,7 +352,7 @@ export default function DriverProfileSettingsScreen() {
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Full Name</Text>
                 <Text style={styles.detailValue} numberOfLines={1}>
-                  Kamal Perera
+                  {driverName}
                 </Text>
               </View>
             </View>
@@ -251,7 +364,7 @@ export default function DriverProfileSettingsScreen() {
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>E-mail Address</Text>
                 <Text style={styles.detailValue} numberOfLines={1}>
-                  kamalperera@gmail.com
+                  {driverEmail}
                 </Text>
               </View>
             </View>
@@ -278,7 +391,7 @@ export default function DriverProfileSettingsScreen() {
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Mobile Number</Text>
-                <Text style={styles.detailValue}>0711356924</Text>
+                <Text style={styles.detailValue}>{phoneNumber}</Text>
               </View>
             </View>
 
@@ -288,7 +401,7 @@ export default function DriverProfileSettingsScreen() {
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>License Number</Text>
-                <Text style={styles.detailValue}>B1234567</Text>
+                <Text style={styles.detailValue}>{licenseNumber}</Text>
               </View>
             </View>
 
@@ -299,11 +412,23 @@ export default function DriverProfileSettingsScreen() {
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>License Expiry</Text>
                 <View style={styles.expiryContainer}>
-                  <Text style={styles.detailValue}>12 Dec 2025</Text>
-                  <View style={styles.validBadge}>
-                    <Text style={styles.validText}>Valid</Text>
+                  <Text style={styles.detailValue}>{licenceExpiry}</Text>
+                  <View style={[styles.validBadge, isLicenseExpired(profileData?.licenceExpiry) ? styles.expiredBadge : styles.validBadgeStyle]}>
+                    <Text style={[styles.validText, isLicenseExpired(profileData?.licenceExpiry) ? styles.expiredText : {}]}>
+                      {isLicenseExpired(profileData?.licenceExpiry) ? 'Expired' : 'Valid'}
+                    </Text>
                   </View>
                 </View>
+              </View>
+            </View>
+
+            <View style={styles.detailItem}>
+              <View style={styles.detailIcon}>
+                <MaterialCommunityIcons name="calendar" size={16} color="#0066FF" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Joined Date</Text>
+                <Text style={styles.detailValue}>{profileData?.joinedDate || 'N/A'}</Text>
               </View>
             </View>
 
@@ -313,19 +438,48 @@ export default function DriverProfileSettingsScreen() {
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Experience</Text>
-                <Text style={styles.detailValue}>8 Years</Text>
+                <Text style={styles.detailValue}>{profileData?.yearsOfExperience || 0} Years</Text>
+              </View>
+            </View>
+          </View>
+          
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Bank Details</Text>
+            <View style={styles.detailItem}>
+              <View style={styles.detailIcon}>
+                <MaterialCommunityIcons name="card-account-details" size={16} color="#0066FF" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Bank Account Number</Text>
+                <Text style={styles.detailValue}>{profileData?.accountNumber || 'N/A'}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.detailItem, styles.lastItem]}>
+              <View style={styles.detailIcon}>
+                <MaterialCommunityIcons name="bank" size={16} color="#0066FF" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Bank Name</Text>
+                <Text style={styles.detailValue}>{profileData?.bankName || 'N/A'}</Text>
               </View>
             </View>
           </View>
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Current Assignment</Text>
-
             <View style={styles.assignmentItem}>
               <MaterialCommunityIcons name="bus" size={20} color="#0066FF" />
               <View style={styles.assignmentContent}>
                 <Text style={styles.detailLabel}>Trip ID</Text>
-                <Text style={styles.assignmentValue}>WP-NB-1234 (Ayuband Viking)</Text>
+                <Text style={styles.assignmentValue}>
+                  {assignment
+                    ? `${assignment.busNumber} (${assignment.busBrand})`
+                    : 'No active assignment'}
+                </Text>
+                <Text style={styles.assignmentValue}>
+                  {assignment?.registrationNumber ?? 'N/A'}
+                </Text>       
               </View>
             </View>
 
@@ -333,9 +487,13 @@ export default function DriverProfileSettingsScreen() {
               <MaterialCommunityIcons name="map-marker" size={20} color="#0066FF" />
               <View style={styles.assignmentContent}>
                 <Text style={styles.detailLabel}>Route</Text>
-                <Text style={styles.assignmentValue}>Colombo - Kandy</Text>
+                <Text style={styles.assignmentValue}>
+                  {assignment?.routeName ?? 'No route assigned'}
+                  </Text>
+                  <Text style={styles.assignmentValue}>
+                  Route ID: {assignment?.routeId ?? 'N/A'}
+                  </Text>
               </View>
-              <Text style={styles.routeCode}>RI-01</Text>
             </View>
           </View>
 
@@ -541,6 +699,7 @@ export default function DriverProfileSettingsScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -753,6 +912,20 @@ function createStyles({
       fontSize: 9,
       fontWeight: '700',
       color: '#22C55E',
+    },
+    validBadgeStyle:{
+      backgroundColor: '#E7F5EC',
+    },
+    expiredBadge: {
+      backgroundColor: '#FDE8E8',
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: 3,
+    },
+    expiredText: {
+      fontSize: 9,
+      fontWeight: '700',
+      color: '#DC2626',
     },
     assignmentItem: {
       flexDirection: 'row',

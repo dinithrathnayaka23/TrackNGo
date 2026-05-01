@@ -94,11 +94,37 @@ public final class BookingFlowDtos {
             List<String> lastRow
     ) {}
 
-    /*Create booking request*/
-    /*
-      Payload sent by the mobile app to finalize a booking.
-      Contains seat selections, payment details, and optional promotion info.
-    */
+    /* ── Booked seats with passenger details ──────────────── */
+    public record BookedSeatInfo(
+            Long seatBookingId,
+            String bookingReference,
+            String journeyDate,
+            String journeyTime,
+            String seatNumber,
+            String passengerName,
+            Long passengerId,
+            String passengerPhone,
+            BigDecimal totalAmount,
+            String status,
+            String fromStop,
+            String toStop,
+            String specialRequest
+    ) {}
+
+    /* ── Seat layout data (individual seats) ──────────────── */
+    public record SeatLayoutData(
+            Long id,
+            Long busId,
+            String seatLabel,
+            int rowNum,
+            String positionGroup,
+            int positionIndex,
+            boolean blocked
+    ) {}
+
+    /* Create booking request.
+       Payload sent by the mobile app to finalize a booking.
+       Contains seat selections, payment details, and optional promotion info. */
     public record CreateBookingRequest(
             Long busId,
             String journeyDate,

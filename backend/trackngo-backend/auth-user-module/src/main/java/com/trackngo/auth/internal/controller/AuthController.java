@@ -7,6 +7,7 @@ import com.trackngo.auth.api.dto.AuthResponse;
 import com.trackngo.commons.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,4 +26,5 @@ public class AuthController {
         return ApiResponse.ok("Registration successful", authService.register(request));
     }
 }
+
 

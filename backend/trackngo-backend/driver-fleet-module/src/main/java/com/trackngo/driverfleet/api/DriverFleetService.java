@@ -4,7 +4,7 @@ import com.trackngo.driverfleet.api.dto.DriverDto;
 
 import java.util.List;
 
-public interface DriverService {
+public interface DriverFleetService {
     DriverDto create(DriverDto dto);
     DriverDto get(Long id);
     List<DriverDto> getAll();

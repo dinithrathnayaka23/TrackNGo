@@ -37,6 +37,15 @@ function formatDuration(start: string, end: string): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+/** Get the actual bus route start and end cities from route stops */
+function getRouteStartEnd(routeStops: Array<{ name: string; priority: number }>) {
+  if (!routeStops || routeStops.length === 0) {
+    return { start: '', end: '' };
+  }
+  const sorted = [...routeStops].sort((a, b) => a.priority - b.priority);
+  return { start: sorted[0].name, end: sorted[sorted.length - 1].name };
+}
+
 export default function BusDetailsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -48,6 +57,7 @@ export default function BusDetailsScreen() {
     price?: string;
     adults?: string;
     children?: string;
+    routeName?: string;
   }>();
 
   const busId = Number(params.busId ?? '0');
@@ -102,6 +112,7 @@ export default function BusDetailsScreen() {
   const duration = formatDuration(details.startTime, details.endTime);
   const routeStops = details.routeStops.sort((a, b) => a.priority - b.priority);
   const driverRating = details.driver?.rating?.toFixed(1) ?? 'N/A';
+  const { start: routeStart, end: routeEnd } = getRouteStartEnd(details.routeStops);
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -132,7 +143,7 @@ export default function BusDetailsScreen() {
               <Text style={styles.busType}>{details.busBrand} • {details.busType}</Text>
               <Text style={styles.busId}>{details.busNumber}</Text>
               <Text style={styles.busRoute}>
-                {from}  {'→'}  {to}
+                {routeStart}  {'→'}  {routeEnd}
               </Text>
               {details.routeName ? (
                 <Text style={styles.routeLabel}>{details.routeName} Bus</Text>
@@ -147,7 +158,7 @@ export default function BusDetailsScreen() {
         <View style={styles.summaryRow}>
           <View>
             <Text style={styles.timeText}>{details.startTime}</Text>
-            <Text style={styles.timeSub}>{from}</Text>
+            <Text style={styles.timeSub}>{routeStart}</Text>
           </View>
           <View style={styles.timelineWrap}>
             <Text style={styles.durationText}>{duration}</Text>
@@ -159,7 +170,7 @@ export default function BusDetailsScreen() {
           </View>
           <View>
             <Text style={styles.timeText}>{details.endTime}</Text>
-            <Text style={styles.timeSub}>{to}</Text>
+            <Text style={styles.timeSub}>{routeEnd}</Text>
           </View>
         </View>
 
@@ -236,6 +247,8 @@ export default function BusDetailsScreen() {
                     depart: details.startTime,
                     price: String(details.fee),
                     busBrand: details.busBrand,
+                    busNumber: details.busNumber,
+                    routeName: details.routeName || params.routeName,
                     amenities: JSON.stringify(details.amenities),
                     viewOnly: 'true',
                   },
@@ -282,6 +295,8 @@ export default function BusDetailsScreen() {
                 adults,
                 children,
                 busBrand: details.busBrand,
+                busNumber: details.busNumber,
+                routeName: details.routeName || params.routeName,
                 amenities: JSON.stringify(details.amenities),
               },
             })

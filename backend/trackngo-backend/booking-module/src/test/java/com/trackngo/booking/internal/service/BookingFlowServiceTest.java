@@ -95,8 +95,16 @@ class BookingFlowServiceTest {
     @DisplayName("searchBuses: returns bus results when DB returns rows")
     void searchBuses_validParams_returnsBuses() throws Exception {
         Map<String, Object> busRow = buildBusRow(1L, "NC-1234", "highway");
+        Map<String, Object> stopRow1 = new HashMap<>();
+        stopRow1.put("name", "Colombo");
+        stopRow1.put("priority", 1);
+        Map<String, Object> stopRow2 = new HashMap<>();
+        stopRow2.put("name", "Kandy");
+        stopRow2.put("priority", 10);
+
         when(jdbc.queryForList(anyString(), any(Object[].class)))
-                .thenReturn(List.of(busRow));
+                .thenReturn(List.of(busRow))
+                .thenReturn(List.of(stopRow1, stopRow2));
 
         // countBookedSeats uses queryForObject
         when(jdbc.queryForObject(anyString(), eq(Integer.class), any(Object[].class)))
@@ -115,6 +123,7 @@ class BookingFlowServiceTest {
         assertThat(r.busType()).isEqualTo("highway");
         assertThat(r.seatCapacity()).isEqualTo(40);
         assertThat(r.availableSeats()).isEqualTo(38); // 40 - 2 booked
+        assertThat(r.routeStops()).hasSize(2);
     }
 
     @Test

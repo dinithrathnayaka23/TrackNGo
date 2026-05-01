@@ -24,6 +24,7 @@ export interface BusSearchResult {
   driverName: string;
   driverRating: number;
   routeName: string;
+  routeStops: Array<{ name: string; priority: number }>;
 }
 
 export interface RouteStopInfo {

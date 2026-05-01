@@ -33,6 +33,8 @@ export default function BookingSummaryScreen() {
     pricePerSeat?: string;
     totalPrice?: string;
     busBrand?: string;
+    busNumber?: string;
+    routeName?: string;
     amenities?: string;
   }>();
 
@@ -168,6 +170,10 @@ export default function BookingSummaryScreen() {
               <Text style={styles.routeCity}>{to}</Text>
             </View>
             <View style={styles.routeMetaRow}>
+              <Ionicons name="bus-outline" size={14} color="#1474F2" />
+              <Text style={styles.routeDateText}>{params.routeName || 'Express Route'}</Text>
+            </View>
+            <View style={styles.routeMetaRow}>
               <Ionicons name="calendar-outline" size={14} color="#1474F2" />
               <Text style={styles.routeDateText}>{date} | {depart}</Text>
             </View>
@@ -190,7 +196,7 @@ export default function BookingSummaryScreen() {
           <View style={styles.card}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Bus Number</Text>
-              <Text style={styles.detailValue}>{busId}</Text>
+              <Text style={styles.detailValue}>{params.busNumber || busId}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.detailRow}>
@@ -407,6 +413,7 @@ export default function BookingSummaryScreen() {
                   mobile,
                   email,
                   specialRequest,
+                  routeName: params.routeName ?? '',
                 },
               });
             }}>

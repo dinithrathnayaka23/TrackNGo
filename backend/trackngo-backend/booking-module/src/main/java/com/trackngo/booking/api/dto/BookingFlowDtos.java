@@ -32,8 +32,11 @@ public final class BookingFlowDtos {
             BigDecimal fee,
             String driverName,
             Double driverRating,
-            String routeName
-    ) {}
+            String routeName,
+            List<RouteStopInfo> routeStops
+    ) {
+        public record RouteStopInfo(String name, int priority) {}
+    }
 
     /* ── Bus detail ───────────────────────────────────────── */
     public record BusDetailResult(

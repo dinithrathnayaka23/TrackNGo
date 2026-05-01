@@ -30,6 +30,8 @@ export default function SeatSelectionScreen() {
     adults?: string;
     children?: string;
     busBrand?: string;
+    busNumber?: string;
+    routeName?: string;
     amenities?: string;
     viewOnly?: string;
   }>();
@@ -117,9 +119,9 @@ export default function SeatSelectionScreen() {
               <Ionicons name="bus" size={18} color="#2F6BFF" />
             </View>
             <View style={styles.summaryText}>
-              <Text style={styles.summaryTitle}>{from} - {to}</Text>
+              <Text style={styles.summaryTitle}>{params.routeName || `${from} - ${to}`}</Text>
               <Text style={styles.summarySub}>
-                Bus {busId} - {depart} - {date}
+                Bus {params.busNumber || busId} - {depart} - {date}
               </Text>
             </View>
             <View style={styles.summaryPill}>
@@ -296,6 +298,8 @@ export default function SeatSelectionScreen() {
                   pricePerSeat: String(pricePerSeat),
                   totalPrice: String(totalPrice),
                   busBrand: params.busBrand ?? '',
+                  busNumber: params.busNumber ?? '',
+                  routeName: params.routeName ?? '',
                   amenities: params.amenities ?? '[]',
                 },
               });

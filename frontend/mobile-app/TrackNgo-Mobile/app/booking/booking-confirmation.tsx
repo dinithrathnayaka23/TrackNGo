@@ -28,6 +28,7 @@ export default function BookingConfirmationScreen() {
     totalPrice?: string;
     transactionId?: string;
     status?: string;
+    routeName?: string;
   }>();
 
   const from = params.from ?? 'Colombo Fort';
@@ -48,6 +49,7 @@ export default function BookingConfirmationScreen() {
     seats,
     totalPrice,
     busNumber: params.busNumber ?? '',
+    routeName: params.routeName ?? '',
     transactionId: params.transactionId ?? '',
   });
 
@@ -103,6 +105,7 @@ export default function BookingConfirmationScreen() {
 
             <div class="route">
               <span class="route-text">${from} <span class="route-arrow">→</span> ${to}</span>
+              <div class="subtitle" style="font-size: 14px; font-weight: 700; color: #2563EB; margin-top: 4px;">${params.routeName || ''}</div>
             </div>
 
             <hr class="divider" />
@@ -238,6 +241,7 @@ export default function BookingConfirmationScreen() {
             {/* Inline ticket summary */}
             <View style={styles.ticketInfo}>
               <Text style={styles.ticketRoute}>{from}  →  {to}</Text>
+              {params.routeName ? <Text style={[styles.ticketMeta, { color: '#1474F2', fontWeight: '700', fontSize: 12 }]}>{params.routeName}</Text> : null}
               <Text style={styles.ticketMeta}>{date}  •  {depart}   |   Seats: {seats.replace(/,/g, ', ')}</Text>
               <Text style={styles.ticketMeta}>Booking #{bookingId}   •   LKR {totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
             </View>

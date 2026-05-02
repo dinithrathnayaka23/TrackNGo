@@ -1,4 +1,5 @@
-﻿import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+//Fetching Icons from Fontawesome Icon Library
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   faBus,
@@ -16,6 +17,7 @@ import {
   faListOl,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
+//Fetching Data from routeService(API Services)
 import {
   fetchRoutes,
   createRoute,
@@ -27,49 +29,64 @@ import {
 
 
 
+// --- Google Maps Configuration & Loader ---
+// This section handles the asynchronous loading of the Google Maps JavaScript API.
+// It ensures the script is only loaded once and provides a Promise for components to wait on.
+
+//Getting Google Maps API Key from .env file
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
 
+//Checking if Google Maps Script is already loaded
 let mapsScriptLoaded = false
+//Loading Google Maps Script
 function loadMapsScript(): Promise<void> {
+  // Return immediately if already loaded or if the global google object exists.
   if (mapsScriptLoaded || window.google?.maps) {
     mapsScriptLoaded = true
     return Promise.resolve()
   }
+  //Creating a new Promise for loading Google Maps Script
   return new Promise((resolve, reject) => {
     const script = document.createElement('script')
     script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker`
     script.async = true
-    script.onload = () => { mapsScriptLoaded = true; resolve() }
-    script.onerror = () => reject(new Error('Failed to load Google Maps'))
-    document.head.appendChild(script)
+    script.onload = () => { mapsScriptLoaded = true; resolve() }//If successful-->Resolving the Promise
+    script.onerror = () => reject(new Error('Failed to load Google Maps'))//If failed-->Rejecting the Promise
+    document.head.appendChild(script)//Adding the script to the document head
   })
 }
 
+/**
+ * RouteMapEmbed Component
+ * Renders an interactive Google Map centered on a specific location (stop/city).
+ * It uses geocoding to convert the location string into coordinates.
+ */
 function RouteMapEmbed({ location }: { location: string }) {
   const mapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
-
+    //Initializing the map
     async function init() {
       await loadMapsScript()
       if (cancelled || !mapRef.current) return
-
+      //Creating a geocoder object to convert location string into coordinates
       const geocoder = new google.maps.Geocoder()
+      //Geocoding the location string
       geocoder.geocode({ address: `${location}, Sri Lanka` }, (results, status) => {
         if (cancelled || !mapRef.current) return
         const center =
           status === 'OK' && results && results[0]
             ? results[0].geometry.location
             : new google.maps.LatLng(6.9271, 79.8612) // fallback: Colombo
-
+        //Creating a map centered on the location
         const map = new google.maps.Map(mapRef.current, {
           center,
           zoom: 14,
           mapTypeControl: false,
           streetViewControl: false,
         })
-
+        //Creating a marker at the center of the map
         new google.maps.Marker({
           position: center,
           map,
@@ -81,14 +98,19 @@ function RouteMapEmbed({ location }: { location: string }) {
         })
       })
     }
-
+    //Initializing the map
     init()
     return () => { cancelled = true }
   }, [location])
-
+  //Returning the map container
   return <div ref={mapRef} className="h-[50vh] max-h-[360px] w-full rounded-lg border border-[#d8dfeb]" />
 }
 
+/**
+ * buildStaticMapUrl Utility
+ * Generates a URL for a Google Static Map image.
+ * This is used for quick previews in the table without loading the full interactive API.
+ */
 function buildStaticMapUrl(startLocation: string) {
   const loc = encodeURIComponent(`${startLocation}, Sri Lanka`)
   const busIcon = encodeURIComponent('https://maps.google.com/mapfiles/kml/shapes/bus.png')
@@ -100,22 +122,29 @@ function buildStaticMapUrl(startLocation: string) {
   )
 }
 
+/**
+ * formatStopPriorityLabel Utility
+ * Converts a numeric index into an ordinal string (1st, 2nd, 3rd, 4th, etc.).
+ * Used for labeling bus stops in order.
+ */
+//Converting a numeric index into an ordinal string (1st, 2nd, 3rd, 4th, etc.)
 const formatStopPriorityLabel = (index: number) => {
-  const position = index + 1
-  const mod10 = position % 10
-  const mod100 = position % 100
-  if (mod10 === 1 && mod100 !== 11) return `${position}st stop`
-  if (mod10 === 2 && mod100 !== 12) return `${position}nd stop`
-  if (mod10 === 3 && mod100 !== 13) return `${position}rd stop`
-  return `${position}th stop`
+  const position = index + 1//Adding 1 to the index to get the position
+  const mod10 = position % 10//Getting the last digit of the position
+  const mod100 = position % 100//Getting the last two digits of the position
+  if (mod10 === 1 && mod100 !== 11) return `${position}st stop`//Checking if the last digit is 1 and the last two digits are not 11(11th stop)
+  if (mod10 === 2 && mod100 !== 12) return `${position}nd stop`//Checking if the last digit is 2 and the last two digits are not 12(12th stop)
+  if (mod10 === 3 && mod100 !== 13) return `${position}rd stop`//Checking if the last digit is 3 and the last two digits are not 13(13th stop)
+  return `${position}th stop`//Returning the position with "th" appended
 }
 
+//SummaryCard Component: A card that displays a summary of a route
 function SummaryCard({
-  icon,
-  iconWrap,
-  title,
-  value,
-  delay,
+  icon,//Fontawesome Icon
+  iconWrap,//Icon wrapper class
+  title,//Title of the card
+  value,//Value of the card
+  delay,//Delay for the animation
 }: {
   icon: typeof faRoute
   iconWrap: string
@@ -123,6 +152,7 @@ function SummaryCard({
   value: string
   delay: string
 }) {
+  //Returning the summary card HTML content
   return (
     <article
       className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
@@ -141,32 +171,51 @@ function SummaryCard({
   )
 }
 
+/**
+ * Main Routes Component
+ * This is the primary dashboard for managing bus routes.
+ * It handles fetching, filtering, creating, editing, and deleting routes.
+ */
 function Routes() {
-  // Filter and create-route state for the route management table.
+  // --- Component State ---
+
+  // Filter and Search State
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [busTypeFilter, setBusTypeFilter] = useState<'all' | 'high-way' | 'long-distance'>('all')
+
+  // Data State
   const [routesData, setRoutesData] = useState<RouteRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [apiError, setApiError] = useState('')
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [editingRouteId, setEditingRouteId] = useState<number | null>(null)
-  const [routePendingDelete, setRoutePendingDelete] = useState<RouteRow | null>(null)
-  const [routeStopsPreview, setRouteStopsPreview] = useState<RouteRow | null>(null)
-  const [mapPreviewRoute, setMapPreviewRoute] = useState<RouteRow | null>(null)
-  const [createRouteError, setCreateRouteError] = useState('')
+  const [loading, setLoading] = useState(true)//Loading state
+  const [apiError, setApiError] = useState('')//Error message
+
+  // UI Control State (Modals & Previews)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)//Create modal state
+  const [editingRouteId, setEditingRouteId] = useState<number | null>(null)//Editing route state
+  const [routePendingDelete, setRoutePendingDelete] = useState<RouteRow | null>(null)//Delete route state
+  const [routeStopsPreview, setRouteStopsPreview] = useState<RouteRow | null>(null)//Stops preview state
+  const [mapPreviewRoute, setMapPreviewRoute] = useState<RouteRow | null>(null)//Map preview state
+  const [createRouteError, setCreateRouteError] = useState('')//Create route error state
+
+  // Form State for Create/Edit
   const [newRoute, setNewRoute] = useState({
-    name: '',
-    code: '',
-    type: 'High Way',
-    distance: '',
-    duration: '',
-    stops: ['', ''],
-    activeBuses: '',
-    baseFare: '',
-    status: 'Active' as RouteRow['status'],
+    name: '',//Route name
+    code: '',//Route code
+    type: 'High Way',//Route type
+    distance: '',//Route distance
+    duration: '',//Route duration
+    stops: ['', ''],//Route stops
+    activeBuses: '',//Active buses count
+    baseFare: '',//Base fare
+    status: 'Active' as RouteRow['status'],//Route status
   })
 
+  // --- Data Loading ---
+
+  /**
+   * loadRoutes
+   * Fetches the latest route data from the backend service.
+   */
   const loadRoutes = useCallback(async () => {
     try {
       setLoading(true)
@@ -180,111 +229,127 @@ function Routes() {
     }
   }, [])
 
+  // Initial load
   useEffect(() => {
     loadRoutes()
   }, [loadRoutes])
 
+  // --- Form & Modal Handlers ---
+
+  //Resetting the route form
   const resetRouteForm = () => {
     setNewRoute({
-      name: '',
-      code: '',
-      type: 'High Way',
-      distance: '',
-      duration: '',
-      stops: ['', ''],
-      activeBuses: '',
-      baseFare: '',
-      status: 'Active',
+      name: '',//Resetting route name
+      code: '',//Resetting route code
+      type: 'High Way',//Resetting route type
+      distance: '',//Resetting route distance
+      duration: '',//Resetting route duration
+      stops: ['', ''],//Resetting route stops
+      activeBuses: '',//Resetting active buses count
+      baseFare: '',//Resetting base fare
+      status: 'Active',//Resetting route status
     })
   }
 
+  //Opening the create route modal
   const openCreateRouteModal = () => {
-    setEditingRouteId(null)
-    setCreateRouteError('')
-    resetRouteForm()
-    setIsCreateModalOpen(true)
+    setEditingRouteId(null)//Setting editing route state to null
+    setCreateRouteError('')//Setting create route error state to empty string
+    resetRouteForm()//Resetting the route form
+    setIsCreateModalOpen(true)//Opening the create route modal
   }
 
-  // Derived list keeps table rendering declarative and avoids inline filter logic in JSX.
+  // --- Derived Data (Memoized Filters) ---
+  //Computes the list of routes to display based on current search and filter settings
   const filteredRoutes = useMemo(
     () =>
       routesData.filter((route) => {
-        const normalizedType = (route.type ?? '').toLowerCase().replace(/\s+/g, '-')
-        const normalizedSearch = searchTerm.trim().toLowerCase()
+        const normalizedType = (route.type ?? '').toLowerCase().replace(/\s+/g, '-')//Normalizing route type
+        const normalizedSearch = searchTerm.trim().toLowerCase()//Normalizing search term
 
+        //Match against Name or Code
         const matchesSearch =
           normalizedSearch.length === 0 ||
           route.name.toLowerCase().includes(normalizedSearch) ||
-          (route.code ?? '').toLowerCase().includes(normalizedSearch)
+          (route.code ?? '').toLowerCase().includes(normalizedSearch)//Checking if the search term matches the route name or code
 
-        const matchesStatus = statusFilter === 'all' || route.status.toLowerCase() === statusFilter
-        const matchesBusType = busTypeFilter === 'all' || normalizedType === busTypeFilter
+        const matchesStatus = statusFilter === 'all' || route.status.toLowerCase() === statusFilter//Checking if the status filter matches the route status
+        const matchesBusType = busTypeFilter === 'all' || normalizedType === busTypeFilter//Checking if the bus type filter matches the route type
 
-        return matchesSearch && matchesStatus && matchesBusType
+        return matchesSearch && matchesStatus && matchesBusType//Returning the filtered routes
       }),
     [routesData, searchTerm, statusFilter, busTypeFilter],
   )
 
-  const totalRoutes = routesData.length
-  const activeRoutes = routesData.filter((route) => route.status === 'Active').length
+  // --- Statistics ---
+  //Calculates statistics based on the routes data
+  const totalRoutes = routesData.length//Total routes count
+  const activeRoutes = routesData.filter((route) => route.status === 'Active').length//Active routes count
   const busesDeployed = routesData
     .filter((route) => route.status === 'Active')
-    .reduce((sum, route) => sum + route.activeBuses, 0)
+    .reduce((sum, route) => sum + route.activeBuses, 0)//Buses deployed count
 
+  // --- CRUD Operations ---
+
+  /**
+   * handleCreateRoute
+   * Validates form data and submits a new or updated route to the API.
+   */
   const handleCreateRoute = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+    event.preventDefault()//Preventing default form submission
 
+    //Trimming the form data
     const trimmedName = newRoute.name.trim()
     const trimmedCode = newRoute.code.trim()
     const trimmedDistance = newRoute.distance.trim()
     const trimmedDuration = newRoute.duration.trim()
-    const trimmedFare = newRoute.baseFare.trim().replace(/^rs\.?/i, '')
-
+    const trimmedFare = newRoute.baseFare.trim().replace(/^rs\.?/i, '')//Removing the currency symbol from the base fare
+    //Validating the form data
     if (!trimmedName || !trimmedCode) {
-      setCreateRouteError('Route name and route code are required.')
+      setCreateRouteError('Route name and route code are required.')//Setting create route error state to empty string
       return
     }
 
     if (!/^[A-Za-z0-9-]+$/.test(trimmedCode)) {
-      setCreateRouteError('Route code can only contain letters, numbers, and hyphens.')
+      setCreateRouteError('Route code can only contain letters, numbers, and hyphens.')//Setting create route error state to empty string
       return
     }
 
     if (trimmedDistance && !/^\d+(\.\d+)?\s*km$/i.test(trimmedDistance)) {
-      setCreateRouteError('Distance must be in a format like 120 km.')
+      setCreateRouteError('Distance must be in a format like 120 km.')//Setting create route error state to empty string
       return
     }
 
     if (trimmedDuration && !/^\d+h(\s*\d+m)?$/i.test(trimmedDuration)) {
-      setCreateRouteError('Duration must be in a format like 2h 35m.')
+      setCreateRouteError('Duration must be in a format like 2h 35m.')//Setting create route error state to empty string
       return
     }
-
+    //Normalizing the stops
     const normalizedStops = newRoute.stops.map((stop) => stop.trim()).filter((stop) => stop.length > 0)
-
+    //Validating the stops
     if (normalizedStops.length < 2) {
-      setCreateRouteError('Please add at least two stop names in order.')
+      setCreateRouteError('Please add at least two stop names in order.')//Setting create route error state to empty string
       return
     }
-
+    //Validating the active buses count
     if (newRoute.activeBuses && Number(newRoute.activeBuses) < 0) {
-      setCreateRouteError('Active buses cannot be negative.')
+      setCreateRouteError('Active buses cannot be negative.')//Setting create route error state to empty string
       return
     }
-
+    //Validating the base fare
     if (trimmedFare && (!/^\d+(\.\d+)?$/.test(trimmedFare) || Number(trimmedFare) <= 0)) {
-      setCreateRouteError('Base fare must be a positive number.')
+      setCreateRouteError('Base fare must be a positive number.')//Setting create route error state to empty string
       return
     }
 
-    setCreateRouteError('')
-
+    setCreateRouteError('')//Setting create route error state to empty string
+    //Normalizing the base fare
     const normalizedFareValue = newRoute.baseFare.trim()
     const normalizedFare =
       normalizedFareValue.length > 0 && !normalizedFareValue.toLowerCase().startsWith('rs.')
         ? `Rs.${normalizedFareValue}`
         : normalizedFareValue || 'Rs.0'
-
+    //Creating the route payload in RouteRow format 
     const routePayload: RouteRow = {
       name: newRoute.name.trim(),
       code: newRoute.code.trim(),
@@ -296,7 +361,7 @@ function Routes() {
       baseFare: normalizedFare,
       status: newRoute.status,
     }
-
+    //Creating route or updating route 
     try {
       if (editingRouteId) {
         await updateRoute(editingRouteId, routePayload)
@@ -313,6 +378,10 @@ function Routes() {
     }
   }
 
+  /**
+   * handleEditRoute
+   * Populates the form state with an existing route's data for editing.
+   */
   const handleEditRoute = (route: RouteRow) => {
     setEditingRouteId(route.id ?? null)
     setCreateRouteError('')
@@ -330,6 +399,11 @@ function Routes() {
     setIsCreateModalOpen(true)
   }
 
+  /**
+   * handleToggleSuspendRoute
+   * Switches the route status between Active and Inactive.
+   */
+  //Toggles the status of a route between Active and Inactive
   const handleToggleSuspendRoute = async (routeId: number | undefined) => {
     if (!routeId) return
     try {
@@ -340,6 +414,8 @@ function Routes() {
     }
   }
 
+  // --- Deletion Flow ---
+  //Deletes a route from the database
   const handleDeleteRoute = (route: RouteRow) => {
     setRoutePendingDelete(route)
   }
@@ -363,258 +439,263 @@ function Routes() {
   return (
     <>
       <div className="mx-auto max-w-7xl space-y-3">
-            <div className="flex items-center justify-between">
-              <h1 className="animate-dash-in text-base font-extrabold tracking-tight text-[#1f2737]" style={{ animationDelay: '80ms' }}>
-                Route Management
-              </h1>
-              <button
-                type="button"
-                onClick={openCreateRouteModal}
-                className="animate-dash-in flex items-center gap-1.5 rounded-lg bg-[#2642a6] px-3 py-2 text-sm font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
-                style={{ animationDelay: '110ms' }}
+        {/* --- Header Section --- */}
+        <div className="flex items-center justify-between">
+          <h1 className="animate-dash-in text-base font-extrabold tracking-tight text-[#1f2737]" style={{ animationDelay: '80ms' }}>
+            Route Management
+          </h1>
+          <button
+            type="button"
+            onClick={openCreateRouteModal}
+            className="animate-dash-in flex items-center gap-1.5 rounded-lg bg-[#2642a6] px-3 py-2 text-sm font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
+            style={{ animationDelay: '110ms' }}
+          >
+            <FontAwesomeIcon icon={faPlus} />
+            Create New Route
+          </button>
+        </div>
+
+        {apiError ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {apiError}
+            <button type="button" onClick={() => setApiError('')} className="ml-2 underline">Dismiss</button>
+          </div>
+        ) : null}
+
+        {/* --- Stats Summary Cards --- */}
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <SummaryCard
+            icon={faRoute}
+            iconWrap="bg-[#eef0f7] text-[#2642a6]"
+            title="Total Routes"
+            value={String(totalRoutes)}
+            delay="130ms"
+          />
+          <SummaryCard
+            icon={faCheckCircle}
+            iconWrap="bg-[#e5f7ef] text-[#1aac6e]"
+            title="Active Routes"
+            value={String(activeRoutes)}
+            delay="170ms"
+          />
+          <SummaryCard
+            icon={faBus}
+            iconWrap="bg-[#e8efff] text-[#2e63d8]"
+            title="Buses Deployed"
+            value={String(busesDeployed)}
+            delay="210ms"
+          />
+        </section>
+
+        {/* --- Filters & Search --- */}
+        <section
+          className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
+          style={{ animationDelay: '240ms' }}
+        >
+          <div className="flex flex-wrap gap-3">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by name, code..."
+              className="h-12 min-w-[320px] rounded-xl border border-[#d4d9e4] bg-[#f8f9fd] px-4 text-sm text-[#2f394d] outline-none"
+            />
+
+            <div className="relative min-w-[190px]">
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'inactive')}
+                className="h-12 w-full appearance-none rounded-xl border border-[#d4d9e4] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#2f394d] outline-none"
               >
-                <FontAwesomeIcon icon={faPlus} />
-                Create New Route
-              </button>
+                <option value="all">Status: All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <FontAwesomeIcon
+                icon={faChevronDown}
+                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#69758d]"
+              />
             </div>
 
-            {apiError ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                {apiError}
-                <button type="button" onClick={() => setApiError('')} className="ml-2 underline">Dismiss</button>
-              </div>
-            ) : null}
-
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <SummaryCard
-                icon={faRoute}
-                iconWrap="bg-[#eef0f7] text-[#2642a6]"
-                title="Total Routes"
-                value={String(totalRoutes)}
-                delay="130ms"
+            <div className="relative min-w-[190px]">
+              <select
+                value={busTypeFilter}
+                onChange={(event) => setBusTypeFilter(event.target.value as 'all' | 'high-way' | 'long-distance')}
+                className="h-12 w-full appearance-none rounded-xl border border-[#d4d9e4] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#2f394d] outline-none"
+              >
+                <option value="all">Bus Type: All</option>
+                <option value="high-way">High Way</option>
+                <option value="long-distance">Long Distance</option>
+              </select>
+              <FontAwesomeIcon
+                icon={faChevronDown}
+                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#69758d]"
               />
-              <SummaryCard
-                icon={faCheckCircle}
-                iconWrap="bg-[#e5f7ef] text-[#1aac6e]"
-                title="Active Routes"
-                value={String(activeRoutes)}
-                delay="170ms"
-              />
-              <SummaryCard
-                icon={faBus}
-                iconWrap="bg-[#e8efff] text-[#2e63d8]"
-                title="Buses Deployed"
-                value={String(busesDeployed)}
-                delay="210ms"
-              />
-            </section>
+            </div>
+          </div>
+        </section>
 
-            <section
-              className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
-              style={{ animationDelay: '240ms' }}
-            >
-              <div className="flex flex-wrap gap-3">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Search by name, code..."
-                  className="h-12 min-w-[320px] rounded-xl border border-[#d4d9e4] bg-[#f8f9fd] px-4 text-sm text-[#2f394d] outline-none"
-                />
-
-                <div className="relative min-w-[190px]">
-                  <select
-                    value={statusFilter}
-                    onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'inactive')}
-                    className="h-12 w-full appearance-none rounded-xl border border-[#d4d9e4] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#2f394d] outline-none"
-                  >
-                    <option value="all">Status: All</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                  <FontAwesomeIcon
-                    icon={faChevronDown}
-                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#69758d]"
-                  />
-                </div>
-
-                <div className="relative min-w-[190px]">
-                  <select
-                    value={busTypeFilter}
-                    onChange={(event) => setBusTypeFilter(event.target.value as 'all' | 'high-way' | 'long-distance')}
-                    className="h-12 w-full appearance-none rounded-xl border border-[#d4d9e4] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#2f394d] outline-none"
-                  >
-                    <option value="all">Bus Type: All</option>
-                    <option value="high-way">High Way</option>
-                    <option value="long-distance">Long Distance</option>
-                  </select>
-                  <FontAwesomeIcon
-                    icon={faChevronDown}
-                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#69758d]"
-                  />
-                </div>
-              </div>
-            </section>
-
-            <section
-              className="dashboard-card animate-dash-in overflow-hidden rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm"
-              style={{ animationDelay: '280ms' }}
-            >
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1180px]">
-                  <thead className="border-b border-[#e2e6ef] bg-[#f4f6fb] text-left">
-                    <tr className="text-xs uppercase tracking-wide text-[#6f7890]">
-                      <th className="px-4 py-3">Route Name & Code</th>
-                      <th className="px-4 py-3">Map Preview</th>
-                      <th className="px-4 py-3">Details</th>
-                      <th className="px-4 py-3">Stops (Ordered)</th>
-                      <th className="px-4 py-3">Active Buses</th>
-                      <th className="px-4 py-3">Base Fare</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr>
-                        <td colSpan={8} className="px-5 py-8 text-center text-sm font-semibold text-[#6f7890]">
-                          Loading routes...
-                        </td>
-                      </tr>
-                    ) : filteredRoutes.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="px-5 py-8 text-center text-sm font-semibold text-[#6f7890]">
-                          No routes match the selected filters.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredRoutes.map((route) => (
-                        <tr
-                          key={route.id ?? route.code}
-                          className="border-b border-[#e7eaf1] text-[#1f2737] transition duration-200 hover:bg-[#f2f5fd]"
+        {/* --- Routes Data Table --- */}
+        <section
+          className="dashboard-card animate-dash-in overflow-hidden rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm"
+          style={{ animationDelay: '280ms' }}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1180px]">
+              <thead className="border-b border-[#e2e6ef] bg-[#f4f6fb] text-left">
+                <tr className="text-xs uppercase tracking-wide text-[#6f7890]">
+                  <th className="px-4 py-3">Route Name & Code</th>
+                  <th className="px-4 py-3">Map Preview</th>
+                  <th className="px-4 py-3">Details</th>
+                  <th className="px-4 py-3">Stops (Ordered)</th>
+                  <th className="px-4 py-3">Active Buses</th>
+                  <th className="px-4 py-3">Base Fare</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-8 text-center text-sm font-semibold text-[#6f7890]">
+                      Loading routes...
+                    </td>
+                  </tr>
+                ) : filteredRoutes.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-8 text-center text-sm font-semibold text-[#6f7890]">
+                      No routes match the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRoutes.map((route) => (
+                    <tr
+                      key={route.id ?? route.code}
+                      className="border-b border-[#e7eaf1] text-[#1f2737] transition duration-200 hover:bg-[#f2f5fd]"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-extrabold">{route.name}</p>
+                        <p className="mt-1 text-xs text-[#748097]">
+                          <span className="rounded bg-[#eef2f8] px-2 py-0.5 font-semibold text-[#69758d]">{route.code}</span>
+                          <span className="mx-1">*</span>
+                          {route.type}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setMapPreviewRoute(route)}
+                          className="cursor-pointer rounded-md transition duration-200 hover:ring-2 hover:ring-[#2642a6]/40"
                         >
-                          <td className="px-4 py-3">
-                            <p className="text-sm font-extrabold">{route.name}</p>
-                            <p className="mt-1 text-xs text-[#748097]">
-                              <span className="rounded bg-[#eef2f8] px-2 py-0.5 font-semibold text-[#69758d]">{route.code}</span>
-                              <span className="mx-1">*</span>
-                              {route.type}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              onClick={() => setMapPreviewRoute(route)}
-                              className="cursor-pointer rounded-md transition duration-200 hover:ring-2 hover:ring-[#2642a6]/40"
-                            >
-                              <img
-                                src={buildStaticMapUrl(route.stops[0] ?? route.name)}
-                                alt={`Map preview for ${route.name}`}
-                                className="h-16 w-28 rounded-md border border-[#d8dfeb] object-cover"
-                              />
-                            </button>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-[#657089]">
-                            <p>
-                              <FontAwesomeIcon icon={faRulerHorizontal} className="mr-1" />
-                              {route.distance}
-                            </p>
-                            <p className="mt-1">
-                              <FontAwesomeIcon icon={faClock} className="mr-1" />
-                              {route.duration}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              onClick={() => setRouteStopsPreview(route)}
-                              className="inline-flex items-center gap-2 rounded-lg border border-[#d6dce8] bg-[#f2f5fb] px-3 py-2 text-xs font-semibold text-[#31405d] transition duration-200 hover:bg-[#eaf0fb]"
-                            >
-                              <FontAwesomeIcon icon={faListOl} />
-                              Click to view stops
-                            </button>
-                          </td>
-                          <td className="px-4 py-3 text-sm font-bold text-[#139f66]">
-                            <FontAwesomeIcon icon={faBus} className="mr-1 text-sm" />
-                            {route.activeBuses}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-extrabold text-[#1f2737]">{route.baseFare}</td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={[
-                                'inline-flex rounded-full px-3 py-1 text-xs font-bold',
-                                route.status === 'Active'
-                                  ? 'bg-[#dff6eb] text-[#11a765]'
-                                  : 'bg-[#eef0f4] text-[#6f798f]',
-                              ].join(' ')}
-                            >
-                              {route.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex justify-end gap-4 text-[#6f7890]">
-                              <button
-                                type="button"
-                                aria-label={`Edit route ${route.name}`}
-                                onClick={() => handleEditRoute(route)}
-                                className="transition duration-200 hover:text-[#1f2737]"
-                              >
-                                <FontAwesomeIcon icon={faPen} />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`${route.status === 'Active' ? 'Suspend' : 'Activate'} route ${route.name}`}
-                                onClick={() => handleToggleSuspendRoute(route.id)}
-                                className="transition duration-200 hover:text-[#1f2737]"
-                              >
-                                <FontAwesomeIcon icon={faBan} />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`Delete route ${route.name}`}
-                                onClick={() => handleDeleteRoute(route)}
-                                className="transition duration-200 hover:text-[#d74949]"
-                              >
-                                <FontAwesomeIcon icon={faTrash} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex items-center justify-between border-t border-[#e2e6ef] px-4 py-3 text-sm text-[#667288]">
-                <p>
-                  Showing{' '}
-                  <span className="rounded-lg border border-[#d7dde9] bg-[#f7f9fd] px-2 py-1 font-semibold text-[#2f394d]">{filteredRoutes.length}</span>{' '}
-                  of <span className="font-semibold text-[#2f394d]">{routesData.length} routes</span>
-                </p>
-
-                <div className="flex items-center gap-4">
-                  <button type="button" aria-label="Previous page" className="text-[#6d778e] hover:text-[#23385f]">
-                    <FontAwesomeIcon icon={faChevronLeft} />
-                  </button>
-                  <button
-                    type="button"
-                    className="grid h-8 w-8 place-items-center rounded-md bg-[#2642a6] text-sm font-semibold text-white"
-                  >
-                    1
-                  </button>
-                  <button type="button" className="text-sm font-semibold text-[#627089] hover:text-[#2a3550]">2</button>
-                  <button type="button" className="text-sm font-semibold text-[#627089] hover:text-[#2a3550]">3</button>
-                  <span>...</span>
-                  <button type="button" className="text-sm font-semibold text-[#627089] hover:text-[#2a3550]">15</button>
-                  <button type="button" aria-label="Next page" className="text-[#6d778e] hover:text-[#23385f]">
-                    <FontAwesomeIcon icon={faChevronRight} />
-                  </button>
-                </div>
-              </div>
-            </section>
+                          <img
+                            src={buildStaticMapUrl(route.stops[0] ?? route.name)}
+                            alt={`Map preview for ${route.name}`}
+                            className="h-16 w-28 rounded-md border border-[#d8dfeb] object-cover"
+                          />
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-[#657089]">
+                        <p>
+                          <FontAwesomeIcon icon={faRulerHorizontal} className="mr-1" />
+                          {route.distance}
+                        </p>
+                        <p className="mt-1">
+                          <FontAwesomeIcon icon={faClock} className="mr-1" />
+                          {route.duration}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setRouteStopsPreview(route)}
+                          className="inline-flex items-center gap-2 rounded-lg border border-[#d6dce8] bg-[#f2f5fb] px-3 py-2 text-xs font-semibold text-[#31405d] transition duration-200 hover:bg-[#eaf0fb]"
+                        >
+                          <FontAwesomeIcon icon={faListOl} />
+                          Click to view stops
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-bold text-[#139f66]">
+                        <FontAwesomeIcon icon={faBus} className="mr-1 text-sm" />
+                        {route.activeBuses}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-extrabold text-[#1f2737]">{route.baseFare}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={[
+                            'inline-flex rounded-full px-3 py-1 text-xs font-bold',
+                            route.status === 'Active'
+                              ? 'bg-[#dff6eb] text-[#11a765]'
+                              : 'bg-[#eef0f4] text-[#6f798f]',
+                          ].join(' ')}
+                        >
+                          {route.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-4 text-[#6f7890]">
+                          <button
+                            type="button"
+                            aria-label={`Edit route ${route.name}`}
+                            onClick={() => handleEditRoute(route)}
+                            className="transition duration-200 hover:text-[#1f2737]"
+                          >
+                            <FontAwesomeIcon icon={faPen} />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`${route.status === 'Active' ? 'Suspend' : 'Activate'} route ${route.name}`}
+                            onClick={() => handleToggleSuspendRoute(route.id)}
+                            className="transition duration-200 hover:text-[#1f2737]"
+                          >
+                            <FontAwesomeIcon icon={faBan} />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Delete route ${route.name}`}
+                            onClick={() => handleDeleteRoute(route)}
+                            className="transition duration-200 hover:text-[#d74949]"
+                          >
+                            <FontAwesomeIcon icon={faTrash} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
 
+          <div className="flex items-center justify-between border-t border-[#e2e6ef] px-4 py-3 text-sm text-[#667288]">
+            <p>
+              Showing{' '}
+              <span className="rounded-lg border border-[#d7dde9] bg-[#f7f9fd] px-2 py-1 font-semibold text-[#2f394d]">{filteredRoutes.length}</span>{' '}
+              of <span className="font-semibold text-[#2f394d]">{routesData.length} routes</span>
+            </p>
+
+            <div className="flex items-center gap-4">
+              <button type="button" aria-label="Previous page" className="text-[#6d778e] hover:text-[#23385f]">
+                <FontAwesomeIcon icon={faChevronLeft} />
+              </button>
+              <button
+                type="button"
+                className="grid h-8 w-8 place-items-center rounded-md bg-[#2642a6] text-sm font-semibold text-white"
+              >
+                1
+              </button>
+              <button type="button" className="text-sm font-semibold text-[#627089] hover:text-[#2a3550]">2</button>
+              <button type="button" className="text-sm font-semibold text-[#627089] hover:text-[#2a3550]">3</button>
+              <span>...</span>
+              <button type="button" className="text-sm font-semibold text-[#627089] hover:text-[#2a3550]">15</button>
+              <button type="button" aria-label="Next page" className="text-[#6d778e] hover:text-[#23385f]">
+                <FontAwesomeIcon icon={faChevronRight} />
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* --- Create/Edit Route Modal --- */}
       {isCreateModalOpen ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-[#101426]/45 p-4">
           <div className="my-auto flex w-full max-w-3xl flex-col rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
@@ -845,6 +926,7 @@ function Routes() {
         </div>
       ) : null}
 
+      {/* --- Route Stops Preview Popup --- */}
       {routeStopsPreview ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-lg rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
@@ -892,6 +974,7 @@ function Routes() {
         </div>
       ) : null}
 
+      {/* --- Interactive Map Preview Popup --- */}
       {mapPreviewRoute ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-lg rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
@@ -929,6 +1012,7 @@ function Routes() {
         </div>
       ) : null}
 
+      {/* --- Delete Confirmation Dialog --- */}
       {routePendingDelete ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-md rounded-2xl border border-[#f0d6d6] bg-[#fff7f7] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">

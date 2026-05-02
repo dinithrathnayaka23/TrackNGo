@@ -1,3 +1,11 @@
+/**
+ * LiveMapScreen - A legacy map screen implementation for tracking bus locations in real-time.
+ * Features:
+ * - Real-time user location tracking
+ * - Simulated bus movement on a predefined route
+ * - Geocoding search functionality
+ * - Emergency SOS and Driver Chat integration
+ */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
@@ -9,6 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 
+// Mock coordinates for the bus route path
 const routeCoords = [
   { latitude: 6.929, longitude: 79.861 },
   { latitude: 6.971, longitude: 79.93 },
@@ -16,6 +25,7 @@ const routeCoords = [
   { latitude: 7.08, longitude: 80.08 },
 ];
 
+// Initial map region focused on the general Colombo area
 const defaultRegion = {
   latitude: 6.99,
   longitude: 79.95,
@@ -23,6 +33,10 @@ const defaultRegion = {
   longitudeDelta: 0.35,
 };
 
+/**
+ * Utility to pick a random point along the route segments
+ * Used to simulate a "live" bus position for demonstration
+ */
 const randomPointOnRoute = (
   points: { latitude: number; longitude: number }[],
 ) => {
@@ -37,6 +51,7 @@ const randomPointOnRoute = (
   };
 };
 
+// Custom map styling for a premium dark-blue aesthetic
 const blueMapStyle = [
   { elementType: "geometry", stylers: [{ color: "#1f3b73" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#8fb5ff" }] },
@@ -95,13 +110,18 @@ const blueMapStyle = [
 
 export default function LiveMapScreen() {
   const router = useRouter();
+  
+  // Extract bus and route details from navigation parameters
   const params = useLocalSearchParams<{
     busNumber?: string;
     startLocation?: string;
     endLocation?: string;
   }>();
+  
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
+
+  // State Management
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -113,11 +133,18 @@ export default function LiveMapScreen() {
     longitude: number;
   } | null>(null);
   const [searching, setSearching] = useState(false);
+
+  // Memoized bus location to prevent rerenders unless the component mounts
   const busLocation = useMemo(() => randomPointOnRoute(routeCoords), []);
+  
   const busNumber = params.busNumber ?? "ND-4589";
   const startLocation = params.startLocation ?? "Colombo Port";
   const endLocation = params.endLocation ?? "Kandy";
 
+  /**
+   * Effect: Request location permissions and start watching user position.
+   * Animates the map to follow the user as they move.
+   */
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
     const startLocation = async () => {
@@ -156,6 +183,9 @@ export default function LiveMapScreen() {
     };
   }, []);
 
+  /**
+   * Geocodes the search query and marks the destination on the map.
+   */
   const handleSearch = async () => {
     const trimmed = query.trim();
     if (!trimmed) return;
@@ -187,6 +217,7 @@ export default function LiveMapScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        {/* Main Map View */}
         <MapView
           ref={mapRef}
           style={styles.map}
@@ -197,11 +228,14 @@ export default function LiveMapScreen() {
           showsUserLocation={false}
           toolbarEnabled={false}
         >
+          {/* Bus Location Marker */}
           <Marker coordinate={busLocation}>
             <View style={styles.busMarker}>
               <Ionicons name="bus" size={16} color="#FFFFFF" />
             </View>
           </Marker>
+
+          {/* User Location Marker (Pulse effect styled in CSS) */}
           {userLocation && (
             <Marker coordinate={userLocation}>
               <View style={styles.userMarker}>
@@ -209,11 +243,14 @@ export default function LiveMapScreen() {
               </View>
             </Marker>
           )}
+
+          {/* Search Destination Marker */}
           {destination && (
             <Marker coordinate={destination} pinColor="#60A5FA" />
           )}
         </MapView>
 
+        {/* Top Search & Navigation Bar */}
         <View style={styles.topBar}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
@@ -240,6 +277,7 @@ export default function LiveMapScreen() {
           </Pressable>
         </View>
 
+        {/* Floating "Center on Me" Button */}
         <Pressable
           style={styles.locationButton}
           onPress={() => {
@@ -261,6 +299,7 @@ export default function LiveMapScreen() {
           />
         </Pressable>
 
+        {/* Bottom Sheet: Bus Details & Journey Metrics */}
         <View
           style={[
             styles.bottomSheet,

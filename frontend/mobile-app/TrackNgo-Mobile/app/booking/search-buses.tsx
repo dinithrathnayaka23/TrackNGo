@@ -112,7 +112,7 @@ export default function SearchBusesScreen() {
         }
         setAllStops(Array.from(stops).sort());
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   /**
@@ -124,14 +124,14 @@ export default function SearchBusesScreen() {
     const needle = text.toLowerCase().trim();
     return allStops.filter((s) => s.toLowerCase().includes(needle)).slice(0, 8);
   }, [allStops]);
-
+  // handle from and to change and show suggestions
   const handleFromChange = useCallback((text: string) => {
     setFrom(text);
     const matches = filterSuggestions(text);
     setFromSuggestions(matches);
     setShowFromSuggestions(matches.length > 0 && text.length > 0);
   }, [filterSuggestions]);
-
+  // handle to and show suggestions
   const handleToChange = useCallback((text: string) => {
     setTo(text);
     const matches = filterSuggestions(text);
@@ -272,7 +272,7 @@ export default function SearchBusesScreen() {
     const dd = String(selectedDate.getDate()).padStart(2, '0');
 
     const isAllDay = range.start === 0 && range.end === 1;
-    
+
     // Navigate with validated parameters
     router.push({
       pathname: '/booking/bus-selection',
@@ -292,7 +292,7 @@ export default function SearchBusesScreen() {
       },
     });
   };
-
+  // handle open and close time modal
   const openTimeModal = (which: 'start' | 'end') => {
     const value = which === 'start' ? range.start : range.end;
     const totalMinutes = Math.round(value * 24 * 60);
@@ -351,50 +351,50 @@ export default function SearchBusesScreen() {
             </View>
           </View>
 
-            {/* Start Location Input with Autocomplete */}
-            <View style={[styles.inputCard, { zIndex: 30 }]}>
-              <View style={styles.inputIcon}>
-                <MaterialCommunityIcons name="target" size={18} color="#94A3B8" />
-              </View>
-              <View style={styles.inputTextBlock}>
-                <Text style={styles.inputLabel}>From</Text>
-                <TextInput
-                  value={from}
-                  onChangeText={handleFromChange}
-                  onFocus={() => {
-                    if (from.length > 0) {
-                      const matches = filterSuggestions(from);
-                      setFromSuggestions(matches);
-                      setShowFromSuggestions(matches.length > 0);
-                    }
-                  }}
-                  onBlur={() => {
-                    // Small delay to allow the suggestion click to register before hiding
-                    setTimeout(() => setShowFromSuggestions(false), 300);
-                  }}
-                  placeholder="Search location..."
-                  placeholderTextColor="#94A3B8"
-                  style={styles.inputValue}
-                />
-                {/* Suggestions Dropdown */}
-                {showFromSuggestions && (
-                  <View style={styles.suggestionsContainer}>
-                    {fromSuggestions.map((item) => (
-                      <Pressable
-                        key={item}
-                        style={styles.suggestionItem}
-                        onPress={() => {
-                          setFrom(item);
-                          setShowFromSuggestions(false);
-                        }}>
-                        <Ionicons name="location-outline" size={14} color="#64748B" />
-                        <Text style={styles.suggestionText}>{item}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-              </View>
+          {/* Start Location Input with Autocomplete */}
+          <View style={[styles.inputCard, { zIndex: 30 }]}>
+            <View style={styles.inputIcon}>
+              <MaterialCommunityIcons name="target" size={18} color="#94A3B8" />
             </View>
+            <View style={styles.inputTextBlock}>
+              <Text style={styles.inputLabel}>From</Text>
+              <TextInput
+                value={from}
+                onChangeText={handleFromChange}
+                onFocus={() => {
+                  if (from.length > 0) {
+                    const matches = filterSuggestions(from);
+                    setFromSuggestions(matches);
+                    setShowFromSuggestions(matches.length > 0);
+                  }
+                }}
+                onBlur={() => {
+                  // Small delay to allow the suggestion click to register before hiding
+                  setTimeout(() => setShowFromSuggestions(false), 300);
+                }}
+                placeholder="Search location..."
+                placeholderTextColor="#94A3B8"
+                style={styles.inputValue}
+              />
+              {/* Suggestions Dropdown */}
+              {showFromSuggestions && (
+                <View style={styles.suggestionsContainer}>
+                  {fromSuggestions.map((item) => (
+                    <Pressable
+                      key={item}
+                      style={styles.suggestionItem}
+                      onPress={() => {
+                        setFrom(item);
+                        setShowFromSuggestions(false);
+                      }}>
+                      <Ionicons name="location-outline" size={14} color="#64748B" />
+                      <Text style={styles.suggestionText}>{item}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
 
           <View style={[styles.verticalConnector, { zIndex: 5 }]} />
 

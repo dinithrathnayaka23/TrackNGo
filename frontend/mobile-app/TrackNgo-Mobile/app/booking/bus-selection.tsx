@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { searchBuses, type BusSearchResult } from '../../services/bookingFlowApi';
 
+//Object Map or Lookup Table to store Amnetie related data to increase scalability
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode }> = {
   ac: { icon: <MaterialCommunityIcons name="snowflake" size={16} color="#94A3B8" /> },
   wifi: { icon: <Ionicons name="wifi" size={16} color="#94A3B8" /> },
@@ -25,6 +26,7 @@ const AMENITY_ICONS: Record<string, { icon: React.ReactNode }> = {
   cctv: { icon: <MaterialCommunityIcons name="cctv" size={16} color="#94A3B8" /> },
 };
 
+//calculate time difference between start and end time and then format into Hours and Minutes
 function formatDuration(start: string, end: string): string {
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
@@ -36,8 +38,8 @@ function formatDuration(start: string, end: string): string {
 }
 
 export default function BusSelectionScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();//Navigate between screens
+  const insets = useSafeAreaInsets();//Handle device safe spacing
   const params = useLocalSearchParams<{
     from?: string;
     to?: string;
@@ -53,7 +55,7 @@ export default function BusSelectionScreen() {
 
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const passengers = params.passengers ?? '1';
   const adults = params.adults ?? '1';
   const children = params.children ?? '0';
@@ -61,6 +63,7 @@ export default function BusSelectionScreen() {
   const timeStart = params.timeStart ?? '';
   const timeEnd = params.timeEnd ?? '';
   const busCategoryRaw = params.busCategory ?? '';
+  //Allow only highway+long distance(validation+sanitation)
   const busCategory =
     busCategoryRaw === 'highway' || busCategoryRaw === 'long_distance'
       ? busCategoryRaw
@@ -94,7 +97,7 @@ export default function BusSelectionScreen() {
 
     return true;
   });
-
+  //Function to load buses
   const loadBuses = useCallback(async () => {
     try {
       setLoading(true);
@@ -109,7 +112,7 @@ export default function BusSelectionScreen() {
   }, [from, to, date, busCategory]);
 
   useEffect(() => { void loadBuses(); }, [loadBuses]);
-
+  //function to format the current date
   const dateLabel = (() => {
     const d = new Date(date + 'T00:00:00');
     const now = new Date();
@@ -160,92 +163,92 @@ export default function BusSelectionScreen() {
           filteredBuses.map((bus) => {
             const duration = formatDuration(bus.startTime, bus.endTime);
             return (
-          <View key={bus.busId} style={styles.busCard}>
-            <View style={styles.busHeader}>
-              <View style={styles.busIdWrap}>
-                <View style={styles.busBadge}>
-                  <Ionicons name="bus" size={14} color="#64748B" />
+              <View key={bus.busId} style={styles.busCard}>
+                <View style={styles.busHeader}>
+                  <View style={styles.busIdWrap}>
+                    <View style={styles.busBadge}>
+                      <Ionicons name="bus" size={14} color="#64748B" />
+                    </View>
+                    <View>
+                      <Text style={styles.busId}>{bus.busNumber}</Text>
+                      <Text style={styles.busType}>{bus.busBrand}  •  {bus.busType}</Text>
+                      {bus.routeName ? (
+                        <Text style={styles.routeLabel}>{bus.routeName} Bus</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  <View style={styles.ratingPill}>
+                    <Ionicons name="star" size={12} color="#F59E0B" />
+                    <Text style={styles.ratingText}>{bus.driverRating.toFixed(1)}</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text style={styles.busId}>{bus.busNumber}</Text>
-                  <Text style={styles.busType}>{bus.busBrand}  •  {bus.busType}</Text>
-                  {bus.routeName ? (
-                    <Text style={styles.routeLabel}>{bus.routeName} Bus</Text>
-                  ) : null}
-                </View>
-              </View>
-              <View style={styles.ratingPill}>
-                <Ionicons name="star" size={12} color="#F59E0B" />
-                <Text style={styles.ratingText}>{bus.driverRating.toFixed(1)}</Text>
-              </View>
-            </View>
 
-            <View style={styles.timeRow}>
-              <View>
-                <Text style={styles.timeText}>{bus.startTime}</Text>
-                <Text style={styles.timeSub}>{from}</Text>
-              </View>
-              <View style={styles.timelineWrap}>
-                <Text style={styles.durationText}>{duration}</Text>
-                <View style={styles.timeline}>
-                  <View style={styles.timelineDot} />
-                  <View style={styles.timelineLine} />
-                  <View style={styles.timelineDot} />
+                <View style={styles.timeRow}>
+                  <View>
+                    <Text style={styles.timeText}>{bus.startTime}</Text>
+                    <Text style={styles.timeSub}>{from}</Text>
+                  </View>
+                  <View style={styles.timelineWrap}>
+                    <Text style={styles.durationText}>{duration}</Text>
+                    <View style={styles.timeline}>
+                      <View style={styles.timelineDot} />
+                      <View style={styles.timelineLine} />
+                      <View style={styles.timelineDot} />
+                    </View>
+                  </View>
+                  <View>
+                    <Text style={styles.timeText}>{bus.endTime}</Text>
+                    <Text style={styles.timeSub}>{to}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.featuresRow}>
+                  {bus.amenities.map((a) => {
+                    const entry = AMENITY_ICONS[a.toLowerCase()];
+                    return entry ? <View key={a}>{entry.icon}</View> : null;
+                  })}
+                </View>
+
+                <View style={styles.bottomRow}>
+                  <View>
+                    <Text style={styles.priceLabel}>Per person</Text>
+                    <Text style={styles.priceText}>LKR {bus.fee.toLocaleString('en-US')}</Text>
+                  </View>
+                  <View style={styles.bottomRight}>
+                    <View
+                      style={[
+                        styles.seatsPill,
+                        bus.availableSeats <= 6 ? styles.seatsPillAlert : styles.seatsPillOk,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.seatsText,
+                          bus.availableSeats <= 6 ? styles.seatsTextAlert : styles.seatsTextOk,
+                        ]}>
+                        {bus.availableSeats} seats left
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={styles.selectButton}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/booking/bus-details',
+                          params: {
+                            busId: String(bus.busId),
+                            from,
+                            to,
+                            date,
+                            price: String(bus.fee),
+                            adults,
+                            children,
+                          },
+                        })
+                      }>
+                      <Text style={styles.selectButtonText}>Select</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
-              <View>
-                <Text style={styles.timeText}>{bus.endTime}</Text>
-                <Text style={styles.timeSub}>{to}</Text>
-              </View>
-            </View>
-
-            <View style={styles.featuresRow}>
-              {bus.amenities.map((a) => {
-                const entry = AMENITY_ICONS[a.toLowerCase()];
-                return entry ? <View key={a}>{entry.icon}</View> : null;
-              })}
-            </View>
-
-            <View style={styles.bottomRow}>
-              <View>
-                <Text style={styles.priceLabel}>Per person</Text>
-                <Text style={styles.priceText}>LKR {bus.fee.toLocaleString('en-US')}</Text>
-              </View>
-              <View style={styles.bottomRight}>
-                <View
-                  style={[
-                    styles.seatsPill,
-                    bus.availableSeats <= 6 ? styles.seatsPillAlert : styles.seatsPillOk,
-                  ]}>
-                  <Text
-                    style={[
-                      styles.seatsText,
-                      bus.availableSeats <= 6 ? styles.seatsTextAlert : styles.seatsTextOk,
-                    ]}>
-                    {bus.availableSeats} seats left
-                  </Text>
-                </View>
-                <Pressable
-                  style={styles.selectButton}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/booking/bus-details',
-                      params: {
-                        busId: String(bus.busId),
-                        from,
-                        to,
-                        date,
-                        price: String(bus.fee),
-                        adults,
-                        children,
-                      },
-                    })
-                  }>
-                  <Text style={styles.selectButtonText}>Select</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
             );
           })
         )}

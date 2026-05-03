@@ -15,6 +15,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getBusDetails, type BusDetailResult } from '../../services/bookingFlowApi';
 import { getBusImage } from '../../utils/busImage';
 
+//Lookup table for Amneties data
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode; label: string }> = {
   ac: { icon: <MaterialCommunityIcons name="snowflake" size={18} color="#2F6BFF" />, label: 'A/C' },
   wifi: { icon: <Ionicons name="wifi" size={18} color="#2F6BFF" />, label: 'WiFi' },
@@ -27,6 +28,7 @@ const AMENITY_ICONS: Record<string, { icon: React.ReactNode; label: string }> = 
   cctv: { icon: <MaterialCommunityIcons name="cctv" size={18} color="#2F6BFF" />, label: 'CCTV' },
 };
 
+//Calculate diff between start and end time and format that into hours and minutes
 function formatDuration(start: string, end: string): string {
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
@@ -38,8 +40,8 @@ function formatDuration(start: string, end: string): string {
 }
 
 export default function BusDetailsScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();//use for navigation between screens
+  const insets = useSafeAreaInsets();//Handle device spacing safely
   const params = useLocalSearchParams<{
     busId?: string;
     from?: string;
@@ -49,11 +51,11 @@ export default function BusDetailsScreen() {
     adults?: string;
     children?: string;
   }>();
-
+  //giving parameters and fallback values
   const busId = Number(params.busId ?? '0');
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const price = params.price ?? '0';
   const adults = params.adults ?? '1';
   const children = params.children ?? '0';
@@ -170,25 +172,25 @@ export default function BusDetailsScreen() {
             const isLast = index === routeStops.length - 1;
             const label = isFirst ? 'Start' : isLast ? 'Destination' : undefined;
             return (
-            <View key={stop.name} style={styles.routeRow}>
-              <View style={styles.routeMarkerColumn}>
-                <View
-                  style={[
-                    styles.routeMarker,
-                    isFirst ? styles.routeMarkerStart : undefined,
-                    isLast ? styles.routeMarkerEnd : undefined,
-                  ]}
-                />
-                {index < routeStops.length - 1 && <View style={styles.routeLine} />}
+              <View key={stop.name} style={styles.routeRow}>
+                <View style={styles.routeMarkerColumn}>
+                  <View
+                    style={[
+                      styles.routeMarker,
+                      isFirst ? styles.routeMarkerStart : undefined,
+                      isLast ? styles.routeMarkerEnd : undefined,
+                    ]}
+                  />
+                  {index < routeStops.length - 1 && <View style={styles.routeLine} />}
+                </View>
+                <View>
+                  <Text style={styles.routeName}>{stop.name}</Text>
+                  <Text style={styles.routeSub}>
+                    {stop.estimatedTime ? `ETA ${stop.estimatedTime}` : '—'}
+                    {label ? `  •  ${label}` : ''}
+                  </Text>
+                </View>
               </View>
-              <View>
-                <Text style={styles.routeName}>{stop.name}</Text>
-                <Text style={styles.routeSub}>
-                  {stop.estimatedTime ? `ETA ${stop.estimatedTime}` : '—'}
-                  {label ? `  •  ${label}` : ''}
-                </Text>
-              </View>
-            </View>
             );
           })}
           {(details.routeDistance || details.routeDuration) && (
@@ -293,7 +295,7 @@ export default function BusDetailsScreen() {
     </SafeAreaView>
   );
 }
-
+//Style sheet
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

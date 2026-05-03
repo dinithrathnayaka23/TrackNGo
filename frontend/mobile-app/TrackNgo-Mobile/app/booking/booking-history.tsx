@@ -19,16 +19,26 @@ import {
 } from "../../services/bookingsApi";
 import { useSession } from "../../store/sessionStore";
 
+/**
+ * BookingHistoryScreen - Manages and displays the user's trip history.
+ * Divided into 'Upcoming' for future trips and 'Past' for completed or cancelled ones.
+ */
+
 type Tab = "upcoming" | "past";
 
 export default function BookingHistoryScreen() {
   const router = useRouter();
   const { currentUser } = useSession();
+
+  // State for tab selection and booking data
   const [tab, setTab] = useState<Tab>("upcoming");
   const [upcoming, setUpcoming] = useState<BookingHistoryDto[]>([]);
   const [past, setPast] = useState<BookingHistoryDto[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /**
+   * Fetches both upcoming and past bookings from the API in parallel.
+   */
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -46,12 +56,16 @@ export default function BookingHistoryScreen() {
     }
   }, []);
 
+  // Automatically refresh data whenever the screen comes into focus
   useFocusEffect(
     useCallback(() => {
       void load();
     }, [load]),
   );
 
+  /**
+   * Triggers a confirmation dialog before cancelling a booking.
+   */
   const handleCancel = (ref: string) => {
     Alert.alert(
       "Cancel Booking",
@@ -65,7 +79,7 @@ export default function BookingHistoryScreen() {
             try {
               await cancelBooking(ref);
               Alert.alert("Cancelled", "Your booking has been cancelled.");
-              void load();
+              void load(); // Refresh the list
             } catch (e) {
               Alert.alert("Error", "Failed to cancel booking.");
             }
@@ -74,6 +88,8 @@ export default function BookingHistoryScreen() {
       ],
     );
   };
+
+  // ── Navigation Handlers ────────────────────────────────
 
   const navigateToTicket = (b: BookingHistoryDto) => {
     router.push({
@@ -125,7 +141,7 @@ export default function BookingHistoryScreen() {
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
-      {/* Header */}
+      {/* Header with Back Button */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={10}>
           <Ionicons name="arrow-back" size={22} color="#1F2937" />
@@ -134,7 +150,7 @@ export default function BookingHistoryScreen() {
         <View style={{ width: 22 }} />
       </View>
 
-      {/* Tabs */}
+      {/* Tab Switcher: Upcoming vs Past */}
       <View style={styles.tabRow}>
         <Pressable
           style={[styles.tabBtn, tab === "upcoming" && styles.tabBtnActive]}
@@ -204,8 +220,9 @@ export default function BookingHistoryScreen() {
   );
 }
 
-/* ── Booking Card ── */
-
+/**
+ * BookingCard - Individual card displaying trip details and contextual actions.
+ */
 function BookingCard({
   booking: b,
   isUpcoming,
@@ -353,8 +370,7 @@ function DetailItem({
   );
 }
 
-/* ── Styles ── */
-
+// Stylesheet for the Booking History screen components
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#F6F7F9" },
 

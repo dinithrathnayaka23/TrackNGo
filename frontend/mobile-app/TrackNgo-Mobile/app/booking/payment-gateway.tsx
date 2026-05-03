@@ -16,10 +16,18 @@ import { createBooking, createStripeCheckoutSession, getStripeSessionStatus } fr
 import { useSession } from '../../store/sessionStore';
 import { API_BASE_URL } from '../../config/env';
 
+/**
+ * PaymentGatewayScreen - Orchestrates the Stripe checkout process.
+ * It initiates a checkout session, renders the Stripe UI in a WebView,
+ * and then finalizes the booking upon successful payment.
+ */
+
 export default function PaymentGatewayScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser } = useSession();
+  
+  // Data passed from the summary screen required for checkout and booking
   const params = useLocalSearchParams<{
     from?: string;
     to?: string;
@@ -39,6 +47,7 @@ export default function PaymentGatewayScreen() {
     specialRequest?: string;
   }>();
 
+  // Default values and numeric parsing for cost details
   const from = params.from ?? 'Colombo Fort';
   const to = params.to ?? 'Kandy';
   const busId = params.busId ?? '0';
@@ -56,12 +65,16 @@ export default function PaymentGatewayScreen() {
   const email = params.email ?? '';
   const specialRequest = params.specialRequest ?? '';
 
+  // State for managing the payment WebView and backend processing
   const [loading, setLoading] = useState(false);
   const [showWebView, setShowWebView] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [processingResult, setProcessingResult] = useState(false);
 
+  /**
+   * Contacts the backend to generate a Stripe Checkout Session URL.
+   */
   const handlePayWithStripe = async () => {
     setLoading(true);
     const orderId = `BUS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -89,6 +102,9 @@ export default function PaymentGatewayScreen() {
     }
   };
 
+  /**
+   * Verifies the payment with the backend and finally creates the bus booking record.
+   */
   const completeBooking = useCallback(async () => {
     setShowWebView(false);
     setProcessingResult(true);
@@ -144,6 +160,9 @@ export default function PaymentGatewayScreen() {
     }
   }, [sessionId, seats, busId, date, depart, specialRequest, totalPrice, currentUser, router, originalAmount, discountAmount, promotionId, promoCode]);
 
+  /**
+   * Listens for messages sent from the WebView (e.g. from the success/cancel pages).
+   */
   const handleWebViewMessage = useCallback(async (event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
@@ -158,7 +177,7 @@ export default function PaymentGatewayScreen() {
     }
   }, [completeBooking]);
 
-  // ── WebView full-screen ─────────────────────────────────
+  // ── UI Render State: WebView full-screen ─────────────────────────────────
   if (showWebView) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -205,7 +224,7 @@ export default function PaymentGatewayScreen() {
     );
   }
 
-  // ── Processing result overlay ───────────────────────────
+  // ── UI Render State: Finalizing booking overlay ───────────────────────────
   if (processingResult) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -217,7 +236,7 @@ export default function PaymentGatewayScreen() {
     );
   }
 
-  // ── Summary + Pay button ────────────────────────────────
+  // ── UI Render State: Main Summary + Pay button ────────────────────────────────
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.content}>
@@ -319,6 +338,7 @@ export default function PaymentGatewayScreen() {
   );
 }
 
+// Stylesheet for the Payment Gateway screen components
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

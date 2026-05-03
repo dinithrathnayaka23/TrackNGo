@@ -52,6 +52,11 @@ const LIGHT_MAP_STYLE = [
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
+/**
+ * Calculates the great-circle distance between two points on the Earth's surface
+ * using the Haversine formula. Returns distance in kilometers.
+ */
+//Standard formula even used in Uber,Pickme like apps
 function haversineDistance(
   lat1: number,
   lon1: number,
@@ -64,11 +69,15 @@ function haversineDistance(
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+/**
+ * Formats the Estimated Time of Arrival (ETA) string based on distance and speed.
+ * Defaults to 30 km/h if speed is not provided or zero.
+ */
 function formatETA(distanceKm: number, speedKmh: number = 30): string {
   if (distanceKm <= 0) return "Arrived";
   const mins = Math.round((distanceKm / speedKmh) * 60);
@@ -85,7 +94,12 @@ function formatDistance(km: number): string {
 }
 
 /* ── Route helpers ────────────────────────────────────────── */
-
+//These help to increaase the accuracy of the map
+/**
+ * Projects a point (p) onto a line segment (a-b).
+ * Returns the fraction (0 to 1) along the segment and the closest coordinates.
+ */
+//Standard algorithm used in mapping applications to find the closest point on a line segment
 function projectPointOnSegment(
   a: { latitude: number; longitude: number },
   b: { latitude: number; longitude: number },
@@ -100,7 +114,7 @@ function projectPointOnSegment(
     Math.min(
       1,
       ((p.latitude - a.latitude) * dx + (p.longitude - a.longitude) * dy) /
-        lenSq,
+      lenSq,
     ),
   );
   return {
@@ -112,6 +126,10 @@ function projectPointOnSegment(
   };
 }
 
+/**
+ * Finds the closest point on a complex route (array of coordinates) for a given point.
+ * Iterates through all segments to find the global minimum distance.
+ */
 function findClosestPointOnRoute(
   route: { latitude: number; longitude: number }[],
   point: { latitude: number; longitude: number },
@@ -160,6 +178,7 @@ export default function LiveMapScreen() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
 
+  /* ── State & Refs ───────────────────────────────────────── */
   /* State */
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
@@ -170,33 +189,38 @@ export default function LiveMapScreen() {
   const [isBoarded, setIsBoarded] = useState(false);
   const [showBoardingModal, setShowBoardingModal] = useState(false);
   const [locationError, setLocationError] = useState(false);
-  const [wsConnected, setWsConnected] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false); // WebSocket connection status
 
   /* Speed & distance smoothing for accurate ETA */
+  // Stores recent bus positions to calculate a more stable "ground speed"
   const busHistory = useRef<{ lat: number; lng: number; time: number }[]>([]);
+  // Sliding window buffer for speed readings to filter out GPS jitter
   const speedBuffer = useRef<number[]>([]);
-  const SPEED_BUFFER_SIZE = 5;
-  const HISTORY_MAX = 10;
+  const SPEED_BUFFER_SIZE = 5;// Used to smooth out the speed readings
+  const HISTORY_MAX = 10;//Used to track the previous locations of the bus
 
   /* Animations */
+  // Controls the slide-up entrance and visibility of the bottom details sheet
   const sheetTranslateY = useRef(new Animated.Value(100)).current;
+  // Pulsing animation for the "Boarded" status indicator
   const boardingPulse = useRef(new Animated.Value(1)).current;
+  // Pulsing animation for the bus marker on the map
   const busPulse = useRef(new Animated.Value(0)).current;
 
-  /* Derived */
+  /* Derived Values */
   const busNumber = params.busNumber ?? "ND-4589";
   const startLoc = params.startLocation ?? "Colombo";
   const endLoc = params.endLocation ?? "Kandy";
   const busEndLoc = params.busDestination ?? endLoc;
 
-  // Sorted route stops (with valid coords)
+  // Process and sort stops by their priority sequence
   const sortedStops = useMemo(() => {
     return routeStops
       .filter((s) => s.latitude != null && s.longitude != null)
       .sort((a, b) => a.priority - b.priority);
   }, [routeStops]);
 
-  // Route polyline coordinates
+  // Convert stops into a simple coordinate array for Polyline rendering
   const routeCoords = useMemo(() => {
     return sortedStops.map((s) => ({
       latitude: s.latitude!,
@@ -204,7 +228,8 @@ export default function LiveMapScreen() {
     }));
   }, [sortedStops]);
 
-  // Find passenger destination stop (may differ from bus final stop)
+  // Logic to identify which stop in the list is the passenger's actual destination
+  // based on the location name passed via route params.
   const passengerDestIndex = useMemo(() => {
     if (!sortedStops.length) return -1;
     if (endLoc === busEndLoc) return sortedStops.length - 1;
@@ -224,24 +249,27 @@ export default function LiveMapScreen() {
     return routeCoords[passengerDestIndex];
   }, [routeCoords, passengerDestIndex]);
 
-  // Track bus position history for computed speed
+  // Calculate real-time speed by comparing timestamps and distances between 
+  // consecutive bus location updates. This is often more accurate than 
+  // raw GPS speed reported by low-end tracking devices.
   useEffect(() => {
     if (!busLocation) return;
     const now = Date.now();
     const hist = busHistory.current;
 
-    // Compute speed from last known position (more reliable than GPS speed)
+    // Compute speed from last known position
     if (hist.length > 0) {
       const prev = hist[hist.length - 1];
       const dt = (now - prev.time) / 1000; // seconds
       if (dt > 0.5) {
         const dx = haversineDistance(prev.lat, prev.lng, busLocation.latitude, busLocation.longitude);
         const computedSpeed = (dx / dt) * 3600; // km/h
-        // Use GPS speed if available and reasonable, otherwise use computed
+
+        // Reliability check: Use GPS speed if valid, otherwise fallback to computed
         const gpsSpeed = busLocation.speed != null && busLocation.speed > 0 ? busLocation.speed * 3.6 : 0;
         const bestSpeed = gpsSpeed > 1 && gpsSpeed < 120 ? gpsSpeed : computedSpeed;
 
-        if (bestSpeed < 150) {
+        if (bestSpeed < 150) { // Filter out impossible jumps
           speedBuffer.current.push(bestSpeed);
           if (speedBuffer.current.length > SPEED_BUFFER_SIZE) {
             speedBuffer.current.shift();
@@ -254,11 +282,12 @@ export default function LiveMapScreen() {
     if (hist.length > HISTORY_MAX) hist.shift();
   }, [busLocation]);
 
-  // Smoothed average speed (rolling window)
+  // Calculates a rolling average of speed to provide a smooth UI experience
   const smoothedSpeed = useMemo(() => {
     const buf = speedBuffer.current;
-    if (buf.length === 0) return 0; // no data yet
-    // Weighted average: recent readings count more
+    if (buf.length === 0) return 0;
+
+    // Weighted average: recent readings count more than older ones
     let weightedSum = 0;
     let weightTotal = 0;
     for (let i = 0; i < buf.length; i++) {
@@ -267,9 +296,9 @@ export default function LiveMapScreen() {
       weightTotal += weight;
     }
     return weightedSum / weightTotal;
-  }, [busLocation]); // recalculate when bus moves
+  }, [busLocation]);
 
-  // Straight-line distance from bus to user
+  // Simple direct distance between bus and passenger
   const distanceToUser = useMemo(() => {
     if (!busLocation || !userLocation) return null;
     return haversineDistance(
@@ -280,7 +309,8 @@ export default function LiveMapScreen() {
     );
   }, [busLocation, userLocation]);
 
-  // Along-route distance from bus to passenger destination
+  // Complex "distance along route" calculation. This projects the bus onto the 
+  // nearest route segment and sums the remaining segment lengths until the destination.
   const distanceToDest = useMemo(() => {
     if (!busLocation || routeCoords.length < 2 || passengerDestIndex < 0)
       return null;
@@ -289,13 +319,18 @@ export default function LiveMapScreen() {
       longitude: busLocation.longitude,
     };
     const proj = findClosestPointOnRoute(routeCoords, busCoord);
+
+    // If bus has already passed the destination stop
     if (proj.index >= passengerDestIndex) return 0;
+
+    // Sum remaining distance in current segment
     let dist = haversineDistance(
       proj.point.latitude,
       proj.point.longitude,
       routeCoords[proj.index + 1].latitude,
       routeCoords[proj.index + 1].longitude,
     );
+    // Sum all full segments until destination
     for (let i = proj.index + 1; i < passengerDestIndex; i++) {
       dist += haversineDistance(
         routeCoords[i].latitude,
@@ -307,7 +342,7 @@ export default function LiveMapScreen() {
     return dist;
   }, [busLocation, routeCoords, passengerDestIndex]);
 
-  // Show distance to user before boarding, to destination after
+  // Context-aware distance: Distance to "me" if waiting, distance to "destination" if on board
   const activeDistance = useMemo(() => {
     return isBoarded ? distanceToDest : distanceToUser;
   }, [isBoarded, distanceToDest, distanceToUser]);
@@ -385,6 +420,7 @@ export default function LiveMapScreen() {
   }, []);
 
   // Fit map to show both user and bus
+  // Adjusts the map viewport to ensure all critical markers are visible.
   const fitMapToMarkers = useCallback(() => {
     const coords: { latitude: number; longitude: number }[] = [];
     if (userLocation) coords.push(userLocation);
@@ -414,6 +450,8 @@ export default function LiveMapScreen() {
   }, [userLocation, busLocation, fitMapToMarkers]);
 
   // WebSocket for live bus location
+  // Live WebSocket tracking: Connects to the tracking server to receive 
+  // real-time location packets for the specific bus.
   useEffect(() => {
     const socket = new BusTrackingSocket();
     socket.connect();
@@ -426,7 +464,7 @@ export default function LiveMapScreen() {
     // Also fetch last known location immediately
     getLatestBusLocation(busNumber).then((loc) => {
       if (loc) setBusLocation(loc);
-    }).catch(() => {});
+    }).catch(() => { });
 
     return () => {
       setWsConnected(false);
@@ -435,15 +473,18 @@ export default function LiveMapScreen() {
   }, [busNumber]);
 
   // Load route geometry
+  // Fetches the static route path (geometry) from the API.
   useEffect(() => {
     getRouteGeometry(startLoc, busEndLoc)
       .then((geo) => {
         if (geo?.stops) setRouteStops(geo.stops);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [startLoc, busEndLoc]);
 
   // When user is boarded, follow bus location on map
+  // Auto-follow logic: If the passenger is on board, the map automatically
+  // centers on the bus as it moves.
   useEffect(() => {
     if (isBoarded && busLocation && mapRef.current) {
       mapRef.current.animateToRegion(
@@ -480,7 +521,8 @@ export default function LiveMapScreen() {
     ).start();
   };
 
-  /* ── Bus marker with bus icon ───────────────────────────── */
+  /* ── Map Overlays ───────────────────────────────────────── */
+  /* Bus marker with bus icon */
   const BusMarkerView = () => (
     <View style={styles.busMarkerContainer}>
       <Animated.View
@@ -538,349 +580,349 @@ export default function LiveMapScreen() {
   /* ── Render ─────────────────────────────────────────────── */
   return (
     <View style={styles.container}>
-        {/* Map */}
-        <MapView
-          ref={mapRef}
-          style={styles.map}
-          provider={undefined}
-          initialRegion={DEFAULT_REGION}
-          customMapStyle={LIGHT_MAP_STYLE}
-          showsCompass={false}
-          showsTraffic={true}
-          showsUserLocation={false}
-          showsMyLocationButton={false}
-          toolbarEnabled={false}
-          mapPadding={{ top: 0, right: 0, bottom: 240, left: 0 }}
+      {/* Main Map View */}
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        provider={undefined}
+        initialRegion={DEFAULT_REGION}
+        customMapStyle={LIGHT_MAP_STYLE}
+        showsCompass={false}
+        showsTraffic={true}
+        showsUserLocation={false}
+        showsMyLocationButton={false}
+        toolbarEnabled={false}
+        mapPadding={{ top: 0, right: 0, bottom: 240, left: 0 }}
+      >
+        {/* Route polyline */}
+        {routeCoords.length >= 2 && (
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor="#2F6BFF"
+            strokeWidth={4}
+            lineDashPattern={[0]}
+          />
+        )}
+
+        {/* Route polyline shadow */}
+        {routeCoords.length >= 2 && (
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor="rgba(47,107,255,0.15)"
+            strokeWidth={10}
+          />
+        )}
+
+        {/* Stop markers */}
+        {routeCoords.map((coord, idx) => (
+          <Marker
+            key={`stop-${idx}`}
+            coordinate={coord}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+          >
+            <StopMarkerView
+              name={sortedStops[idx]?.name ?? ""}
+              index={idx}
+            />
+          </Marker>
+        ))}
+
+        {/* Bus marker */}
+        {busLocation && (
+          <Marker
+            coordinate={{
+              latitude: busLocation.latitude,
+              longitude: busLocation.longitude,
+            }}
+            anchor={{ x: 0.5, y: 0.9 }}
+            tracksViewChanges={true}
+          >
+            <BusMarkerView />
+          </Marker>
+        )}
+
+        {/* User marker */}
+        {userLocation && !isBoarded && (
+          <Marker
+            coordinate={userLocation}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+          >
+            <UserMarkerView />
+          </Marker>
+        )}
+      </MapView>
+
+      {/* Top Bar */}
+      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 8) }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={22} color="#1F2937" />
+        </Pressable>
+        <View style={styles.topInfo}>
+          <Text style={styles.topTitle}>Live Tracking</Text>
+          <View style={styles.topBusRow}>
+            <Ionicons name="bus" size={12} color="#2F6BFF" />
+            <Text style={styles.topBusText}>{busNumber}</Text>
+          </View>
+        </View>
+        <View style={styles.connectionDot}>
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: wsConnected ? "#22C55E" : "#EF4444" },
+            ]}
+          />
+          <Text style={styles.statusText}>
+            {wsConnected ? "LIVE" : "OFFLINE"}
+          </Text>
+        </View>
+      </View>
+
+      {/* Route info strip */}
+      <View style={styles.routeStrip}>
+        <View style={styles.routeStripDot}>
+          <View style={[styles.routeDotInner, { backgroundColor: "#22C55E" }]} />
+        </View>
+        <Text style={styles.routeStripText} numberOfLines={1}>
+          {startLoc}
+        </Text>
+        <View style={styles.routeStripDash} />
+        <Ionicons name="arrow-forward" size={14} color="#94A3B8" />
+        <View style={styles.routeStripDash} />
+        <View style={styles.routeStripDot}>
+          <View style={[styles.routeDotInner, { backgroundColor: "#EF4444" }]} />
+        </View>
+        <Text style={styles.routeStripText} numberOfLines={1}>
+          {endLoc}
+        </Text>
+      </View>
+
+      {/* Floating action buttons */}
+      <View style={styles.fabColumn}>
+        <Pressable style={styles.fabButton} onPress={fitMapToMarkers}>
+          <Ionicons name="expand" size={18} color="#475569" />
+        </Pressable>
+        <Pressable
+          style={styles.fabButton}
+          onPress={() => {
+            if (!userLocation) return;
+            mapRef.current?.animateToRegion(
+              { ...userLocation, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+              600,
+            );
+          }}
         >
-          {/* Route polyline */}
-          {routeCoords.length >= 2 && (
-            <Polyline
-              coordinates={routeCoords}
-              strokeColor="#2F6BFF"
-              strokeWidth={4}
-              lineDashPattern={[0]}
-            />
-          )}
-
-          {/* Route polyline shadow */}
-          {routeCoords.length >= 2 && (
-            <Polyline
-              coordinates={routeCoords}
-              strokeColor="rgba(47,107,255,0.15)"
-              strokeWidth={10}
-            />
-          )}
-
-          {/* Stop markers */}
-          {routeCoords.map((coord, idx) => (
-            <Marker
-              key={`stop-${idx}`}
-              coordinate={coord}
-              anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
-            >
-              <StopMarkerView
-                name={sortedStops[idx]?.name ?? ""}
-                index={idx}
-              />
-            </Marker>
-          ))}
-
-          {/* Bus marker */}
-          {busLocation && (
-            <Marker
-              coordinate={{
-                latitude: busLocation.latitude,
-                longitude: busLocation.longitude,
-              }}
-              anchor={{ x: 0.5, y: 0.9 }}
-              tracksViewChanges={true}
-            >
-              <BusMarkerView />
-            </Marker>
-          )}
-
-          {/* User marker */}
-          {userLocation && !isBoarded && (
-            <Marker
-              coordinate={userLocation}
-              anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
-            >
-              <UserMarkerView />
-            </Marker>
-          )}
-        </MapView>
-
-        {/* Top Bar */}
-        <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 8) }]}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={22} color="#1F2937" />
-          </Pressable>
-          <View style={styles.topInfo}>
-            <Text style={styles.topTitle}>Live Tracking</Text>
-            <View style={styles.topBusRow}>
-              <Ionicons name="bus" size={12} color="#2F6BFF" />
-              <Text style={styles.topBusText}>{busNumber}</Text>
-            </View>
-          </View>
-          <View style={styles.connectionDot}>
-            <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: wsConnected ? "#22C55E" : "#EF4444" },
-              ]}
-            />
-            <Text style={styles.statusText}>
-              {wsConnected ? "LIVE" : "OFFLINE"}
-            </Text>
-          </View>
-        </View>
-
-        {/* Route info strip */}
-        <View style={styles.routeStrip}>
-          <View style={styles.routeStripDot}>
-            <View style={[styles.routeDotInner, { backgroundColor: "#22C55E" }]} />
-          </View>
-          <Text style={styles.routeStripText} numberOfLines={1}>
-            {startLoc}
-          </Text>
-          <View style={styles.routeStripDash} />
-          <Ionicons name="arrow-forward" size={14} color="#94A3B8" />
-          <View style={styles.routeStripDash} />
-          <View style={styles.routeStripDot}>
-            <View style={[styles.routeDotInner, { backgroundColor: "#EF4444" }]} />
-          </View>
-          <Text style={styles.routeStripText} numberOfLines={1}>
-            {endLoc}
-          </Text>
-        </View>
-
-        {/* Floating action buttons */}
-        <View style={styles.fabColumn}>
-          <Pressable style={styles.fabButton} onPress={fitMapToMarkers}>
-            <Ionicons name="expand" size={18} color="#475569" />
-          </Pressable>
+          <MaterialCommunityIcons
+            name="crosshairs-gps"
+            size={18}
+            color="#2F6BFF"
+          />
+        </Pressable>
+        {busLocation && (
           <Pressable
             style={styles.fabButton}
             onPress={() => {
-              if (!userLocation) return;
               mapRef.current?.animateToRegion(
-                { ...userLocation, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+                {
+                  latitude: busLocation.latitude,
+                  longitude: busLocation.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                },
                 600,
               );
             }}
           >
-            <MaterialCommunityIcons
-              name="crosshairs-gps"
-              size={18}
-              color="#2F6BFF"
-            />
+            <Ionicons name="bus" size={18} color="#F97316" />
           </Pressable>
-          {busLocation && (
+        )}
+      </View>
+
+      {/* Bottom Sheet: Interactive details and metrics */}
+      <Animated.View
+        style={[
+          styles.bottomSheet,
+          {
+            paddingBottom: Math.max(insets.bottom, 16),
+            transform: [{ translateY: sheetTranslateY }],
+          },
+        ]}
+      >
+        <View style={styles.sheetHandle} />
+
+        {/* Bus info header */}
+        <View style={styles.sheetHeader}>
+          <View style={styles.sheetBusIcon}>
+            <Ionicons name="bus" size={20} color="#FFFFFF" />
+          </View>
+          <View style={styles.sheetHeaderInfo}>
+            <Text style={styles.sheetBusNumber}>{busNumber}</Text>
+            <Text style={styles.sheetRoute}>
+              {startLoc} → {endLoc}
+            </Text>
+          </View>
+          {userLocation && (
             <Pressable
-              style={styles.fabButton}
-              onPress={() => {
-                mapRef.current?.animateToRegion(
-                  {
-                    latitude: busLocation.latitude,
-                    longitude: busLocation.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
+              style={styles.sosBtn}
+              onPress={() =>
+                router.push({
+                  pathname: "/sos/sos",
+                  params: {
+                    busNumber,
+                    startLocation: startLoc,
+                    endLocation: endLoc,
+                    userLatitude: String(userLocation.latitude),
+                    userLongitude: String(userLocation.longitude),
                   },
-                  600,
-                );
-              }}
+                })
+              }
             >
-              <Ionicons name="bus" size={18} color="#F97316" />
+              <Ionicons name="warning" size={12} color="#FFFFFF" />
+              <Text style={styles.sosBtnText}>SOS</Text>
             </Pressable>
           )}
         </View>
 
-        {/* Bottom Sheet */}
-        <Animated.View
-          style={[
-            styles.bottomSheet,
-            {
-              paddingBottom: Math.max(insets.bottom, 16),
-              transform: [{ translateY: sheetTranslateY }],
-            },
-          ]}
-        >
-          <View style={styles.sheetHandle} />
-
-          {/* Bus info header */}
-          <View style={styles.sheetHeader}>
-            <View style={styles.sheetBusIcon}>
-              <Ionicons name="bus" size={20} color="#FFFFFF" />
-            </View>
-            <View style={styles.sheetHeaderInfo}>
-              <Text style={styles.sheetBusNumber}>{busNumber}</Text>
-              <Text style={styles.sheetRoute}>
-                {startLoc} → {endLoc}
-              </Text>
-            </View>
-            {userLocation && (
-              <Pressable
-                style={styles.sosBtn}
-                onPress={() =>
-                  router.push({
-                    pathname: "/sos/sos",
-                    params: {
-                      busNumber,
-                      startLocation: startLoc,
-                      endLocation: endLoc,
-                      userLatitude: String(userLocation.latitude),
-                      userLongitude: String(userLocation.longitude),
-                    },
-                  })
-                }
-              >
-                <Ionicons name="warning" size={12} color="#FFFFFF" />
-                <Text style={styles.sosBtnText}>SOS</Text>
-              </Pressable>
-            )}
-          </View>
-
-          {/* Metrics row */}
-          <View style={styles.metricsRow}>
-            <View style={styles.metricCard}>
-              <View
-                style={[styles.metricIconBg, { backgroundColor: "#EFF6FF" }]}
-              >
-                <Ionicons name="time-outline" size={16} color="#2F6BFF" />
-              </View>
-              <Text style={styles.metricLabel}>ETA</Text>
-              <Text style={styles.metricValue}>{etaText}</Text>
-            </View>
-            <View style={styles.metricDivider} />
-            <View style={styles.metricCard}>
-              <View
-                style={[styles.metricIconBg, { backgroundColor: "#ECFDF5" }]}
-              >
-                <Ionicons name="navigate-outline" size={16} color="#22C55E" />
-              </View>
-              <Text style={styles.metricLabel}>Distance</Text>
-              <Text style={styles.metricValue}>{distanceText}</Text>
-            </View>
-            <View style={styles.metricDivider} />
-            <View style={styles.metricCard}>
-              <View
-                style={[styles.metricIconBg, { backgroundColor: "#FFF7ED" }]}
-              >
-                <Ionicons name="speedometer-outline" size={16} color="#F97316" />
-              </View>
-              <Text style={styles.metricLabel}>Speed</Text>
-              <Text style={styles.metricValue}>
-                {busLocation
-                  ? `${Math.round(smoothedSpeed)} km/h`
-                  : "—"}
-              </Text>
-            </View>
-          </View>
-
-          {/* Status indicator */}
-          {isBoarded ? (
-            <Animated.View
-              style={[
-                styles.boardedBanner,
-                { transform: [{ scale: boardingPulse }] },
-              ]}
+        {/* Metrics row */}
+        <View style={styles.metricsRow}>
+          <View style={styles.metricCard}>
+            <View
+              style={[styles.metricIconBg, { backgroundColor: "#EFF6FF" }]}
             >
-              <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-              <Text style={styles.boardedText}>You are on the bus</Text>
-            </Animated.View>
-          ) : busLocation ? (
-            <View style={styles.approachingBanner}>
-              <Ionicons name="location" size={16} color="#2F6BFF" />
-              <Text style={styles.approachingText}>
-                Bus is {distanceText} away • ETA {etaText}
-              </Text>
+              <Ionicons name="time-outline" size={16} color="#2F6BFF" />
             </View>
-          ) : (
-            <View style={styles.waitingBanner}>
-              <MaterialCommunityIcons
-                name="bus-clock"
-                size={16}
-                color="#94A3B8"
-              />
-              <Text style={styles.waitingText}>
-                Waiting for bus location...
-              </Text>
+            <Text style={styles.metricLabel}>ETA</Text>
+            <Text style={styles.metricValue}>{etaText}</Text>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.metricCard}>
+            <View
+              style={[styles.metricIconBg, { backgroundColor: "#ECFDF5" }]}
+            >
+              <Ionicons name="navigate-outline" size={16} color="#22C55E" />
             </View>
-          )}
+            <Text style={styles.metricLabel}>Distance</Text>
+            <Text style={styles.metricValue}>{distanceText}</Text>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.metricCard}>
+            <View
+              style={[styles.metricIconBg, { backgroundColor: "#FFF7ED" }]}
+            >
+              <Ionicons name="speedometer-outline" size={16} color="#F97316" />
+            </View>
+            <Text style={styles.metricLabel}>Speed</Text>
+            <Text style={styles.metricValue}>
+              {busLocation
+                ? `${Math.round(smoothedSpeed)} km/h`
+                : "—"}
+            </Text>
+          </View>
+        </View>
 
-          {/* Action buttons */}
-          <View style={styles.actionRow}>
-            {!isBoarded && busLocation && (
-              <Pressable
-                style={styles.boardBtn}
-                onPress={() => setShowBoardingModal(true)}
-              >
-                <Ionicons name="enter-outline" size={16} color="#FFFFFF" />
-                <Text style={styles.boardBtnText}>I'm on the Bus</Text>
-              </Pressable>
-            )}
-            {isBoarded && (
-              <Pressable
-                style={styles.alightBtn}
-                onPress={() => setIsBoarded(false)}
-              >
-                <Ionicons name="exit-outline" size={16} color="#FFFFFF" />
-                <Text style={styles.alightBtnText}>I've Alighted</Text>
-              </Pressable>
-            )}
+        {/* Status indicator */}
+        {isBoarded ? (
+          <Animated.View
+            style={[
+              styles.boardedBanner,
+              { transform: [{ scale: boardingPulse }] },
+            ]}
+          >
+            <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+            <Text style={styles.boardedText}>You are on the bus</Text>
+          </Animated.View>
+        ) : busLocation ? (
+          <View style={styles.approachingBanner}>
+            <Ionicons name="location" size={16} color="#2F6BFF" />
+            <Text style={styles.approachingText}>
+              Bus is {distanceText} away • ETA {etaText}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.waitingBanner}>
+            <MaterialCommunityIcons
+              name="bus-clock"
+              size={16}
+              color="#94A3B8"
+            />
+            <Text style={styles.waitingText}>
+              Waiting for bus location...
+            </Text>
+          </View>
+        )}
+
+        {/* Action buttons */}
+        <View style={styles.actionRow}>
+          {!isBoarded && busLocation && (
             <Pressable
-              style={styles.msgBtn}
-              onPress={() => router.push("/chat/chat-list")}
+              style={styles.boardBtn}
+              onPress={() => setShowBoardingModal(true)}
             >
-              <Ionicons name="chatbubble-outline" size={16} color="#2F6BFF" />
-              <Text style={styles.msgBtnText}>Message</Text>
+              <Ionicons name="enter-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.boardBtnText}>I'm on the Bus</Text>
             </Pressable>
-          </View>
-        </Animated.View>
+          )}
+          {isBoarded && (
+            <Pressable
+              style={styles.alightBtn}
+              onPress={() => setIsBoarded(false)}
+            >
+              <Ionicons name="exit-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.alightBtnText}>I've Alighted</Text>
+            </Pressable>
+          )}
+          <Pressable
+            style={styles.msgBtn}
+            onPress={() => router.push("/chat/chat-list")}
+          >
+            <Ionicons name="chatbubble-outline" size={16} color="#2F6BFF" />
+            <Text style={styles.msgBtnText}>Message</Text>
+          </Pressable>
+        </View>
+      </Animated.View>
 
-        {/* Boarding Confirmation Modal */}
-        <Modal
-          visible={showBoardingModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowBoardingModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <View style={styles.modalIconBg}>
-                <Ionicons name="bus" size={32} color="#2F6BFF" />
-              </View>
-              <Text style={styles.modalTitle}>Are you on the bus?</Text>
-              <Text style={styles.modalSubtitle}>
-                Confirm that you've boarded {busNumber}. Your location will
-                sync with the bus route.
-              </Text>
-              <View style={styles.modalActions}>
-                <Pressable
-                  style={styles.modalConfirm}
-                  onPress={handleBoardingConfirm}
-                >
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={16}
-                    color="#FFFFFF"
-                  />
-                  <Text style={styles.modalConfirmText}>
-                    Yes, I'm on Board
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={styles.modalCancel}
-                  onPress={() => setShowBoardingModal(false)}
-                >
-                  <Text style={styles.modalCancelText}>Not Yet</Text>
-                </Pressable>
-              </View>
+      {/* Boarding Confirmation Modal */}
+      <Modal
+        visible={showBoardingModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBoardingModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconBg}>
+              <Ionicons name="bus" size={32} color="#2F6BFF" />
+            </View>
+            <Text style={styles.modalTitle}>Are you on the bus?</Text>
+            <Text style={styles.modalSubtitle}>
+              Confirm that you've boarded {busNumber}. Your location will
+              sync with the bus route.
+            </Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalConfirm}
+                onPress={handleBoardingConfirm}
+              >
+                <Ionicons
+                  name="checkmark-circle"
+                  size={16}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.modalConfirmText}>
+                  Yes, I'm on Board
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.modalCancel}
+                onPress={() => setShowBoardingModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Not Yet</Text>
+              </Pressable>
             </View>
           </View>
-        </Modal>
+        </View>
+      </Modal>
     </View>
   );
 }

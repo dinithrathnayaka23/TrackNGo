@@ -1,14 +1,26 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
+  <!-- 
+    TrackNGo Root Project Configuration
+    This is the Parent POM for a Modular Monolith architecture.
+    It manages common versions and orchestrates the build for all functional modules.
+  -->
   <groupId>com.trackngo</groupId>
   <artifactId>trackngo-backend</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
+
+  <!-- 
+    Module Definitions
+    Each module represents a distinct bounded context of the application.
+    - commons: Shared utilities and event infrastructure.
+    - app: The main aggregator that bundles all modules into a single deployment.
+  -->
   <modules>
     <module>commons</module>
     <module>auth-user-module</module>
@@ -33,8 +45,14 @@
     <lombok.version>1.18.30</lombok.version>
   </properties>
 
+  <!-- 
+    Dependency Management
+    Centralizes version control for dependencies used across multiple modules.
+    Modules inherit these versions without needing to specify them locally.
+  -->
   <dependencyManagement>
     <dependencies>
+      <!-- Spring Boot BOM for consistent versioning of all starter dependencies -->
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
@@ -42,6 +60,7 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- JWT for security and authentication -->
       <dependency>
         <groupId>io.jsonwebtoken</groupId>
         <artifactId>jjwt-bom</artifactId>
@@ -49,6 +68,7 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- Lombok for boilerplate reduction -->
       <dependency>
         <groupId>org.projectlombok</groupId>
         <artifactId>lombok</artifactId>
@@ -61,6 +81,7 @@
   <build>
     <pluginManagement>
       <plugins>
+        <!-- Standard Compiler Plugin configured for Java 21 and Lombok -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
@@ -78,6 +99,7 @@
             </annotationProcessorPaths>
           </configuration>
         </plugin>
+        <!-- Spring Boot Plugin for packaging and running the application -->
         <plugin>
           <groupId>org.springframework.boot</groupId>
           <artifactId>spring-boot-maven-plugin</artifactId>

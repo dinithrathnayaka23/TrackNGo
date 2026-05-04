@@ -20,6 +20,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/*
+  Core Service for the Booking Flow.
+  Handles bus searches, fare calculations based on segments, seat selection,
+  and the orchestration of the final booking transaction.
+ */
 @Service
 public class BookingFlowService {
 
@@ -33,12 +38,12 @@ public class BookingFlowService {
         this.promotionService = promotionService;
     }
 
-    /* ═══════════════════════════════════════════════════════════
-       1. Search buses by from / to / date
-       Matches buses whose route contains BOTH the from-stop and
-       to-stop (from must come before to in stop priority).
-       Fare is calculated proportionally by distance between stops.
-       ═══════════════════════════════════════════════════════════ */
+    /*
+      1. Search buses by from / to / date
+      Matches buses whose route contains BOTH the from-stop and
+      to-stop (from must come before to in stop priority).
+      Fare is calculated proportionally by distance between stops.
+    */
     public List<BusSearchResult> searchBuses(String from, String to, String date, String busCategory) {
         boolean filterCategory = busCategory != null && !busCategory.isBlank();
         String normalizedFrom = normalizeStopKey(from);
@@ -139,9 +144,10 @@ public class BookingFlowService {
         return results;
     }
 
-    /* ═══════════════════════════════════════════════════════════
+    /*
        2. Bus details (route stops, driver, amenities)
-       ═══════════════════════════════════════════════════════════ */
+       Resolves stops and calculates segment-specific fare.
+    */
     public BusDetailResult getBusDetails(Long busId, String fromStop, String toStop) {
         String busSql = """
             SELECT b.bus_id, b.bus_number, b.bus_type, b.bus_brand,
@@ -268,9 +274,10 @@ public class BookingFlowService {
         );
     }
 
-    /* ═══════════════════════════════════════════════════════════
+    /*
        3. Seat layout (from DB or generate default)
-       ═══════════════════════════════════════════════════════════ */
+       Retrieves custom layout if available, else generates a standard one.
+    */
     public List<SeatLayoutRow> getSeatLayout(Long busId) {
         String sql = "SELECT seat_label, row_num, position_group, position_index " +
                      "FROM seat_layout WHERE bus_id = ? ORDER BY row_num, position_index";
@@ -316,9 +323,9 @@ public class BookingFlowService {
         return result;
     }
 
-    /* ═══════════════════════════════════════════════════════════
+    /*
        4. Booked seats for a bus + date
-       ═══════════════════════════════════════════════════════════ */
+    */
     public List<String> getBookedSeats(Long busId, String date) {
         String sql = "SELECT seat_number FROM seat_booking " +
                      "WHERE bus_id = ? AND journey_date = ? AND status != 'cancelled'";
@@ -331,17 +338,22 @@ public class BookingFlowService {
                 .collect(Collectors.toList());
     }
 
-    /* ═══════════════════════════════════════════════════════════
+    /*
        4b. Blocked seats for a bus
-       ═══════════════════════════════════════════════════════════ */
+    */
     public List<String> getBlockedSeats(Long busId) {
         String sql = "SELECT seat_label FROM seat_layout WHERE bus_id = ? AND blocked = true";
         return jdbc.queryForList(sql, String.class, busId);
     }
 
-    /* ═══════════════════════════════════════════════════════════
+    /*
        5. Create booking + payment (transactional)
-       ═══════════════════════════════════════════════════════════ */
+       Orchestrates the entire booking process:
+       - Validates promotion codes.
+       - Records the payment transaction.
+       - Records the seat reservation.
+       - Updates promotion usage.
+    */
     @Transactional
     public BookingConfirmationResult createBooking(CreateBookingRequest req) {
 
@@ -451,9 +463,9 @@ public class BookingFlowService {
         );
     }
 
-    /* ═══════════════════════════════════════════════════════════
+    /*
        6. Get booking by reference
-       ═══════════════════════════════════════════════════════════ */
+    */
     public BookingConfirmationResult getBookingByRef(String bookingRef) {
         String sql = """
             SELECT sb.booking_reference, sb.status, sb.seat_number, sb.total_amount,
@@ -487,9 +499,9 @@ public class BookingFlowService {
         );
     }
 
-    /* ═══════════════════════════════════════════════════════════
+    /*
        7. Cancel booking by reference
-       ═══════════════════════════════════════════════════════════ */
+    */
     @Transactional
     public void cancelBooking(String bookingRef) {
         int updated = jdbc.update(
@@ -501,14 +513,14 @@ public class BookingFlowService {
         }
     }
 
-    /* ═══════════════════════════════════════════════════════════
+    /*
        HELPERS
-       ═══════════════════════════════════════════════════════════ */
+    */
 
-    /**
-     * Calculate proportional fare from a search result row that already
-     * contains from_distance, to_distance, total_distance, and route_fee.
-     */
+    /*
+      Calculate proportional fare from a search result row that already
+      contains from_distance, to_distance, total_distance, and route_fee.
+    */
     private BigDecimal calculateSegmentFare(Map<String, Object> row) {
         BigDecimal routeFee = toBigDecimal(row.get("route_fee"));
         BigDecimal totalDistance = toBigDecimal(row.get("total_distance"));
@@ -527,9 +539,9 @@ public class BookingFlowService {
                 .setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
-    /**
-     * Calculate proportional fare for a given route by looking up from/to stop distances.
-     */
+    /*
+      Calculate proportional fare for a given route by looking up from/to stop distances.
+    */
     private BigDecimal calculateSegmentFareForRoute(Long routeId, BigDecimal routeFee,
                                                      BigDecimal totalDistance,
                                                      String fromStop, String toStop) {

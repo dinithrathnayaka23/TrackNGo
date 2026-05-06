@@ -31,15 +31,15 @@ public class LiveTrackingController {
     private final RouteRepository routeRepository;
     private final ObjectMapper objectMapper;
 
-    /**
-     * In-memory store of latest bus locations keyed by bus number.
-     */
+    /*
+      In-memory store of latest bus locations keyed by bus number.
+    */
     private final Map<String, LiveBusLocationDto> latestLocations = new ConcurrentHashMap<>();
 
-    /**
-     * POST /api/tracking/live-location
-     * Called by another device (e.g. a phone acting as the bus) to publish its current location.
-     */
+    /*
+      POST /api/tracking/live-location
+      Called by another device (e.g. a phone acting as the bus) to publish its current location.
+    */
     @PostMapping("/live-location")
     public ResponseEntity<ApiResponse<LiveBusLocationDto>> publishBusLocation(
             @Valid @RequestBody LiveBusLocationDto dto) {
@@ -61,10 +61,10 @@ public class LiveTrackingController {
         return ResponseEntity.ok(ApiResponse.ok("Bus location published", dto));
     }
 
-    /**
-     * GET /api/tracking/live-location/{busNumber}
-     * Retrieve the last known location of a bus.
-     */
+    /*
+      GET /api/tracking/live-location/{busNumber}
+      Retrieve the last known location of a bus.
+    */
     @GetMapping("/live-location/{busNumber}")
     public ResponseEntity<ApiResponse<LiveBusLocationDto>> getLatestBusLocation(
             @PathVariable String busNumber) {
@@ -76,10 +76,10 @@ public class LiveTrackingController {
         return ResponseEntity.ok(ApiResponse.ok("Latest bus location", location));
     }
 
-    /**
-     * GET /api/tracking/route-geometry?start={startLocation}&end={endLocation}
-     * Returns route stops with coordinates for drawing polylines on the map.
-     */
+    /*
+      GET /api/tracking/route-geometry?start={startLocation}&end={endLocation}
+      Returns route stops with coordinates for drawing polylines on the map.
+    */
     @GetMapping("/route-geometry")
     public ResponseEntity<ApiResponse<RouteGeometryDto>> getRouteGeometry(
             @RequestParam String start,

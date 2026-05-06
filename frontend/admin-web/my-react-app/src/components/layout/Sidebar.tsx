@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faBook,
@@ -15,6 +16,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import adminProfileImage from '../../assets/images/adminDinith.png'
 import authService from '../../services/authService'
+
+const ADMIN_PROFILE_PHOTO_KEY = 'adminProfilePhoto'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: faChartSimple, section: 'Main Menu' },
@@ -42,6 +45,7 @@ type SidebarProps = {
 
 function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const location = useLocation()
+  const [adminPhotoUrl, setAdminPhotoUrl] = useState(() => localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY) || adminProfileImage)
   const adminProfile = authService.getAdminProfile()
   const fallbackEmail = localStorage.getItem('adminEmail') ?? ''
   const mainMenu = navItems.filter((item) => item.section === 'Main Menu')
@@ -73,6 +77,28 @@ function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
   const adminEmail = adminProfile?.email || fallbackEmail
   const adminRoleLabel = adminProfile?.userType?.toLowerCase() === 'admin' ? 'Admin' : 'User'
+
+  useEffect(() => {
+    const onStorageUpdate = () => {
+      setAdminPhotoUrl(localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY) || adminProfileImage)
+    }
+
+    const onCustomUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<string>
+      if (customEvent.detail) {
+        setAdminPhotoUrl(customEvent.detail)
+      } else {
+        onStorageUpdate()
+      }
+    }
+
+    window.addEventListener('storage', onStorageUpdate)
+    window.addEventListener('admin-profile-photo-updated', onCustomUpdate as EventListener)
+    return () => {
+      window.removeEventListener('storage', onStorageUpdate)
+      window.removeEventListener('admin-profile-photo-updated', onCustomUpdate as EventListener)
+    }
+  }, [])
 
   const linkClasses = (isActive: boolean) =>
     `flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition duration-200 ${
@@ -145,7 +171,7 @@ function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       <div className="animate-dash-in border-t border-[#2f3f61] p-3" style={{ animationDelay: '150ms' }}>
         <div className="flex items-center gap-2 rounded-lg bg-[#c8cdd8] px-2 py-1.5">
           <img
-            src={adminProfileImage}
+            src={adminPhotoUrl}
             alt="Admin profile"
             className="h-9 w-9 rounded-full object-cover"
           />

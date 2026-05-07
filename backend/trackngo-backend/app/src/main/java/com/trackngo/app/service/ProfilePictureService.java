@@ -62,7 +62,9 @@ public class ProfilePictureService {
 
             String baseName = currentUser.getId() + "-" + UUID.randomUUID();
             String originalFileName = baseName + extension;
-            String thumbnailFileName = baseName + ".webp";
+            boolean canWriteWebp = canWriteFormat("image/webp");
+            String thumbnailFormat = canWriteWebp ? "webp" : "jpg";
+            String thumbnailFileName = baseName + (canWriteWebp ? ".webp" : ".jpg");
 
             Path originalPath = originalDir.resolve(originalFileName);
             Path thumbnailPath = thumbnailDir.resolve(thumbnailFileName);
@@ -79,17 +81,17 @@ public class ProfilePictureService {
                 throw new BusinessException("Uploaded file is not a valid image.");
             }
 
-            writeThumbnail(inputImage, thumbnailPath);
+            writeThumbnail(inputImage, thumbnailPath, thumbnailFormat);
 
             String originalUrl = "/uploads/profile-pictures/original/" + originalFileName;
             String thumbnailUrl = "/uploads/profile-pictures/thumbnail/" + thumbnailFileName;
 
-            persistProfilePhoto(currentUser.getId(), normalizedType, thumbnailUrl);
+            persistProfilePhoto(currentUser.getId(), normalizedType, originalUrl);
 
             long bytes = Files.size(thumbnailPath);
-            return new UploadResult(thumbnailUrl, thumbnailUrl, originalUrl, bytes);
+            return new UploadResult(originalUrl, thumbnailUrl, originalUrl, bytes);
         } catch (IOException ex) {
-            throw new BusinessException("Failed to save profile picture.");
+            throw new BusinessException("Failed to save profile picture: " + ex.getMessage());
         }
     }
 
@@ -114,17 +116,17 @@ public class ProfilePictureService {
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
     }
 
-    private void writeThumbnail(BufferedImage inputImage, Path thumbnailPath) throws IOException {
+    private void writeThumbnail(BufferedImage inputImage, Path thumbnailPath, String outputFormat) throws IOException {
         try {
             Thumbnails.of(inputImage)
                     .size(400, 400)
                     .keepAspectRatio(true)
                     .outputQuality(0.95)
-                    .outputFormat("webp")
+                    .outputFormat(outputFormat)
                     .toFile(thumbnailPath.toFile());
             return;
         } catch (Exception ignored) {
-            // Falls back to imgscalr quality mode if Thumbnailator cannot write the image.
+            // Falls back to imgscalr + ImageIO when Thumbnailator cannot write this format.
         }
 
         BufferedImage scaled = Scalr.resize(
@@ -136,10 +138,14 @@ public class ProfilePictureService {
                 Scalr.OP_ANTIALIAS
         );
 
-        boolean written = ImageIO.write(scaled, "webp", thumbnailPath.toFile());
+        boolean written = ImageIO.write(scaled, outputFormat, thumbnailPath.toFile());
         if (!written) {
-            throw new IOException("WebP writer not available.");
+            throw new IOException("No ImageIO writer available for format: " + outputFormat);
         }
+    }
+
+    private boolean canWriteFormat(String mimeType) {
+        return ImageIO.getImageWritersByMIMEType(mimeType).hasNext();
     }
 
     private void persistProfilePhoto(Long userId, String userType, String profilePhotoUrl) {

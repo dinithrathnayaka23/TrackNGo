@@ -65,6 +65,16 @@
       <artifactId>imgscalr-lib</artifactId>
       <version>4.2</version>
     </dependency>
+    <dependency>
+      <groupId>com.twelvemonkeys.imageio</groupId>
+      <artifactId>imageio-webp</artifactId>
+      <version>3.13.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.twelvemonkeys.imageio</groupId>
+      <artifactId>imageio-jpeg</artifactId>
+      <version>3.13.1</version>
+    </dependency>
 
     <!-- 
       Internal Project Modules

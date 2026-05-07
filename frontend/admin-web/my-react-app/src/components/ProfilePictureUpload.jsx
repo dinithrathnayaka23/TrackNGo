@@ -98,7 +98,7 @@ async function processImageForUpload(file) {
     maxWidthOrHeight: 800,
     useWebWorker: true,
     fileType: 'image/webp',
-    initialQuality: 0.82,
+    initialQuality: 0.88,
   })
 
   return new File([tightened], ensureWebpName(file.name), {
@@ -154,14 +154,15 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
       }
 
       const data = payload?.data ?? payload
-      const publicUrl = data?.imageUrl || data?.thumbnailUrl || data?.url
+      const publicUrl = data?.originalUrl || data?.imageUrl || data?.thumbnailUrl || data?.url
       if (!publicUrl) {
         throw new Error('Upload completed but no image URL was returned.')
       }
 
-      localStorage.setItem(STORAGE_KEY, publicUrl)
-      window.dispatchEvent(new CustomEvent('admin-profile-photo-updated', { detail: publicUrl }))
-      setPreviewUrl(publicUrl)
+      const displayUrl = `${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`
+      localStorage.setItem(STORAGE_KEY, displayUrl)
+      window.dispatchEvent(new CustomEvent('admin-profile-photo-updated', { detail: displayUrl }))
+      setPreviewUrl(displayUrl)
       setSizeInfo(`Uploaded ${Math.round(processedFile.size / 1024)} KB`)
 
       if (typeof onUploadSuccess === 'function') {

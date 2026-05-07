@@ -18,7 +18,7 @@ import {
   type EmergencyNumber,
   type SaveEmergencyNumberRequest,
 } from '../../services/emergencyNumberService'
-import ProfilePictureUpload from '../../components/ProfilePictureUpload'
+import ProfilePictureUpload from '../../components/ProfilePictureUpload.jsx'
 
 const emptyForm: SaveEmergencyNumberRequest = {
   label: '',

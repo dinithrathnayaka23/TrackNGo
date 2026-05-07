@@ -1,20 +1,3 @@
-/**
- * BusDetail.tsx - Comprehensive bus management detail page
- * 
- * This page provides administrators with detailed information and management
- * capabilities for individual buses in the TrackNGo fleet. It includes:
- * - Bus information (specs, driver, route, schedule)
- * - Amenities management and editing
- * - Driver assignment
- * - Bus schedule and revenue analytics
- * - Seat layout configuration with visual preview
- * - Bus status management (active/maintenance/inactive)
- * - Delete functionality
- * 
- * The component uses a modal-based editing pattern for creating isolated
- * edit experiences and implements optimistic UI updates where appropriate.
- */
-
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -46,23 +29,23 @@ import { getBusImage } from "../../utils/busImage";
 // Google Maps API key from environment variables
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
 
-/**
- * Google Maps Script Loader - Lazy loads the Google Maps API
- * 
- * This prevents loading the Google Maps script if it's already loaded,
- * optimizing performance by ensuring the script is loaded only once
- * even if multiple components need it.
- */
+/*
+  Google Maps Script Loader - Lazy loads the Google Maps API
+ 
+  This prevents loading the Google Maps script if it's already loaded,
+  optimizing performance by ensuring the script is loaded only once
+  even if multiple components need it.
+*/
 let mapsScriptLoaded = false;
 
-/**
- * Loads the Google Maps JavaScript API dynamically
- * 
- * Uses a promise-based approach to load the script asynchronously
- * and handles both success and error cases.
- * 
- * @returns Promise that resolves when the script is loaded
- */
+/*
+  Loads the Google Maps JavaScript API dynamically
+  
+  Uses a promise-based approach to load the script asynchronously
+  and handles both success and error cases.
+  
+  @returns Promise that resolves when the script is loaded
+*/
 function loadMapsScript(): Promise<void> {
   if (mapsScriptLoaded || window.google?.maps) {
     mapsScriptLoaded = true;
@@ -78,15 +61,15 @@ function loadMapsScript(): Promise<void> {
   });
 }
 
-/**
- * BusLocationMap Component - Displays a map with a location marker
- * 
- * This component renders a Google Map centered on the given location
- * (geocoded to coordinates). A bus marker is placed at the location.
- * The component handles cleanup on unmount to prevent state updates
- * on unmounted components.
- * 
- * @param locationName - The location name to geocode and display
+/*
+  BusLocationMap Component - Displays a map with a location marker
+  
+  This component renders a Google Map centered on the given location
+  (geocoded to coordinates). A bus marker is placed at the location.
+  The component handles cleanup on unmount to prevent state updates
+  on unmounted components.
+  
+  @param locationName - The location name to geocode and display
  */
 function BusLocationMap({ locationName }: { locationName: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -155,11 +138,11 @@ import {
   type RouteOption,
 } from "../../services/busService";
 
-/**
- * Type Definitions for Bus Management
- * ====================================
- * These types represent the domain models and UI state for the bus detail page
- */
+/*
+ Type Definitions for Bus Management
+ 
+ These types represent the domain models and UI state for the bus detail page
+*/
 
 // Amenity - A feature/facility available on the bus
 type Amenity = {
@@ -227,11 +210,11 @@ type LayoutConfig = {
 // Seat letter labels used for seat naming (e.g., "1A", "1B", "2A", etc.)
 const seatLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-/**
- * Default Seating Layout Configuration
- * Standard layout: 10 rows × 2 left + 2 right seats + 5 rear row seats
- * This can be customized by administrators
- */
+/*
+  Default Seating Layout Configuration
+  Standard layout: 10 rows × 2 left + 2 right seats + 5 rear row seats
+  This can be customized by administrators
+*/
 const defaultLayoutConfig: LayoutConfig = {
   rows: 10,
   leftSeatsPerRow: 2,
@@ -240,28 +223,28 @@ const defaultLayoutConfig: LayoutConfig = {
   driverLeftSeats: 0,
 };
 
-/**
- * Calculates total seat count from a layout configuration
- * 
- * Formula: (rows × (leftSeatsPerRow + rightSeatsPerRow)) + rearRowSeats + driverLeftSeats
- * 
- * @param config The layout configuration
- * @returns Total number of seats
- */
+/*
+  Calculates total seat count from a layout configuration
+  
+  Formula: (rows × (leftSeatsPerRow + rightSeatsPerRow)) + rearRowSeats + driverLeftSeats
+  
+  @param config The layout configuration
+  @returns Total number of seats
+*/
 const getLayoutSeatCount = (config: LayoutConfig): number =>
   config.rows * (config.leftSeatsPerRow + config.rightSeatsPerRow) +
   config.rearRowSeats +
   config.driverLeftSeats;
 
-/**
- * Builds the seat layout rows from a configuration
- * 
- * Generates seat IDs like "1A", "1B", "2A", "2B", etc. for normal rows,
- * and handles the rear row separately with different numbering.
- * 
- * @param config The layout configuration
- * @returns Array of seat layout rows
- */
+/*
+  Builds the seat layout rows from a configuration
+  
+  Generates seat IDs like "1A", "1B", "2A", "2B", etc. for normal rows,
+  and handles the rear row separately with different numbering.
+  
+  @param config The layout configuration
+  @returns Array of seat layout rows
+*/
 const buildSeatLayoutRows = (config: LayoutConfig): SeatLayoutRow[] => {
   const rows: SeatLayoutRow[] = Array.from(
     { length: config.rows },
@@ -296,10 +279,10 @@ const buildSeatLayoutRows = (config: LayoutConfig): SeatLayoutRow[] => {
 };
 
 
-/**
- * Amenities Configuration
- * Available amenities that can be enabled/disabled for a bus
- */
+/*
+  Amenities Configuration
+  Available amenities that can be enabled/disabled for a bus
+*/
 const initialAmenities: Amenity[] = [
   { key: "wifi", name: "Wi-Fi", icon: faWifi, enabled: false },
   { key: "ac", name: "A/C", icon: faSnowflake, enabled: false },
@@ -309,15 +292,15 @@ const initialAmenities: Amenity[] = [
   { key: "cctv", name: "CCTV", icon: faVideo, enabled: false },
 ];
 
-/**
- * Revenue Generation - Generates mock revenue data for charts
- * 
- * Creates a 30-day revenue history using a deterministic algorithm
- * that factors in weekday patterns, trends, and seasonal variations.
- * This is used for the revenue dashboard chart visualization.
- * 
- * @param seed Base value for deterministic random generation
- * @returns Array of 30 daily revenue points
+/*
+  Revenue Generation - Generates mock revenue data for charts
+  
+  Creates a 30-day revenue history using a deterministic algorithm
+  that factors in weekday patterns, trends, and seasonal variations.
+  This is used for the revenue dashboard chart visualization.
+  
+  @param seed Base value for deterministic random generation
+  @returns Array of 30 daily revenue points
  */
 const generateBusRevenue = (seed: number): BusRevenuePoint[] => {
   const start = new Date("2026-01-26");
@@ -344,24 +327,7 @@ const generateBusRevenue = (seed: number): BusRevenuePoint[] => {
 // Chart label indices - Show labels at these revenue data points
 const revenueChartLabelIndexes = [0, 5, 10, 15, 20, 25, 29];
 
-/**
- * BusDetail Component - Main bus management page
- * 
- * This component manages the complete lifecycle of viewing and editing
- * a single bus including its properties, driver assignment, amenities,
- * schedule, and seat layout configuration.
- * 
- * State Management:
- * - Loading/error states for API calls
- * - Bus data and related options (drivers, routes)
- * - Amenities with draft/saved separation
- * - Driver assignment with draft/saved separation
- * - Bus info with draft/saved separation
- * - Schedule management
- * - Seat layout configuration with draft/saved separation
- * - Various modal open/close states
- * - Revenue and schedule data for displays
- */
+
 function BusDetail() {
   const { busId } = useParams<{ busId: string }>();
   const navigate = useNavigate();

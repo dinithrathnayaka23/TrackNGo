@@ -15,15 +15,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * BookingController - REST API endpoints for booking management
- * 
- * This controller handles all HTTP requests related to trip bookings in the TrackNGo system.
- * It provides endpoints for creating, retrieving, updating, and deleting bookings, as well as
- * fetching booking history for users. The controller integrates with Spring Security for
- * authentication and uses JDBC for user email resolution.
- * 
- * Key features:
+/*
+  BookingController - REST API endpoints for booking management
+  
+  This controller handles all HTTP requests related to trip bookings in the TrackNGo system.
+  It provides endpoints for creating, retrieving, updating, and deleting bookings, as well as
+  fetching booking history for users. The controller integrates with Spring Security for
+  authentication and uses JDBC for user email resolution.
+  
+  Key features:
  * - User authentication via Spring Security
  * - CRUD operations for bookings
  * - User-specific booking history (recent, upcoming, past)

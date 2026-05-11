@@ -14,9 +14,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getSeatLayout, getBookedSeats, getBlockedSeats, type SeatLayoutRow } from '../../services/bookingFlowApi';
 
-/**
+/*
  * Defines the possible states for a seat in the layout.
- */
+*/
 type SeatStatus = 'available' | 'selected' | 'booked' | 'blocked';
 
 export default function SeatSelectionScreen() {
@@ -60,7 +60,7 @@ export default function SeatSelectionScreen() {
   const maxSeats = adults + children;
   const viewOnly = params.viewOnly === 'true';
 
-  /**
+  /*
    * Loads the seat layout, booked seats, and blocked seats from the API.
   */
   const loadSeats = useCallback(async () => {
@@ -85,7 +85,7 @@ export default function SeatSelectionScreen() {
   // Load seats on mount or when dependencies change
   useEffect(() => { void loadSeats(); }, [loadSeats]);
 
-  /**
+  /*
    * Determines the status of a specific seat.
    */
   const seatStatus = (seatId: string): SeatStatus => {
@@ -95,7 +95,7 @@ export default function SeatSelectionScreen() {
     return 'available';
   };
 
-  /**
+  /*
    * Toggles a seat selection state, enforcing max seat limits.
    */
   const toggleSeat = (seatId: string) => {

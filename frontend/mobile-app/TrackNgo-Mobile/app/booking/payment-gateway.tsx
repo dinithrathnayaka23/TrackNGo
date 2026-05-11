@@ -16,11 +16,11 @@ import { createBooking, createStripeCheckoutSession, getStripeSessionStatus } fr
 import { useSession } from '../../store/sessionStore';
 import { API_BASE_URL } from '../../config/env';
 
-/**
+/*
  * PaymentGatewayScreen - Orchestrates the Stripe checkout process.
  * It initiates a checkout session, renders the Stripe UI in a WebView,
  * and then finalizes the booking upon successful payment.
- */
+*/
 
 export default function PaymentGatewayScreen() {
   const router = useRouter();
@@ -160,9 +160,9 @@ export default function PaymentGatewayScreen() {
     }
   }, [sessionId, seats, busId, date, depart, specialRequest, totalPrice, currentUser, router, originalAmount, discountAmount, promotionId, promoCode]);
 
-  /**
+  /*
    * Listens for messages sent from the WebView (e.g. from the success/cancel pages).
-   */
+  */
   const handleWebViewMessage = useCallback(async (event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);

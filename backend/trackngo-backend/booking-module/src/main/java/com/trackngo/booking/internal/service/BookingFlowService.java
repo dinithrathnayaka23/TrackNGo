@@ -532,7 +532,7 @@ public class BookingFlowService {
 
         BigDecimal segmentDistance = toDist.subtract(fromDist);
         if (segmentDistance.compareTo(BigDecimal.ZERO) <= 0) return routeFee;
-
+        //segment caculation
         return segmentDistance
                 .divide(totalDistance, 10, java.math.RoundingMode.HALF_UP)
                 .multiply(routeFee)
@@ -574,7 +574,7 @@ public class BookingFlowService {
         BigDecimal segmentDistance = toDist.subtract(fromDist);
 
         if (segmentDistance.compareTo(BigDecimal.ZERO) <= 0) return routeFee;
-
+        //calculation ticket ticket
         return segmentDistance
                 .divide(totalDistance, 10, java.math.RoundingMode.HALF_UP)
                 .multiply(routeFee)

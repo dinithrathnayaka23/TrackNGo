@@ -14,7 +14,7 @@ import QRCode from 'react-native-qrcode-svg';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-/**
+/*
  * BookingConfirmationScreen - Displays the digital bus ticket after a successful booking.
  * Features a scannable QR code and functionality to download/share a PDF version of the ticket.
  */

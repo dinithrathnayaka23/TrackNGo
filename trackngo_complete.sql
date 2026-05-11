@@ -147,6 +147,8 @@ CREATE TABLE bus (
     bus_brand VARCHAR(100),
     start_time TIME,
     end_time TIME,
+    return_start_time TIME,
+    return_end_time TIME,
     registration_number VARCHAR(50) UNIQUE NOT NULL,
     amenities JSON,
     seat_capacity INT NOT NULL,

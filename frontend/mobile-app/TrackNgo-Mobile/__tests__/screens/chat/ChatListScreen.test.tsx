@@ -202,8 +202,8 @@ describe("ChatListScreen", () => {
     ).toEqual(expect.arrayContaining([100, 200, 300]));
   });
 
-  /** Verifies that chat-list search reloads conversations and keeps only matching rows plus support. */
-  it("filters the visible conversations using the search query", async () => {
+  /** Verifies that chat-list search keeps name matches and ignores message-only matches. */
+  it("filters the visible conversations using participant names", async () => {
     const { getByPlaceholderText, getByText, queryByText } = render(
       <ChatListScreen
         navigation={navigation as never}
@@ -214,15 +214,16 @@ describe("ChatListScreen", () => {
     await waitFor(() => expect(mockedGetUserConversations).toHaveBeenCalled());
 
     fireEvent.changeText(
-      getByPlaceholderText("Search by name or message..."),
-      "driver",
+      getByPlaceholderText("Search by name..."),
+      "Kasun",
     );
 
     await waitFor(() =>
       expect(mockedGetUserConversations).toHaveBeenCalledWith({
         userId: 15,
         page: 0,
-        size: 100,
+        size: 20,
+        q: "Kasun",
       }),
     );
 
@@ -232,6 +233,36 @@ describe("ChatListScreen", () => {
       expect(
         queryByText("Nadeesha Perera - Northline Logistics"),
       ).toBeNull(),
+    );
+  });
+
+  /** Verifies that message preview text alone does not make a conversation searchable. */
+  it("does not match conversations by message preview text", async () => {
+    const { getByPlaceholderText, queryByText } = render(
+      <ChatListScreen
+        navigation={navigation as never}
+        route={{ key: "1", name: "ChatList" } as never}
+      />,
+    );
+
+    await waitFor(() => expect(mockedGetUserConversations).toHaveBeenCalled());
+
+    fireEvent.changeText(
+      getByPlaceholderText("Search by name..."),
+      "reaching",
+    );
+
+    await waitFor(() =>
+      expect(mockedGetUserConversations).toHaveBeenCalledWith({
+        userId: 15,
+        page: 0,
+        size: 20,
+        q: "reaching",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(queryByText("Kasun Driver - Driver")).toBeNull(),
     );
   });
 

@@ -135,6 +135,7 @@ describe('Complaints page', () => {
     expect(resolveImageUrl('https://cdn.example.com/photo.jpg')).toBe('https://cdn.example.com/photo.jpg')
     expect(formatCreatedDate(null)).toBe('--')
     expect(formatCreatedDate('not-a-date')).toBe('not-a-date')
+    expect(formatCreatedDate('2026-04-21T09:00:00')).toContain('09:00')
   })
 
   /** Builds the complaint list fixture used across complaint page tests. */

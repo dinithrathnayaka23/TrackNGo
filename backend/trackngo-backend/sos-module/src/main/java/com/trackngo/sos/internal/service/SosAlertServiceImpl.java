@@ -14,10 +14,13 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,9 @@ public class SosAlertServiceImpl implements SosAlertService {
     private final EmergencyContactRepository emergencyContactRepository;
     private final JdbcTemplate jdbcTemplate;
     private final SmsProvider smsProvider;
+
+    @Value("${trackngo.time-zone:Asia/Colombo}")
+    private String timeZoneId;
 
     /** Ensures the SOS table contains the optional route and bus columns used by the service. */
     @PostConstruct
@@ -57,6 +63,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         alert.setPassengerId(request.getPassengerId());
         alert.setDriverId(request.getDriverId());
         alert.setSharedLocation(request.getSharedLocation());
+        alert.setTriggeredAt(currentDateTime());
 
         String requestedBusNumber = trimToNull(request.getBusNumber());
         String requestedStart = trimToNull(request.getStartLocation());
@@ -105,7 +112,7 @@ public class SosAlertServiceImpl implements SosAlertService {
 
         SosAlert saved = repository.save(alert);
         notifyEmergencyContactsIfRequested(saved, request);
-        return toDto(saved);
+        return toDto(repository.findById(saved.getSosId()).orElse(saved));
     }
 
     /** Loads active SOS alerts together with passenger, driver, route, and emergency contact details. */
@@ -145,10 +152,8 @@ public class SosAlertServiceImpl implements SosAlertService {
             dto.setSosId(((Number) row.get("sos_id")).longValue());
             dto.setSharedLocation((String) row.get("shared_location"));
             dto.setStatus((String) row.get("status"));
-            dto.setTriggeredAt(row.get("triggered_at") != null
-                    ? ((java.sql.Timestamp) row.get("triggered_at")).toLocalDateTime() : null);
-            dto.setResolvedAt(row.get("resolved_at") != null
-                    ? ((java.sql.Timestamp) row.get("resolved_at")).toLocalDateTime() : null);
+            dto.setTriggeredAt(toLocalDateTime(row.get("triggered_at")));
+            dto.setResolvedAt(toLocalDateTime(row.get("resolved_at")));
             dto.setPassengerId(row.get("passenger_id") != null
                     ? ((Number) row.get("passenger_id")).longValue() : null);
             dto.setDriverId(row.get("driver_id") != null
@@ -217,9 +222,9 @@ public class SosAlertServiceImpl implements SosAlertService {
                 .orElseThrow(() -> new ResourceNotFoundException("SOS alert not found"));
         alert.setStatus(SosAlert.SosStatus.resolved);
         alert.setAdminId(adminId);
-        alert.setResolvedAt(LocalDateTime.now());
+        alert.setResolvedAt(currentDateTime());
         repository.save(alert);
-        return toDto(alert);
+        return toDto(repository.findById(sosId).orElse(alert));
     }
 
     /** Marks an SOS alert as a false alarm and records which admin handled it. */
@@ -229,9 +234,9 @@ public class SosAlertServiceImpl implements SosAlertService {
                 .orElseThrow(() -> new ResourceNotFoundException("SOS alert not found"));
         alert.setStatus(SosAlert.SosStatus.false_alarm);
         alert.setAdminId(adminId);
-        alert.setResolvedAt(LocalDateTime.now());
+        alert.setResolvedAt(currentDateTime());
         repository.save(alert);
-        return toDto(alert);
+        return toDto(repository.findById(sosId).orElse(alert));
     }
 
     /** Converts the SOS alert entity into the API DTO returned by the service. */
@@ -264,6 +269,31 @@ public class SosAlertServiceImpl implements SosAlertService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /** Returns the current application time in the configured business timezone. */
+    private LocalDateTime currentDateTime() {
+        return LocalDateTime.now(resolveZoneId());
+    }
+
+    /** Falls back to the TrackNGo business timezone when Spring config is not injected in plain unit tests. */
+    private ZoneId resolveZoneId() {
+        String configured = timeZoneId == null || timeZoneId.isBlank() ? "Asia/Colombo" : timeZoneId;
+        return ZoneId.of(configured);
+    }
+
+    /** Safely converts JDBC datetime values returned by different drivers into LocalDateTime. */
+    private static LocalDateTime toLocalDateTime(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof LocalDateTime localDateTime) {
+            return localDateTime;
+        }
+        if (value instanceof Timestamp timestamp) {
+            return timestamp.toLocalDateTime();
+        }
+        throw new IllegalArgumentException("Unsupported datetime value type: " + value.getClass().getName());
     }
 
     /** Sends SOS SMS notifications to the trigger owner's emergency contacts when enabled. */

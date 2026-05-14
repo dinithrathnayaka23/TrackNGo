@@ -66,8 +66,8 @@ export function formatCreatedDate(isoDate: string | null) {
     return '--'
   }
 
-  const date = new Date(isoDate)
-  if (Number.isNaN(date.getTime())) {
+  const date = parseComplaintDateTime(isoDate)
+  if (!date) {
     return isoDate
   }
 
@@ -78,6 +78,28 @@ export function formatCreatedDate(isoDate: string | null) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+/** Parses complaint timestamps without shifting timezone-less backend LocalDateTime values. */
+function parseComplaintDateTime(value: string): Date | null {
+  const isoLikeMatch = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,9}))?$/,
+  )
+
+  if (isoLikeMatch) {
+    const [, year, month, day, hour, minute, second = '0'] = isoLikeMatch
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+    )
+  }
+
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
 /** Converts any stored complaint status into the editable select option set. */

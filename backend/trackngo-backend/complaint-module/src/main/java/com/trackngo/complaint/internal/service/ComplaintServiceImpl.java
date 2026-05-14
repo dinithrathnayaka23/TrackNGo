@@ -10,6 +10,7 @@ import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,6 +20,7 @@ import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -44,6 +46,9 @@ public class ComplaintServiceImpl implements ComplaintService {
     private final EventPublisher eventPublisher;
     private final JdbcTemplate jdbc;
 
+    @Value("${trackngo.time-zone:Asia/Colombo}")
+    private String timeZoneId;
+
     /** Ensures the complaint table contains the booking reference support required by this module. */
     @PostConstruct
     void ensureComplaintSchema() {
@@ -55,6 +60,7 @@ public class ComplaintServiceImpl implements ComplaintService {
             "idx_booking_reference",
             "ALTER TABLE complaint ADD INDEX idx_booking_reference (booking_reference)"
         );
+        ensureComplaintDateTimeColumns();
     }
 
     /** Creates a complaint, validates passenger ownership, and publishes a created event. */
@@ -107,12 +113,13 @@ public class ComplaintServiceImpl implements ComplaintService {
         entity.setAdminResponse(trimToNull(dto.getAdminResponse()));
 
         if ("resolved".equals(entity.getStatus())) {
-            entity.setResolvedAt(dto.getResolvedAt() != null ? dto.getResolvedAt() : LocalDateTime.now());
+            entity.setResolvedAt(dto.getResolvedAt() != null ? dto.getResolvedAt() : currentDateTime());
         } else {
             entity.setResolvedAt(dto.getResolvedAt());
         }
 
-        return toDto(repository.save(entity));
+        Complaint saved = repository.save(entity);
+        return toDto(saved);
     }
 
     /** Deletes a complaint by its identifier. */
@@ -135,7 +142,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         entity.setDescription(requireDescription(dto.getDescription()));
         entity.setStatus("pending");
         entity.setAdminResponse(null);
-        entity.setCreatedAt(LocalDateTime.now());
+        entity.setCreatedAt(currentDateTime());
         entity.setResolvedAt(null);
         entity.setPassengerId(null);
 
@@ -214,6 +221,46 @@ public class ComplaintServiceImpl implements ComplaintService {
         }
     }
 
+    /**
+     * Migrates complaint timestamps away from TIMESTAMP so the database stores the Sri Lanka
+     * wall-clock time directly instead of a UTC-shifted representation.
+     */
+    private void ensureComplaintDateTimeColumns() {
+        String createdAtType = findColumnType("created_at");
+        String resolvedAtType = findColumnType("resolved_at");
+        boolean createdAtNeedsMigration = "timestamp".equalsIgnoreCase(createdAtType);
+        boolean resolvedAtNeedsMigration = "timestamp".equalsIgnoreCase(resolvedAtType);
+
+        if (!createdAtNeedsMigration && !resolvedAtNeedsMigration) {
+            return;
+        }
+
+        if (createdAtNeedsMigration) {
+            jdbc.execute("UPDATE complaint SET created_at = DATE_ADD(created_at, INTERVAL 330 MINUTE) WHERE created_at IS NOT NULL");
+            jdbc.execute("ALTER TABLE complaint MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
+        }
+
+        if (resolvedAtNeedsMigration) {
+            jdbc.execute("UPDATE complaint SET resolved_at = DATE_ADD(resolved_at, INTERVAL 330 MINUTE) WHERE resolved_at IS NOT NULL");
+            jdbc.execute("ALTER TABLE complaint MODIFY COLUMN resolved_at DATETIME NULL");
+        }
+    }
+
+    /** Returns the current database column type for the complaint table. */
+    private String findColumnType(String columnName) {
+        return jdbc.queryForObject(
+            """
+            SELECT DATA_TYPE
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+              AND table_name = 'complaint'
+              AND column_name = ?
+            """,
+            String.class,
+            columnName
+        );
+    }
+
     /** Confirms the booking belongs to the passenger and happened in the past. */
     private String resolvePastPassengerBookingReference(String email, String bookingReference) {
         if (bookingReference == null) {
@@ -250,7 +297,7 @@ public class ComplaintServiceImpl implements ComplaintService {
             : (LocalTime) booking.get("journey_time");
         LocalDateTime journeyDateTime = LocalDateTime.of(journeyDate, journeyTime);
 
-        if (!journeyDateTime.isBefore(LocalDateTime.now())) {
+        if (!journeyDateTime.isBefore(currentDateTime())) {
             throw new BusinessException("Complaints can only be submitted for past bookings");
         }
 
@@ -317,6 +364,17 @@ public class ComplaintServiceImpl implements ComplaintService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /** Returns the current application time in the configured business timezone. */
+    private LocalDateTime currentDateTime() {
+        return LocalDateTime.now(resolveZoneId());
+    }
+
+    /** Falls back to the TrackNGo business timezone when Spring config is not injected in plain unit tests. */
+    private ZoneId resolveZoneId() {
+        String configured = timeZoneId == null || timeZoneId.isBlank() ? "Asia/Colombo" : timeZoneId;
+        return ZoneId.of(configured);
     }
 
     /** Maps a complaint entity into the API DTO returned by the module. */

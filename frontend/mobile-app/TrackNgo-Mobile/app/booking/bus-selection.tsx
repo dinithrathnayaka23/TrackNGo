@@ -35,23 +35,6 @@ function formatDuration(start: string, end: string): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-/** Extract bus route start and end cities from routeName */
-function extractRouteCities(routeName: string): { start: string; end: string } {
-  const parts = routeName.split(/\s*[-→]\s*/).map(s => s.trim());
-  if (parts.length >= 2) {
-    return { start: parts[0], end: parts[parts.length - 1] };
-  }
-  return { start: routeName, end: routeName };
-}
-
-/** Get the actual bus route start and end cities from route stops */
-function getRouteStartEnd(routeStops: Array<{ name: string; priority: number }>) {
-  if (!routeStops || routeStops.length === 0) {
-    return { start: '', end: '' };
-  }
-  const sorted = [...routeStops].sort((a, b) => a.priority - b.priority);
-  return { start: sorted[0].name, end: sorted[sorted.length - 1].name };
-}
 
 export default function BusSelectionScreen() {
   const router = useRouter();
@@ -199,16 +182,12 @@ export default function BusSelectionScreen() {
             </View>
 
             <View style={styles.timeRow}>
-              {(() => {
-                const { start: routeStart, end: routeEnd } = getRouteStartEnd(bus.routeStops);
-                return (
-                  <>
                     <View>
                       <Text style={styles.timeText}>{bus.startTime}</Text>
-                      <Text style={styles.timeSub}>{routeStart}</Text>
+                      <Text style={styles.timeSub}>{from}</Text>
                     </View>
                     <View style={styles.timelineWrap}>
-                      <Text style={styles.durationText}>{formatDuration(bus.startTime, bus.endTime)}</Text>
+                      <Text style={styles.durationText}>{duration}</Text>
                       <View style={styles.timeline}>
                         <View style={styles.timelineDot} />
                         <View style={styles.timelineLine} />
@@ -217,11 +196,8 @@ export default function BusSelectionScreen() {
                     </View>
                     <View>
                       <Text style={styles.timeText}>{bus.endTime}</Text>
-                      <Text style={styles.timeSub}>{routeEnd}</Text>
+                      <Text style={styles.timeSub}>{to}</Text>
                     </View>
-                  </>
-                );
-              })()}
             </View>
 
             <View style={styles.featuresRow}>

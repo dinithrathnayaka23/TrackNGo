@@ -9,6 +9,7 @@ import {
   faChair,
   faPlus,
   faArrowUpFromBracket,
+  faClock,
   faSpinner,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
@@ -52,7 +53,40 @@ function formatSchedule(start?: string | null, end?: string | null, returnStart?
   if (forward && backward) return `${forward} | ${backward}`
   if (forward) return forward
   if (backward) return backward
-  return '—'
+  return '--'
+}
+
+function formatClockTime(value?: string | null) {
+  if (!value) return '--'
+  const parts = value.split(':')
+  if (parts.length < 2) return value
+
+  const hour = Number(parts[0])
+  const minute = parts[1]
+  if (Number.isNaN(hour)) return value
+
+  const period = hour >= 12 ? 'PM' : 'AM'
+  const normalizedHour = hour % 12 || 12
+  return `${normalizedHour}:${minute} ${period}`
+}
+
+function formatTimeRange(start?: string | null, end?: string | null) {
+  if (!start && !end) return 'Not scheduled'
+  if (start && end) return `${formatClockTime(start)} - ${formatClockTime(end)}`
+  if (start) return `${formatClockTime(start)} - --`
+  return `-- - ${formatClockTime(end)}`
+}
+
+function formatBusTypeChipLabel(busType?: string | null) {
+  if (!busType) return 'Bus'
+
+  const normalized = busType.toLowerCase()
+  if (normalized === 'long_distance') return 'Long Dist.'
+  if (normalized === 'trip_booking') return 'Trip Booking'
+  if (normalized === 'highway') return 'Highway'
+  if (normalized === 'corporate') return 'Corporate'
+
+  return busType.replace(/_/g, ' ')
 }
 
 function Buses() {
@@ -343,11 +377,14 @@ function Buses() {
           const acType = hasAc(bus.amenities) ? 'AC' : 'Non-AC'
           const initials = bus.driverName
             ? bus.driverName.split(' ').map((w) => w[0]).join('').slice(0, 2)
-            : '—'
+            : '--'
+          const outboundWindow = formatTimeRange(bus.startTime, bus.endTime)
+          const returnWindow = formatTimeRange(bus.returnStartTime, bus.returnEndTime)
+          const busTypeLabel = formatBusTypeChipLabel(bus.busType)
           return (
           <article
             key={bus.busId}
-            className="animate-dash-in overflow-hidden rounded-xl border border-[#e5e7eb] bg-white transition hover:shadow-md"
+            className="animate-dash-in overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]"
             style={{ animationDelay: '150ms' }}
           >
             {/* Image */}
@@ -401,17 +438,34 @@ function Buses() {
                 <span className="text-xs text-[#94a3b8]">Driver</span>
               </div>
 
-              {/* Route info */}
-              <div className="mt-3 flex items-center border-t border-[#f1f5f9] pt-3">
-                <div className="flex-1">
-                  <p className="text-xs text-[#94a3b8]">Route</p>
-                  <p className="mt-0.5 text-sm font-bold text-[#111827]">{bus.routeName || 'None'}</p>
+              {/* Route + schedule */}
+              <div className="mt-3 border-t border-[#eef2ff] pt-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-[#94a3b8]">Route</p>
+                    <p className="mt-0.5 break-words text-sm font-bold leading-snug text-[#111827]">{bus.routeName || 'None'}</p>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#eff6ff] px-2.5 py-1 text-[10px] font-semibold text-[#1d4ed8]">
+                    {busTypeLabel}
+                  </span>
                 </div>
-                <div className="flex-1 text-right">
-                  <p className="text-xs text-[#94a3b8]">Schedule</p>
-                  <p className="mt-0.5 text-sm font-bold text-[#16a34a]">
-                    {formatSchedule(bus.startTime, bus.endTime, bus.returnStartTime, bus.returnEndTime)}
-                  </p>
+
+                <div className="mt-3 grid gap-2">
+                  <div className="rounded-lg border border-[#dbeafe] bg-[#f8fbff] px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Outbound</span>
+                      <FontAwesomeIcon icon={faClock} className="text-[11px] text-[#60a5fa]" />
+                    </div>
+                    <p className="mt-1 text-sm font-bold text-[#1d4ed8]">{outboundWindow}</p>
+                  </div>
+
+                  <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Return</span>
+                      <FontAwesomeIcon icon={faClock} className="text-[11px] text-[#94a3b8]" />
+                    </div>
+                    <p className="mt-1 text-sm font-bold text-[#334155]">{returnWindow}</p>
+                  </div>
                 </div>
               </div>
 

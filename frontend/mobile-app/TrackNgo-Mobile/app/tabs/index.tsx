@@ -58,6 +58,7 @@ const quickActions = [
 
 interface DashboardRecentBooking {
   busNumber: string;
+  busType: string;
   id: string;
   badge: string;
   from: string;
@@ -121,6 +122,7 @@ function toDashboardRecentBooking(
 
   return {
     busNumber: dto.busNumber,
+    busType: dto.busType,
     id: dto.bookingReference,
     badge: normalizeBusType(dto.busType),
     from: dto.startLocation,
@@ -516,7 +518,7 @@ export default function HomeScreen() {
                   <PressScale
                     onPress={() =>
                       router.push({
-                        pathname: "/booking/booking-confirmation",
+                        pathname: "/booking/view-ticket",
                         params: {
                           bookingRef: booking.id,
                           from: booking.from,
@@ -524,6 +526,8 @@ export default function HomeScreen() {
                           busNumber: booking.busNumber,
                           date: booking.dateLabel,
                           depart: booking.timeLabel,
+                          busType: booking.busType,
+                          passengerName: displayName,
                         },
                       })
                     }

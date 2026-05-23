@@ -77,7 +77,7 @@ export default function BookingHistoryScreen() {
 
   const navigateToTicket = (b: BookingHistoryDto) => {
     router.push({
-      pathname: "/booking/booking-confirmation",
+      pathname: "/booking/view-ticket",
       params: {
         bookingRef: b.bookingReference,
         from: b.startLocation,
@@ -89,6 +89,7 @@ export default function BookingHistoryScreen() {
         totalPrice: String(b.totalAmount),
         transactionId: b.transactionId ?? "",
         status: b.status,
+        busType: b.busType,
       },
     });
   };

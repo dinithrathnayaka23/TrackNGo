@@ -119,7 +119,7 @@ export default function SeatSelectionScreen() {
               <Ionicons name="bus" size={18} color="#2F6BFF" />
             </View>
             <View style={styles.summaryText}>
-              <Text style={styles.summaryTitle}>{params.routeName || `${from} - ${to}`}</Text>
+              <Text style={styles.summaryTitle}>{from} - {to}</Text>
               <Text style={styles.summarySub}>
                 Bus {params.busNumber || busId} - {depart} - {date}
               </Text>

@@ -54,6 +54,8 @@ class BookingFlowServiceTest {
         row.put("end_location", "Kandy");
         row.put("total_distance", 120.0);
         row.put("estimated_time_duration", 240);
+        row.put("from_priority", 1);
+        row.put("to_priority", 10);
         row.put("from_distance", 0.0);
         row.put("to_distance", 120.0);
         row.put("from_stop_name", "Colombo Fort");
@@ -123,7 +125,134 @@ class BookingFlowServiceTest {
         assertThat(r.busType()).isEqualTo("highway");
         assertThat(r.seatCapacity()).isEqualTo(40);
         assertThat(r.availableSeats()).isEqualTo(38); // 40 - 2 booked
+        assertThat(r.startTime()).isEqualTo("08:00");
+        assertThat(r.endTime()).isEqualTo("12:00");
+        assertThat(r.busRouteName()).isEqualTo("Express Route");
         assertThat(r.routeStops()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("searchBuses: returns segment times while preserving full bus route name")
+    void searchBuses_midRoute_returnsSegmentTimesAndBusRouteName() throws Exception {
+        Map<String, Object> busRow = buildBusRow(1L, "NB-0012", "highway");
+        busRow.put("bus_brand", "Ashok Leyland");
+        busRow.put("start_time", Time.valueOf("05:30:00"));
+        busRow.put("route_name", "Colombo to Kandy Express");
+        busRow.put("start_location", "Colombo Fort");
+        busRow.put("end_location", "Kandy");
+        busRow.put("total_distance", 115.5);
+        busRow.put("estimated_time_duration", 165);
+        busRow.put("from_distance", 18.0);
+        busRow.put("to_distance", 85.0);
+        busRow.put("from_arrival_mins", 30);
+        busRow.put("to_arrival_mins", 125);
+        busRow.put("from_priority", 3);
+        busRow.put("to_priority", 6);
+
+        Map<String, Object> stopRow1 = new HashMap<>();
+        stopRow1.put("name", "Colombo Fort");
+        stopRow1.put("priority", 1);
+        Map<String, Object> stopRow2 = new HashMap<>();
+        stopRow2.put("name", "Kandy");
+        stopRow2.put("priority", 8);
+
+        when(jdbc.queryForList(anyString(), any(Object[].class)))
+                .thenReturn(List.of(busRow))
+                .thenReturn(List.of(stopRow1, stopRow2));
+        when(jdbc.queryForObject(anyString(), eq(Integer.class), any(Object[].class)))
+                .thenReturn(0);
+        when(mapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                .thenReturn(List.of("ac"));
+
+        List<BusSearchResult> results = service.searchBuses("Kadawatha", "Mawanella", "2025-05-01", null);
+
+        assertThat(results).hasSize(1);
+        BusSearchResult result = results.get(0);
+        assertThat(result.startTime()).isEqualTo("06:00");
+        assertThat(result.endTime()).isEqualTo("07:35");
+        assertThat(result.routeName()).isEqualTo("Colombo to Kandy Express");
+        assertThat(result.busRouteName()).isEqualTo("Colombo to Kandy Express");
+    }
+
+    @Test
+    @DisplayName("searchBuses: ignores segment route name when branding the bus")
+    void searchBuses_segmentRouteName_fallsBackToFullRouteEndpoints() throws Exception {
+        Map<String, Object> busRow = buildBusRow(1L, "NB-0012", "highway");
+        busRow.put("start_time", Time.valueOf("05:30:00"));
+        busRow.put("route_name", "Kadawatha - Mawanella");
+        busRow.put("start_location", "Colombo");
+        busRow.put("end_location", "Kandy");
+        busRow.put("total_distance", 115.5);
+        busRow.put("estimated_time_duration", 165);
+        busRow.put("from_distance", 18.0);
+        busRow.put("to_distance", 85.0);
+        busRow.put("from_arrival_mins", 30);
+        busRow.put("to_arrival_mins", 125);
+        busRow.put("from_priority", 3);
+        busRow.put("to_priority", 6);
+        busRow.put("from_stop_name", "Kadawatha");
+        busRow.put("to_stop_name", "Mawanella");
+
+        Map<String, Object> stopRow1 = new HashMap<>();
+        stopRow1.put("name", "Colombo");
+        stopRow1.put("priority", 1);
+        Map<String, Object> stopRow2 = new HashMap<>();
+        stopRow2.put("name", "Kandy");
+        stopRow2.put("priority", 8);
+
+        when(jdbc.queryForList(anyString(), any(Object[].class)))
+                .thenReturn(List.of(busRow))
+                .thenReturn(List.of(stopRow1, stopRow2));
+        when(jdbc.queryForObject(anyString(), eq(Integer.class), any(Object[].class)))
+                .thenReturn(0);
+        when(mapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                .thenReturn(List.of("ac"));
+
+        List<BusSearchResult> results = service.searchBuses("Kadawatha", "Mawanella", "2025-05-01", null);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).routeName()).isEqualTo("Colombo to Kandy");
+        assertThat(results.get(0).busRouteName()).isEqualTo("Colombo to Kandy");
+    }
+
+    @Test
+    @DisplayName("searchBuses: calculates segment times from stop order when stop offsets are missing")
+    void searchBuses_missingStopOffsets_usesStopPriorityFallback() throws Exception {
+        Map<String, Object> busRow = buildBusRow(1L, "NB-0012", "long_distance");
+        busRow.put("start_time", Time.valueOf("05:00:00"));
+        busRow.put("end_time", Time.valueOf("09:00:00"));
+        busRow.put("total_distance", 0.0);
+        busRow.put("estimated_time_duration", 240);
+        busRow.put("from_distance", null);
+        busRow.put("to_distance", null);
+        busRow.put("from_arrival_mins", null);
+        busRow.put("to_arrival_mins", null);
+        busRow.put("from_priority", 2);
+        busRow.put("to_priority", 4);
+        busRow.put("from_stop_name", "Kadawatha");
+        busRow.put("to_stop_name", "Mawanella");
+
+        List<Map<String, Object>> stopRows = List.of(
+                Map.of("name", "Colombo", "priority", 1),
+                Map.of("name", "Kadawatha", "priority", 2),
+                Map.of("name", "Kegalle", "priority", 3),
+                Map.of("name", "Mawanella", "priority", 4),
+                Map.of("name", "Kandy", "priority", 5)
+        );
+
+        when(jdbc.queryForList(anyString(), any(Object[].class)))
+                .thenReturn(List.of(busRow))
+                .thenReturn(stopRows);
+        when(jdbc.queryForObject(anyString(), eq(Integer.class), any(Object[].class)))
+                .thenReturn(0);
+        when(mapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                .thenReturn(List.of("wifi"));
+
+        List<BusSearchResult> results = service.searchBuses("Kadawatha", "Mawanella", "2025-05-01", null);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).startTime()).isEqualTo("06:00");
+        assertThat(results.get(0).endTime()).isEqualTo("08:00");
     }
 
     @Test
@@ -230,6 +359,76 @@ class BookingFlowServiceTest {
     }
 
     // ─── cancelBooking ────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("getBusDetails: calculates segment times from stop order when stop offsets are missing")
+    void getBusDetails_missingStopOffsets_usesStopPriorityFallback() throws Exception {
+        Map<String, Object> busRow = new HashMap<>();
+        busRow.put("bus_id", 1L);
+        busRow.put("bus_number", "NB-0012");
+        busRow.put("bus_type", "long_distance");
+        busRow.put("bus_brand", "Ashok Leyland");
+        busRow.put("start_time", Time.valueOf("05:00:00"));
+        busRow.put("end_time", Time.valueOf("09:00:00"));
+        busRow.put("return_start_time", null);
+        busRow.put("return_end_time", null);
+        busRow.put("seat_capacity", 45);
+        busRow.put("amenities", "[\"wifi\"]");
+        busRow.put("fee", new BigDecimal("1000.00"));
+        busRow.put("route_id", 1L);
+        busRow.put("route_name", "Colombo to Kandy");
+        busRow.put("est_distance_difference", BigDecimal.ZERO);
+        busRow.put("estimated_time_duration", 240);
+        busRow.put("start_location", "Colombo");
+        busRow.put("end_location", "Kandy");
+        busRow.put("average_rating", 4.8);
+        busRow.put("driver_phone", "0771234567");
+        busRow.put("profile_photo", null);
+        busRow.put("driver_name", "John Doe");
+
+        Map<String, Object> colombo = new HashMap<>();
+        colombo.put("name", "Colombo");
+        colombo.put("priority", 1);
+        colombo.put("estimated_arrival_mins", null);
+        colombo.put("distance_from_start", null);
+        Map<String, Object> kadawatha = new HashMap<>();
+        kadawatha.put("name", "Kadawatha");
+        kadawatha.put("priority", 2);
+        kadawatha.put("estimated_arrival_mins", null);
+        kadawatha.put("distance_from_start", null);
+        Map<String, Object> kegalle = new HashMap<>();
+        kegalle.put("name", "Kegalle");
+        kegalle.put("priority", 3);
+        kegalle.put("estimated_arrival_mins", null);
+        kegalle.put("distance_from_start", null);
+        Map<String, Object> mawanella = new HashMap<>();
+        mawanella.put("name", "Mawanella");
+        mawanella.put("priority", 4);
+        mawanella.put("estimated_arrival_mins", null);
+        mawanella.put("distance_from_start", null);
+        Map<String, Object> kandy = new HashMap<>();
+        kandy.put("name", "Kandy");
+        kandy.put("priority", 5);
+        kandy.put("estimated_arrival_mins", null);
+        kandy.put("distance_from_start", null);
+
+        when(jdbc.queryForMap(anyString(), any(Object[].class))).thenReturn(busRow);
+        when(jdbc.queryForList(anyString(), eq(Integer.class), any(Object[].class)))
+                .thenReturn(List.of(2))
+                .thenReturn(List.of(4));
+        when(jdbc.queryForList(anyString(), any(Object[].class)))
+                .thenReturn(List.of(colombo, kadawatha, kegalle, mawanella, kandy));
+        when(mapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                .thenReturn(List.of("wifi"));
+
+        BusDetailResult result = service.getBusDetails(1L, "Kadawatha", "Mawanella");
+
+        assertThat(result.startTime()).isEqualTo("06:00");
+        assertThat(result.endTime()).isEqualTo("08:00");
+        assertThat(result.routeDuration()).isEqualTo("2h 0m");
+        assertThat(result.routeStops()).extracting(BusDetailResult.RouteStopInfo::name)
+                .containsExactly("Kadawatha", "Kegalle", "Mawanella");
+    }
 
     @Test
     @DisplayName("cancelBooking: updates status to cancelled for confirmed booking")

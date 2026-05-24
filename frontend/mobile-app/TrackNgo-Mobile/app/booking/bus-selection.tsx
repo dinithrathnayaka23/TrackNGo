@@ -12,6 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { searchBuses, type BusSearchResult } from '../../services/bookingFlowApi';
+import { getBusRouteLabel, getBusRouteWithSuffix } from '../../utils/routeDisplay';
 
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode }> = {
   ac: { icon: <MaterialCommunityIcons name="snowflake" size={16} color="#94A3B8" /> },
@@ -160,6 +161,8 @@ export default function BusSelectionScreen() {
         ) : (
           filteredBuses.map((bus) => {
             const duration = formatDuration(bus.startTime, bus.endTime);
+            const busRouteLabel = getBusRouteWithSuffix(bus, { segmentFrom: from, segmentTo: to });
+            const busRouteName = getBusRouteLabel(bus, { segmentFrom: from, segmentTo: to });
             return (
           <View key={bus.busId} style={styles.busCard}>
             <View style={styles.busHeader}>
@@ -170,8 +173,8 @@ export default function BusSelectionScreen() {
                 <View>
                   <Text style={styles.busId}>{bus.busNumber}</Text>
                   <Text style={styles.busType}>{bus.busBrand}  •  {bus.busType}</Text>
-                  {bus.routeName ? (
-                    <Text style={styles.routeLabel}>{bus.routeName} Bus</Text>
+                  {busRouteLabel ? (
+                    <Text style={styles.routeLabel}>{busRouteLabel}</Text>
                   ) : null}
                 </View>
               </View>
@@ -237,7 +240,7 @@ export default function BusSelectionScreen() {
                         to,
                         date,
                         price: String(bus.fee),
-                        routeName: bus.routeName,
+                        routeName: busRouteName || bus.routeName,
                         adults,
                         children,
                       },

@@ -115,8 +115,24 @@ public class BookingFlowService {
             int toPriority = ((Number) row.get("to_priority")).intValue();
             boolean reverseDirection = fromPriority > toPriority;
 
+            // Fetch route stops before calculating times so ordered stops can be
+            // used when explicit per-stop ETA/distance data has not been saved.
+            Long routeId = ((Number) row.get("route_id")).longValue();
+            String stopsSql = """
+                SELECT rs.name, rs.priority FROM route_stop rs WHERE rs.route_id = ? ORDER BY rs.priority
+                """;
+            List<Map<String, Object>> stopRows = jdbc.queryForList(stopsSql, routeId);
+            List<BusSearchResult.RouteStopInfo> routeStops = new ArrayList<>();
+            for (Map<String, Object> stopRow : stopRows) {
+                routeStops.add(new BusSearchResult.RouteStopInfo(
+                    (String) stopRow.get("name"),
+                    ((Number) stopRow.get("priority")).intValue()
+                ));
+            }
+            int firstPriority = routeStops.isEmpty() ? Math.min(fromPriority, toPriority) : routeStops.get(0).priority();
+            int lastPriority = routeStops.isEmpty() ? Math.max(fromPriority, toPriority) : routeStops.get(routeStops.size() - 1).priority();
+
             Object journeyStartObj = reverseDirection ? row.get("return_start_time") : row.get("start_time");
-            Object journeyEndObj = reverseDirection ? row.get("return_end_time") : row.get("end_time");
             if (journeyStartObj == null) {
                 // Reverse schedule is not configured for this bus.
                 continue;
@@ -128,18 +144,24 @@ public class BookingFlowService {
             double totalDistance = row.get("total_distance") != null
                     ? ((Number) row.get("total_distance")).doubleValue() : 0.0;
             
-            int fromArrivalMins = row.get("from_arrival_mins") != null ? ((Number) row.get("from_arrival_mins")).intValue() : 0;
-            int toArrivalMins = row.get("to_arrival_mins") != null ? ((Number) row.get("to_arrival_mins")).intValue() : 0;
-
-            // Fallback to proportional distance calculation if arrival mins are not set or zero
-            if (fromArrivalMins == 0 && totalDurationMins > 0 && totalDistance > 0 && row.get("from_distance") != null) {
-                double dist = ((Number) row.get("from_distance")).doubleValue();
-                fromArrivalMins = (int) Math.round((dist / totalDistance) * totalDurationMins);
-            }
-            if (toArrivalMins == 0 && totalDurationMins > 0 && totalDistance > 0 && row.get("to_distance") != null) {
-                double dist = ((Number) row.get("to_distance")).doubleValue();
-                toArrivalMins = (int) Math.round((dist / totalDistance) * totalDurationMins);
-            }
+            int fromArrivalMins = resolveArrivalMins(
+                    row.get("from_arrival_mins"),
+                    row.get("from_distance"),
+                    fromPriority,
+                    firstPriority,
+                    lastPriority,
+                    totalDurationMins,
+                    totalDistance
+            );
+            int toArrivalMins = resolveArrivalMins(
+                    row.get("to_arrival_mins"),
+                    row.get("to_distance"),
+                    toPriority,
+                    firstPriority,
+                    lastPriority,
+                    totalDurationMins,
+                    totalDistance
+            );
 
             int computedFromMins;
             int computedToMins;
@@ -157,34 +179,20 @@ public class BookingFlowService {
             String fromTime = busStartTime.plusMinutes(computedFromMins).format(DateTimeFormatter.ofPattern("HH:mm"));
             String toTime = busStartTime.plusMinutes(computedToMins).format(DateTimeFormatter.ofPattern("HH:mm"));
 
-            // Fetch route stops for this route first to get true start/end
-            Long routeId = ((Number) row.get("route_id")).longValue();
-            String stopsSql = """
-                SELECT rs.name, rs.priority FROM route_stop rs WHERE rs.route_id = ? ORDER BY rs.priority
-                """;
-            List<Map<String, Object>> stopRows = jdbc.queryForList(stopsSql, routeId);
-            List<BookingFlowDtos.BusSearchResult.RouteStopInfo> routeStops = new ArrayList<>();
-            for (Map<String, Object> stopRow : stopRows) {
-                routeStops.add(new BookingFlowDtos.BusSearchResult.RouteStopInfo(
-                    (String) stopRow.get("name"),
-                    ((Number) stopRow.get("priority")).intValue()
-                ));
-            }
-
-            // ALWAYS use the primary route branding
-            String dbRouteName = (String) row.get("route_name");
-            String routeName = "";
-            if (dbRouteName != null && !dbRouteName.isBlank()) {
-                routeName = dbRouteName;
-            } else if (!routeStops.isEmpty()) {
-                String trueStart = routeStops.get(0).name();
-                String trueEnd = routeStops.get(routeStops.size() - 1).name();
-                routeName = reverseDirection ? (trueEnd + " - " + trueStart) : (trueStart + " - " + trueEnd);
-            } else {
-                String routeStart = (String) row.get("start_location");
-                String routeEnd = (String) row.get("end_location");
-                routeName = reverseDirection ? (routeEnd + " - " + routeStart) : (routeStart + " - " + routeEnd);
-            }
+            String routeStartLocation = routeStops.isEmpty()
+                    ? stringValue(row.get("start_location"))
+                    : routeStops.get(0).name();
+            String routeEndLocation = routeStops.isEmpty()
+                    ? stringValue(row.get("end_location"))
+                    : routeStops.get(routeStops.size() - 1).name();
+            String busRouteName = resolveBusRouteName(
+                    (String) row.get("route_name"),
+                    routeStartLocation,
+                    routeEndLocation,
+                    (String) row.get("from_stop_name"),
+                    (String) row.get("to_stop_name")
+            );
+            String routeName = busRouteName;
 
             // (route stops already fetched above)
 
@@ -202,6 +210,9 @@ public class BookingFlowService {
                     (String) row.get("driver_name"),
                     toDouble(row.get("average_rating")),
                     routeName,
+                    busRouteName,
+                    routeStartLocation,
+                    routeEndLocation,
                     routeStops
             ));
         }
@@ -229,79 +240,118 @@ public class BookingFlowService {
 
         Map<String, Object> row = jdbc.queryForMap(busSql, busId);
 
-        // Canonical route branding
         String dbRouteName = (String) row.get("route_name");
-        String routeLabel = "";
 
         Long routeId = ((Number) row.get("route_id")).longValue();
         int directionCompare = compareStopPriority(routeId, fromStop, toStop);
         boolean reverseDirection = directionCompare > 0 && row.get("return_start_time") != null;
         Object journeyStartObj = reverseDirection ? row.get("return_start_time") : row.get("start_time");
         Object journeyEndObj = reverseDirection ? row.get("return_end_time") : row.get("end_time");
+        if (journeyStartObj == null) {
+            journeyStartObj = row.get("start_time");
+        }
+        if (journeyEndObj == null) {
+            journeyEndObj = row.get("end_time");
+        }
 
         String stopsSql = """
             SELECT rs.name, rs.estimated_arrival_mins, rs.distance_from_start, rs.priority
             FROM route_stop rs
             WHERE rs.route_id = ?
-            ORDER BY rs.priority %s
-            """.formatted(reverseDirection ? "DESC" : "ASC");
-        List<Map<String, Object>> stopRows = jdbc.queryForList(stopsSql, routeId);
-        List<BookingFlowDtos.BusDetailResult.RouteStopInfo> routeStops = new ArrayList<>();
-        
+            ORDER BY rs.priority ASC
+            """;
+        List<Map<String, Object>> fullStopRows = jdbc.queryForList(stopsSql, routeId);
+        List<Map<String, Object>> traversalStopRows = new ArrayList<>(fullStopRows);
+        if (reverseDirection) {
+            Collections.reverse(traversalStopRows);
+        }
+
+        String routeStartLocation = fullStopRows.isEmpty()
+                ? stringValue(row.get("start_location"))
+                : stringValue(fullStopRows.get(0).get("name"));
+        String routeEndLocation = fullStopRows.isEmpty()
+                ? stringValue(row.get("end_location"))
+                : stringValue(fullStopRows.get(fullStopRows.size() - 1).get("name"));
+        String busRouteName = resolveBusRouteName(dbRouteName, routeStartLocation, routeEndLocation, fromStop, toStop);
+        String routeLabel = busRouteName;
+
         // Calculate segment times if from and to are provided
-        String finalStartTime = journeyStartObj.toString();
-        String finalEndTime = journeyEndObj.toString();
-        
+        String finalStartTime = formatTime(journeyStartObj);
+        String finalEndTime = formatTime(journeyEndObj);
+
+        int totalDurationMins = row.get("estimated_time_duration") != null ? ((Number) row.get("estimated_time_duration")).intValue() : 0;
+        double totalDistance = row.get("est_distance_difference") != null
+                ? ((Number) row.get("est_distance_difference")).doubleValue() : 0.0;
+        Map<String, Object> fromStopRow = findStopRow(fullStopRows, fromStop);
+        Map<String, Object> toStopRow = findStopRow(fullStopRows, toStop);
         int fromMins = -1;
         int toMins = -1;
-        if (fromStop != null && toStop != null && !fromStop.isBlank() && !toStop.isBlank()) {
-            for (Map<String, Object> stopRow : stopRows) {
-                String stopName = (String) stopRow.get("name");
-                if (stopName != null && stopName.equalsIgnoreCase(fromStop)) {
-                    fromMins = stopRow.get("estimated_arrival_mins") != null ? ((Number) stopRow.get("estimated_arrival_mins")).intValue() : 0;
-                }
-                if (stopName != null && stopName.equalsIgnoreCase(toStop)) {
-                    toMins = stopRow.get("estimated_arrival_mins") != null ? ((Number) stopRow.get("estimated_arrival_mins")).intValue() : 0;
-                }
-            }
+        if (fromStopRow != null && toStopRow != null) {
+            fromMins = resolveArrivalMins(
+                    fromStopRow.get("estimated_arrival_mins"),
+                    fromStopRow.get("distance_from_start"),
+                    fromStopRow.get("priority"),
+                    firstPriority(fullStopRows),
+                    lastPriority(fullStopRows),
+                    totalDurationMins,
+                    totalDistance
+            );
+            toMins = resolveArrivalMins(
+                    toStopRow.get("estimated_arrival_mins"),
+                    toStopRow.get("distance_from_start"),
+                    toStopRow.get("priority"),
+                    firstPriority(fullStopRows),
+                    lastPriority(fullStopRows),
+                    totalDurationMins,
+                    totalDistance
+            );
         }
 
         LocalTime busStartTime = toLocalTime(journeyStartObj);
-        int totalDurationMins = row.get("estimated_time_duration") != null ? ((Number) row.get("estimated_time_duration")).intValue() : 0;
 
         if (fromMins != -1 && toMins != -1) {
             int computedFrom = reverseDirection ? Math.max(0, totalDurationMins - fromMins) : fromMins;
             int computedTo = reverseDirection ? Math.max(0, totalDurationMins - toMins) : toMins;
             finalStartTime = busStartTime.plusMinutes(computedFrom).format(DateTimeFormatter.ofPattern("HH:mm"));
             finalEndTime = busStartTime.plusMinutes(computedTo).format(DateTimeFormatter.ofPattern("HH:mm"));
-        } else {
+        } else if (totalDurationMins > 0) {
             finalStartTime = busStartTime.format(DateTimeFormatter.ofPattern("HH:mm"));
             finalEndTime = busStartTime.plusMinutes(totalDurationMins).format(DateTimeFormatter.ofPattern("HH:mm"));
         }
 
-        for (Map<String, Object> stopRow : stopRows) {
-            int arrMins = stopRow.get("estimated_arrival_mins") != null ? ((Number) stopRow.get("estimated_arrival_mins")).intValue() : 0;
+        List<Map<String, Object>> displayStopRows = new ArrayList<>(traversalStopRows);
+        if (fromStopRow != null && toStopRow != null) {
+            int fromPriority = ((Number) fromStopRow.get("priority")).intValue();
+            int toPriority = ((Number) toStopRow.get("priority")).intValue();
+            int minPriority = Math.min(fromPriority, toPriority);
+            int maxPriority = Math.max(fromPriority, toPriority);
+            displayStopRows = traversalStopRows.stream()
+                    .filter(stopRow -> {
+                        int priority = ((Number) stopRow.get("priority")).intValue();
+                        return priority >= minPriority && priority <= maxPriority;
+                    })
+                    .collect(Collectors.toList());
+        }
+
+        List<BusDetailResult.RouteStopInfo> routeStops = new ArrayList<>();
+        for (Map<String, Object> stopRow : displayStopRows) {
+            int arrMins = resolveArrivalMins(
+                    stopRow.get("estimated_arrival_mins"),
+                    stopRow.get("distance_from_start"),
+                    stopRow.get("priority"),
+                    firstPriority(fullStopRows),
+                    lastPriority(fullStopRows),
+                    totalDurationMins,
+                    totalDistance
+            );
             int computedArrMins = reverseDirection ? Math.max(0, totalDurationMins - arrMins) : arrMins;
             String estTime = busStartTime.plusMinutes(computedArrMins).format(DateTimeFormatter.ofPattern("hh:mm a"));
 
-            routeStops.add(new BookingFlowDtos.BusDetailResult.RouteStopInfo(
+            routeStops.add(new BusDetailResult.RouteStopInfo(
                     (String) stopRow.get("name"),
                     estTime,
                     ((Number) stopRow.get("priority")).intValue()
             ));
-        }
-
-        if (dbRouteName != null && !dbRouteName.isBlank()) {
-            routeLabel = dbRouteName;
-        } else if (!routeStops.isEmpty()) {
-            String trueStart = routeStops.get(0).name();
-            String trueEnd = routeStops.get(routeStops.size() - 1).name();
-            // Since routeStops are ordered by traversal order, we don't reverse here
-            routeLabel = trueStart + " - " + trueEnd;
-        } else {
-            String routeStart = (String) row.get("start_location");
-            String routeEnd = (String) row.get("end_location");
-            routeLabel = reverseDirection ? (routeEnd + " - " + routeStart) : (routeStart + " - " + routeEnd);
         }
 
         // Calculate segment-based fare if from/to stops are provided
@@ -313,16 +363,24 @@ public class BookingFlowService {
 
         // Format route distance and duration
         String routeDistance = null;
-        if (row.get("est_distance_difference") != null) {
-            double dist = ((Number) row.get("est_distance_difference")).doubleValue();
-            routeDistance = dist + " km";
+        BigDecimal distance = toNullableBigDecimal(row.get("est_distance_difference"));
+        if (fromStopRow != null && toStopRow != null) {
+            BigDecimal fromDistance = toNullableBigDecimal(fromStopRow.get("distance_from_start"));
+            BigDecimal toDistance = toNullableBigDecimal(toStopRow.get("distance_from_start"));
+            if (fromDistance != null && toDistance != null) {
+                distance = toDistance.subtract(fromDistance).abs();
+            }
+        }
+        if (distance != null) {
+            routeDistance = formatDistance(distance);
         }
         String routeDuration = null;
-        if (row.get("estimated_time_duration") != null) {
-            int totalMins = ((Number) row.get("estimated_time_duration")).intValue();
-            int hours = totalMins / 60;
-            int mins = totalMins % 60;
-            routeDuration = (hours > 0 ? hours + "h " : "") + mins + "m";
+        int displayDurationMins = totalDurationMins;
+        if (fromMins != -1 && toMins != -1) {
+            displayDurationMins = Math.abs(toMins - fromMins);
+        }
+        if (displayDurationMins > 0 || row.get("estimated_time_duration") != null) {
+            routeDuration = formatDuration(displayDurationMins);
         }
         
         return new BusDetailResult(
@@ -336,6 +394,9 @@ public class BookingFlowService {
                 parseAmenities(row.get("amenities")),
                 fee,
                 routeLabel,
+                busRouteName,
+                routeStartLocation,
+                routeEndLocation,
                 routeDistance,
                 routeDuration,
                 routeStops,
@@ -587,6 +648,116 @@ public class BookingFlowService {
        ═══════════════════════════════════════════════════════════ */
 
     /**
+     * Converts a stop's offset from the route origin into minutes. Explicit ETA
+     * wins, then distance, then ordered stop priority when admin only saved stops.
+     */
+    private int resolveArrivalMins(
+            Object arrivalObj,
+            Object distanceObj,
+            Object priorityObj,
+            int firstPriority,
+            int lastPriority,
+            int totalDurationMins,
+            double totalDistance
+    ) {
+        int arrivalMins = arrivalObj != null ? ((Number) arrivalObj).intValue() : -1;
+        int priority = priorityObj != null ? ((Number) priorityObj).intValue() : firstPriority;
+        boolean firstStop = priority == firstPriority;
+        boolean missingOffset = arrivalObj == null || (arrivalMins == 0 && !firstStop);
+
+        if (missingOffset
+                && totalDurationMins > 0
+                && totalDistance > 0
+                && distanceObj != null) {
+            double distance = ((Number) distanceObj).doubleValue();
+            if (distance > 0) {
+                return (int) Math.round((distance / totalDistance) * totalDurationMins);
+            }
+        }
+
+        if (missingOffset && totalDurationMins > 0 && lastPriority > firstPriority) {
+            double ratio = (double) (priority - firstPriority) / (double) (lastPriority - firstPriority);
+            ratio = Math.max(0.0, Math.min(1.0, ratio));
+            return (int) Math.round(ratio * totalDurationMins);
+        }
+
+        return Math.max(0, arrivalMins);
+    }
+
+    private int firstPriority(List<Map<String, Object>> stopRows) {
+        if (stopRows == null || stopRows.isEmpty()) {
+            return 1;
+        }
+        return ((Number) stopRows.get(0).get("priority")).intValue();
+    }
+
+    private int lastPriority(List<Map<String, Object>> stopRows) {
+        if (stopRows == null || stopRows.isEmpty()) {
+            return 1;
+        }
+        return ((Number) stopRows.get(stopRows.size() - 1).get("priority")).intValue();
+    }
+
+    private Map<String, Object> findStopRow(List<Map<String, Object>> stopRows, String stopName) {
+        String normalized = normalizeStopKey(stopName);
+        if (normalized.isBlank()) {
+            return null;
+        }
+        return stopRows.stream()
+                .filter(row -> normalized.equals(normalizeStopKey((String) row.get("name"))))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String buildRouteLabel(String start, String end) {
+        String cleanStart = stringValue(start);
+        String cleanEnd = stringValue(end);
+        if (cleanStart.isBlank()) {
+            return cleanEnd;
+        }
+        if (cleanEnd.isBlank()) {
+            return cleanStart;
+        }
+        return cleanStart + " to " + cleanEnd;
+    }
+
+    private String resolveBusRouteName(String dbRouteName, String routeStart, String routeEnd, String segmentStart, String segmentEnd) {
+        String endpointLabel = buildRouteLabel(routeStart, routeEnd);
+        String cleanRouteName = stringValue(dbRouteName);
+        if (!cleanRouteName.isBlank()
+                && !isSameStopPairLabel(cleanRouteName, segmentStart, segmentEnd)) {
+            return cleanRouteName;
+        }
+        return endpointLabel;
+    }
+
+    private boolean isSameStopPairLabel(String label, String start, String end) {
+        String normalizedLabel = normalizeStopKey(label.replace("->", " ").replace(" to ", " "));
+        String normalizedDashPair = normalizeStopKey(stringValue(start) + stringValue(end));
+        String normalizedReverseDashPair = normalizeStopKey(stringValue(end) + stringValue(start));
+        return !normalizedDashPair.isBlank()
+                && (normalizedLabel.equals(normalizedDashPair)
+                    || normalizedLabel.equals(normalizedReverseDashPair));
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? "" : value.toString().trim();
+    }
+
+    private String formatDistance(BigDecimal distance) {
+        if (distance == null) {
+            return null;
+        }
+        return distance.stripTrailingZeros().toPlainString() + " km";
+    }
+
+    private String formatDuration(int totalMins) {
+        int hours = totalMins / 60;
+        int mins = totalMins % 60;
+        return (hours > 0 ? hours + "h " : "") + mins + "m";
+    }
+
+    /**
      * Calculate proportional fare from a search result row that already
      * contains from_distance, to_distance, total_distance, and route_fee.
      */
@@ -733,6 +904,12 @@ public class BookingFlowService {
 
     private BigDecimal toBigDecimal(Object obj) {
         if (obj == null) return BigDecimal.ZERO;
+        if (obj instanceof BigDecimal bd) return bd;
+        return new BigDecimal(obj.toString());
+    }
+
+    private BigDecimal toNullableBigDecimal(Object obj) {
+        if (obj == null) return null;
         if (obj instanceof BigDecimal bd) return bd;
         return new BigDecimal(obj.toString());
     }

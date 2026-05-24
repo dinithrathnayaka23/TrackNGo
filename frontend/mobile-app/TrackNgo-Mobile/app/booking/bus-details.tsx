@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getBusDetails, type BusDetailResult } from '../../services/bookingFlowApi';
 import { getBusImage } from '../../utils/busImage';
+import { getBusRouteLabel, getBusRouteWithSuffix, getJourneyRouteStops } from '../../utils/routeDisplay';
 
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode; label: string }> = {
   ac: { icon: <MaterialCommunityIcons name="snowflake" size={18} color="#2F6BFF" />, label: 'A/C' },
@@ -102,7 +103,9 @@ export default function BusDetailsScreen() {
   }
 
   const duration = formatDuration(details.startTime, details.endTime);
-  const routeStops = details.routeStops.sort((a, b) => a.priority - b.priority);
+  const routeStops = getJourneyRouteStops(details.routeStops, from, to);
+  const busRouteLabel = getBusRouteWithSuffix(details, { segmentFrom: from, segmentTo: to });
+  const busRouteName = getBusRouteLabel(details, { segmentFrom: from, segmentTo: to });
   const driverRating = details.driver?.rating?.toFixed(1) ?? 'N/A';
 
   return (
@@ -133,8 +136,8 @@ export default function BusDetailsScreen() {
             <View style={styles.busText}>
               <Text style={styles.busType}>{details.busBrand} • {details.busType}</Text>
               <Text style={styles.busId}>{details.busNumber}</Text>
-              {details.routeName ? (
-                <Text style={styles.busRoute}>{details.routeName} Bus</Text>
+              {busRouteLabel ? (
+                <Text style={styles.busRoute}>{busRouteLabel}</Text>
               ) : null}
             </View>
             <View style={styles.busBadge}>
@@ -236,7 +239,7 @@ export default function BusDetailsScreen() {
                     price: String(details.fee),
                     busBrand: details.busBrand,
                     busNumber: details.busNumber,
-                    routeName: details.routeName || params.routeName,
+                    routeName: busRouteName || details.routeName || params.routeName,
                     amenities: JSON.stringify(details.amenities),
                     viewOnly: 'true',
                   },
@@ -284,7 +287,7 @@ export default function BusDetailsScreen() {
                 children,
                 busBrand: details.busBrand,
                 busNumber: details.busNumber,
-                routeName: details.routeName || params.routeName,
+                routeName: busRouteName || details.routeName || params.routeName,
                 amenities: JSON.stringify(details.amenities),
               },
             })

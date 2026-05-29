@@ -170,22 +170,48 @@ export default function ComplaintHistoryScreen() {
   );
 }
 
-function formatComplaintDate(createdAt?: string | null): string {
+export function formatComplaintDate(createdAt?: string | null): string {
   if (!createdAt) {
     return "--";
   }
 
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) {
+  const parsed = parseComplaintDateTime(createdAt);
+  if (!parsed) {
     return createdAt;
   }
 
-  return date.toLocaleString("en-US", {
+  return parsed.toLocaleString("en-US", {
     month: "short",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/**
+ * Parses complaint timestamps without shifting timezone-less backend LocalDateTime values.
+ * Backend complaint APIs return wall-clock times like 2026-04-25T10:00:00, so we map those
+ * into a local Date manually instead of letting Date parsing reinterpret them.
+ */
+function parseComplaintDateTime(value: string): Date | null {
+  const isoLikeMatch = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,9}))?$/
+  );
+
+  if (isoLikeMatch) {
+    const [, year, month, day, hour, minute, second = "0"] = isoLikeMatch;
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+    );
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 const styles = StyleSheet.create({

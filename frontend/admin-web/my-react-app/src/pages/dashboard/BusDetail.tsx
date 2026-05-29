@@ -25,9 +25,27 @@ import {
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import adminProfileImage from "../../assets/images/adminProfile.png";
 import { getBusImage } from "../../utils/busImage";
+
+// Google Maps API key from environment variables
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
 
+/*
+  Google Maps Script Loader - Lazy loads the Google Maps API
+ 
+  This prevents loading the Google Maps script if it's already loaded,
+  optimizing performance by ensuring the script is loaded only once
+  even if multiple components need it.
+*/
 let mapsScriptLoaded = false;
+
+/*
+  Loads the Google Maps JavaScript API dynamically
+  
+  Uses a promise-based approach to load the script asynchronously
+  and handles both success and error cases.
+  
+  @returns Promise that resolves when the script is loaded
+*/
 function loadMapsScript(): Promise<void> {
   if (mapsScriptLoaded || window.google?.maps) {
     mapsScriptLoaded = true;
@@ -43,6 +61,16 @@ function loadMapsScript(): Promise<void> {
   });
 }
 
+/*
+  BusLocationMap Component - Displays a map with a location marker
+  
+  This component renders a Google Map centered on the given location
+  (geocoded to coordinates). A bus marker is placed at the location.
+  The component handles cleanup on unmount to prevent state updates
+  on unmounted components.
+  
+  @param locationName - The location name to geocode and display
+ */
 function BusLocationMap({ locationName }: { locationName: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
 
@@ -50,17 +78,22 @@ function BusLocationMap({ locationName }: { locationName: string }) {
     let cancelled = false;
 
     async function init() {
+      // Load Google Maps API
       await loadMapsScript();
       if (cancelled || !mapRef.current) return;
 
+      // Geocode the location name to coordinates
       const geocoder = new google.maps.Geocoder();
       geocoder.geocode({ address: `${locationName}, Sri Lanka` }, (results, status) => {
         if (cancelled || !mapRef.current) return;
+        
+        // Use geocoded location or fallback to Colombo, Sri Lanka
         const center =
           status === "OK" && results && results[0]
             ? results[0].geometry.location
             : new google.maps.LatLng(6.9271, 79.8612);
 
+        // Create the map
         const map = new google.maps.Map(mapRef.current, {
           center,
           zoom: 14,
@@ -69,6 +102,7 @@ function BusLocationMap({ locationName }: { locationName: string }) {
           fullscreenControl: false,
         });
 
+        // Add a bus marker to the map
         new google.maps.Marker({
           position: center,
           map,
@@ -82,11 +116,14 @@ function BusLocationMap({ locationName }: { locationName: string }) {
     }
 
     init();
+    // Cleanup: prevent state updates if component unmounts
     return () => { cancelled = true; };
   }, [locationName]);
 
   return <div ref={mapRef} className="h-40 w-full" />;
 }
+
+// API Service Imports - Bus management and configuration endpoints
 import {
   fetchBusDetail,
   updateBus,
@@ -101,7 +138,13 @@ import {
   type RouteOption,
 } from "../../services/busService";
 
+/*
+ Type Definitions for Bus Management
+ 
+ These types represent the domain models and UI state for the bus detail page
+*/
 
+// Amenity - A feature/facility available on the bus
 type Amenity = {
   key: string;   // DB value: "ac", "wifi", "charging_ports", etc.
   name: string;  // Display label
@@ -109,6 +152,7 @@ type Amenity = {
   enabled: boolean;
 };
 
+// Driver - Information about the assigned driver
 type Driver = {
   name: string;
   id: string;
@@ -117,6 +161,7 @@ type Driver = {
   trips: number;
 };
 
+// BusInfo - Detailed information about the bus
 type BusInfo = {
   code: string;
   seats: string;
@@ -134,22 +179,28 @@ type BusInfo = {
   routeName: string;
 };
 
+// Dashboard Tab Types - Navigation states for different views
 type DashboardTab = "overview" | "schedule" | "revenue";
+
+// BusRevenuePoint - Single data point for revenue chart
 type BusRevenuePoint = {
   date: string;
   revenue: number;
 };
 
+// SeatLayoutRow - Representation of a single row of seats
 type SeatLayoutRow = {
   left: string[];
   right?: string[];
   lastRow?: string[];
 };
 
+// SeatPreviewRow - UI representation of seats for layout preview
 type SeatPreviewRow =
   | { kind: "bench"; seats: number[] }
   | { kind: "row"; left: number[]; right: number[] };
 
+// LayoutConfig - Configuration for the bus seating layout
 type LayoutConfig = {
   rows: number;
   leftSeatsPerRow: number;
@@ -158,9 +209,14 @@ type LayoutConfig = {
   driverLeftSeats: number;
 };
 
+// Seat letter labels used for seat naming (e.g., "1A", "1B", "2A", etc.)
 const seatLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-
+/*
+  Default Seating Layout Configuration
+  Standard layout: 10 rows × 2 left + 2 right seats + 5 rear row seats
+  This can be customized by administrators
+*/
 const defaultLayoutConfig: LayoutConfig = {
   rows: 10,
   leftSeatsPerRow: 2,
@@ -169,11 +225,28 @@ const defaultLayoutConfig: LayoutConfig = {
   driverLeftSeats: 0,
 };
 
+/*
+  Calculates total seat count from a layout configuration
+  
+  Formula: (rows × (leftSeatsPerRow + rightSeatsPerRow)) + rearRowSeats + driverLeftSeats
+  
+  @param config The layout configuration
+  @returns Total number of seats
+*/
 const getLayoutSeatCount = (config: LayoutConfig): number =>
   config.rows * (config.leftSeatsPerRow + config.rightSeatsPerRow) +
   config.rearRowSeats +
   config.driverLeftSeats;
 
+/*
+  Builds the seat layout rows from a configuration
+  
+  Generates seat IDs like "1A", "1B", "2A", "2B", etc. for normal rows,
+  and handles the rear row separately with different numbering.
+  
+  @param config The layout configuration
+  @returns Array of seat layout rows
+*/
 const buildSeatLayoutRows = (config: LayoutConfig): SeatLayoutRow[] => {
   const rows: SeatLayoutRow[] = Array.from(
     { length: config.rows },
@@ -192,6 +265,7 @@ const buildSeatLayoutRows = (config: LayoutConfig): SeatLayoutRow[] => {
     },
   );
 
+  // Add rear row if configured
   if (config.rearRowSeats > 0) {
     const rearRowNumber = config.rows + 1;
     rows.push({
@@ -206,6 +280,11 @@ const buildSeatLayoutRows = (config: LayoutConfig): SeatLayoutRow[] => {
   return rows;
 };
 
+
+/*
+  Amenities Configuration
+  Available amenities that can be enabled/disabled for a bus
+*/
 const initialAmenities: Amenity[] = [
   { key: "wifi", name: "Wi-Fi", icon: faWifi, enabled: false },
   { key: "ac", name: "A/C", icon: faSnowflake, enabled: false },
@@ -215,16 +294,26 @@ const initialAmenities: Amenity[] = [
   { key: "cctv", name: "CCTV", icon: faVideo, enabled: false },
 ];
 
-
-
+/*
+  Revenue Generation - Generates mock revenue data for charts
+  
+  Creates a 30-day revenue history using a deterministic algorithm
+  that factors in weekday patterns, trends, and seasonal variations.
+  This is used for the revenue dashboard chart visualization.
+  
+  @param seed Base value for deterministic random generation
+  @returns Array of 30 daily revenue points
+ */
 const generateBusRevenue = (seed: number): BusRevenuePoint[] => {
   const start = new Date("2026-01-26");
+  // Weekday factors: weekends have higher revenue (1.18-1.28x), weekdays lower (0.9-1.12x)
   const weekdayFactor = [0.9, 0.95, 1, 1.05, 1.12, 1.28, 1.18];
 
   return Array.from({ length: 30 }, (_, index) => {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
 
+    // Calculate revenue with trend, seasonal, and weekday factors
     const dayFactor = weekdayFactor[date.getDay()];
     const trend = 7800 + seed * 200 + index * 85;
     const seasonal = (((index * 37 + seed * 13) % 540) - 220);
@@ -236,13 +325,16 @@ const generateBusRevenue = (seed: number): BusRevenuePoint[] => {
     };
   });
 };
+
+// Chart label indices - Show labels at these revenue data points
 const revenueChartLabelIndexes = [0, 5, 10, 15, 20, 25, 29];
+
 
 function BusDetail() {
   const { busId } = useParams<{ busId: string }>();
   const navigate = useNavigate();
 
-  // API loading state
+  // ── API Loading and Error States ──────────────────────────────
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -250,11 +342,12 @@ function BusDetail() {
   const [driverOptions, setDriverOptions] = useState<DriverOption[]>([]);
   const [routeOptions, setRouteOptions] = useState<RouteOption[]>([]);
 
-  // Persisted view state displayed on the page.
+  // ── Amenities Management ──────────────────────────────────────
   const [amenities, setAmenities] = useState<Amenity[]>(initialAmenities);
-  // Draft state lets users edit in modals without mutating live data until Save.
   const [isAmenityModalOpen, setIsAmenityModalOpen] = useState(false);
   const [amenityDraft, setAmenityDraft] = useState<Amenity[]>(initialAmenities);
+
+  // ── Driver Assignment ─────────────────────────────────────────
   const [assignedDriver, setAssignedDriver] = useState<Driver>({
     name: "", id: "", phone: "", rating: "0", trips: 0,
   });
@@ -262,6 +355,8 @@ function BusDetail() {
   const [driverDraft, setDriverDraft] = useState<Driver>({
     name: "", id: "", phone: "", rating: "0", trips: 0,
   });
+
+  // ── Bus Information ───────────────────────────────────────────
   const [busInfo, setBusInfo] = useState<BusInfo>({
     code: "", seats: "0", brand: "", condition: "", type: "", insuranceExp: "",
     status: "active", startTime: "", endTime: "", returnStartTime: "", returnEndTime: "",
@@ -274,8 +369,12 @@ function BusDetail() {
     status: "active", startTime: "", endTime: "", returnStartTime: "", returnEndTime: "",
     registrationNumber: "", routeId: null, routeName: "",
   });
+
+  // ── Bus Deletion ──────────────────────────────────────────────
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isBusDeleted, setIsBusDeleted] = useState(false);
+
+  // ── Tab Navigation and Schedule ───────────────────────────────
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [isFullScheduleVisible, setIsFullScheduleVisible] = useState(false);
   const [isScheduleEditing, setIsScheduleEditing] = useState(false);
@@ -286,8 +385,12 @@ function BusDetail() {
     returnEndTime: "",
   });
   const [scheduleFormError, setScheduleFormError] = useState("");
+
+  // ── Form Errors ───────────────────────────────────────────────
   const [driverFormError, setDriverFormError] = useState("");
   const [busFormError, setBusFormError] = useState("");
+
+  // ── Seat Layout Configuration ─────────────────────────────────
   const [layoutConfig, setLayoutConfig] =
     useState<LayoutConfig>(defaultLayoutConfig);
   const [layoutDraftConfig, setLayoutDraftConfig] =
@@ -295,7 +398,7 @@ function BusDetail() {
   const [layoutConfigError, setLayoutConfigError] = useState("");
   const [blockedSeats, setBlockedSeats] = useState<Set<number>>(new Set());
 
-  // ── Load bus data from API ────────────────────────────────
+  // ── Load bus data from API ────────────────────────────────────
   useEffect(() => {
     if (!busId) return;
     const numericId = Number(busId);
@@ -315,7 +418,7 @@ function BusDetail() {
         setDriverOptions(drivers);
         setRouteOptions(routes);
 
-        // Map to local state
+        // Map API response to local BusInfo state
         const info: BusInfo = {
           code: detail.busNumber,
           seats: String(detail.seatCapacity),
@@ -335,7 +438,7 @@ function BusDetail() {
         setBusInfo(info);
         setBusDraft(info);
 
-        // Map amenities — match by DB key
+        // Map amenities — enable those returned from API
         const enabledKeys = (detail.amenities || []).map((a) => a.toLowerCase());
         const mapped = initialAmenities.map((a) => ({
           ...a,
@@ -344,7 +447,7 @@ function BusDetail() {
         setAmenities(mapped);
         setAmenityDraft(mapped);
 
-        // Map driver
+        // Map driver information if assigned
         if (detail.driverName) {
           const drv: Driver = {
             name: detail.driverName,
@@ -378,12 +481,22 @@ function BusDetail() {
       .finally(() => setLoading(false));
   }, [busId]);
 
+  // ── Amenities Handlers ────────────────────────────────────────
+  
+  /**
+   * Opens the amenities edit modal
+   * Resets draft from current saved values to discard unsaved changes
+   */
   const openAmenityModal = () => {
-    // Reset draft from latest saved values every time the editor opens.
     setAmenityDraft(amenities);
     setIsAmenityModalOpen(true);
   };
 
+  /**
+   * Toggles an amenity's enabled state in the draft
+   * 
+   * @param amenityKey The key of the amenity to toggle
+   */
   const handleAmenityToggle = (amenityKey: string) => {
     setAmenityDraft((current) =>
       current.map((amenity) =>
@@ -394,7 +507,16 @@ function BusDetail() {
     );
   };
 
-  /** Build a consistent SaveBusRequest from current state with optional overrides. */
+  /**
+   * Builds a consistent save request from current bus state
+   * 
+   * This helper allows applying partial overrides to create the request
+   * without modifying the component state first. Useful for saving specific
+   * fields like amenities, driver, etc.
+   * 
+   * @param overrides Optional fields to override in the request
+   * @returns Complete SaveBusRequest object
+   */
   const buildSaveRequest = (overrides: Partial<{
     amenities: string[];
     driverId: number | null;
@@ -429,6 +551,9 @@ function BusDetail() {
     routeId: overrides.routeId !== undefined ? overrides.routeId : (busInfo.routeId ?? null),
   });
 
+  /**
+   * Saves amenities to the API and updates state
+   */
   const handleSaveAmenities = () => {
     const enabledKeys = amenityDraft.filter((a) => a.enabled).map((a) => a.key);
     setSaving(true);
@@ -442,12 +567,24 @@ function BusDetail() {
       .finally(() => setSaving(false));
   };
 
+  // ── Driver Assignment Handlers ────────────────────────────────
+
+  /**
+   * Opens the driver assignment modal
+   * Resets draft from current saved values
+   */
   const openDriverModal = () => {
     setDriverDraft(assignedDriver);
     setDriverFormError("");
     setIsDriverModalOpen(true);
   };
 
+  /**
+   * Handles driver selection from dropdown
+   * Updates the draft with selected driver's information
+   * 
+   * @param driverId The ID of the selected driver
+   */
   const handleDriverSelect = (driverId: string) => {
     const selected = driverOptions.find((d) => String(d.driverId) === driverId);
     if (selected) {
@@ -462,6 +599,10 @@ function BusDetail() {
     setDriverFormError("");
   };
 
+  /**
+   * Saves driver assignment to API
+   * Validates that a driver is selected before saving
+   */
   const handleSaveDriver = () => {
     if (!driverDraft.id) {
       setDriverFormError("Please select a driver.");
@@ -483,28 +624,40 @@ function BusDetail() {
       .finally(() => setSaving(false));
   };
 
+  // ── Bus Information Handlers ──────────────────────────────────
+
+  /**
+   * Opens the bus edit modal
+   * Loads current bus info into draft before opening
+   */
   const openEditBusModal = () => {
-    // Load current bus fields into modal draft before editing.
     setBusDraft(busInfo);
     setBusFormError("");
     setIsEditBusModalOpen(true);
   };
 
+  /**
+   * Saves bus information changes to API
+   * Validates bus number format, seat count, and required fields
+   */
   const handleSaveBus = () => {
     const normalizedCode = busDraft.code.trim();
     const normalizedSeats = busDraft.seats.trim();
     const normalizedBrand = busDraft.brand.trim();
 
+    // Validate bus number format (e.g., ND-1151)
     if (!/^[A-Za-z]{2,4}-\d{2,4}$/.test(normalizedCode)) {
       setBusFormError("Bus Number must follow a format like ND-1151.");
       return;
     }
 
+    // Validate seat count is positive integer
     if (!/^\d+$/.test(normalizedSeats) || Number(normalizedSeats) <= 0) {
       setBusFormError("Seats must be a positive whole number.");
       return;
     }
 
+    // Validate required fields
     if (!normalizedBrand || !busDraft.condition || !busDraft.type) {
       setBusFormError("Brand, condition, and type are required.");
       return;
@@ -536,6 +689,12 @@ function BusDetail() {
       .finally(() => setSaving(false));
   };
 
+  // ── Seat Layout Handlers ─────────────────────────────────────
+
+  /**
+   * Opens the seat layout edit modal
+   * Calculates normalized layout based on seat capacity
+   */
   const openEditLayoutModal = () => {
     const seatsFromBusDraft = Number.parseInt(busDraft.seats, 10);
     const seatsPerRow =
@@ -559,27 +718,47 @@ function BusDetail() {
     setIsEditLayoutModalOpen(true);
   };
 
+  // ── Computed Values for Seat Layout ───────────────────────────
+
+  /**
+   * Calculate total seats in current applied layout
+   */
   const appliedLayoutSeatCount = useMemo(
     () => getLayoutSeatCount(layoutConfig),
     [layoutConfig],
   );
 
+  /**
+   * Calculate total seats in draft layout being edited
+   */
   const draftLayoutSeatCount = useMemo(
     () => getLayoutSeatCount(layoutDraftConfig),
     [layoutDraftConfig],
   );
+
+  // Number of seats marked as blocked/unavailable
   const blockedSeatCount = blockedSeats.size;
 
+  /**
+   * Calculate the optimal preview width based on seat configuration
+   */
   const previewMaxWidth = useMemo(() => {
     const cols = layoutConfig.leftSeatsPerRow + layoutConfig.rightSeatsPerRow;
     const base = cols * 60 + 120;
     return Math.max(280, Math.min(560, base));
   }, [layoutConfig.leftSeatsPerRow, layoutConfig.rightSeatsPerRow]);
 
+  /**
+   * Generate seat layout rows for the applied configuration
+   */
   const layoutRows = useMemo(() => {
     return buildSeatLayoutRows(layoutConfig);
   }, [layoutConfig]);
 
+  /**
+   * Build seat preview data for rendering
+   * Assigns sequential seat numbers and organizes them by row type
+   */
   const seatPreview = useMemo((): {
     driverSide: number[];
     rows: SeatPreviewRow[];
@@ -607,6 +786,12 @@ function BusDetail() {
     return { driverSide, rows };
   }, [layoutConfig.driverLeftSeats, layoutRows]);
 
+  /**
+   * Updates a specific layout configuration field in the draft
+   * 
+   * @param field The configuration field to update
+   * @param value The new value
+   */
   const updateLayoutDraft = (field: keyof LayoutConfig, value: number) => {
     setLayoutDraftConfig((current) => ({
       ...current,
@@ -614,6 +799,12 @@ function BusDetail() {
     }));
   };
 
+  /**
+   * Applies the layout configuration with validation
+   * 
+   * Normalizes values to safe ranges and validates total seat count (10-80 seats).
+   * Updates seat capacity in bus draft if layout is valid.
+   */
   const handleApplyLayoutConfig = () => {
     const normalizedRows = Math.max(0, Math.min(20, layoutDraftConfig.rows));
     const normalizedLeftSeats = Math.max(
@@ -641,16 +832,20 @@ function BusDetail() {
       driverLeftSeats: normalizedDriverLeft,
     };
 
+    // Validate total seat count
     const totalSeats = getLayoutSeatCount(nextConfig);
     if (totalSeats < 10 || totalSeats > 80) {
       setLayoutConfigError("Total seats should be between 10 and 80.");
       return;
     }
 
+    // Apply the layout and update bus draft
     setLayoutConfig(nextConfig);
     setLayoutDraftConfig(nextConfig);
     setLayoutConfigError("");
     setBusDraft((current) => ({ ...current, seats: String(totalSeats) }));
+    
+    // Clean up blocked seats that exceed new total
     setBlockedSeats((current) => {
       const next = new Set<number>();
       current.forEach((seatId) => {
@@ -662,6 +857,12 @@ function BusDetail() {
     });
   };
 
+  /**
+   * Toggles a seat's blocked status
+   * Blocked seats cannot be booked by passengers
+   * 
+   * @param seatId The seat number to toggle
+   */
   const handleSeatBlockToggle = (seatId: number) => {
     setBlockedSeats((current) => {
       const next = new Set(current);
@@ -674,6 +875,13 @@ function BusDetail() {
     });
   };
 
+  /**
+   * Renders a single seat in the layout preview
+   * Shows blocked status visually and allows toggling
+   * 
+   * @param seatId The seat number to render
+   * @returns Rendered seat button element
+   */
   const renderLayoutSeat = (seatId: number) => {
     const isBlocked = blockedSeats.has(seatId);
     return (
@@ -695,6 +903,12 @@ function BusDetail() {
     );
   };
 
+  // ── Bus Status & Deletion Handlers ───────────────────────────
+
+  /**
+   * Toggles bus status between active and maintenance
+   * Other statuses (inactive) are not toggled by this function
+   */
   const handleToggleMaintenance = () => {
     const numericId = Number(busId);
     const newStatus = busInfo.status === "active" ? "maintenance" : "active";
@@ -710,6 +924,10 @@ function BusDetail() {
       .finally(() => setSaving(false));
   };
 
+  /**
+   * Deletes the bus from the system
+   * Shows a success state instead of navigating away
+   */
   const handleDeleteBus = () => {
     const numericId = Number(busId);
     setSaving(true);
@@ -722,15 +940,26 @@ function BusDetail() {
       .finally(() => setSaving(false));
   };
 
-  // Build schedule dynamically from the actual bus route and start time.
-  // Each day the bus runs the same route at the same departure time.
+  // ── Schedule Computation ─────────────────────────────────────
+
+  /**
+   * Builds schedule items for display
+   * 
+   * Generates upcoming trips for the next 4 days based on bus route and schedule.
+   * Each item includes the departure time, route, driver, and booked seat count.
+   */
   const scheduleItems = useMemo(() => {
     const capacity = busInfo.seats ? Number(busInfo.seats) : 0;
     const routeLabel = busInfo.routeName || "Unassigned Route";
     const driverLabel = assignedDriver.name || "Unassigned";
     const today = new Date();
 
-    // Format a date as "Today", "Tomorrow", or "Weekday, DD Mon"
+    /**
+     * Formats a date as "Today", "Tomorrow", or "Weekday, DD Mon"
+     * 
+     * @param daysFromNow Number of days in the future (0 = today)
+     * @returns Formatted day label
+     */
     const formatDay = (daysFromNow: number): string => {
       if (daysFromNow === 0) return "Today";
       if (daysFromNow === 1) return "Tomorrow";
@@ -739,7 +968,13 @@ function BusDetail() {
       return d.toLocaleDateString("en-US", { weekday: "long", day: "2-digit", month: "short" });
     };
 
-    // Convert "HH:mm:ss" or "HH:mm" to "hh:mm AM/PM"
+    /**
+     * Converts 24-hour time format to 12-hour with AM/PM
+     * Handles null/invalid times gracefully
+     * 
+     * @param timeStr Time string in "HH:mm:ss" or "HH:mm" format
+     * @returns Formatted time in "hh:mm AM/PM" format
+     */
     const fmt12 = (timeStr: string | null): string => {
       if (!timeStr) return "—";
       const [h, m] = timeStr.split(":").map(Number);
@@ -793,23 +1028,45 @@ function BusDetail() {
     }];
   }, [busInfo.startTime, busInfo.returnStartTime, busInfo.routeName, busInfo.seats, assignedDriver.name]);
 
-  // Overview and Schedule tabs share this same source, but with different limits.
+  /**
+   * Determine which schedule items to show based on view state
+   * Limited view shows first 2 items, full view shows all 4
+   */
   const visibleScheduleItems = isFullScheduleVisible
     ? scheduleItems
     : scheduleItems.slice(0, 2);
+
+  // ── Revenue Analytics Computation ────────────────────────────
+
+  /**
+   * Generate 30 days of revenue data for the chart
+   */
   const revenuePoints = useMemo(
     () => generateBusRevenue(busData?.busId ?? 0),
     [busData],
   );
+
+  /**
+   * Calculate total revenue over last 30 days
+   */
   const totalRevenueLast30Days = useMemo(
     () => revenuePoints.reduce((sum, point) => sum + point.revenue, 0),
     [revenuePoints],
   );
+
+  /**
+   * Calculate average revenue per day
+   */
   const averageRevenuePerDay = useMemo(
     () =>
       Math.round(totalRevenueLast30Days / Math.max(revenuePoints.length, 1)),
     [totalRevenueLast30Days, revenuePoints.length],
   );
+
+  /**
+   * Extract chart label data at specific intervals
+   * Only shows labels for selected data points to avoid clutter
+   */
   const revenueChartLabels = useMemo(
     () =>
       revenueChartLabelIndexes
@@ -819,35 +1076,73 @@ function BusDetail() {
         ),
     [revenuePoints],
   );
+
+  /**
+   * Formats an ISO date string to "Mon DD" format
+   * 
+   * @param isoDate Date in ISO string format
+   * @returns Formatted date string
+   */
   const formatShortDate = (isoDate: string) =>
     new Date(isoDate).toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",
     });
+
+  /**
+   * Formats currency amount to compact format (e.g., "Rs.50k")
+   * 
+   * @param amount The amount in smallest currency unit
+   * @returns Formatted currency string
+   */
   const formatCurrencyShort = (amount: number) =>
     `Rs.${Math.round(amount / 1000)}k`;
+
+  // ── SVG Chart Calculations ───────────────────────────────────
+  // These calculations position and scale the revenue chart correctly
 
   const chartHeight = 300;
   const chartWidth = 760;
   const chartPadding = { top: 24, right: 26, bottom: 44, left: 64 };
   const plotHeight = chartHeight - chartPadding.top - chartPadding.bottom;
   const plotWidth = chartWidth - chartPadding.left - chartPadding.right;
+
+  // Find Y-axis range with padding
   const minRevenue = Math.min(...revenuePoints.map((point) => point.revenue));
   const maxRevenue = Math.max(...revenuePoints.map((point) => point.revenue));
   const yMin = Math.max(0, Math.floor((minRevenue - 800) / 500) * 500);
   const yMax = Math.ceil((maxRevenue + 800) / 500) * 500;
   const yRange = Math.max(1, yMax - yMin);
+
+  // Generate Y-axis tick labels
   const yTicks = Array.from({ length: 5 }, (_, index) =>
     Math.round(yMin + (index * yRange) / 4),
   );
+
+  /**
+   * Convert data index to X pixel coordinate
+   */
   const getX = (index: number) =>
     chartPadding.left +
     (index / Math.max(revenuePoints.length - 1, 1)) * plotWidth;
+
+  /**
+   * Convert revenue value to Y pixel coordinate
+   */
   const getY = (value: number) =>
     chartPadding.top + ((yMax - value) / yRange) * plotHeight;
+
+  /**
+   * Generate points for the revenue line path
+   */
   const revenueLinePoints = revenuePoints
     .map((point, index) => `${getX(index)},${getY(point.revenue)}`)
     .join(" ");
+
+  /**
+   * Generate points for the filled area under the revenue curve
+   * Includes bottom edge to create a closed path
+   */
   const revenueAreaPoints = [
     `${chartPadding.left},${chartPadding.top + plotHeight}`,
     ...revenuePoints.map(
@@ -856,14 +1151,18 @@ function BusDetail() {
     `${chartPadding.left + plotWidth},${chartPadding.top + plotHeight}`,
   ].join(" ");
 
+  // ── Main Component Render ───────────────────────────────────
+
   return (
     <>
+      {/* Loading State - Show spinner while fetching initial data */}
       {loading ? (
         <div className="mx-auto max-w-7xl space-y-4 py-12 text-center">
           <FontAwesomeIcon icon={faSpinner} className="animate-spin text-2xl text-[#2642a6]" />
           <p className="text-sm text-[#64748b]">Loading bus details...</p>
         </div>
       ) : apiError && !busData ? (
+        /* Error State - Show error message and back button */
         <div className="mx-auto max-w-7xl space-y-4 py-12 text-center">
           <h1 className="text-xl font-extrabold text-[#111827]">Bus Not Found</h1>
           <p className="text-sm text-[#64748b]">{apiError}</p>
@@ -877,7 +1176,9 @@ function BusDetail() {
           </button>
         </div>
       ) : (
+      /* Success State - Display bus details and management UI */
       <div className="mx-auto max-w-7xl space-y-4">
+            {/* Back Navigation */}
             <button
               type="button"
               onClick={() => navigate('/dashboard/buses')}
@@ -888,11 +1189,13 @@ function BusDetail() {
               <span className="font-semibold">Back</span>
             </button>
 
+            {/* Header Section - Bus image, status badge, and action buttons */}
             <section
               className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm"
               style={{ animationDelay: "80ms" }}
             >
               <div className="flex flex-wrap items-center justify-between gap-4">
+                {/* Bus Image and Basic Info */}
                 <div className="flex items-center gap-4">
                   {getBusImage(busInfo.brand, amenities.filter(a => a.enabled).map(a => a.key)) ? (
                     <img
@@ -906,6 +1209,7 @@ function BusDetail() {
                     </div>
                   )}
                   <div>
+                    {/* Status Badge - Shows active/maintenance/inactive with indicator dot */}
                     <span
                       className={[
                         "inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold",
@@ -942,6 +1246,7 @@ function BusDetail() {
                   </div>
                 </div>
 
+                {/* Action Buttons - Edit, Maintenance Toggle, Delete */}
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
@@ -979,6 +1284,7 @@ function BusDetail() {
               </div>
             </section>
 
+            {/* Deleted State Alert - Shows when bus has been deleted */}
             {isBusDeleted ? (
               <section className="dashboard-card rounded-2xl border border-[#f0caca] bg-[#fff5f5] p-6 shadow-sm">
                 <h2 className="text-sm font-bold text-[#8d1f1f]">
@@ -996,7 +1302,10 @@ function BusDetail() {
                 </button>
               </section>
             ) : (
+              /* Main Content Grid - 4 information cards displayed in a responsive layout */
               <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1.2fr_1.2fr_1fr]">
+                {/* Card 1: Vehicle Specifications */}
+                {/* Displays key bus details like brand, condition, type, registration, and schedule info */}
                 <article
                   className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
                   style={{ animationDelay: "130ms" }}
@@ -1011,6 +1320,7 @@ function BusDetail() {
                     />
                   </div>
                   <div className="space-y-2 text-sm">
+                    {/* Render each spec as a key-value pair with divider */}
                     {[
                       ["Brand", busInfo.brand],
                       ["Condition", busInfo.condition ? busInfo.condition.replace(/_/g, " ") : "—"],
@@ -1036,6 +1346,8 @@ function BusDetail() {
                   </div>
                 </article>
 
+                {/* Card 2: Assigned Driver Information */}
+                {/* Shows driver profile, ID, rating, and provides quick contact options */}
                 <article
                   className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
                   style={{ animationDelay: "170ms" }}
@@ -1074,6 +1386,7 @@ function BusDetail() {
                       </p>
                     </div>
                   </div>
+                  {/* Quick contact buttons for phone and messaging */}
                   <div className="mt-4 flex gap-2">
                     <button
                       type="button"
@@ -1092,6 +1405,8 @@ function BusDetail() {
                   </div>
                 </article>
 
+                {/* Card 3: Route Location Map */}
+                {/* Shows the starting location of the bus route with embedded map visualization */}
                 <article
                   className="dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm"
                   style={{ animationDelay: "210ms" }}
@@ -1116,6 +1431,8 @@ function BusDetail() {
                   </div>
                 </article>
 
+                {/* Card 4: Bus Amenities */}
+                {/* Lists available amenities with enabled/disabled visual indicator */}
                 <article
                   className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
                   style={{ animationDelay: "250ms" }}
@@ -1133,6 +1450,7 @@ function BusDetail() {
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
+                    {/* Each amenity shown as a badge with icon, enabled amenities highlighted */}
                     {amenities.map((amenity) => (
                       <div
                         key={amenity.key}
@@ -1156,10 +1474,12 @@ function BusDetail() {
             )}
 
             {!isBusDeleted ? (
+              /* Tab Section - Overview, Schedule, Revenue tabs with dynamic content switching */
               <section
                 className="dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm"
                 style={{ animationDelay: "300ms" }}
               >
+                {/* Tab Navigation - Three main tabs for managing bus information */}
                 <div className="flex gap-6 border-b border-[#dee1e8] px-5 pt-3">
                   {[
                     { label: "Overview", value: "overview" as DashboardTab },
@@ -1182,8 +1502,12 @@ function BusDetail() {
                   ))}
                 </div>
 
+                {/* Tab Content: Overview Tab */}
+                {/* Shows revenue chart and upcoming schedule preview */}
                 {activeTab === "overview" ? (
                   <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-[2fr_1fr]">
+                    {/* Revenue Trends Chart */}
+                    {/* SVG-based area and line chart showing 30-day revenue with customizable Y-axis scaling */}
                     <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
                       <div className="mb-3 flex items-start justify-between">
                         <div>
@@ -1202,12 +1526,14 @@ function BusDetail() {
                         </button>
                       </div>
 
+                      {/* SVG Revenue Chart - Renders area fill and line path with axis labels */}
                       <svg
                         viewBox={`0 0 ${chartWidth} ${chartHeight}`}
                         className="h-[300px] w-full rounded-lg bg-[#f9fafd]"
                         role="img"
                         aria-label="30-day revenue trend for the selected bus"
                       >
+                        {/* Y-axis vertical line */}
                         <line
                           x1={chartPadding.left}
                           y1={chartPadding.top}
@@ -1215,6 +1541,7 @@ function BusDetail() {
                           y2={chartPadding.top + plotHeight}
                           stroke="#d8dcea"
                         />
+                        {/* X-axis horizontal line */}
                         <line
                           x1={chartPadding.left}
                           y1={chartPadding.top + plotHeight}
@@ -1223,6 +1550,7 @@ function BusDetail() {
                           stroke="#d8dcea"
                         />
 
+                        {/* Y-axis grid lines at each tick */}
                         {yTicks.map((tick) => (
                           <line
                             key={tick}
@@ -1234,10 +1562,12 @@ function BusDetail() {
                           />
                         ))}
 
+                        {/* Semi-transparent area fill under the revenue line */}
                         <polygon
                           points={revenueAreaPoints}
                           fill="rgba(79,125,247,0.14)"
                         />
+                        {/* Revenue line path with smooth curves */}
                         <polyline
                           fill="none"
                           stroke="#3258d6"
@@ -1247,6 +1577,7 @@ function BusDetail() {
                           points={revenueLinePoints}
                         />
 
+                        {/* Data point markers - circles at regular intervals and endpoints */}
                         {revenuePoints.map((point, index) =>
                           index % 5 === 0 ||
                           index === revenuePoints.length - 1 ? (
@@ -1260,6 +1591,7 @@ function BusDetail() {
                           ) : null,
                         )}
 
+                        {/* Y-axis labels - Revenue amounts on the left */}
                         <g fill="#7b8394" fontSize="11">
                           {yTicks.map((tick) => (
                             <text
@@ -1273,6 +1605,7 @@ function BusDetail() {
                           ))}
                         </g>
 
+                        {/* X-axis labels - Dates at selected intervals */}
                         <g fill="#7b8394" fontSize="11">
                           {revenueChartLabels.map(({ index, point }) => (
                             <text
@@ -1287,6 +1620,7 @@ function BusDetail() {
                         </g>
                       </svg>
 
+                      {/* Revenue Summary Statistics */}
                       <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#eceff5] pt-3 text-center">
                         <div>
                           <p className="text-sm text-[#8a93a4]">
@@ -1305,11 +1639,14 @@ function BusDetail() {
                       </div>
                     </article>
 
+                    {/* Upcoming Schedule Preview */}
+                    {/* Shows next scheduled trips with passenger booking status */}
                     <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
                       <h3 className="text-sm font-bold text-[#1f2737]">
                         Upcoming Schedule
                       </h3>
                       <div className="mt-4 space-y-4">
+                        {/* Schedule items - Today's trip highlighted in blue */}
                         {visibleScheduleItems.map((item) => (
                           <div
                             key={`${item.time}-${item.route}`}
@@ -1338,6 +1675,7 @@ function BusDetail() {
                           </div>
                         ))}
                       </div>
+                      {/* Button to switch to full schedule tab and expand view */}
                       <button
                         type="button"
                         onClick={() => {

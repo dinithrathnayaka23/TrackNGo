@@ -20,12 +20,24 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/*
+  Service implementation for managing bus routes.
+  Handles complex logic including route code validation, stop sequence management,
+  and parsing/formatting of distance, duration, and fare data.
+*/
 @Service
 @RequiredArgsConstructor
 public class RouteServiceImpl implements RouteService {
     private final RouteRepository repository;
     private final EntityManager entityManager;
 
+    /*
+      Creates a new bus route.
+      Validates that the route code is unique before persisting.
+      @param dto The route data to create.
+      @return The created RouteDto.
+      @throws BusinessException if the route code already exists.
+    */
     @Override
     @Transactional
     public RouteDto create(RouteDto dto) {
@@ -38,6 +50,12 @@ public class RouteServiceImpl implements RouteService {
         return toDto(repository.save(entity));
     }
 
+    /*
+      Retrieves a bus route by its ID.
+      @param id The unique ID of the route.
+      @return The found RouteDto.
+      @throws ResourceNotFoundException if the route does not exist.
+    */
     @Override
     @Transactional(readOnly = true)
     public RouteDto get(Long id) {
@@ -45,12 +63,25 @@ public class RouteServiceImpl implements RouteService {
             .orElseThrow(() -> new ResourceNotFoundException("Route not found")));
     }
 
+    /*
+      Fetches all available bus routes.
+      @return A list of all RouteDto records.
+    */
     @Override
     @Transactional(readOnly = true)
     public List<RouteDto> getAll() {
         return repository.findAll().stream().map(this::toDto).toList();
     }
 
+    /*
+      Updates an existing bus route.
+      Ensures the new route code (if changed) is not already in use by another route.
+      @param id  The ID of the route to update.
+      @param dto The updated route data.
+      @return The updated RouteDto.
+      @throws ResourceNotFoundException if the route does not exist.
+      @throws BusinessException if the new route code already exists.
+    */
     @Override
     @Transactional
     public RouteDto update(Long id, RouteDto dto) {
@@ -65,6 +96,11 @@ public class RouteServiceImpl implements RouteService {
         return toDto(repository.save(entity));
     }
 
+    /*
+      Deletes a bus route by its ID.
+      @param id The ID of the route to delete.
+      @throws ResourceNotFoundException if the route does not exist.
+    */
     @Override
     @Transactional
     public void delete(Long id) {
@@ -74,6 +110,11 @@ public class RouteServiceImpl implements RouteService {
         repository.deleteById(id);
     }
 
+    /*
+      Toggles the active/inactive status of a route.
+      @param id The ID of the route to toggle.
+      @return The updated RouteDto.
+    */
     @Override
     @Transactional
     public RouteDto toggleStatus(Long id) {
@@ -83,6 +124,12 @@ public class RouteServiceImpl implements RouteService {
         return toDto(repository.save(entity));
     }
 
+    /*
+      Maps fields from a RouteDto to a Route entity.
+      Handles parsing of string-based DTO fields and manages the associated RouteStop collection.
+      @param dto    The source DTO.
+      @param entity The target entity.
+    */
     private void applyDtoToEntity(RouteDto dto, Route entity) {
         entity.setRouteName(dto.getName());
         entity.setRouteCode(dto.getCode());
@@ -117,6 +164,12 @@ public class RouteServiceImpl implements RouteService {
         }
     }
 
+    /*
+      Converts a Route entity to a RouteDto.
+      Formats numeric/temporal fields into human-readable strings for the frontend.
+      @param entity The source entity.
+      @return The mapped DTO.
+    */
     private RouteDto toDto(Route entity) {
         RouteDto dto = new RouteDto();
         dto.setId(entity.getId());
@@ -140,12 +193,22 @@ public class RouteServiceImpl implements RouteService {
         return dto;
     }
 
+    /*
+      Parses a distance string (e.g., "12.5 km") into a BigDecimal.
+      @param distance The distance string to parse.
+      @return The parsed numeric value.
+    */
     private BigDecimal parseDistance(String distance) {
         if (distance == null || distance.isBlank()) return BigDecimal.ZERO;
         Matcher m = Pattern.compile("([\\d.]+)").matcher(distance);
         return m.find() ? new BigDecimal(m.group(1)) : BigDecimal.ZERO;
     }
 
+    /*
+      Parses a duration string (e.g., "2h 30m") into total minutes.
+      @param duration The duration string.
+      @return Total minutes as an Integer.
+    */
     private Integer parseDuration(String duration) {
         if (duration == null || duration.isBlank()) return 0;
         int total = 0;
@@ -156,17 +219,33 @@ public class RouteServiceImpl implements RouteService {
         return total;
     }
 
+    /*
+      Parses a fare string (e.g., "Rs. 150") into a BigDecimal.
+      Removes "Rs." prefix and non-numeric characters except decimals.
+      @param fare The fare string.
+      @return The parsed numeric value.
+    */
     private BigDecimal parseFare(String fare) {
         if (fare == null || fare.isBlank()) return BigDecimal.ZERO;
         String cleaned = fare.replaceAll("(?i)^rs\\.?", "").replaceAll("[^\\d.]", "");
         return cleaned.isEmpty() ? BigDecimal.ZERO : new BigDecimal(cleaned);
     }
 
+    /*
+      Formats a numeric distance into a string with " km" suffix.
+      @param distance The numeric distance.
+      @return Formatted string.
+    */
     private String formatDistance(BigDecimal distance) {
         if (distance == null) return "0 km";
         return distance.stripTrailingZeros().toPlainString() + " km";
     }
 
+    /*
+      Formats total minutes into a "Xh Ym" duration string.
+      @param minutes Total minutes.
+      @return Formatted duration string.
+    */
     private String formatDuration(Integer minutes) {
         if (minutes == null || minutes == 0) return "0h 0m";
         int h = minutes / 60;
@@ -174,6 +253,11 @@ public class RouteServiceImpl implements RouteService {
         return h + "h " + m + "m";
     }
 
+    /*
+      Formats a numeric fee into a string with "Rs." prefix.
+      @param fee The numeric fee.
+      @return Formatted fare string.
+    */
     private String formatFare(BigDecimal fee) {
         if (fee == null) return "Rs.0";
         return "Rs." + fee.stripTrailingZeros().toPlainString();

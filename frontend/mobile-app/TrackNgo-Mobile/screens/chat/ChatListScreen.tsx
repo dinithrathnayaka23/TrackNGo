@@ -96,6 +96,7 @@ export function compareByRecentActivity(a: ConversationDto, b: ConversationDto) 
 // Lowercases and trims values before chat-list search matching.
 export function normalizeSearchValue(value?: string | number | null) {
   return String(value ?? "")
+    .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 }
@@ -123,16 +124,15 @@ export function matchesConversationSearch(
 
   const other = getOtherParticipant(conversation, currentUser);
   const profile = profilesById[other.userId];
-  const searchableValues = [
-    getParticipantTitle(other.userType, other.userId, profile),
-    formatConversationPreview(conversation),
-    profile?.fullName,
-    profile?.companyName,
-    profile?.contactPersonName,
-    profile?.email,
-    other.userType,
-    other.userId,
-  ];
+  const searchableValues =
+    other.userType === "ADMIN"
+      ? ["Customer Support", "Support Admin"]
+      : [
+          profile?.fullName,
+          profile?.contactPersonName,
+          profile?.companyName,
+          `User ${other.userId}`,
+        ];
 
   return searchableValues.some((value) =>
     normalizeSearchValue(value).includes(normalizedQuery),
@@ -497,8 +497,9 @@ export function ChatListScreen({ navigation }: Props) {
         let support = supportConversationRef.current;
         const response = await getUserConversations({
           userId: currentUser.userId,
-          page: searching ? 0 : targetPage,
-          size: searching ? 100 : 20,
+          page: targetPage,
+          size: 20,
+          q: searching ? trimmed : undefined,
         });
 
         if (reset && currentUser && needsPersistentSupportChat(currentUser)) {
@@ -543,8 +544,8 @@ export function ChatListScreen({ navigation }: Props) {
             )
           : dedupedMerged;
 
-        setPage(searching ? 0 : response.page);
-        setLast(searching ? true : response.last);
+        setPage(response.page);
+        setLast(response.last);
         setError(null);
         setItems((prev) =>
           reset
@@ -775,7 +776,7 @@ export function ChatListScreen({ navigation }: Props) {
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
-          placeholder="Search by name or message..."
+          placeholder="Search by name..."
           placeholderTextColor="#A6B0C3"
           returnKeyType="search"
         />

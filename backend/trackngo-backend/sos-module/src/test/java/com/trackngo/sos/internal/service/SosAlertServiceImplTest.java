@@ -81,6 +81,7 @@ class SosAlertServiceImplTest {
             alert.setStatus(SosAlert.SosStatus.triggered);
             return alert;
         });
+        when(repository.findById(88L)).thenReturn(Optional.of(buildStoredAlert(88L, 15L, 90L, "NB-17", "Colombo", "Kandy")));
 
         SosAlertDto result = service.triggerAlert(request);
 
@@ -124,6 +125,7 @@ class SosAlertServiceImplTest {
             alert.setStatus(SosAlert.SosStatus.triggered);
             return alert;
         });
+        when(repository.findById(45L)).thenReturn(Optional.of(buildStoredAlert(45L, null, 9L, null, "Matara", "Galle")));
 
         SosAlertDto result = service.triggerAlert(request);
 
@@ -237,5 +239,19 @@ class SosAlertServiceImplTest {
         contact.setTeleNumber(teleNumber);
         contact.setRelationship("Sibling");
         return contact;
+    }
+
+    /** Builds a stored alert entity returned after persistence so read-path timezone conversion can run. */
+    private SosAlert buildStoredAlert(Long sosId, Long passengerId, Long driverId, String busNumber, String start, String end) {
+        SosAlert alert = new SosAlert();
+        alert.setSosId(sosId);
+        alert.setPassengerId(passengerId);
+        alert.setDriverId(driverId);
+        alert.setBusNumber(busNumber);
+        alert.setStartLocation(start);
+        alert.setEndLocation(end);
+        alert.setStatus(SosAlert.SosStatus.triggered);
+        alert.setTriggeredAt(LocalDateTime.of(2026, 4, 26, 10, 0));
+        return alert;
     }
 }

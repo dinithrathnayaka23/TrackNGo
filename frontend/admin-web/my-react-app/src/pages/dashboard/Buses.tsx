@@ -31,6 +31,7 @@ import { getBusImage } from '../../utils/busImage'
 
 type BusStatus = 'active' | 'maintenance' | 'inactive'
 
+// Utility functions for status display
 function statusBadgeClass(status: string) {
   if (status === 'active') return 'bg-[#16a34a] text-white'
   if (status === 'maintenance') return 'bg-[#f59e0b] text-white'
@@ -89,11 +90,31 @@ function formatBusTypeChipLabel(busType?: string | null) {
   return busType.replace(/_/g, ' ')
 }
 
+/**
+ * Buses Component - Main dashboard page for bus management
+ * 
+ * This component provides a comprehensive interface for administrators to:
+ * - View all buses in a grid layout with key information
+ * - Filter buses by search term, type (AC/Non-AC), status, and capacity range
+ * - Add new buses through a modal form
+ * - Export bus data to PDF reports
+ * - Navigate to detailed bus views
+ * 
+ * Features include:
+ * - Real-time bus statistics (total, active, maintenance, inactive counts)
+ * - Responsive grid layout for bus cards
+ * - Modal-based bus creation with validation
+ * - PDF export with formatted tables and summaries
+ */
 function Buses() {
   const navigate = useNavigate()
+
+  // State for bus data and loading
   const [buses, setBuses] = useState<BusListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  // Filter states
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'All Types' | 'AC' | 'Non-AC'>('All Types')
   const [statusFilter, setStatusFilter] = useState<'All' | BusStatus>('All')
@@ -107,6 +128,7 @@ function Buses() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
+  // Form state for new bus creation
   const emptyForm: SaveBusRequest = {
     busNumber: '',
     busBrand: '',
@@ -126,6 +148,7 @@ function Buses() {
   }
   const [form, setForm] = useState<SaveBusRequest>(emptyForm)
 
+  // Load buses from API
   const loadBuses = () => {
     setLoading(true)
     fetchBuses()
@@ -136,6 +159,7 @@ function Buses() {
 
   useEffect(() => { loadBuses() }, [])
 
+  // Open add bus modal and fetch options
   const openAddModal = () => {
     setForm(emptyForm)
     setSaveError('')
@@ -148,6 +172,7 @@ function Buses() {
       .catch(() => {})
   }
 
+  // Handle bus creation with validation
   const handleAddBus = async () => {
     if (!form.busNumber.trim() || !form.busBrand.trim() || !form.registrationNumber.trim()) {
       setSaveError('Bus number, brand, and registration number are required.')
@@ -239,10 +264,11 @@ function Buses() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
-      {/* Header */}
+      {/* Header section with title and action buttons */}
       <div className="animate-dash-in flex flex-wrap items-center justify-between gap-4" style={{ animationDelay: '80ms' }}>
         <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Bus Management</h1>
         <div className="flex items-center gap-2">
+          {/* Export to PDF button */}
           <button
             type="button"
             onClick={exportPdf}
@@ -251,6 +277,7 @@ function Buses() {
             <FontAwesomeIcon icon={faArrowUpFromBracket} className="text-xs" />
             Export
           </button>
+          {/* Add new bus button */}
           <button
             type="button"
             onClick={openAddModal}
@@ -262,7 +289,7 @@ function Buses() {
         </div>
       </div>
 
-      {/* Stat Cards */}
+      {/* Statistics cards showing bus counts by status */}
       <div className="animate-dash-in grid gap-4 sm:grid-cols-2 lg:grid-cols-4" style={{ animationDelay: '100ms' }}>
         <article className="flex items-center justify-between rounded-xl border border-[#e5e7eb] bg-white px-5 py-4">
           <div>
@@ -302,7 +329,7 @@ function Buses() {
         </article>
       </div>
 
-      {/* Filters */}
+      {/* Filter controls for searching and filtering buses */}
       <div className="animate-dash-in flex flex-wrap items-center gap-3" style={{ animationDelay: '120ms' }}>
         <div className="relative flex-1 min-w-[200px]">
           <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#94a3b8]" />
@@ -361,7 +388,7 @@ function Buses() {
         </div>
       </div>
 
-      {/* Bus Cards Grid */}
+      {/* Bus grid display with loading, error, and data states */}
       {loading ? (
         <div className="flex items-center justify-center py-16 text-[#64748b]">
           <FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />
@@ -387,7 +414,7 @@ function Buses() {
             className="animate-dash-in overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]"
             style={{ animationDelay: '150ms' }}
           >
-            {/* Image */}
+            {/* Bus image section */}
             <div className="relative h-40 w-full overflow-hidden bg-[#f1f5f9]">
               {getBusImage(bus.busBrand, bus.amenities) ? (
                 <img
@@ -406,9 +433,9 @@ function Buses() {
               </span>
             </div>
 
-            {/* Body */}
+            {/* Bus details section */}
             <div className="p-4">
-              {/* Reg + AC badge */}
+              {/* Bus number and AC type badge */}
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-base font-extrabold text-[#111827]">{bus.busNumber}</h3>
                 <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
@@ -421,13 +448,13 @@ function Buses() {
               </div>
               <p className="mt-0.5 text-sm text-[#64748b]">{bus.busBrand}</p>
 
-              {/* Seats */}
+              {/* Seat capacity display */}
               <div className="mt-3 flex items-center gap-1.5 text-sm text-[#475569]">
                 <FontAwesomeIcon icon={faChair} className="text-xs text-[#94a3b8]" />
                 <span>{bus.seatCapacity} Seats</span>
               </div>
 
-              {/* Driver */}
+              {/* Driver information */}
               <div className="mt-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="grid h-7 w-7 place-items-center rounded-full bg-[#e0e7ff] text-[10px] font-bold text-[#3b5998]">
@@ -469,7 +496,7 @@ function Buses() {
                 </div>
               </div>
 
-              {/* View Details */}
+              {/* View details link */}
               <div className="mt-3 border-t border-[#f1f5f9] pt-3 text-right">
                 <button
                   type="button"
@@ -491,7 +518,7 @@ function Buses() {
       </div>
       )}
 
-      {/* ── Add Bus Modal ───────────────────────────────────── */}
+      {/* Modal for adding new bus */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
@@ -513,7 +540,7 @@ function Buses() {
             )}
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {/* Bus Number */}
+              {/* Bus Number input */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Bus Number *</label>
                 <input
@@ -525,7 +552,7 @@ function Buses() {
                 />
               </div>
 
-              {/* Registration Number */}
+              {/* Registration Number input */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Registration Number *</label>
                 <input
@@ -537,7 +564,7 @@ function Buses() {
                 />
               </div>
 
-              {/* Brand */}
+              {/* Brand selection */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Brand *</label>
                 <select
@@ -552,7 +579,7 @@ function Buses() {
                 </select>
               </div>
 
-              {/* Seat Capacity */}
+              {/* Seat Capacity input */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Seat Capacity</label>
                 <input
@@ -565,7 +592,7 @@ function Buses() {
                 />
               </div>
 
-              {/* Bus Type */}
+              {/* Bus Type selection */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Bus Type</label>
                 <select
@@ -580,7 +607,7 @@ function Buses() {
                 </select>
               </div>
 
-              {/* Condition */}
+              {/* Condition selection */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Condition</label>
                 <select
@@ -594,7 +621,7 @@ function Buses() {
                 </select>
               </div>
 
-              {/* Status */}
+              {/* Status selection */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Status</label>
                 <select
@@ -608,7 +635,7 @@ function Buses() {
                 </select>
               </div>
 
-              {/* Insurance Expiry */}
+              {/* Insurance Expiry date input */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Insurance Expiry</label>
                 <input
@@ -619,7 +646,7 @@ function Buses() {
                 />
               </div>
 
-              {/* Start Time */}
+              {/* Start Time input */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Start Time</label>
                 <input
@@ -630,7 +657,7 @@ function Buses() {
                 />
               </div>
 
-              {/* End Time */}
+              {/* End Time input */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">End Time</label>
                 <input
@@ -678,7 +705,7 @@ function Buses() {
                 </select>
               </div>
 
-              {/* Route */}
+              {/* Route selection */}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Route</label>
                 <select
@@ -694,7 +721,7 @@ function Buses() {
               </div>
             </div>
 
-            {/* Amenities */}
+            {/* Amenities selection */}
             <div className="mt-4">
               <label className="mb-2 block text-sm font-semibold text-[#334155]">Amenities</label>
               <div className="flex flex-wrap gap-2">
@@ -715,7 +742,7 @@ function Buses() {
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Modal action buttons */}
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"

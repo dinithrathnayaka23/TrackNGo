@@ -1,4 +1,4 @@
-﻿
+
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -9,10 +9,16 @@
     <version>1.0.0-SNAPSHOT</version>
   </parent>
 
+  <!-- 
+    The App Module
+    This is the main aggregator and entry point for the Modular Monolith.
+    It bundles all functional modules into a single executable application.
+  -->
   <artifactId>app</artifactId>
   <packaging>jar</packaging>
 
   <dependencies>
+    <!-- Core Spring Boot Starters -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
@@ -37,6 +43,8 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-websocket</artifactId>
     </dependency>
+
+    <!-- Database Driver -->
     <dependency>
       <groupId>com.mysql</groupId>
       <artifactId>mysql-connector-j</artifactId>
@@ -47,7 +55,33 @@
       <artifactId>lombok</artifactId>
       <optional>true</optional>
     </dependency>
+    <dependency>
+      <groupId>net.coobird</groupId>
+      <artifactId>thumbnailator</artifactId>
+      <version>0.4.20</version>
+    </dependency>
+    <dependency>
+      <groupId>org.imgscalr</groupId>
+      <artifactId>imgscalr-lib</artifactId>
+      <version>4.2</version>
+    </dependency>
+    <dependency>
+      <groupId>com.twelvemonkeys.imageio</groupId>
+      <artifactId>imageio-webp</artifactId>
+      <version>3.13.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.twelvemonkeys.imageio</groupId>
+      <artifactId>imageio-jpeg</artifactId>
+      <version>3.13.1</version>
+    </dependency>
 
+    <!-- 
+      Internal Project Modules
+      This section includes all functional modules. In a Modular Monolith, 
+      this aggregator module ensures that all logic is loaded into the 
+      Spring Application Context at runtime.
+    -->
     <dependency>
       <groupId>com.trackngo</groupId>
       <artifactId>commons</artifactId>
@@ -112,6 +146,7 @@
 
   <build>
     <plugins>
+      <!-- Spring Boot Maven Plugin for generating the executable JAR -->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
@@ -122,5 +157,6 @@
     </plugins>
   </build>
 </project>
+
 
 

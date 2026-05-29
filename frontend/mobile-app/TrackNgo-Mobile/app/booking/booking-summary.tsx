@@ -18,10 +18,17 @@ import { PromotionQuoteResult, quotePromotion } from '../../services/bookingFlow
 import { useSession } from '../../store/sessionStore';
 import { getUserProfile } from '../../services/userProfileApi';
 
+/**
+ * BookingSummaryScreen - The final step before payment where users review their selection,
+ * enter contact details, apply promo codes, and see the final cost breakdown.
+ */
+
 export default function BookingSummaryScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();//Use to navigate between screens
+  const insets = useSafeAreaInsets();//Handle safe device spacing
   const { currentUser } = useSession();
+
+  // Extract booking details passed from the previous seat selection screen
   const params = useLocalSearchParams<{
     from?: string;
     to?: string;
@@ -38,18 +45,20 @@ export default function BookingSummaryScreen() {
     amenities?: string;
   }>();
 
+  // Default values and formatted params
   const from = params.from ?? 'Colombo Fort';
   const to = params.to ?? 'Kandy';
   const busId = params.busId ?? '0';
   const busType = params.busType ?? 'Super Luxury A/C';
   const depart = params.depart ?? '08:30';
-  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const seats = params.seats ? params.seats.split(',') : ['3A', '3B'];
   const pricePerSeat = Number(params.pricePerSeat ?? '1500') || 1500;
   const busBrand = params.busBrand ?? '';
   const amenities: string[] = (() => { try { return JSON.parse(params.amenities ?? '[]'); } catch { return []; } })();
   const busImage = getBusImage(busBrand, amenities);
 
+  // Form state for passenger contact details
   const [fullName, setFullName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
@@ -67,8 +76,9 @@ export default function BookingSummaryScreen() {
         setMobile(profile.phoneNumber?.trim() ?? '');
         setEmail(profile.email?.trim() ?? '');
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [currentUser]);
+  // Additional state for checkout flow
   const [specialRequest, setSpecialRequest] = useState('');
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromotion, setAppliedPromotion] = useState<PromotionQuoteResult | null>(null);
@@ -161,6 +171,8 @@ export default function BookingSummaryScreen() {
             <View style={styles.headerSpacer} />
           </View>
 
+          {/* Route Card - Displays Origin, Destination, and Date */}
+
           {/* Route Card */}
           <View style={styles.routeCard}>
             <Text style={styles.routeLabel}>ROUTE</Text>
@@ -205,7 +217,7 @@ export default function BookingSummaryScreen() {
             </View>
           </View>
 
-          {/* Selected Seats & Passenger Info */}
+          {/* Selected Seats & Passenger Contact Details */}
           <View style={styles.card}>
             <Text style={styles.cardInnerLabel}>Selected Seats</Text>
             <View style={styles.seatChips}>
@@ -265,7 +277,7 @@ export default function BookingSummaryScreen() {
             {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
           </View>
 
-          {/* Special Request */}
+          {/* Optional Special Requests */}
           <Text style={styles.sectionTitle}>Special Request</Text>
           <View style={styles.card}>
             <TextInput
@@ -280,7 +292,7 @@ export default function BookingSummaryScreen() {
             />
           </View>
 
-          {/* Payment Method */}
+          {/* Selected Payment Method (Hardcoded to Card Payment for now) */}
           <Text style={styles.sectionTitle}>Payment Method</Text>
           <View style={styles.paymentMethodCard}>
             <View style={styles.paymentMethodRow}>
@@ -303,7 +315,7 @@ export default function BookingSummaryScreen() {
             </View>
           </View>
 
-          {/* Cost Breakdown */}
+          {/* Cost Breakdown - Fare, Fees, and Applied Promotions */}
           <Text style={styles.sectionTitle}>Cost Breakdown</Text>
           <View style={styles.card}>
             {/* Promo Code */}
@@ -426,6 +438,7 @@ export default function BookingSummaryScreen() {
   );
 }
 
+// Stylesheet for the Booking Summary screen components
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

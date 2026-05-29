@@ -22,10 +22,18 @@ import { httpGet } from '../../services/http';
 
 const MIN_GAP = 0.08;
 
+/**
+ * Utility to restrict a number within a specified range.
+ * Used primarily for the time range slider bounds.
+ */
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
+/**
+ * Converts a fractional day value (0 to 1) into a 24-hour time string (HH:mm).
+ * Example: 0.5 -> "12:00"
+ */
 function formatTime(value: number) {
   const totalMinutes = Math.round(value * 24 * 60);
   const hours = Math.floor(totalMinutes / 60) % 24;
@@ -33,6 +41,10 @@ function formatTime(value: number) {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
+/**
+ * Normalizes stop names for comparison (lowercase, removed spaces/dashes).
+ * Ensures that "Kadawatha" matches "kadawatha " or "Kada-watha".
+ */
 function normalizeStopKey(value: string) {
   return value.trim().toLowerCase().replace(/[-\s]+/g, '');
 }
@@ -59,14 +71,16 @@ export default function SearchBusesScreen() {
   const sliderRef = useRef<View>(null);
   const [displayName, setDisplayName] = useState('User');
 
-  // Autocomplete state
-  const [allStops, setAllStops] = useState<string[]>([]);
+  /* ── Autocomplete State ────────────────────────────────── */
+  const [allStops, setAllStops] = useState<string[]>([]); // Master list of all available stops
   const [fromSuggestions, setFromSuggestions] = useState<string[]>([]);
   const [toSuggestions, setToSuggestions] = useState<string[]>([]);
   const [showFromSuggestions, setShowFromSuggestions] = useState(false);
   const [showToSuggestions, setShowToSuggestions] = useState(false);
 
-  // Fetch user display name
+  /* ── Lifecycle Effects ────────────────────────────────── */
+
+  // Fetch user profile to personalize the greeting message
   useEffect(() => {
     if (!currentUser) return;
     getUserProfile(currentUser.userId)
@@ -81,12 +95,14 @@ export default function SearchBusesScreen() {
       .catch(() => setDisplayName('User'));
   }, [currentUser]);
 
-  // Fetch all route stops for autocomplete
+  // Fetch all existing route stops from the backend to populate 
+  // autocomplete suggestions for 'From' and 'To' fields.
   useEffect(() => {
     httpGet<{ success: boolean; data: { stops: string[] }[] }>('/api/routes')
       .then((res) => {
         const stops = new Set<string>();
         const routes = res.data ?? [];
+        // Flatten all stops from all routes into a single unique set
         for (const route of routes) {
           if (route.stops) {
             for (const stop of route.stops) {
@@ -96,22 +112,26 @@ export default function SearchBusesScreen() {
         }
         setAllStops(Array.from(stops).sort());
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
+  /**
+   * Filters the master stop list based on user input.
+   * Returns top 8 matches.
+   */
   const filterSuggestions = useCallback((text: string) => {
     if (!text.trim()) return [];
     const needle = text.toLowerCase().trim();
     return allStops.filter((s) => s.toLowerCase().includes(needle)).slice(0, 8);
   }, [allStops]);
-
+  // handle from and to change and show suggestions
   const handleFromChange = useCallback((text: string) => {
     setFrom(text);
     const matches = filterSuggestions(text);
     setFromSuggestions(matches);
     setShowFromSuggestions(matches.length > 0 && text.length > 0);
   }, [filterSuggestions]);
-
+  // handle to and show suggestions
   const handleToChange = useCallback((text: string) => {
     setTo(text);
     const matches = filterSuggestions(text);
@@ -152,6 +172,9 @@ export default function SearchBusesScreen() {
     return relativeX / sliderWidth;
   };
 
+  /* ── Time Range Slider Logic (PanResponder) ─────────────── */
+  // The slider uses two independent PanResponders for the 'Start' and 'End' handles.
+
   const startPan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -165,6 +188,7 @@ export default function SearchBusesScreen() {
       },
       onPanResponderMove: (_, gesture) => {
         if (!sliderWidth) return;
+        // Clamp start handle between 0 and (end - MIN_GAP)
         const next = clamp(getValueFromMoveX(gesture.moveX), 0, rangeRef.current.end - MIN_GAP);
         setRange((prev) => ({ ...prev, start: next }));
       },
@@ -186,6 +210,7 @@ export default function SearchBusesScreen() {
       },
       onPanResponderMove: (_, gesture) => {
         if (!sliderWidth) return;
+        // Clamp end handle between (start + MIN_GAP) and 1
         const next = clamp(getValueFromMoveX(gesture.moveX), rangeRef.current.start + MIN_GAP, 1);
         setRange((prev) => ({ ...prev, end: next }));
       },
@@ -194,10 +219,15 @@ export default function SearchBusesScreen() {
     })
   ).current;
 
+  /**
+   * Validates form inputs and navigates to the selection screen.
+   * Performs normalization on location names to ensure they match backend data.
+   */
   const handleSearch = () => {
     const trimmedFrom = from.trim();
     const trimmedTo = to.trim();
 
+    // Basic Validation
     if (!trimmedFrom || !trimmedTo) {
       Alert.alert('Missing fields', 'Please enter both From and To locations.');
       return;
@@ -218,6 +248,7 @@ export default function SearchBusesScreen() {
       return;
     }
 
+    // Advanced Validation: Ensure locations exist in the 'allStops' master list
     const stopMap = new Map(allStops.map((stop) => [normalizeStopKey(stop), stop]));
     const resolvedFrom = stopMap.get(normalizeStopKey(trimmedFrom));
     const resolvedTo = stopMap.get(normalizeStopKey(trimmedTo));
@@ -235,11 +266,14 @@ export default function SearchBusesScreen() {
       return;
     }
 
+    // Prepare date string
     const yyyy = selectedDate.getFullYear();
     const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
     const dd = String(selectedDate.getDate()).padStart(2, '0');
 
     const isAllDay = range.start === 0 && range.end === 1;
+
+    // Navigate with validated parameters
     router.push({
       pathname: '/booking/bus-selection',
       params: {
@@ -258,7 +292,7 @@ export default function SearchBusesScreen() {
       },
     });
   };
-
+  // handle open and close time modal
   const openTimeModal = (which: 'start' | 'end') => {
     const value = which === 'start' ? range.start : range.end;
     const totalMinutes = Math.round(value * 24 * 60);
@@ -293,6 +327,7 @@ export default function SearchBusesScreen() {
           <Ionicons name="arrow-back" size={22} color="#111827" />
         </Pressable>
 
+        {/* Personalized Greeting */}
         <View style={styles.greetingBlock}>
           <Text style={styles.greetingSub}>
             {new Date().getHours() < 12
@@ -304,6 +339,7 @@ export default function SearchBusesScreen() {
           <Text style={styles.greetingMain}>{displayName}</Text>
         </View>
 
+        {/* Main Search Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={styles.cardTitleRow}>
@@ -315,6 +351,7 @@ export default function SearchBusesScreen() {
             </View>
           </View>
 
+          {/* Start Location Input with Autocomplete */}
           <View style={[styles.inputCard, { zIndex: 30 }]}>
             <View style={styles.inputIcon}>
               <MaterialCommunityIcons name="target" size={18} color="#94A3B8" />
@@ -332,12 +369,14 @@ export default function SearchBusesScreen() {
                   }
                 }}
                 onBlur={() => {
+                  // Small delay to allow the suggestion click to register before hiding
                   setTimeout(() => setShowFromSuggestions(false), 300);
                 }}
                 placeholder="Search location..."
                 placeholderTextColor="#94A3B8"
                 style={styles.inputValue}
               />
+              {/* Suggestions Dropdown */}
               {showFromSuggestions && (
                 <View style={styles.suggestionsContainer}>
                   {fromSuggestions.map((item) => (
@@ -401,6 +440,7 @@ export default function SearchBusesScreen() {
             </View>
           </View>
 
+          {/* Date & Passenger Selection Row */}
           <View style={[styles.rowCards, { zIndex: 1 }]}>
             <Pressable style={styles.smallCard} onPress={() => setShowDatePicker(true)}>
               <Text style={styles.inputLabel}>Date</Text>
@@ -408,6 +448,7 @@ export default function SearchBusesScreen() {
             </Pressable>
             <View style={styles.smallCard}>
               <Text style={styles.inputLabel}>Passengers</Text>
+              {/* Adult Counter */}
               <View style={styles.passengerRow}>
                 <Text style={styles.passengerLabel}>Adult</Text>
                 <View style={styles.passengerControls}>
@@ -424,6 +465,7 @@ export default function SearchBusesScreen() {
                   </Pressable>
                 </View>
               </View>
+              {/* Children Counter */}
               <View style={styles.passengerRow}>
                 <Text style={styles.passengerLabel}>Children</Text>
                 <View style={styles.passengerControls}>
@@ -506,6 +548,7 @@ export default function SearchBusesScreen() {
           })}
         </View>
 
+        {/* Custom Departure Time Range Slider */}
         <Pressable
           style={styles.sliderWrap}
           ref={sliderRef}
@@ -514,6 +557,7 @@ export default function SearchBusesScreen() {
             updateSliderLeft();
           }}
           onPress={(event) => {
+            // Allow clicking the track to move the nearest handle
             if (!sliderWidth) return;
             const value = clamp(event.nativeEvent.locationX / sliderWidth, 0, 1);
             const distToStart = Math.abs(value - rangeRef.current.start);
@@ -526,13 +570,16 @@ export default function SearchBusesScreen() {
               setRange((prev) => ({ ...prev, end: next }));
             }
           }}>
+          {/* Background Track */}
           <View style={styles.sliderTrack} />
+          {/* Active (Selected) Segment */}
           <View
             style={[
               styles.sliderTrackActive,
               { left: startX, width: Math.max(0, endX - startX) },
             ]}
           />
+          {/* Tooltips visible during dragging */}
           {dragging && (
             <View style={[styles.sliderTooltip, { left: startX - 22 }]}>
               <Text style={styles.sliderTooltipText}>{formatTime(range.start)}</Text>
@@ -543,6 +590,7 @@ export default function SearchBusesScreen() {
               <Text style={styles.sliderTooltipText}>{formatTime(range.end)}</Text>
             </View>
           )}
+          {/* Left Handle (Start Time) */}
           <View
             style={[styles.sliderHandle, { left: startX - 12 }]}
             {...startPan.panHandlers}
@@ -550,6 +598,7 @@ export default function SearchBusesScreen() {
           >
             <View style={styles.sliderHandleInner} />
           </View>
+          {/* Right Handle (End Time) */}
           <View
             style={[styles.sliderHandle, { left: endX - 12 }]}
             {...endPan.panHandlers}

@@ -437,6 +437,8 @@ export default function ComplaintScreen() {
                     styles.statusBadge,
                     item.status === "Pending"
                       ? styles.statusPending
+                      : item.status === "Under Review"
+                        ? styles.statusReview
                       : item.status === "Rejected"
                         ? styles.statusRejected
                         : styles.statusResolved,
@@ -447,6 +449,8 @@ export default function ComplaintScreen() {
                       styles.statusText,
                       item.status === "Pending"
                         ? styles.statusPendingText
+                        : item.status === "Under Review"
+                          ? styles.statusReviewText
                         : item.status === "Rejected"
                           ? styles.statusRejectedText
                           : styles.statusResolvedText,
@@ -735,6 +739,9 @@ const styles = StyleSheet.create({
   statusPending: {
     backgroundColor: "#FEF3C7",
   },
+  statusReview: {
+    backgroundColor: "#DBEAFE",
+  },
   statusResolved: {
     backgroundColor: "#DCFCE7",
   },
@@ -747,6 +754,9 @@ const styles = StyleSheet.create({
   },
   statusPendingText: {
     color: "#D97706",
+  },
+  statusReviewText: {
+    color: "#2563EB",
   },
   statusResolvedText: {
     color: "#15803D",

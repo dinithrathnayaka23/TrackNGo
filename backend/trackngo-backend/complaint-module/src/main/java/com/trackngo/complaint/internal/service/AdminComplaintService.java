@@ -9,11 +9,13 @@ import com.trackngo.complaint.internal.entity.Complaint;
 import com.trackngo.complaint.internal.repository.ComplaintRepository;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
@@ -30,6 +32,9 @@ public class AdminComplaintService {
     private final JdbcTemplate jdbc;
     private final ComplaintRepository repository;
     private final ObjectMapper objectMapper;
+
+    @Value("${trackngo.time-zone:Asia/Colombo}")
+    private String timeZoneId;
 
     /** Creates the admin complaint service with its data and JSON helpers. */
     public AdminComplaintService(JdbcTemplate jdbc, ComplaintRepository repository, ObjectMapper objectMapper) {
@@ -78,7 +83,7 @@ public class AdminComplaintService {
         String normalizedStatus = normalizeStatus(request.status());
         complaint.setStatus(normalizedStatus);
         complaint.setAdminResponse(trimToNull(request.adminResponse()));
-        complaint.setResolvedAt("resolved".equals(normalizedStatus) ? LocalDateTime.now() : null);
+        complaint.setResolvedAt("resolved".equals(normalizedStatus) ? currentDateTime() : null);
         repository.save(complaint);
     }
 
@@ -270,6 +275,17 @@ public class AdminComplaintService {
             return dateTime;
         }
         return null;
+    }
+
+    /** Returns the current application time in the configured business timezone. */
+    private LocalDateTime currentDateTime() {
+        return LocalDateTime.now(resolveZoneId());
+    }
+
+    /** Falls back to the TrackNGo business timezone when Spring config is not injected in plain unit tests. */
+    private ZoneId resolveZoneId() {
+        String configured = timeZoneId == null || timeZoneId.isBlank() ? "Asia/Colombo" : timeZoneId;
+        return ZoneId.of(configured);
     }
 
     /** Trims text input and returns an empty string when no value exists. */

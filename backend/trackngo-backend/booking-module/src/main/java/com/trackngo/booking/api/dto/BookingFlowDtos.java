@@ -3,11 +3,18 @@ package com.trackngo.booking.api.dto;
 import java.math.BigDecimal;
 import java.util.List;
 
+/*
+  Data Transfer Objects (DTOs) for the Booking Flow.
+  These records define the structured data exchanged between the Mobile App and the Backend.
+*/
 public final class BookingFlowDtos {
 
     private BookingFlowDtos() {}
 
-    /* ── Route search ─────────────────────────────────────── */
+    /* Route search */
+    /*
+       Summary of a route found during initial route discovery.
+    */
     public record RouteSearchResult(
             Long routeId,
             String routeName,
@@ -18,7 +25,11 @@ public final class BookingFlowDtos {
             BigDecimal fee
     ) {}
 
-    /* ── Bus search results ───────────────────────────────── */
+    /*Bus search results*/
+    /*
+      Represents a single bus option available for the user's search criteria.
+      Includes real-time seat availability and segment-based fare.
+    */
     public record BusSearchResult(
             Long busId,
             String busNumber,
@@ -41,7 +52,11 @@ public final class BookingFlowDtos {
         public record RouteStopInfo(String name, int priority) {}
     }
 
-    /* ── Bus detail ───────────────────────────────────────── */
+    /*Bus detail*/
+    /*
+      Detailed information about a specific bus, its route stops, and driver.
+      Used when the user selects a bus to see the full itinerary.
+    */
     public record BusDetailResult(
             Long busId,
             String busNumber,
@@ -61,11 +76,17 @@ public final class BookingFlowDtos {
             List<RouteStopInfo> routeStops,
             DriverInfo driver
     ) {
+        /*Info about a specific stop on the bus's route. */
         public record RouteStopInfo(String name, String estimatedTime, int priority) {}
+        /* Info about the driver assigned to the bus. */
         public record DriverInfo(String name, String phoneNumber, Double rating, String profilePhoto) {}
     }
 
-    /* ── Seat layout ──────────────────────────────────────── */
+    /*Seat layout*/
+    /*
+      Represents a single row in the bus's seat layout.
+      Used by the frontend to render the seat selection map.
+    */
     public record SeatLayoutRow(
             int rowNum,
             List<String> left,
@@ -73,7 +94,11 @@ public final class BookingFlowDtos {
             List<String> lastRow
     ) {}
 
-    /* ── Create booking request ───────────────────────────── */
+    /*Create booking request*/
+    /*
+      Payload sent by the mobile app to finalize a booking.
+      Contains seat selections, payment details, and optional promotion info.
+    */
     public record CreateBookingRequest(
             Long busId,
             String journeyDate,
@@ -91,7 +116,11 @@ public final class BookingFlowDtos {
             String promoCode
     ) {}
 
-    /* ── Booking confirmation ─────────────────────────────── */
+    /*Booking confirmation*/
+    /*
+      The response sent back after a successful booking.
+      Contains the booking reference and transaction details for the user.
+    */
     public record BookingConfirmationResult(
             String bookingReference,
             String status,
@@ -105,3 +134,4 @@ public final class BookingFlowDtos {
             String journeyTime
     ) {}
 }
+

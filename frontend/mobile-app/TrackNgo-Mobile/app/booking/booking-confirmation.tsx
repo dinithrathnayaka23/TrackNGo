@@ -14,9 +14,16 @@ import QRCode from 'react-native-qrcode-svg';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+/*
+ * BookingConfirmationScreen - Displays the digital bus ticket after a successful booking.
+ * Features a scannable QR code and functionality to download/share a PDF version of the ticket.
+ */
+
 export default function BookingConfirmationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  
+  // Extract finalized booking details passed from the payment gateway
   const params = useLocalSearchParams<{
     bookingRef?: string;
     from?: string;
@@ -31,6 +38,7 @@ export default function BookingConfirmationScreen() {
     routeName?: string;
   }>();
 
+  // Default values for display
   const from = params.from ?? 'Colombo Fort';
   const to = params.to ?? 'Kandy';
   const depart = params.depart ?? '08:30';
@@ -39,7 +47,7 @@ export default function BookingConfirmationScreen() {
   const totalPrice = Number(params.totalPrice ?? '0') || 0;
   const bookingId = params.bookingRef ?? 'N/A';
 
-  // Build the QR payload with all ticket information
+  // Build the QR payload with all ticket information for driver verification
   const qrData = JSON.stringify({
     bookingId,
     from,
@@ -56,7 +64,10 @@ export default function BookingConfirmationScreen() {
   // Ref to the SVG QR component so we can extract base64 for the PDF
   const qrSvgRef = useRef<any>(null);
 
-  /** Get a base64 data-URI of the QR code from the SVG ref */
+  /** 
+   * Get a base64 data-URI of the QR code from the SVG ref.
+   * This is required to embed the QR code into the PDF document.
+   */
   const getQrBase64 = useCallback((): Promise<string> => {
     return new Promise((resolve, reject) => {
       if (!qrSvgRef.current) return reject(new Error('QR ref not ready'));
@@ -66,7 +77,10 @@ export default function BookingConfirmationScreen() {
     });
   }, []);
 
-  /** Build an HTML ticket and generate a PDF, then share/save it */
+  /** 
+   * Build an HTML ticket template and generate a PDF document.
+   * Uses expo-print to convert HTML to a high-quality PDF.
+   */
   const generateTicketPdf = useCallback(async (): Promise<string> => {
     const qrImageUri = await getQrBase64();
     const html = `
@@ -216,7 +230,7 @@ export default function BookingConfirmationScreen() {
           <Text style={styles.confirmedTitle}>Booking Confirmed!</Text>
           <Text style={styles.bookingIdText}>Booking ID: #{bookingId}</Text>
 
-          {/* QR Code Card */}
+          {/* QR Code Card - This is the primary boarding pass */}
           <View style={styles.qrCard}>
             {/* Real scannable QR code */}
             <View style={styles.qrContainer}>
@@ -238,7 +252,7 @@ export default function BookingConfirmationScreen() {
             <Text style={styles.scanTitle}>Scan at boarding</Text>
             <Text style={styles.scanSub}>Show this QR code to the driver</Text>
 
-            {/* Inline ticket summary */}
+            {/* Inline ticket summary snippet */}
             <View style={styles.ticketInfo}>
               <Text style={styles.ticketRoute}>{from}  →  {to}</Text>
               {params.routeName ? <Text style={[styles.ticketMeta, { color: '#1474F2', fontWeight: '700', fontSize: 12 }]}>{params.routeName}</Text> : null}
@@ -247,7 +261,7 @@ export default function BookingConfirmationScreen() {
             </View>
           </View>
 
-          {/* Trip Details Card */}
+          {/* Detailed Trip Card */}
           <View style={styles.detailsCard}>
             {/* Route */}
             <View style={styles.detailRow}>
@@ -297,7 +311,7 @@ export default function BookingConfirmationScreen() {
             </View>
           </View>
 
-          {/* Action Buttons */}
+          {/* Ticket Export Options */}
           <View style={styles.actionsRow}>
             <Pressable style={styles.actionBtn} onPress={handleDownload}>
               <Ionicons name="download-outline" size={22} color="#374151" />
@@ -312,7 +326,7 @@ export default function BookingConfirmationScreen() {
           <View style={{ height: 100 }} />
         </ScrollView>
 
-        {/* Done Button */}
+        {/* Navigation Return to Home */}
         <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Pressable
             style={styles.doneButton}
@@ -328,6 +342,7 @@ export default function BookingConfirmationScreen() {
   );
 }
 
+// Stylesheet for the Booking Confirmation screen components
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

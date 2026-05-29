@@ -10,7 +10,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Slf4j
+@Slf4j//used for logging to create a logger object
 @Component
 public class TrackingWebSocketHandler extends TextWebSocketHandler {
     private final Set<WebSocketSession> sessions = ConcurrentHashMap.newKeySet();

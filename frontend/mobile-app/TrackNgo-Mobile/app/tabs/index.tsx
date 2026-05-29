@@ -1,3 +1,4 @@
+// Essential React and React Native imports for UI structure and state management
 import React, {
   useCallback,
   useEffect,
@@ -18,6 +19,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+
+// API Services and Session management imports
 import {
   getRecentUpcomingBookings,
   type RecentBookingDto,
@@ -25,6 +28,7 @@ import {
 import { getUserProfile } from "../../services/userProfileApi";
 import { useSession } from "../../store/sessionStore";
 
+// Configuration for dashboard quick access buttons
 const quickActions = [
   {
     key: "highway",
@@ -56,6 +60,9 @@ const quickActions = [
   },
 ];
 
+/**
+ * Data interface for transformed booking objects used in the UI
+ */
 interface DashboardRecentBooking {
   busNumber: string;
   busType: string;
@@ -69,6 +76,9 @@ interface DashboardRecentBooking {
   journeyAt: Date;
 }
 
+/**
+ * Formats raw bus type strings into human-readable labels
+ */
 function normalizeBusType(busType: string): string {
   const raw = (busType ?? "").toLowerCase();
   if (raw === "trip_booking") {
@@ -83,18 +93,27 @@ function normalizeBusType(busType: string): string {
     .join(" ");
 }
 
+/**
+ * Assigns a specific theme color based on the booking type
+ */
 function getCardBaseColor(busType: string): string {
   return (busType ?? "").toLowerCase() === "trip_booking"
-    ? "#8A2BE2"
-    : "#2F6BFF";
+    ? "#8A2BE2" //Purple for trip booking
+    : "#2F6BFF"; //Blue for long distance or highway booking
 }
 
+/**
+ * Combines date and time strings from API into a single Date object
+ */
 function parseJourneyDateTime(date: string, time: string): Date {
   const [year, month, day] = date.split("-").map(Number);
   const [hour, minute, second = 0] = time.split(":").map(Number);
   return new Date(year, month - 1, day, hour, minute, second);
 }
 
+/**
+ * Returns a time-appropriate greeting (Morning, Afternoon, etc.)
+ */
 function getGreetingForTime(date: Date): string {
   const hour = date.getHours();
   if (hour >= 5 && hour < 12) {
@@ -109,6 +128,9 @@ function getGreetingForTime(date: Date): string {
   return "Good Night";
 }
 
+/**
+ * Transforms API DTO into a format suitable for the dashboard UI
+ */
 function toDashboardRecentBooking(
   dto: RecentBookingDto,
 ): DashboardRecentBooking {
@@ -134,11 +156,16 @@ function toDashboardRecentBooking(
   };
 }
 
+// Constants for dynamic layout calculations
 const CARD_GAP = 12;
 const H_PADDING = 20;
 const screenWidth = Dimensions.get("window").width;
 const cardWidth = (screenWidth - H_PADDING * 2 - CARD_GAP) / 2;
 
+/**
+ * Custom hook for smooth entrance animations on component load
+ * @param delay - millisecond delay before animation starts
+ */
 function useEntranceAnimation(delay: number) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(16)).current;
@@ -163,6 +190,9 @@ function useEntranceAnimation(delay: number) {
   return { opacity, translateY };
 }
 
+/**
+ * Reusable component for adding a "press-in" scaling effect to touchable elements
+ */
 function PressScale({
   children,
   onPress,
@@ -201,12 +231,17 @@ function PressScale({
 }
 
 export default function HomeScreen() {
+  // Session and Navigation hooks
   const { currentUser } = useSession();
+  const router = useRouter();
+
+  // Entrance animations for different dashboard sections
   const headerAnim = useEntranceAnimation(0);
   const greetingAnim = useEntranceAnimation(80);
   const gridAnim = useEntranceAnimation(160);
   const recentAnim = useEntranceAnimation(240);
-  const router = useRouter();
+
+  // Component local state
   const [recentBookings, setRecentBookings] = useState<
     DashboardRecentBooking[]
   >([]);
@@ -214,6 +249,9 @@ export default function HomeScreen() {
   const [now, setNow] = useState(() => new Date());
   const [displayName, setDisplayName] = useState("User");
 
+  /**
+   * Fetches user profile to display proper name on dashboard
+   */
   const loadDisplayName = useCallback(async () => {
     if (!currentUser) {
       setDisplayName("User");
@@ -234,6 +272,9 @@ export default function HomeScreen() {
     }
   }, [currentUser]);
 
+  /**
+   * Fetches upcoming bookings for the current user
+   */
   const loadRecentBookings = useCallback(async () => {
     if (!currentUser) {
       setRecentBookings([]);
@@ -255,6 +296,7 @@ export default function HomeScreen() {
     }
   }, [currentUser]);
 
+  // Refresh data whenever the screen comes into focus
   useFocusEffect(
     useCallback(() => {
       void loadRecentBookings();
@@ -262,6 +304,9 @@ export default function HomeScreen() {
     }, [loadRecentBookings, loadDisplayName]),
   );
 
+  /**
+   * Automatically refreshes bookings list when a booking's journey time passes
+   */
   useEffect(() => {
     const nowMillis = Date.now();
     const nextExpiryMillis = recentBookings
@@ -282,6 +327,9 @@ export default function HomeScreen() {
     return () => clearTimeout(timeoutId);
   }, [recentBookings, loadRecentBookings]);
 
+  /**
+   * Refreshes the "now" state at day/time boundaries to update greetings
+   */
   useEffect(() => {
     const nowDate = new Date();
     const boundaryHours = [5, 12, 17, 21, 24];
@@ -298,7 +346,9 @@ export default function HomeScreen() {
     return () => clearTimeout(timeoutId);
   }, [now]);
 
+  // Memoized values for performance
   const actionColor = useMemo(() => "#2F6BFF", []);
+
   const todayLabel = useMemo(() => {
     return now.toLocaleDateString("en-US", {
       weekday: "long",
@@ -306,7 +356,10 @@ export default function HomeScreen() {
       month: "short",
     });
   }, [now]);
+
   const greetingLabel = useMemo(() => getGreetingForTime(now), [now]);
+
+  // Filters out bookings that have already passed their journey date
   const visibleRecentBookings = useMemo(
     () =>
       recentBookings.filter((booking) => {
@@ -331,6 +384,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
+        {/* --- Top Branding and Notification Header --- */}
         <Animated.View
           style={[
             styles.header,
@@ -371,6 +425,7 @@ export default function HomeScreen() {
 
         <View style={styles.divider} />
 
+        {/* --- Greeting Section --- */}
         <Animated.View
           style={[
             styles.greetingBlock,
@@ -386,6 +441,7 @@ export default function HomeScreen() {
           </Text>
         </Animated.View>
 
+        {/* --- Quick Action Grid --- */}
         <Animated.View
           style={[
             styles.grid,
@@ -427,6 +483,7 @@ export default function HomeScreen() {
           ))}
         </Animated.View>
 
+        {/* --- Recent Bookings Display --- */}
         <Animated.View
           style={[
             styles.recentBlock,
@@ -553,6 +610,7 @@ export default function HomeScreen() {
   );
 }
 
+// UI Styles for the Dashboard
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

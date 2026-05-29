@@ -7,5 +7,6 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public class InvoiceCreatedEvent extends BaseEvent {
+    // Identifier of the invoice that was just persisted.
     private final Long id;
 }

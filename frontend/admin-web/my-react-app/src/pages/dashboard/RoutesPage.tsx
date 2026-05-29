@@ -16,6 +16,7 @@ import {
   faListOl,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
+//Fetching API services from  routeService
 import {
   fetchRoutes,
   createRoute,
@@ -26,7 +27,7 @@ import {
 } from '../../services/routeService'
 
 
-
+//Fetching Google Map API key from Environmental Variables
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
 
 let mapsScriptLoaded = false

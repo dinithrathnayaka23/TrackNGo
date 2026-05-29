@@ -18,6 +18,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -142,9 +143,9 @@ class ComplaintServiceImplTest {
         when(repository.findById(18L)).thenReturn(Optional.of(complaint));
         when(repository.save(any(Complaint.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        LocalDateTime beforeUpdate = LocalDateTime.now();
+        LocalDateTime beforeUpdate = LocalDateTime.now(ZoneId.of("Asia/Colombo"));
         ComplaintDto updated = service.update(18L, request);
-        LocalDateTime afterUpdate = LocalDateTime.now();
+        LocalDateTime afterUpdate = LocalDateTime.now(ZoneId.of("Asia/Colombo"));
 
         assertEquals("https://cdn.example.com/updated.jpg", updated.getImage());
         assertEquals("BK-2002", updated.getBookingReference());

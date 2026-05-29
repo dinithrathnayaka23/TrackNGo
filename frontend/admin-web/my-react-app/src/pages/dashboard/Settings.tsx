@@ -18,6 +18,7 @@ import {
   type EmergencyNumber,
   type SaveEmergencyNumberRequest,
 } from '../../services/emergencyNumberService'
+import ProfilePictureUpload from '../../components/ProfilePictureUpload.jsx'
 
 const emptyForm: SaveEmergencyNumberRequest = {
   label: '',
@@ -193,6 +194,8 @@ function Settings() {
               <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
             </button>
           </article>
+
+          <ProfilePictureUpload />
         </section>
       </div>
 

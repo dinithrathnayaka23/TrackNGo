@@ -43,8 +43,14 @@ public final class BookingFlowDtos {
             BigDecimal fee,
             String driverName,
             Double driverRating,
-            String routeName
-    ) {}
+            String routeName,
+            String busRouteName,
+            String routeStartLocation,
+            String routeEndLocation,
+            List<RouteStopInfo> routeStops
+    ) {
+        public record RouteStopInfo(String name, int priority) {}
+    }
 
     /*Bus detail*/
     /*
@@ -62,6 +68,9 @@ public final class BookingFlowDtos {
             List<String> amenities,
             BigDecimal fee,
             String routeName,
+            String busRouteName,
+            String routeStartLocation,
+            String routeEndLocation,
             String routeDistance,
             String routeDuration,
             List<RouteStopInfo> routeStops,

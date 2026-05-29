@@ -48,7 +48,7 @@ class AdminBusControllerTest {
         BusListItem bus = new BusListItem(
                 1L, "NC-1234", "Toyota", 40, "highway", "good",
                 "active", List.of("ac"), "John Doe", 10L,
-                "Colombo - Kandy", 1L, "08:00", "12:00",
+                "Colombo - Kandy", 1L, "08:00", "12:00", "14:00", "18:00",
                 "REG-001", "2026-12-31"
         );
         when(service.listBuses()).thenReturn(List.of(bus));
@@ -69,7 +69,7 @@ class AdminBusControllerTest {
         BusDetail detail = new BusDetail(
                 1L, "NC-1234", "Toyota", 40, "highway", "good",
                 "active", List.of("ac", "wifi"),
-                "08:00", "12:00", "REG-001", null,
+                "08:00", "12:00", "14:00", "18:00", "REG-001", null,
                 10L, "John Doe", "+94771234567", 4.5,
                 1L, "Colombo - Kandy", new BigDecimal("1500.00")
         );
@@ -90,7 +90,7 @@ class AdminBusControllerTest {
     void createBus_returnsNewId() throws Exception {
         SaveBusRequest request = new SaveBusRequest(
                 "NC-9999", "Toyota", 40, "highway", "good",
-                "active", List.of("ac"), "08:00", "12:00",
+                "active", List.of("ac"), "08:00", "12:00", "14:00", "18:00",
                 "REG-999", "2026-12-31", 1L, 2L
         );
         when(service.createBus(any(SaveBusRequest.class))).thenReturn(99L);
@@ -110,7 +110,7 @@ class AdminBusControllerTest {
     void updateBus_returnsOk() throws Exception {
         SaveBusRequest request = new SaveBusRequest(
                 "NC-1234", "Toyota", 40, "highway", "good",
-                "active", List.of(), "08:00", "12:00",
+                "active", List.of(), "08:00", "12:00", "14:00", "18:00",
                 "REG-001", "2026-12-31", null, null
         );
         doNothing().when(service).updateBus(eq(1L), any(SaveBusRequest.class));

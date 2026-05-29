@@ -45,6 +45,7 @@ export default function PaymentGatewayScreen() {
     mobile?: string;
     email?: string;
     specialRequest?: string;
+    routeName?: string;
   }>();
 
   // Default values and numeric parsing for cost details
@@ -147,6 +148,7 @@ export default function PaymentGatewayScreen() {
           depart: result.journeyTime,
           transactionId: result.transactionId ?? status.paymentIntentId,
           status: result.status,
+          routeName: params.routeName ?? '',
         },
       });
     } catch (e: any) {

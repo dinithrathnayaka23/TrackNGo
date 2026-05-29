@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getBusDetails, type BusDetailResult } from '../../services/bookingFlowApi';
 import { getBusImage } from '../../utils/busImage';
+import { getBusRouteLabel, getBusRouteWithSuffix, getJourneyRouteStops } from '../../utils/routeDisplay';
 
 //Lookup table for Amneties data
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode; label: string }> = {
@@ -39,6 +40,7 @@ function formatDuration(start: string, end: string): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+
 export default function BusDetailsScreen() {
   const router = useRouter();//use for navigation between screens
   const insets = useSafeAreaInsets();//Handle device spacing safely
@@ -50,6 +52,7 @@ export default function BusDetailsScreen() {
     price?: string;
     adults?: string;
     children?: string;
+    routeName?: string;
   }>();
   //giving parameters and fallback values
   const busId = Number(params.busId ?? '0');
@@ -102,7 +105,9 @@ export default function BusDetailsScreen() {
   }
 
   const duration = formatDuration(details.startTime, details.endTime);
-  const routeStops = details.routeStops.sort((a, b) => a.priority - b.priority);
+  const routeStops = getJourneyRouteStops(details.routeStops, from, to);
+  const busRouteLabel = getBusRouteWithSuffix(details, { segmentFrom: from, segmentTo: to });
+  const busRouteName = getBusRouteLabel(details, { segmentFrom: from, segmentTo: to });
   const driverRating = details.driver?.rating?.toFixed(1) ?? 'N/A';
 
   return (
@@ -133,11 +138,8 @@ export default function BusDetailsScreen() {
             <View style={styles.busText}>
               <Text style={styles.busType}>{details.busBrand} • {details.busType}</Text>
               <Text style={styles.busId}>{details.busNumber}</Text>
-              <Text style={styles.busRoute}>
-                {from}  {'→'}  {to}
-              </Text>
-              {details.routeName ? (
-                <Text style={styles.routeLabel}>{details.routeName} Bus</Text>
+              {busRouteLabel ? (
+                <Text style={styles.busRoute}>{busRouteLabel}</Text>
               ) : null}
             </View>
             <View style={styles.busBadge}>
@@ -238,6 +240,8 @@ export default function BusDetailsScreen() {
                     depart: details.startTime,
                     price: String(details.fee),
                     busBrand: details.busBrand,
+                    busNumber: details.busNumber,
+                    routeName: busRouteName || details.routeName || params.routeName,
                     amenities: JSON.stringify(details.amenities),
                     viewOnly: 'true',
                   },
@@ -284,6 +288,8 @@ export default function BusDetailsScreen() {
                 adults,
                 children,
                 busBrand: details.busBrand,
+                busNumber: details.busNumber,
+                routeName: busRouteName || details.routeName || params.routeName,
                 amenities: JSON.stringify(details.amenities),
               },
             })

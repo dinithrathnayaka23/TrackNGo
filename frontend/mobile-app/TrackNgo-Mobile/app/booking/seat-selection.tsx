@@ -14,16 +14,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getSeatLayout, getBookedSeats, getBlockedSeats, type SeatLayoutRow } from '../../services/bookingFlowApi';
 
-/*
- * Defines the possible states for a seat in the layout.
-*/
 type SeatStatus = 'available' | 'selected' | 'booked' | 'blocked';
 
 export default function SeatSelectionScreen() {
-  const router = useRouter();//To navigate between screens
-  const insets = useSafeAreaInsets();//To Handle Safe Device Spacing
-
-  // Extract booking details passed via URL parameters
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     busId?: string;
     from?: string;
@@ -35,11 +30,12 @@ export default function SeatSelectionScreen() {
     adults?: string;
     children?: string;
     busBrand?: string;
+    busNumber?: string;
+    routeName?: string;
     amenities?: string;
     viewOnly?: string;
   }>();
 
-  // State for filtering, selection, and layout data
   const [showAvailableOnly, setShowAvailableOnly] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [seatRows, setSeatRows] = useState<SeatLayoutRow[]>([]);
@@ -47,11 +43,10 @@ export default function SeatSelectionScreen() {
   const [blockedSeatSet, setBlockedSeatSet] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  // Default values and derived constants from params
   const busId = Number(params.busId ?? '0');
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const busType = params.busType ?? 'Super Luxury';
   const depart = params.depart ?? '08:30';
   const pricePerSeat = Number(params.price ?? '1200') || 1200;
@@ -60,9 +55,6 @@ export default function SeatSelectionScreen() {
   const maxSeats = adults + children;
   const viewOnly = params.viewOnly === 'true';
 
-  /*
-   * Loads the seat layout, booked seats, and blocked seats from the API.
-  */
   const loadSeats = useCallback(async () => {
     try {
       setLoading(true);
@@ -82,12 +74,8 @@ export default function SeatSelectionScreen() {
     }
   }, [busId, date]);
 
-  // Load seats on mount or when dependencies change
   useEffect(() => { void loadSeats(); }, [loadSeats]);
 
-  /*
-   * Determines the status of a specific seat.
-   */
   const seatStatus = (seatId: string): SeatStatus => {
     if (blockedSeatSet.has(seatId)) return 'blocked';
     if (bookedSeats.has(seatId)) return 'booked';
@@ -95,9 +83,6 @@ export default function SeatSelectionScreen() {
     return 'available';
   };
 
-  /*
-   * Toggles a seat selection state, enforcing max seat limits.
-   */
   const toggleSeat = (seatId: string) => {
     if (bookedSeats.has(seatId) || blockedSeatSet.has(seatId)) return;
     setSelectedSeats((prev) => {
@@ -129,8 +114,6 @@ export default function SeatSelectionScreen() {
             <View style={styles.headerSpacer} />
           </View>
 
-          {/* Route and Bus Information Summary */}
-
           <View style={styles.summaryCard}>
             <View style={styles.summaryIcon}>
               <Ionicons name="bus" size={18} color="#2F6BFF" />
@@ -138,7 +121,7 @@ export default function SeatSelectionScreen() {
             <View style={styles.summaryText}>
               <Text style={styles.summaryTitle}>{from} - {to}</Text>
               <Text style={styles.summarySub}>
-                Bus {busId} - {depart} - {date}
+                Bus {params.busNumber || busId} - {depart} - {date}
               </Text>
             </View>
             <View style={styles.summaryPill}>
@@ -146,7 +129,6 @@ export default function SeatSelectionScreen() {
             </View>
           </View>
 
-          {/* Filtering and Legend */}
           <View style={styles.toggleRow}>
             <Text style={styles.toggleLabel}>Show available only</Text>
             <Switch
@@ -176,7 +158,6 @@ export default function SeatSelectionScreen() {
             </View>
           </View>
 
-          {/* Main Seat Layout Card */}
           <View style={styles.seatCard}>
             <View style={styles.seatHeader}>
               <View style={styles.seatHeaderBlock}>
@@ -194,7 +175,6 @@ export default function SeatSelectionScreen() {
                 <ActivityIndicator size="large" color="#2F6BFF" />
               </View>
             ) : seatRows.map((row, rowIndex) => {
-              // Special rendering for the back-row seats (usually 5 across)
               if (row.lastRow && row.lastRow.length > 0) {
                 return (
                   <View key={`row-${rowIndex}`} style={styles.lastRow}>
@@ -227,7 +207,6 @@ export default function SeatSelectionScreen() {
                 );
               }
 
-              // Standard row rendering with an aisle in between left and right groups
               return (
                 <View key={`row-${rowIndex}`} style={styles.seatRow}>
                   <View style={styles.seatGroup}>
@@ -291,51 +270,51 @@ export default function SeatSelectionScreen() {
           </View>
         </ScrollView>
 
-        {/* Sticky Bottom Bar with Selected Seats and Pricing */}
         {!viewOnly && (
-          <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-            <View style={styles.bottomRow}>
-              <View>
-                <Text style={styles.bottomLabel}>Selected Seats</Text>
-                <Text style={styles.bottomValue}>{selectedSeats.join(', ') || '-'}</Text>
-              </View>
-              <View style={styles.bottomPrice}>
-                <Text style={styles.bottomLabel}>Total Price</Text>
-                <Text style={styles.bottomPriceValue}>LKR {totalPrice.toLocaleString('en-US')}</Text>
-              </View>
+        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}> 
+          <View style={styles.bottomRow}>
+            <View>
+              <Text style={styles.bottomLabel}>Selected Seats</Text>
+              <Text style={styles.bottomValue}>{selectedSeats.join(', ') || '-'}</Text>
             </View>
-            <Pressable
-              style={[styles.payButton, selectedSeats.length === 0 && styles.payButtonDisabled]}
-              onPress={() => {
-                router.push({
-                  pathname: '/booking/booking-summary',
-                  params: {
-                    from,
-                    to,
-                    busId: String(busId),
-                    busType,
-                    depart,
-                    date,
-                    seats: selectedSeats.join(','),
-                    pricePerSeat: String(pricePerSeat),
-                    totalPrice: String(totalPrice),
-                    busBrand: params.busBrand ?? '',
-                    amenities: params.amenities ?? '[]',
-                  },
-                });
-              }}
-              disabled={selectedSeats.length === 0}>
-              <Text style={styles.payButtonText}>Continue to Payment</Text>
-              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-            </Pressable>
+            <View style={styles.bottomPrice}>
+              <Text style={styles.bottomLabel}>Total Price</Text>
+              <Text style={styles.bottomPriceValue}>LKR {totalPrice.toLocaleString('en-US')}</Text>
+            </View>
           </View>
+          <Pressable
+            style={[styles.payButton, selectedSeats.length === 0 && styles.payButtonDisabled]}
+            onPress={() => {
+              router.push({
+                pathname: '/booking/booking-summary',
+                params: {
+                  from,
+                  to,
+                  busId: String(busId),
+                  busType,
+                  depart,
+                  date,
+                  seats: selectedSeats.join(','),
+                  pricePerSeat: String(pricePerSeat),
+                  totalPrice: String(totalPrice),
+                  busBrand: params.busBrand ?? '',
+                  busNumber: params.busNumber ?? '',
+                  routeName: params.routeName ?? '',
+                  amenities: params.amenities ?? '[]',
+                },
+              });
+            }}
+            disabled={selectedSeats.length === 0}>
+            <Text style={styles.payButtonText}>Continue to Payment</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          </Pressable>
+        </View>
         )}
       </View>
     </SafeAreaView>
   );
 }
 
-// Stylesheet for the Seat Selection screen components
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

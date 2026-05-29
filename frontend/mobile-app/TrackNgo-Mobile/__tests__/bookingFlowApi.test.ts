@@ -56,6 +56,10 @@ describe('searchBuses', () => {
         driverName: 'John Doe',
         driverRating: 4.5,
         routeName: 'Colombo - Kandy',
+        routeStops: [
+          { name: 'Colombo', priority: 1 },
+          { name: 'Kandy', priority: 10 },
+        ],
       },
     ];
     mockHttpGet.mockResolvedValue({ success: true, message: 'ok', data: buses });

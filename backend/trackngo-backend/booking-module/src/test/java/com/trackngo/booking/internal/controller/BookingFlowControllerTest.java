@@ -50,7 +50,12 @@ class BookingFlowControllerTest {
                 "08:00", "12:00", 40, 38,
                 List.of("ac", "wifi"),
                 new BigDecimal("1500.00"),
-                "John Doe", 4.5, "Colombo - Kandy"
+                "John Doe", 4.5,
+                "Colombo - Kandy",
+                "Colombo Fort to Kandy",
+                "Colombo Fort",
+                "Kandy",
+                List.of()
         );
         when(service.searchBuses("Colombo", "Kandy", "2025-05-01", null))
                 .thenReturn(List.of(bus));
@@ -94,6 +99,9 @@ class BookingFlowControllerTest {
                 List.of("ac"),
                 new BigDecimal("1500.00"),
                 "Colombo - Kandy",
+                "Colombo Fort to Kandy",
+                "Colombo Fort",
+                "Kandy",
                 "120 km", "4h 0m",
                 List.of(new BusDetailResult.RouteStopInfo("Colombo Fort", "08:00 AM", 1)),
                 new BusDetailResult.DriverInfo("John Doe", "+94771234567", 4.5, null)

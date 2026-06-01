@@ -39,7 +39,7 @@ function RootLayoutNav() {
           <Stack.Screen name="auth/otp-verification" />
         </>
       ) : (
-        <Stack.Screen name="navigation/AppNavigation" />
+        <Stack.Screen name="tabs" />
       )}
     </Stack>
   );

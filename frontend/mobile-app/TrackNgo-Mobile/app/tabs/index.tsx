@@ -466,6 +466,10 @@ export default function HomeScreen() {
                   });
                   return;
                 }
+                if (action.key === "trip-booking") {
+                  router.push("/trips/BookATrip");
+                  return;
+                }
                 if (action.key === "my-bookings") {
                   router.push("/booking/booking-history");
                   return;

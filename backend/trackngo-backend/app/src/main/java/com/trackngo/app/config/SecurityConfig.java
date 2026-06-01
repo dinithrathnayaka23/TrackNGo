@@ -51,6 +51,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/emergency-numbers/**").permitAll()
                 .requestMatchers("/api/admin/support/**").permitAll()
                 .requestMatchers("/bus-sharer.html").permitAll()
+                .requestMatchers("/api/locations/**").permitAll()
+                .requestMatchers("/api/trips/**").permitAll()
+                .requestMatchers("/api/trips/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

@@ -24,8 +24,27 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		WHERE u.email = :email
 		  AND sb.status <> 'cancelled'
 		  AND sb.journey_date >= CURDATE()
-		  AND sb.journey_date <= DATE_ADD(CURDATE(), INTERVAL 3 DAY)
-		ORDER BY sb.journey_date ASC, sb.journey_time ASC
+		  AND sb.journey_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+		
+		UNION ALL
+		
+		SELECT
+			COALESCE(b.bus_number, 'PENDING') AS busNumber,
+			'trip_booking' AS busType,
+			CONCAT('BK-', tb.trip_booking_id) AS bookingReference,
+			tb.start_location AS startLocation,
+			tb.destination AS endLocation,
+			tb.start_date AS journeyDate,
+			CAST('08:00:00' AS TIME) AS journeyTime
+		FROM trip_booking tb
+		LEFT JOIN bus b ON b.bus_id = tb.bus_id
+		INNER JOIN `user` u ON u.user_id = tb.passenger_id
+		WHERE u.email = :email
+		  AND tb.booking_status <> 'cancelled'
+		  AND tb.start_date >= CURDATE()
+		  AND tb.start_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+		  
+		ORDER BY journeyDate ASC, journeyTime ASC
 		LIMIT 8
 		""", nativeQuery = true)
 	List<RecentBookingProjection> findUpcomingRecentByEmail(@Param("email") String email);
@@ -51,7 +70,29 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		WHERE u.email = :email
 		  AND sb.status <> 'cancelled'
 		  AND sb.journey_date >= CURDATE()
-		ORDER BY sb.journey_date ASC, sb.journey_time ASC
+		  
+		UNION ALL
+		
+		SELECT
+			CONCAT('BK-', tb.trip_booking_id) AS bookingReference,
+			COALESCE(b.bus_number, 'PENDING') AS busNumber,
+			'trip_booking' AS busType,
+			tb.start_location AS startLocation,
+			tb.destination AS endLocation,
+			tb.start_date AS journeyDate,
+			CAST('08:00:00' AS TIME) AS journeyTime,
+			'N/A' AS seatNumber,
+			tb.final_price AS totalAmount,
+			tb.booking_status AS status,
+			'N/A' AS transactionId
+		FROM trip_booking tb
+		LEFT JOIN bus b ON b.bus_id = tb.bus_id
+		INNER JOIN `user` u ON u.user_id = tb.passenger_id
+		WHERE u.email = :email
+		  AND tb.booking_status <> 'cancelled'
+		  AND tb.start_date >= CURDATE()
+		  
+		ORDER BY journeyDate ASC, journeyTime ASC
 		""", nativeQuery = true)
 	List<BookingHistoryProjection> findUpcomingByEmail(@Param("email") String email);
 
@@ -76,7 +117,29 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		WHERE u.email = :email
 		  AND (sb.journey_date < CURDATE()
 		       OR sb.status = 'cancelled')
-		ORDER BY sb.journey_date DESC, sb.journey_time DESC
+		
+		UNION ALL
+		
+		SELECT
+			CONCAT('BK-', tb.trip_booking_id) AS bookingReference,
+			COALESCE(b.bus_number, 'N/A') AS busNumber,
+			'trip_booking' AS busType,
+			tb.start_location AS startLocation,
+			tb.destination AS endLocation,
+			tb.start_date AS journeyDate,
+			CAST('08:00:00' AS TIME) AS journeyTime,
+			'N/A' AS seatNumber,
+			tb.final_price AS totalAmount,
+			tb.booking_status AS status,
+			'N/A' AS transactionId
+		FROM trip_booking tb
+		LEFT JOIN bus b ON b.bus_id = tb.bus_id
+		INNER JOIN `user` u ON u.user_id = tb.passenger_id
+		WHERE u.email = :email
+		  AND (tb.start_date < CURDATE()
+		       OR tb.booking_status = 'cancelled')
+		       
+		ORDER BY journeyDate DESC, journeyTime DESC
 		""", nativeQuery = true)
 	List<BookingHistoryProjection> findPastByEmail(@Param("email") String email);
 }

@@ -1,8 +1,8 @@
 package com.trackngo.driver.internal.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.*; //jpa coming from jakarta package
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Data; //is used for getters and setters to access fields
 import lombok.NoArgsConstructor;
 
 @Entity
@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "user")
 public class DriverUser {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY) //means auto increment and primary key
     @Column(name = "user_id")
     private Long id;
 

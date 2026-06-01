@@ -9,7 +9,7 @@ import com.trackngo.auth.internal.entity.User;
 import com.trackngo.auth.internal.repository.UserRepository;
 import com.trackngo.commons.events.EventPublisher;
 import com.trackngo.commons.exception.BusinessException;
-import com.trackngo.commons.util.JwtUtil;
+import com.trackngo.commons.util.JwtUtil; // import JwtUtil
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

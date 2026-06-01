@@ -1,25 +1,26 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react'; //important hooks
 import {
-  View,
+  View, //like a div
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Switch,
-  Alert,
-  useWindowDimensions,
-  ActivityIndicator,
+  StyleSheet, //create stylesheets
+  ScrollView, //scrollable content
+  TouchableOpacity, //clickable content
+  Switch, //toggle on and off
+  Alert, //pop msgs
+  useWindowDimensions, //get screen dimensions
+  ActivityIndicator, // loading screen
+  Modal, //popup screen for language
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useUser } from '@/context/UserContext';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
-import { formatDate, isLicenseExpired } from '@/utils/dateFormatter';
+import { useRouter } from 'expo-router'; //navigation
+import { useUser } from '@/context/UserContext'; //gloablly shared user data and auth functions
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; //prevent content overlap
+import * as ImagePicker from 'expo-image-picker'; // opening gallery to pick
+import { Image } from 'react-native'; //why because we need to diplay dp img
+import { useTheme } from '@/context/ThemeContext'; //global theme data
+import { formatDate, isLicenseExpired } from '@/utils/dateFormatter'; // Import utility functions for date formatting and license expiry checking
 
-interface DriverProfile {
+interface DriverProfile {  //stricture of driver profile data we get from API
   driverId: number;
   firstName: string;
   lastName: string;
@@ -39,29 +40,31 @@ interface DriverProfile {
   bankName: string;
 }
 
-interface DriverAssignment {
+interface DriverAssignment { //driver assignment data structure from api
   busId: number;
   busNumber: string;
   busBrand: string;
   registrationNumber: string;
   routeId: number | null;
   routeName?: string | null;
+  busType: string;
 }
 
-export default function DriverProfileSettingsScreen() {
-  const router = useRouter();
-  const { user, logout } = useUser();
-  const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+export default function DriverProfileSettingsScreen() { // screen component, this function returns the UI and logic
+  //states
+  const router = useRouter(); //navigation
+  const { user, logout } = useUser(); //user context
+  const { width } = useWindowDimensions(); //get screen width for responsive design and save in state
+  const insets = useSafeAreaInsets(); //insets mean the safe area
 
-  const [profileData, setProfileData] = useState<DriverProfile | null>(null);
+  const [profileData, setProfileData] = useState<DriverProfile | null>(null); //initially null
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null); //state for error handling
 
-  const [completionTab, setCompletionTab] = useState('profile');
-  const [shareLocation, setShareLocation] = useState(true);
+  const [completionTab, setCompletionTab] = useState('profile'); //state for completion tab
+  const [shareLocation, setShareLocation] = useState(false); //state for share location
   const [twoFactor, setTwoFactor] = useState(false);
-  const { darkMode, setDarkMode } = useTheme();
+  const { darkMode, setDarkMode } = useTheme(); //global theme data
   const [systemNotifications, setSystemNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [smsAlerts, setSmsAlerts] = useState(false);
@@ -70,25 +73,28 @@ export default function DriverProfileSettingsScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
 
-  console.log("USER OBJECT:", user);
-  // Fetch driver profile on component mount
-  useEffect(() => {
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState('English');
+
+  console.log("USER:", user); // Log the user from UserContext when logged in.
+  
+  useEffect(() => { // Fetch driver profile when user data changes
     fetchDriverProfile();
-  }, [user?.userId]);
+  }, [user?.userId]); // re run everitime user id chnges
 
   const fetchDriverProfile = async () => {
-    if (!user?.userId || !user?.token) {
-      setIsLoadingProfile(false);
+    if (!user?.userId || !user?.token) { // Check if user data is available
+      setIsLoadingProfile(false); // update state
       return;
     }
 
     try {
-      setIsLoadingProfile(true);
-      setProfileError(null);
+      setIsLoadingProfile(true); //update state
+      setProfileError(null); //update state to clear previous errors
       
-      // Replace with your actual API URL
+      // Fetch driver profile from API URL
       const response = await fetch(
-        `http://10.43.239.185:8080/api/drivers/${user.userId}/profile-and-assignment`,
+        `http://10.233.234.185:8080/api/drivers/${user.userId}/profile-and-assignment`,
         {
           method: 'GET',
           headers: {
@@ -102,57 +108,57 @@ export default function DriverProfileSettingsScreen() {
         throw new Error(`Failed to fetch profile: ${response.statusText}`);
       }
 
-      const result = await response.json();
-      console.log("DRIVER PROFILE RESPONSE:", result);
+      const result = await response.json(); //JSON to js object
+      console.log("DRIVER PROFILE RESPONSE:", result); // this is in json
       
-      if (result.success && result.data) {
-      setProfileData(result.data.profile);
+      if (result.success && result.data) { //if success is true and data is present
+      setProfileData(result.data.profile); 
       setAssignment(result.data.assignment);
 
-      console.log("PROFILE:", result.data.profile);
+      console.log("PROFILE:", result.data.profile); // this is in js object form
       console.log("ASSIGNMENT:", result.data.assignment);
 
-      if (result.data.profile.profilePhoto) {
+      if (result.data.profile.profilePhoto) { //if profile photo is present
         setProfileImage(result.data.profile.profilePhoto);
       }   
       } else {
         throw new Error(result.message || 'Failed to fetch profile');
       }
-    } catch (error) {
+    } catch (error) { 
       console.error('Error fetching driver profile:', error);
-      setProfileError(error instanceof Error ? error.message : 'Failed to load profile');
+      setProfileError(error instanceof Error ? error.message : 'Failed to load profile'); //update state with error message
     } finally {
       setIsLoadingProfile(false);
     }
   };
 
-  const profileCompletion = 100;
+  const profileCompletion = 100; 
   const driverName = profileData 
-    ? `${profileData.firstName} ${profileData.lastName}` 
-    : (user ? `${user.firstName} ${user.lastName}` : 'Driver');
+    ? `${profileData.firstName} ${profileData.lastName}` //profileData is from the API
+    : (user ? `${user.firstName} ${user.lastName}` : 'Driver'); //user here means from user context
   const driverId = profileData?.driverId || user?.userId;
   const driverEmail = profileData?.email || user?.email;
-  const phoneNumber = profileData?.phoneNumber || '0000000000';
+  const phoneNumber = profileData?.phoneNumber || 'N/A';
   const licenseNumber = profileData?.licenseNumber || 'N/A';
-  const licenceExpiry = formatDate(profileData?.licenceExpiry);
+  const licenceExpiry = formatDate(profileData?.licenceExpiry); //function
   const joinedDate = formatDate(profileData?.joinedDate);
 
-  const isSmallPhone = width < 360;
+  const isSmallPhone = width < 360; 
   const isCompact = width < 390;
   const horizontalPadding = isSmallPhone ? 14 : 16;
 
-  const theme = {
+  const theme = { //coming from themecontext
     background: darkMode ? '#111' : '#F5F5F5',
     card: darkMode ? '#1E1E1E' : '#FFF',
     text: darkMode ? '#FFF' : '#000',
     secondaryText: darkMode ? '#AAA' : '#666',
     border: darkMode ? '#333' : '#E0E0E0',
 
-    fontRegular: 'System',
-    fontBold: 'System',
+    fontRegular: 'System', //system font eg. sans-serif
+    fontBold: 'System',  //system font with bold weight
   };
 
-  const styles = useMemo(
+  const styles = useMemo( //create the styles for the component. 
     () =>
       createStyles({
         horizontalPadding,
@@ -161,12 +167,12 @@ export default function DriverProfileSettingsScreen() {
         isCompact,
         theme,
       }),
-    [horizontalPadding, insets.bottom, isSmallPhone, isCompact, darkMode]
+    [horizontalPadding, insets.bottom, isSmallPhone, isCompact, darkMode] //recalculate when these change
   );
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', onPress: () => {} },
+      { text: 'Cancel', onPress: () => {} }, //if cancel do nothing
       {
         text: 'Logout',
         onPress: () => {
@@ -178,36 +184,36 @@ export default function DriverProfileSettingsScreen() {
   };
 
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync(); //asks fo device permission to access
 
     if (!permission.granted) {
       Alert.alert('Permission Required', 'Please allow gallery access.');
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
+    const result = await ImagePicker.launchImageLibraryAsync({ //allows the user to pick an image 
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Allow only images to be selected
+      allowsEditing: true, // Allow the user to edit (crop) the selected image
+      aspect: [1, 1], // Set the aspect ratio to square
+      quality: 1, //highest quality
     });
 
     if (!result.canceled) {
-      setProfileImage(result.assets[0].uri);
+      setProfileImage(result.assets[0].uri); // Set the selected image as the profile image, uri is the location of the image
     }
   };
 
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-      {isLoadingProfile && (
+      {isLoadingProfile && ( 
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
           <ActivityIndicator size="large" color="#0066FF" />
           <Text style={{ marginTop: 10, color: theme.text }}>Loading profile...</Text>
         </View>
       )}
 
-      {profileError && (
+      {profileError && ( // If there's an error, display a message and a retry button
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
           <MaterialCommunityIcons name="alert-circle" size={48} color="#FF6B6B" />
           <Text style={{ marginTop: 10, color: theme.text, textAlign: 'center', marginHorizontal: 20 }}>
@@ -222,11 +228,11 @@ export default function DriverProfileSettingsScreen() {
         </View>
       )}
 
-      {!isLoadingProfile && !profileError && (
+      {!isLoadingProfile && !profileError && ( // If not loading and no error, display the profile content
       <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false} 
+        contentInsetAdjustmentBehavior="automatic" // Adjust the scroll view insets automatically
+        contentContainerStyle={styles.scrollContent} //scroll content
       >
         <View style={styles.content}>
           <View style={styles.header}>
@@ -246,7 +252,7 @@ export default function DriverProfileSettingsScreen() {
               <View style={styles.avatarContainer}>
                 <TouchableOpacity style={styles.avatar} onPress={pickImage}>
                 {profileImage ? (
-                  <Image source={{ uri: profileImage }} style={styles.profileImage} resizeMode="cover"/>
+                  <Image source={{ uri: profileImage }} style={styles.profileImage} resizeMode="cover"/> //display the profile image resizeMode  means how the image should fit in the container
                 ) : (
                   <MaterialCommunityIcons
                     name="account"
@@ -274,71 +280,61 @@ export default function DriverProfileSettingsScreen() {
             </View>
 
             <View style={styles.completionTabs}>
-              <TouchableOpacity
+              <View
                 style={[
                   styles.completionTab,
-                  completionTab === 'license' && styles.activeCompletionTab,
                 ]}
-                onPress={() => setCompletionTab('license')}
               >
                 <MaterialCommunityIcons
                   name="check-circle"
                   size={16}
-                  color={completionTab === 'license' ? '#0066FF' : '#22C55E'}
+                  color={'#22C55E'}
                 />
                 <Text
                   style={[
                     styles.completionTabText,
-                    completionTab === 'license' && styles.activeCompletionTabText,
                   ]}
                 >
                   License
                 </Text>
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
+              <View
                 style={[
                   styles.completionTab,
-                  completionTab === 'background' && styles.activeCompletionTab,
                 ]}
-                onPress={() => setCompletionTab('background')}
               >
                 <MaterialCommunityIcons
                   name="check-circle"
                   size={16}
-                  color={completionTab === 'background' ? '#0066FF' : '#22C55E'}
+                  color={'#22C55E'}
                 />
                 <Text
                   style={[
                     styles.completionTabText,
-                    completionTab === 'background' && styles.activeCompletionTabText,
                   ]}
                 >
                   Background
                 </Text>
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
-                style={[
+              <View style={[
                   styles.completionTab,
-                  completionTab === 'profile' && styles.activeCompletionTab,
                 ]}
-                onPress={() => setCompletionTab('profile')}
               >
                 <MaterialCommunityIcons
                   name="check-circle"
                   size={16}
-                  color={completionTab === 'profile' ? '#0066FF' : '#D1D5DB'}
+                  color={'#22C55E'}
                 />
                 <Text
                   style={[
                     styles.completionTabText,
-                    completionTab === 'profile' && styles.activeCompletionTabText,
                   ]}
                 >
                   Profile
                 </Text>
-              </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -471,10 +467,10 @@ export default function DriverProfileSettingsScreen() {
             <View style={styles.assignmentItem}>
               <MaterialCommunityIcons name="bus" size={20} color="#0066FF" />
               <View style={styles.assignmentContent}>
-                <Text style={styles.detailLabel}>Trip ID</Text>
+                <Text style={styles.detailLabel}>Bus Information</Text>
                 <Text style={styles.assignmentValue}>
                   {assignment
-                    ? `${assignment.busNumber} (${assignment.busBrand})`
+                    ? `${assignment.busNumber} (${assignment.busBrand})` //$ combines the two variables to be displayed
                     : 'No active assignment'}
                 </Text>
                 <Text style={styles.assignmentValue}>
@@ -499,7 +495,7 @@ export default function DriverProfileSettingsScreen() {
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Ratings</Text>
-            <TouchableOpacity style={styles.rowButton}>
+            <TouchableOpacity style={styles.rowButton} onPress={() => Alert.alert('Your reviews and feedback will appear here...')}>
               <MaterialCommunityIcons name="star-half" size={20} color="#0066FF" />
               <Text style={styles.rowButtonText}>Reviews and Feedback</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
@@ -511,22 +507,13 @@ export default function DriverProfileSettingsScreen() {
             <TouchableOpacity
               style={styles.rowButton}
               onPress={() =>
-                Alert.alert(
-                  'Choose Language',
-                  'Select App Language',
-                  [
-                    { text: 'English' },
-                    { text: 'Sinhala' },
-                    { text: 'Tamil' },
-                    { text: 'Cancel', style: 'cancel' },
-                  ]
-                )
+                setLanguageModalVisible(true)
               }
             >
               <MaterialCommunityIcons name="translate" size={20} color="#0066FF" />
               <View style={styles.settingContent}>
                 <Text style={styles.settingLabel}>Language</Text>
-                <Text style={styles.settingValue}>English</Text>
+                <Text style={styles.settingValue}>{selectedLanguage}</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
@@ -534,7 +521,6 @@ export default function DriverProfileSettingsScreen() {
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Privacy</Text>
-
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons name="map-marker" size={20} color="#0066FF" />
@@ -547,7 +533,7 @@ export default function DriverProfileSettingsScreen() {
                 value={shareLocation}
                 onValueChange={setShareLocation}
                 trackColor={{ false: '#E0E0E0', true: '#0066FF' }}
-                thumbColor="#FFF"
+                thumbColor="#FFF" // Thumb color
               />
             </View>
 
@@ -570,7 +556,7 @@ export default function DriverProfileSettingsScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Support & Legal</Text>
 
-            <TouchableOpacity style={styles.supportItem}>
+            <TouchableOpacity style={styles.supportItem} onPress={() => Alert.alert('Help & Support', 'Loading help and support information...')}>
               <MaterialCommunityIcons name="help-circle" size={20} color="#0066FF" />
               <Text style={styles.rowButtonText}>Help & Support</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
@@ -597,8 +583,7 @@ export default function DriverProfileSettingsScreen() {
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Preferences</Text>
-
-            <View style={styles.switchRow}>
+            <View style={[styles.switchRow, styles.lastItem]}>
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons
                   name="moon-waning-crescent"
@@ -616,8 +601,12 @@ export default function DriverProfileSettingsScreen() {
                 thumbColor="#FFF"
               />
             </View>
+          </View>
 
-            <View style={[styles.switchRow, styles.lastItem]}>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Notifications</Text>
+
+            <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons name="bell" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
@@ -631,13 +620,10 @@ export default function DriverProfileSettingsScreen() {
                 thumbColor="#FFF"
               />
             </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Notifications</Text>
 
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
+                <MaterialCommunityIcons name="message-alert" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
                   <Text style={styles.switchLabel}>Push Notifications</Text>
                 </View>
@@ -652,6 +638,7 @@ export default function DriverProfileSettingsScreen() {
 
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
+                <MaterialCommunityIcons name="message-text" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
                   <Text style={styles.switchLabel}>SMS Alerts</Text>
                 </View>
@@ -666,6 +653,7 @@ export default function DriverProfileSettingsScreen() {
 
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
+                <MaterialCommunityIcons name="email" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
                   <Text style={styles.switchLabel}>Email Updates</Text>
                 </View>
@@ -680,6 +668,7 @@ export default function DriverProfileSettingsScreen() {
 
             <View style={[styles.switchRow, styles.lastItem]}>
               <View style={styles.switchLeft}>
+                <MaterialCommunityIcons name="calendar" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
                   <Text style={styles.switchLabel}>Booking Updates</Text>
                 </View>
@@ -700,6 +689,48 @@ export default function DriverProfileSettingsScreen() {
         </View>
       </ScrollView>
       )}
+      <Modal
+        transparent={true} //transparent bg
+        visible={languageModalVisible} //state to control visibility
+         animationType='fade'//fade animation means it will fade in and out
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}> 
+            <Text style={styles.modalTitle}>
+              Choose Language
+            </Text>
+            {['English', 'Sinhala', 'Tamil'].map((language) => (
+              <TouchableOpacity
+                key={language}
+                style={styles.languageOption}
+                onPress={() => {
+                  setSelectedLanguage(language);
+                  //setLanguageModalVisible(false);
+                }}
+              >
+                <Text style={styles.languageText}>
+                  {language}
+                  {selectedLanguage === language && (
+                <MaterialCommunityIcons
+                  name="check"
+                  size={20}
+                  color="#0066FF"
+                  style={styles.checkIcon}
+                />
+                )}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                onPress={() => setLanguageModalVisible(false)}
+              >
+                <Text style={styles.okText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1038,6 +1069,54 @@ function createStyles({
     profileImage: {
       width: '100%',
       height: '100%',
+    },
+    modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  modalContainer: {
+    width: '85%',
+    backgroundColor: theme.card,
+    borderRadius: 3,
+    padding: 20,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.text,
+    textAlign: 'center',
+  },
+    languageOption: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor:theme.card,
+  },
+
+  languageText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.text,
+  },
+  modalFooter: {
+  marginTop: 10,
+  flexDirection: 'row',
+  justifyContent: 'flex-end',
+  },
+
+  okText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0066FF',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+    checkIcon: {
+      width: 20,
+      height: 20,
     },
   });
 }

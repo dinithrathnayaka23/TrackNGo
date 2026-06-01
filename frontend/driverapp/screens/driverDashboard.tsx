@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react'; 
 import {
   ActivityIndicator,
   Alert,
@@ -8,16 +8,16 @@ import {
   TouchableOpacity,
   View,
   useWindowDimensions,
-  Linking,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+  Linking, // Import Linking to go to google maps
+} from 'react-native';  
+import { MaterialCommunityIcons } from '@expo/vector-icons'; 
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; 
 import { useUser } from '@/context/UserContext';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-interface DriverProfile {
+interface DriverProfile { 
   averageRating: number;
   driverEarnings: number;
 }
@@ -54,54 +54,56 @@ interface LiveBusLocation {
   longitude: number;
 }
 
-interface RoutePoint {
+interface RoutePoint { //represents a point on the route
   name: string;
   x: number;
   y: number;
   isBus?: boolean;
 }
 
-export default function DriverDashboardScreen() {
-  const { user } = useUser();
-  const router = useRouter();
-  const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const { darkMode } = useTheme();
-  const [firstName, setFirstName] = useState('Driver');
-  const [profileData, setProfileData] = useState<DriverProfile | null>(null);
-  const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
-  const [routeGeometry, setRouteGeometry] = useState<RouteGeometry | null>(null);
-  const [liveBusLocation, setLiveBusLocation] = useState<LiveBusLocation | null>(null);
-  const [isLoadingTrip, setIsLoadingTrip] = useState(true);
+export default function DriverDashboardScreen() { 
+  const { user } = useUser(); // Accessing user information from the user context
+  const router = useRouter(); 
+  const { width } = useWindowDimensions(); //responsive design
+  const insets = useSafeAreaInsets(); //ensure content is not hidden behind notches or system UI elements
+  const { darkMode } = useTheme(); // Accessing the theme context 
+  const [firstName, setFirstName] = useState('Driver'); 
+  const [profileData, setProfileData] = useState<DriverProfile | null>(null); 
+  const [assignment, setAssignment] = useState<DriverAssignment | null>(null); 
+  const [routeGeometry, setRouteGeometry] = useState<RouteGeometry | null>(null); 
+  const [liveBusLocation, setLiveBusLocation] = useState<LiveBusLocation | null>(null); 
+  const [isLoadingTrip, setIsLoadingTrip] = useState(true); 
+  const [stopsWithCoordinates, setStopsWithCoordinates] = useState<RouteStop[]>([]); 
+  const [waypoints, setWaypoints] = useState<string>(''); // Store the waypoints string for Google Maps URL
 
-  useEffect(() => {
-    const loadUser = async () => {
-      const userStr = await AsyncStorage.getItem('user');
-      if (!userStr) return;
+  useEffect(() => {                         
+    const loadUser = async () => { 
+      const userStr = await AsyncStorage.getItem('user'); // retrieve the 'user' item from AsyncStorage
+      if (!userStr) return; 
 
-      const storedUser = JSON.parse(userStr);
+      const storedUser = JSON.parse(userStr); // string to js obj
       const name =
         storedUser.firstName ||
         storedUser.fullName ||
-        storedUser.email?.split('@')[0] ||
-        'Driver';
-
-      setFirstName(name);
+        storedUser.email?.split('@')[0] || 
+        'Driver'; 
+      setFirstName(name); 
     };
+    
 
-    loadUser();
-  }, []);
+    loadUser(); 
+  }, []); //every refresh
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!user?.userId || !user?.token) {
-        setIsLoadingTrip(false);
+  useEffect(() => {      
+    const fetchDashboardData = async () => { 
+      if (!user?.userId || !user?.token) { 
+        setIsLoadingTrip(false); // user data is not available
         return;
       }
 
       try {
         const response = await fetch(
-          `http://10.43.239.185:8080/api/drivers/${user.userId}/profile-and-assignment`,
+          `http://10.233.234.185:8080/api/drivers/${user.userId}/profile-and-assignment`, 
           {
             method: 'GET',
             headers: {
@@ -115,22 +117,22 @@ export default function DriverDashboardScreen() {
           throw new Error(`Failed to fetch dashboard data: ${response.statusText}`);
         }
 
-        const result = await response.json();
-        if (!(result.success && result.data?.profile)) {
+        const result = await response.json();  // Parse the JSON response from the API call to an object. 
+        console.log("API FULL RESPONSE", result);
+        if (!(result.success && result.data?.profile)) { 
           throw new Error(result.message || 'Failed to load dashboard data');
         }
 
-        setProfileData(result.data.profile);
-        setAssignment(result.data.assignment ?? null);
+        setProfileData(result.data.profile);    
+        setAssignment(result.data.assignment ?? null);  
 
-        const routeId = result.data.assignment?.routeId;
-        const busNumber = result.data.assignment?.busNumber;
-
-        console.log('📍 Dashboard Data - routeId:', routeId, 'busNumber:', busNumber);
+        const routeId = result.data.assignment?.routeId; 
+        const busNumber = result.data.assignment?.busNumber;  
+        console.log('Dashboard Data - routeId:', routeId, 'busNumber:', busNumber);  
 
         if (routeId) {
           const geometryResponse = await fetch(
-            `http://10.43.239.185:8080/api/tracking/routes/${routeId}/geometry`,
+            `http://10.233.234.185:8080/api/tracking/routes/${routeId}/geometry`, // Make an API call to fetch the geometry of the route using the extracted route ID. 
             {
               method: 'GET',
               headers: {
@@ -140,25 +142,25 @@ export default function DriverDashboardScreen() {
             }
           );
 
-          console.log('🗺️ Route geometry response status:', geometryResponse.status);
+          console.log('Route geometry response status:', geometryResponse.status); 
 
           if (geometryResponse.ok) {
-            const geometryResult = await geometryResponse.json();
-            console.log('🗺️ Route geometry result:', geometryResult);
-            setRouteGeometry(geometryResult.data ?? null);
+            const geometryResult = await geometryResponse.json(); // Parse the JSON response to get the route geometry data. This should include the start and end locations, as well as the stops along the route with their coordinates and estimated arrival times. The geometry data will be used to display the route on the map and calculate ETAs.
+            console.log('Route geometry result:', geometryResult); 
+            setRouteGeometry(geometryResult.data ?? null); 
           } else {
             const errorText = await geometryResponse.text();
-            console.error('❌ Route geometry error:', geometryResponse.status, errorText);
+            console.error('Route geometry error:', geometryResponse.status, errorText);
             setRouteGeometry(null);
           }
         } else {
-          console.warn('⚠️ No routeId in assignment');
+          console.warn('No routeId in assignment');
           setRouteGeometry(null);
         }
 
         if (busNumber) {
           const liveLocationResponse = await fetch(
-            `http://10.43.239.185:8080/api/tracking/live-location/${encodeURIComponent(busNumber)}`,
+            `http://10.233.234.185:8080/api/tracking/live-location/${encodeURIComponent(busNumber)}`, //encodeURIComponent(busNumber) is used to encode the bus number in the URL.
             {
               method: 'GET',
               headers: {
@@ -170,28 +172,38 @@ export default function DriverDashboardScreen() {
 
           if (liveLocationResponse.ok) {
             const liveLocationResult = await liveLocationResponse.json();
-            setLiveBusLocation(liveLocationResult.data ?? null);
+            setLiveBusLocation(liveLocationResult.data ?? null); 
           }
         } else {
           setLiveBusLocation(null);
         }
-      } catch (error) {
+      } catch (error) { 
         console.error('Error fetching dashboard data:', error);
       } finally {
         setIsLoadingTrip(false);
       }
     };
 
-    fetchDashboardData();
-  }, [user?.token, user?.userId]);
+    fetchDashboardData();         
+  }, [user?.token, user?.userId]);  // useEffect 
 
-  const isSmallPhone = width < 360;
-  const isCompact = width < 390;
-  const horizontalPadding = isSmallPhone ? 14 : 16;
-  const contentWidth = Math.min(width - horizontalPadding * 2, 560);
-  const mapHeight = Math.max(150, Math.min(contentWidth * 0.42, 220));
+  useEffect(() => {
+  if (!routeGeometry?.stops) return; // If there are no stops in the route geometry, exit early
 
-  const todayLabel = useMemo(
+  const waypointNames = routeGeometry.stops // Extract the names of the stops from the route geometry
+    .map((stop) => stop.name) // Get the name property of each stop
+    .join(' → ');
+
+  setWaypoints(waypointNames); //update the waypoints in useState
+}, [routeGeometry]); 
+
+  const isSmallPhone = width < 360;  
+  const isCompact = width < 390;  
+  const horizontalPadding = isSmallPhone ? 14 : 16; 
+  const contentWidth = Math.min(width - horizontalPadding * 2, 560);  // Calculate the content width by taking the window width and subtracting the horizontal padding on both sides, while also capping it at a maximum of 560 pixels 
+  const mapHeight = Math.max(150, Math.min(contentWidth * 0.42, 220)); // Calculate the map height by taking the content width and multiplying it by a ratio of 0.42. This will ensure that the map is at least 150 pixels tall and never exceeds 220 pixels.
+
+  const todayLabel = useMemo(  
     () =>
       new Date().toLocaleDateString('en-US', {
         month: 'short',
@@ -200,21 +212,21 @@ export default function DriverDashboardScreen() {
     []
   );
 
-  const ratingValue = profileData?.averageRating ?? 0;
-  const roundedRating = Math.round(ratingValue);
-  const earningsAmount = profileData?.driverEarnings ?? 0;
+  const ratingValue = profileData?.averageRating ?? 0;  
+  const roundedRating = Math.round(ratingValue);  
+  const earningsAmount = profileData?.driverEarnings ?? 0;  
 
-  const routePoints = useMemo(
+  const routePoints = useMemo( // useMemo to memoize the route points calculation
     () => buildRoutePoints(routeGeometry?.stops ?? [], contentWidth, mapHeight, liveBusLocation),
-    [routeGeometry?.stops, contentWidth, mapHeight, liveBusLocation]
-  );
-
+    [routeGeometry?.stops, contentWidth, mapHeight, liveBusLocation] // useMemo to memoize the route points calculation based on the route geometry, content width, map height, and live bus location.
+  ); 
   const routeDisplay = routeGeometry
     ? `${routeGeometry.startLocation} -> ${routeGeometry.endLocation}`
     : assignment?.routeName ?? 'No current route';
+    
 
-  const etaText = getEtaText(routeGeometry?.stops ?? []);
-  const passengerText = assignment?.seatCapacity ? `0/${assignment.seatCapacity} Pax` : 'No passenger data';
+  const etaText = getEtaText(routeGeometry?.stops ?? []); 
+  const passengerText = assignment?.seatCapacity ? `0/${assignment.seatCapacity} Pax` : 'No passenger data'; 
 
   const theme = {
     background: darkMode ? '#111' : '#F5F5F5',
@@ -224,46 +236,47 @@ export default function DriverDashboardScreen() {
     border: darkMode ? '#333' : '#E0E0E0',
   };
 
-  const styles = useMemo(
+  const styles = useMemo( // useMemo to create the styles 
     () =>
       createStyles({
         horizontalPadding,
         mapHeight,
-        bottomInset: insets.bottom,
+        bottomInset: insets.bottom, //bottom inset is the height of the bottom navigation bar
         isSmallPhone,
         theme,
       }),
     [horizontalPadding, mapHeight, insets.bottom, isSmallPhone, darkMode]
   );
 
-  const handleNavigate = () => {
-    Alert.alert('Navigate to current trip', 'Navigation integration is not connected yet.');
+  const handleNavigate = () => {  
+    Alert.alert( 'Navigation integration is not connected yet.');
   };
 
-  const handleMapPress = async () => {
-    console.log('🗺️ Map pressed - routeGeometry:', routeGeometry);
+  const handleMapPress = async () => {  // Function to handle when the map is pressed. This will attempt to open Google Maps with the route from the current trip. It checks if route geometry is available and constructs a Google Maps URL with the stops as waypoints. If no coordinates are available, it falls back to using location names. It also includes error handling for cases where Google Maps cannot be opened.
+    console.log('Map pressed - routeGeometry:', routeGeometry);
     
     if (!routeGeometry) {
       Alert.alert('No Route Available', 'No route information available for navigation.');
-      return;
+      return; //
     }
 
     try {
       // Get all stops with valid coordinates
-      const stopsWithCoordinates = (routeGeometry.stops || []).filter(
-        (stop) => typeof stop.latitude === 'number' && typeof stop.longitude === 'number'
-      );
+      const stopsWithCoordinates = (routeGeometry.stops || []).filter( 
+        (stop) => typeof stop.latitude === 'number' && typeof stop.longitude === 'number' 
+      ); // Filter out stops without valid coordinates
 
-      console.log('📍 Stops with coordinates:', stopsWithCoordinates);
+      console.log('Stops with coordinates:', stopsWithCoordinates);
+
 
       if (stopsWithCoordinates.length === 0) {
         // Fallback to location names if no coordinates available
-        console.log('⚠️ No stops with coordinates, using location names');
-        const startLocation = encodeURIComponent(routeGeometry.startLocation);
+        console.log('No stops with coordinates, using location names');
+        const startLocation = encodeURIComponent(routeGeometry.startLocation); //make sure to encode the location names, beocze they can contain special characters
         const endLocation = encodeURIComponent(routeGeometry.endLocation);
-        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${startLocation}&destination=${endLocation}&travelmode=driving`;
+        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${startLocation}&destination=${endLocation}&travelmode=driving`; // Construct a Google Maps URL using the start and end location names if no coordinates are available. This will allow the user to still navigate to the general area of the route, even if we don't have precise coordinates for the stops. We encode the location names to ensure they are properly formatted for a URL.
 
-        console.log('🔗 Google Maps URL (names):', googleMapsUrl);
+        console.log('Google Maps URL (names):', googleMapsUrl);
 
         const supported = await Linking.canOpenURL(googleMapsUrl);
         if (supported) {
@@ -281,20 +294,26 @@ export default function DriverDashboardScreen() {
       // Add intermediate stops as waypoints
       const waypoints = stopsWithCoordinates
         .slice(1, -1)
-        .map((stop) => `${stop.latitude},${stop.longitude}`)
-        .join('|');
+        .map((stop) => stop.name)
+        .join(' → '); // Construct the waypoints parameter by taking all stops except the first and last
+
+      console.log('Origin:', origin);
+      console.log('Destination:', destination);
+      console.log('Waypoints:', waypoints);
+      setWaypoints(waypoints); // Store stops with coordinates in state for potential use elsewhere in the component
+
 
       let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
       
       if (waypoints) {
-        googleMapsUrl += `&waypoints=${waypoints}`;
+        googleMapsUrl += `&waypoints=${waypoints}`; // If there are waypoints, add them to the Google Maps URL.
       }
 
-      console.log('🔗 Google Maps URL (coordinates):', googleMapsUrl);
+      console.log('Google Maps URL (coordinates):', googleMapsUrl);
 
       const supported = await Linking.canOpenURL(googleMapsUrl);
       if (supported) {
-        console.log('✅ Opening Google Maps...');
+        console.log('Opening Google Maps...');
         await Linking.openURL(googleMapsUrl);
       } else {
         Alert.alert('Error', 'Unable to open Google Maps. Please make sure Google Maps is installed.');
@@ -324,7 +343,7 @@ export default function DriverDashboardScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={false} 
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.scrollContent}
       >
@@ -359,21 +378,21 @@ export default function DriverDashboardScreen() {
 
           <View style={styles.ratingContainer}>
             <View style={styles.stars}>
-              {[1, 2, 3, 4, 5].map((i) => (
+              {[1, 2, 3, 4, 5].map((i) => ( // Render 5 stars and set color based on rounded rating
                 <MaterialCommunityIcons
                   key={i}
                   name="star"
                   size={18}
-                  color={i <= roundedRating ? '#FFD700' : '#D3D3D3'}
+                  color={i <= roundedRating ? '#FFD700' : '#D3D3D3'} // Yellow for filled stars, gray for empty stars
                 />
               ))}
             </View>
-            <Text style={styles.ratingText}>{ratingValue.toFixed(1)}/5.0</Text>
+            <Text style={styles.ratingText}>{ratingValue.toFixed(1)}/5.0</Text> 
           </View>
 
           <TouchableOpacity style={styles.card} onPress={handleEarningsPress} activeOpacity={0.9}>
             <View style={styles.earningsHeader}>
-              <Text style={styles.sectionLabel}>Today's Earnings</Text>
+              <Text style={styles.sectionLabel}>Monthly Earnings</Text>
 
               <View style={styles.chartPlaceholder}>
                 <View style={styles.chartSegment} />
@@ -382,7 +401,7 @@ export default function DriverDashboardScreen() {
 
             <Text style={styles.earningsAmount}>
               LKR{' '}
-              {earningsAmount.toLocaleString('en-US', {
+              {earningsAmount.toLocaleString('en-US', { // Format earnings amount with commas and 2 decimal places
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
@@ -405,20 +424,20 @@ export default function DriverDashboardScreen() {
             <TouchableOpacity style={styles.mapContainer} onPress={handleMapPress} activeOpacity={0.9}>
               {routePoints.length > 0 ? (
                 <View style={styles.routeMapSurface}>
-                  {routePoints.slice(0, -1).map((point, index) => {
-                    const nextPoint = routePoints[index + 1];
-                    const segment = buildSegmentStyle(point, nextPoint);
+                  {routePoints.slice(0, -1).map((point, index) => { // Render route segments and bus stops, slice off the last point coz it has no next point
+                    const nextPoint = routePoints[index + 1]; // Get the next point
+                    const segment = buildSegmentStyle(point, nextPoint); // Build the segment style means calculate the angle
 
-                    return (
+                    return ( // this will return a view for each segment
                       <View
-                        key={`segment-${index}`}
+                        key={`segment-${index}`} 
                         style={[
                           styles.routeSegment,
                           {
                             left: segment.left,
                             top: segment.top,
                             width: segment.length,
-                            transform: [{ rotateZ: `${segment.angle}deg` }],
+                            transform: [{ rotateZ: `${segment.angle}deg` }], // Rotate the segment based on its angle
                           },
                         ]}
                       />
@@ -460,7 +479,7 @@ export default function DriverDashboardScreen() {
               <View style={styles.inTransitBadge}>
                 <MaterialCommunityIcons name="play" size={12} color={theme.text} />
                 <Text style={styles.inTransitText}>
-                  {liveBusLocation ? 'Live Route' : 'Assigned Route'}
+                  {liveBusLocation ? 'Live Route' : 'Assigned Route'} 
                 </Text>
               </View>
             </TouchableOpacity>
@@ -470,6 +489,7 @@ export default function DriverDashboardScreen() {
                 <Text style={styles.routeText} numberOfLines={1}>
                   {routeDisplay}
                 </Text>
+                <Text style={styles.waypointText}>{waypoints}</Text>
                 <Text style={styles.etaLabel}>ETA</Text>
                 <Text style={styles.etaTime}>{etaText}</Text>
               </View>
@@ -610,6 +630,12 @@ function createStyles({
       position: 'relative',
       padding: 8,
       flexShrink: 0,
+    },
+    waypointText:{
+      fontSize: 12,
+      color: '#334155',
+      fontWeight: '500',
+      marginBottom: 4,
     },
     notificationBadge: {
       position: 'absolute',

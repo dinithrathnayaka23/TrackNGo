@@ -4,10 +4,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.math.BigDecimal; // for decimal
+import java.time.LocalDate;  // for date
 
-@Data
+@Data // generate getter and setter automatically to get and set data below
 @NoArgsConstructor
 @AllArgsConstructor
 public class DriverProfileDto {
@@ -18,13 +18,13 @@ public class DriverProfileDto {
     private String phoneNumber;
     private String profilePhoto;
     private String licenseNumber;
-    private LocalDate licenceExpiry;
+    private LocalDate licenceExpiry; //no time or zon, just the date
     private Integer yearsOfExperience;
     private LocalDate joinedDate;
     private String status;
     private Boolean isVerified;
-    private BigDecimal averageRating;
-    private BigDecimal driverEarnings;
+    private BigDecimal averageRating; //more accurate than double becoze of precision
+    private BigDecimal driverEarnings; 
     private String accountNumber;
     private Boolean isPhoneVerified;
 }

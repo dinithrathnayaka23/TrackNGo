@@ -1,46 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'; // change usestate dynamically
 import {
   View,
   Text,
-  TextInput,
+  TextInput, // To create input fields
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Dimensions,
-  Platform,
-  KeyboardAvoidingView,
-} from 'react-native';
+  Dimensions, // To get screen dimensions for responsive design
+  Platform, // To adjust keyboard behavior based on platform
+  KeyboardAvoidingView, // To avoid keyboard overlap
+} from 'react-native'; // To build UI
 import { Ionicons,MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { driverLogin } from "../services/auth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useUser } from '@/context/UserContext';
+import { useRouter } from 'expo-router'; // Navigate between screens in the app
+import { driverLogin } from "../services/auth"; //driverLogin function from the auth service 
+import AsyncStorage from "@react-native-async-storage/async-storage"; // For storing user data and token permanently on the device.
+import { useUser } from '@/context/UserContext'; //update user state across the app
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window'); // Get screen dimensions
 
-export default function DriverLoginScreen() {
-  const router = useRouter();
-  const { setUser } = useUser();
-  const [email, setEmail] = useState<string>('');
+export default function DriverLoginScreen() {   //default finction because we are using expo router
+  const router = useRouter();  //expo router, file based nav
+  const { setUser } = useUser(); // Get the setUser function from the user context(store user data and token)
+  const [email, setEmail] = useState<string>('');  //must be a string
   const [password, setPassword] = useState<string>('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); 
+  const [rememberMe, setRememberMe] = useState(false); 
+  const [isLoading, setIsLoading] = useState(false);  
 
 
-  const handleLogin = async () => {
-  setIsLoading(true);
+  const handleLogin = async () => { 
+  setIsLoading(true); //when login process starts
 
   try {
-    const res = await driverLogin(email, password);
+    const res = await driverLogin(email, password); // from auth service
 
-    console.log("FULL RESPONSE:", res);
+    console.log("Final Response:", res); // Log the full response 
 
-    const authData = res.data || res;
+    const authData = res.data || res; // Adjust based on actual response structure, if the response is just the data object, use res directly, otherwise use res.data
 
-    if (authData.userType === "driver") {
-      // Extract user data from auth response
-      const userData = {
+    if (authData.userType === "driver") { 
+      const userData = { // Adjust these fields based the actual response structure
         userId: authData.userId,
         firstName: authData.firstName,
         lastName: authData.lastName,
@@ -48,49 +47,38 @@ export default function DriverLoginScreen() {
         token: authData.token,
       };
 
-      // Store in UserContext
-      setUser(userData);
+      
+      setUser(userData); // Update the user context 
 
       // Store in AsyncStorage for persistence
-      await AsyncStorage.setItem("user", JSON.stringify(userData));
-      await AsyncStorage.setItem("token", authData.token);
+      await AsyncStorage.setItem("user", JSON.stringify(userData)); //userData object into a string format to store 
+      await AsyncStorage.setItem("token", authData.token); // Store the token in AsyncStorage 
 
-      router.replace("/(tabs)");
+      router.replace("/(tabs)"); // Navigate to dashboard
     }
     else {
-      alert("Not a driver account");
+      alert("Not a driver account"); 
     }
 
-  } catch (error: any) {
+  } catch (error: any) {  
     console.log("LOGIN ERROR:", error.message);
     alert(error.message || "Login failed");
   } finally {
-    setIsLoading(false);
+    setIsLoading(false); // Reset loading state 
   }
 };
 
-  const handleGoogleLogin = () => {
-    console.log('Google login pressed');
-    // Implement Google login logic
-  };
-
-  const handleFacebookLogin = () => {
-    console.log('Facebook login pressed');
-    // Implement Facebook login logic
-  };
-
-  const handleForgotPassword = () => {
+  const handleForgotPassword = () => {  
     console.log('Forgot password link pressed');
     // Navigate to forgot password screen
-    // router.push('/forgot-password');
   };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} // Adjust behavior based on platform 
       style={styles.container}
     >
-      <ScrollView
+      <ScrollView  //allow content to be scrollable 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -107,16 +95,16 @@ export default function DriverLoginScreen() {
 
         {/* Email/Phone Input */}
         <View style={styles.formContainer}>
-          <Text style={styles.label}>Email or Phone Number</Text>
+          <Text style={styles.label}>Email</Text>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Enter email or phone"
+              placeholder="Enter your email"
               value={email}
               onChangeText={setEmail}
               placeholderTextColor="#999"
-              keyboardType="email-address"
-              editable={!isLoading}
+              keyboardType="email-address" // Show email keyboard
+              editable={!isLoading}  // Disable input when loading
             />
           </View>
 
@@ -129,16 +117,16 @@ export default function DriverLoginScreen() {
               value={password}
               onChangeText={setPassword}
               placeholderTextColor="#999"
-              secureTextEntry={!showPassword}
-              editable={!isLoading}
+              secureTextEntry={!showPassword} // Hide password when showPassword is false
+              editable={!isLoading} 
             />
             <TouchableOpacity
               style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
+              onPress={() => setShowPassword(!showPassword)} // Toggle password visibility
               disabled={isLoading}
             >
-              <MaterialCommunityIcons
-                name={showPassword ? 'eye-off' : 'eye'}
+              <MaterialCommunityIcons 
+                name={showPassword ? 'eye-off' : 'eye'} 
                 size={24}
                 color="#333"
               />
@@ -149,12 +137,12 @@ export default function DriverLoginScreen() {
           <View style={styles.bottomOptionsContainer}>
             <TouchableOpacity
               style={styles.rememberContainer}
-              onPress={() => setRememberMe(!rememberMe)}
-              disabled={isLoading}
+              onPress={() => setRememberMe(!rememberMe)} // when pressed,toggle
+              disabled={isLoading} 
             >
               <View style={[styles.checkBox, rememberMe && styles.checkBoxChecked]}>
-                {rememberMe && (
-                  <MaterialCommunityIcons name="check" size={16} color="#0066FF" />
+                {rememberMe && (  
+                  <MaterialCommunityIcons name="check" size={16} color="#E0E0E0" />
                 )}
               </View>
               <Text style={styles.rememberText}>Remember me</Text>
@@ -169,43 +157,15 @@ export default function DriverLoginScreen() {
 
           {/* Login Button */}
           <TouchableOpacity 
-            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} // Disable button and change style when loading
             onPress={handleLogin}
             disabled={isLoading}
-            activeOpacity={isLoading ? 1 : 0.7}
+            activeOpacity={isLoading ? 1 : 0.7} // Prevent button from dimming when loading
           >
             <Text style={styles.loginButtonText}>
-              {isLoading ? 'Logging in...' : 'Log In'}
-            </Text>
+              {isLoading ? 'Logging in...' : 'Log In'} 
+            </Text> 
           </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Or login with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social Login Buttons */}
-          <View style={styles.socialButtonsContainer}>
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={handleGoogleLogin}
-              disabled={isLoading}
-            >
-              <FontAwesome name="google" size={20} color="#EA4335" />
-              <Text style={styles.socialButtonText}>Google</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={handleFacebookLogin}
-              disabled={isLoading}
-            >
-              <FontAwesome name="facebook" size={20} color="#1877F2" />
-              <Text style={styles.socialButtonText}>Facebook</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -302,7 +262,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#0066FF',
+    borderColor: '#E0E0E0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,

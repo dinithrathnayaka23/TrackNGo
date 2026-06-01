@@ -7,20 +7,20 @@ import {
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
-  Linking,
+  Linking, // Import Linking to call phone
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; //prevent content overlap
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { seatBookingService } from '@/services/seatBookingService';
 
-type SeatStatus = 'boarded' | 'booked' | 'available';
+type SeatStatus = 'boarded' | 'booked' | 'available'; // Define the possible seat statuses
 
-interface Seat {
+interface Seat { //api response structure
   id: string;
   status: SeatStatus;
   passenger: { 
@@ -59,23 +59,23 @@ interface PassengerDetails {
   specialRequest?: string;
 }
 
-export default function DriverSeatLayoutScreen() {
+export default function DriverSeatLayoutScreen() { //main component
   const router = useRouter();
-  const { darkMode } = useTheme();
-  const { user } = useUser();
+  const { darkMode } = useTheme(); //get dark mode state from themecontext
+  const { user } = useUser(); //get user data from usercontext to check if user is logged in
   const theme = useMemo(() => ({
     background: darkMode ? '#111' : '#F5F5F5',
     card: darkMode ? '#1E1E1E' : '#FFF',
     text: darkMode ? '#FFF' : '#000',
     secondaryText: darkMode ? '#AAA' : '#666',
     border: darkMode ? '#333' : '#E0E0E0',
-  }), [darkMode]);
-  const styles = useMemo(() => createStyles(theme), [theme]);
+  }), [darkMode]); //until darkmode changes
+  const styles = useMemo(() => createStyles(theme), [theme]); // Create styles using the current theme. 
 
   // State management
-  const [seatData, setSeatData] = useState<Seat[]>([]);
-  const [seatRows, setSeatRows] = useState<SeatLayoutRow[]>([]);
-  const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
+  const [seatData, setSeatData] = useState<Seat[]>([]); // seat layout data (an array)
+  const [seatRows, setSeatRows] = useState<SeatLayoutRow[]>([]); // seat layout rows
+  const [selectedSeat, setSelectedSeat] = useState<string | null>(null); // hold selected seat's data
   const [journeyData, setJourneyData] = useState<JourneyData | null>(null);
   const [selectedPassenger, setSelectedPassenger] = useState<PassengerDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,24 +87,25 @@ export default function DriverSeatLayoutScreen() {
   // Fetch data on component mount
   useEffect(() => {
     if (user?.userId) {
-      loadSeatLayoutData();
+      loadSeatLayoutData(); // first it chekc the id and load the func
     }
-  }, [user?.userId]);
+  }, [user?.userId]); //run when id changes
 
   const loadSeatLayoutData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🔄 Starting seat layout data load...');
-      console.log('👤 Current user:', user);
+      console.log('Starting seat layout data load...');
+      console.log('Current user:', user); 
 
+      // Get JWT token for API authentication
       const token = await seatBookingService.getToken();
-      console.log('🔐 Token obtained:', token ? 'Yes' : 'No');
+      console.log('Token obtained:', token ? 'Yes' : 'No');
 
       // Get driver assignment
-      const assignment = await seatBookingService.getDriverAssignment(user!.userId, token);
-      console.log('🚌 Assignment received:', assignment);
+      const assignment = await seatBookingService.getDriverAssignment(user!.userId, token); //give parameters of not null user(id) and token
+      console.log('Assignment received:', assignment);
       
       if (!assignment || !assignment.busId) {
         setError('No bus assignment found for this driver');
@@ -114,27 +115,27 @@ export default function DriverSeatLayoutScreen() {
 
       // Get bus details
       const busDetails = await seatBookingService.getBusDetails(assignment.busId, token);
-      console.log('🚌 Bus details received:', busDetails);
+      console.log('Bus details received:', busDetails);
 
       // Get seat layout rows from backend
       const seatLayout = await seatBookingService.getSeatLayout(assignment.busId, token);
-      console.log('💺 Seat layout rows received:', seatLayout);
+      console.log('Seat layout rows received:', seatLayout);
       
       // Validate seat layout rows
-      if (!Array.isArray(seatLayout)) {
-        console.warn('⚠️ Seat layout is not an array, received:', seatLayout);
+      if (!Array.isArray(seatLayout)) { // Check if seat layout is an array and if not throw error
+        console.warn('Seat layout is not an array, received:', seatLayout);
         throw new Error('Invalid seat layout response - expected array of rows');
       }
       
-      if (seatLayout.length === 0) {
-        console.warn('⚠️ Seat layout is empty');
+      if (seatLayout.length === 0) { // Check if seat layout is empty and if it is throw error
+        console.warn('Seat layout is empty');
         throw new Error('No seat layout found for this bus');
       }
       
-      setSeatRows(seatLayout);
+      setSeatRows(seatLayout); //update the state with received backend data
 
       // Get today's date in YYYY-MM-DD format
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0]; //split means split the date and time into two parts
 
       // Get booked seats for today
       const bookedSeats = await seatBookingService.getBookedSeats(
@@ -142,23 +143,23 @@ export default function DriverSeatLayoutScreen() {
         today,
         token
       );
-      console.log('🎫 Booked seats received:', bookedSeats);
+      console.log('Booked seats received:', bookedSeats);
 
-      // Try to get route details for start and end locations
+      // Get route details for start and end locations
       let startLocation = 'N/A';
       let endLocation = 'N/A';
       
       // First, try to parse route name if it exists (e.g., "Kandy to Nuwara Eliya")
-      if (assignment.routeName && assignment.routeName.includes(' to ')) {
-        const [start, end] = assignment.routeName.split(' to ').map(s => s.trim());
+      if (assignment.routeName && assignment.routeName.includes(' to ')) { 
+        const [start, end] = assignment.routeName.split(' to ').map(s => s.trim()); // Split the route name into start and end locations
         startLocation = start;
         endLocation = end;
-        console.log('📍 Route locations from route name:', { startLocation, endLocation });
+        console.log('Route locations from route name:', { startLocation, endLocation });
       } else if (assignment.routeName) {
         // If route name doesn't contain ' to ', use it as start location
         startLocation = assignment.routeName;
         endLocation = 'N/A';
-        console.log('ℹ️ Using route name as start location:', startLocation);
+        console.log('Using route name as start location:', startLocation);
       }
       
       // If we still don't have proper locations, try to get route details from API
@@ -171,26 +172,26 @@ export default function DriverSeatLayoutScreen() {
         if (routeDetails) {
           if (startLocation === 'N/A') startLocation = routeDetails.startLocation || 'N/A';
           if (endLocation === 'N/A') endLocation = routeDetails.endLocation || 'N/A';
-          console.log('✅ Route locations from API:', { startLocation, endLocation });
+          console.log('Route locations from API:', { startLocation, endLocation });
         }
       }
 
-      // Process and organize seat data
-      const processedSeats = processSeatData(
+      // Process and organize seat data, calling the func
+      const processedSeats = processSeatData( // give parameters and convert to UI friendly format (booked seat with passenger details for each)
         seatLayout,
         bookedSeats,
         assignment.seatCapacity
       );
 
       // Create booked seats map for quick lookup
-      const bookedMap = new Map();
+      const bookedMap = new Map(); // Create a map to store booked seats and show passenger details when a seat is selected.
       bookedSeats.forEach((booking: any) => {
         // Handle seat numbers that might be comma-separated
-        const seatNumbers = booking.seatNumber.split(',').map((s: string) => s.trim());
+        const seatNumbers = booking.seatNumber.split(',').map((s: string) => s.trim()); // Split seat numbers into an array
         
         seatNumbers.forEach((seatId: string) => {
-          bookedMap.set(seatId, {
-            passenger: {
+          bookedMap.set(seatId, { //store seat id
+            passenger: {          // store booked passenger if any
               name: booking.passengerName || 'Passenger',
               phone: booking.passengerPhone || '',
               pickupLocation: booking.fromStop || 'N/A',
@@ -198,46 +199,46 @@ export default function DriverSeatLayoutScreen() {
               seatNumber: seatId,
               specialRequest: booking.specialRequest,
             },
-            seatBookingId: booking.seatBookingId,
+            seatBookingId: booking.seatBookingId, // Store the seat booking ID for later use when marking as boarded
           });
         });
       });
 
-      setBookedSeatsMap(bookedMap);
+      setBookedSeatsMap(bookedMap); //save map in usee state (useState)
       setSeatData(processedSeats);
 
       // Set journey data
-      const journeyInfo: JourneyData = {
+      const journeyInfo: JourneyData = { //summary of the journey
         routeName: assignment.routeName,
         startLocation: startLocation,
         endLocation: endLocation,
         busNumber: assignment.busNumber,
         journeyDate: today,
         journeyTime: (assignment as any).startTime || '08:00 AM',
-        boardedCount: processedSeats.filter((s: Seat) => s.status === 'boarded').length,
-        bookedCount: processedSeats.filter((s: Seat) => s.status === 'booked').length,
+        boardedCount: processedSeats.filter((s: Seat) => s.status === 'boarded').length, // Filter and count boarded seats
+        bookedCount: processedSeats.filter((s: Seat) => s.status === 'booked').length, // Filter and count booked seats
         totalSeats: processedSeats.length,
       };
 
-      console.log('📋 Journey data created:', journeyInfo);
-      setJourneyData(journeyInfo);
+      console.log('Journey data created:', journeyInfo);
+      setJourneyData(journeyInfo); //(useState)
 
-      // Select first booked seat by default
-      const firstBookedSeat = processedSeats.find((s: Seat) => s.status === 'booked');
+      // Select first booked seat by default if available
+      const firstBookedSeat = processedSeats.find((s: Seat) => s.status === 'booked'); // By default, display first booked seat in the processed seat data. 
       if (firstBookedSeat) {
-        setSelectedSeat(firstBookedSeat.id);
-        const passengerData = bookedMap.get(firstBookedSeat.id);
+        setSelectedSeat(firstBookedSeat.id); // update state, why becoz we need to display passenger details
+        const passengerData = bookedMap.get(firstBookedSeat.id); // Use the booked seats map to get passenger details for the selected seat
         if (passengerData) {
-          setSelectedPassenger(passengerData.passenger);
+          setSelectedPassenger(passengerData.passenger); // Set the selected passenger details in state, which will be displayed in the UI. 
         }
-      }
+      } // If there are no booked seats, selectedSeat will remain null and the UI will show no passenger details.
     } catch (err) {
-      console.error('❌ Error loading seat layout:', err);
+      console.error('Error loading seat layout:', err);
       
       // Provide helpful error messages
       let errorMessage = 'Failed to load seat layout data';
       
-      if (err instanceof TypeError && err.message.includes('Network request failed')) {
+      if (err instanceof TypeError && err.message.includes('Network request failed')) { // If the error is a network error
         errorMessage = 'Cannot connect to backend API. Check:\n1. Backend is running on port 8080\n2. Network connectivity\n3. API URL in .env file';
       } else if (err instanceof Error) {
         errorMessage = err.message;
@@ -249,43 +250,43 @@ export default function DriverSeatLayoutScreen() {
     }
   };
 
-  const processSeatData = (
+  const processSeatData = ( 
     seatLayout: SeatLayoutRow[],
     bookedSeats: any[],
     totalCapacity: number
   ): Seat[] => {
-    if (!Array.isArray(seatLayout) || seatLayout.length === 0) {
-      console.warn('⚠️ Invalid or empty seat layout rows:', seatLayout);
-      return [];
+    if (!Array.isArray(seatLayout) || seatLayout.length === 0) { // if backend send invalid or empty seat layout, stop the func
+      console.warn('Invalid or empty seat layout rows:', seatLayout);
+      return []; // Return an empty array
     }
 
-    if (!Array.isArray(bookedSeats)) {
-      console.warn('⚠️ Invalid booked seats:', bookedSeats);
-      bookedSeats = [];
+    if (!Array.isArray(bookedSeats)) { // not an array, log a warning and set bookedSeats to an empty array to prevent errors 
+      console.warn('Invalid booked seats:', bookedSeats);
+      bookedSeats = []; // Set bookedSeats to an empty array
     }
 
-    const bookedSeatNumbers = new Set(
-      bookedSeats.flatMap((b: any) => {
+    const bookedSeatNumbers = new Set( // Create a set of booked seat numbers for quick lookup. set[a1,a2,a3] 
+      bookedSeats.flatMap((b: any) => { //take each booking and return it to seat number
         if (typeof b === 'string' || typeof b === 'number') {
-          return [b.toString()];
+          return [b.toString()]; // If booked seat is a string or number, convert it to a string and return it
         }
-        const seatNumbers = (b.seatNumber || b.seat || b.seatLabel || b.id || '')
-          .toString()
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0);
-        return seatNumbers;
+        const seatNumbers = (b.seatNumber || b.seat || b.seatLabel || b.id || '') // different formats
+          .toString() // Convert to string if not already
+          .split(',') // Split by comma 
+          .map((s: string) => s.trim()) // Trim whitespace 
+          .filter((s: string) => s.length > 0); // Filter out any empty strings that might result from splitting or trimming
+        return seatNumbers; //set{A1,A2,B1}
       })
     );
 
-    console.log('🎫 Booked seat numbers set:', bookedSeatNumbers);
+    console.log('Booked seat numbers set:', bookedSeatNumbers); // Log the set of booked seat numbers
 
-    const seats: Seat[] = seatLayout.flatMap((row) => {
-      const rowSeats: Seat[] = [];
+    const seats: Seat[] = seatLayout.flatMap((row) => { // Create a flat list of Seat objects based on the seat layout rows. 
+      const rowSeats: Seat[] = []; //now build the full row
 
-      row.left.forEach((label) => {
-        rowSeats.push({ id: label, status: 'available', passenger: null });
-      });
+      row.left.forEach((label) => { // For each seat label in the left side of the row
+        rowSeats.push({ id: label, status: 'available', passenger: null }); 
+      }); // Repeat the same process for the right side of the row
       row.right.forEach((label) => {
         rowSeats.push({ id: label, status: 'available', passenger: null });
       });
@@ -293,32 +294,32 @@ export default function DriverSeatLayoutScreen() {
         rowSeats.push({ id: label, status: 'available', passenger: null });
       });
 
-      return rowSeats;
+      return rowSeats; //this returns a flat list of Seat objects
     });
 
-    return seats.map((seat) => {
-      if (bookedSeatNumbers.has(seat.id)) {
-        const booking = bookedSeats.find((b: any) => {
-          if (typeof b === 'string' || typeof b === 'number') {
-            return b.toString() === seat.id;
+    return seats.map((seat) => { // Update the status of each seat based on whether it is in the set of booked seat numbers..
+      if (bookedSeatNumbers.has(seat.id)) { 
+        const booking = bookedSeats.find((b: any) => { // Find the booking details
+          if (typeof b === 'string' || typeof b === 'number') { //checking whether the booking is a string or number
+            return b.toString() === seat.id; // If the booking is a simple string or number, we convert it to a string 
           }
-          const seatNumbers = (b.seatNumber || b.seat || b.seatLabel || b.id || '')
+          const seatNumbers = (b.seatNumber || b.seat || b.seatLabel || b.id || '') // Handle different possible fields that might contain seat numbers
             .toString()
             .split(',')
             .map((s: string) => s.trim());
-          return seatNumbers.includes(seat.id);
+          return seatNumbers.includes(seat.id); //eg. [a1,a2,a3]
         });
 
         return {
-          ...seat,
+          ...seat, // Copy the original seat object
           status: 'booked',
           passenger: {
-            name: booking?.passengerName || 'Passenger',
+            name: booking?.passengerName || 'Passenger', //get the name from the booking
             initials: getInitials(booking?.passengerName || 'Passenger'),
             phone: booking?.passengerPhone || booking?.phone,
             seatBookingId: booking?.seatBookingId || booking?.bookingId,
           },
-        };
+        }; // Update the status of the seat to "booked" and attach the passenger details if available.
       }
       return seat;
     });
@@ -326,12 +327,12 @@ export default function DriverSeatLayoutScreen() {
 
   const getInitials = (name: string): string => {
     return name
-      .split(' ')
-      .slice(0, 2)
-      .map((n) => n[0])
+      .split(' ') // Split the name into individual words
+      .slice(0, 2) // Take the first two words
+      .map((n) => n[0]) // Get the first letter of each word
       .join('')
       .toUpperCase();
-  };
+  }; // Utility function to get initials from a passenger's name. 
 
 
 
@@ -351,12 +352,12 @@ export default function DriverSeatLayoutScreen() {
 
   const getSeatStyles = (status: string) => {
     return {
-      backgroundColor: getStatusColor(status),
+      backgroundColor: getStatusColor(status), // Set the background color based on the seat status
     };
   };
 
   const handleCall = () => {
-    if (selectedPassenger?.phone) {
+    if (selectedPassenger?.phone) { // If the selected passenger has a phone number
       Linking.openURL(`tel:${selectedPassenger.phone}`);
     }
   };
@@ -369,7 +370,7 @@ export default function DriverSeatLayoutScreen() {
     if (!selectedSeat || !bookedSeatsMap.has(selectedSeat)) {
       Alert.alert('Error', 'Please select a booked seat first');
       return;
-    }
+    } // If the selected seat is not found in the bookedSeatsMap, show an error message.
 
     Alert.alert(
       'Passenger Options',
@@ -392,12 +393,12 @@ export default function DriverSeatLayoutScreen() {
         },
       ]
     );
-  };
+  }; // Handle the "Mark as Boarded" action when the driver selects this option for a passenger. This function checks if a seat is selected and if it is booked, then it calls the API to mark the passenger as boarded. If the API call is successful, it updates the local seat data to reflect the new status and updates the journey data to increment the boarded count. It also shows a success message to the driver. If there is an error during this process, it logs the error and shows an error message to the driver.
 
   const handleMarkBoarded = async () => {
-    if (!selectedSeat) return;
+    if (!selectedSeat) return; // If no seat is selected, simply return and do nothing. This is a safety check to ensure that we don't attempt to mark a passenger as boarded without a valid seat selection, which could lead to errors or unintended behavior in the app.
 
-    const bookedData = bookedSeatsMap.get(selectedSeat);
+    const bookedData = bookedSeatsMap.get(selectedSeat); // Get the booking data for the selected seat from the bookedSeatsMap. This will include the passenger details and the seat booking ID needed to call the API to mark the passenger as boarded.
     if (!bookedData) {
       Alert.alert('Error', 'Seat is not booked');
       return;
@@ -405,8 +406,8 @@ export default function DriverSeatLayoutScreen() {
 
     try {
       setLoading(true);
-      const token = await seatBookingService.getToken();
-      const success = await seatBookingService.markPassengerBoarded(
+      const token = await seatBookingService.getToken(); // Get the JWT token for API authentication. This is necessary to authorize the request to mark the passenger as boarded in the backend.
+      const success = await seatBookingService.markPassengerBoarded( // Call the API to mark the passenger as boarded, passing the seat booking ID and the token for authentication. The API will update the status of the booking in the backend, and if successful, we will proceed to update the local state to reflect this change in the UI.
         bookedData.seatBookingId,
         token
       );
@@ -446,18 +447,19 @@ export default function DriverSeatLayoutScreen() {
   };
 
   const handleSeatPress = (seatId: string) => {
-    setSelectedSeat(seatId);
+    setSelectedSeat(seatId); // Set the selected seat ID in state when a seat is pressed. This will allow us to display the passenger details for that seat if it is booked, or clear the passenger details if it is not booked. The UI will update to show the selected seat and its associated information based on this state change.
 
     // Find and display passenger details if seat is booked
     const passengerData = bookedSeatsMap.get(seatId);
     if (passengerData) {
-      setSelectedPassenger(passengerData.passenger);
+      setSelectedPassenger(passengerData.passenger); // If the seat is booked and we have passenger data for it, set the selected passenger details in state. This will allow the UI to display the passenger's name, phone number, pickup and dropoff locations, seat number, and any special requests when a booked seat is selected.
     } else {
-      setSelectedPassenger(null);
+      setSelectedPassenger(null); // If the seat is not booked, clear the selected passenger details. This will ensure that when an available seat is selected, the UI does not show any passenger information, indicating that the seat is currently unoccupied.
+      alert('Seat is available'); // Show an alert to indicate that the selected seat is available. This provides feedback to the driver that they have selected a seat that is not currently booked, and they can take appropriate action if needed (e.g., directing passengers to sit there).
     }
   };
 
-  const renderSeat = (seat: Seat) => (
+  const renderSeat = (seat: Seat) => ( // Render a single seat as a TouchableOpacity component. The appearance of the seat will change based on its status (boarded, booked, or available) using the getSeatStyles function to determine the background color. If the seat is selected, it will also apply additional styles to indicate that it is selected. When the seat is pressed, it will call the handleSeatPress function to update the selected seat and display passenger details if applicable. The seat will display an icon and its ID as a label for easy identification in the UI.
     <TouchableOpacity
       key={seat.id}
       style={[
@@ -476,11 +478,11 @@ export default function DriverSeatLayoutScreen() {
   const formatDateForDisplay = (dateStr: string) => {
     const date = new Date(dateStr);
     const options: Intl.DateTimeFormatOptions = {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
+      weekday: 'short', // Use 'short' for weekday eg. 'Mon'
+      month: 'short', // Use 'short' for month eg. 'Jan'
+      day: 'numeric', // Use 'numeric' for day of the month eg. '1'
     };
-    return date.toLocaleDateString('en-US', options);
+    return date.toLocaleDateString('en-US', options); // Return the formatted date
   };
 
   // Render loading state
@@ -589,7 +591,7 @@ export default function DriverSeatLayoutScreen() {
                   <View key={row.rowNum} style={styles.rowGroup}>
                     <View style={styles.seatsRowGroup}>
                       <View style={styles.sideSeats}>
-                        {row.left.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || {
+                        {row.left.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || { // Find the seat data based on the seatId and use it to render the seat. If the seat is not found, use a default seat data object with an 'available' status and null passenger data.
                           id: seatId,
                           status: 'available',
                           passenger: null,

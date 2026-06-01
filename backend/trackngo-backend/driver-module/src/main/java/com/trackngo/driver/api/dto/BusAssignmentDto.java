@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-@Data
+@Data //getters and setters
 @NoArgsConstructor
 @AllArgsConstructor
 public class BusAssignmentDto {

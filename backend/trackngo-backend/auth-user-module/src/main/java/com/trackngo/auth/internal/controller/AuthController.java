@@ -17,7 +17,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ApiResponse<AuthResponse> login(@Valid @RequestBody AuthRequest request) {
+    public ApiResponse<AuthResponse> login(@Valid @RequestBody AuthRequest request) { //@Valid @RequestBody means that the request body must be valid
         return ApiResponse.ok("Login successful", authService.login(request));
     }
 

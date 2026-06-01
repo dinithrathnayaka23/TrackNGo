@@ -1,43 +1,43 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react"; //useRef for animation values
 import {
-  Animated,
-  Easing,
-  StyleSheet,
+  Animated, //Animated for animations
+  Easing,   //Easing for easing animations
+  StyleSheet, 
   Text,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons"; // Ionicons for icons
 
 export default function LandingScreen() {
   const router = useRouter();
-  const logoScale = useRef(new Animated.Value(0.7)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
-  const barWidth = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.7)).current; // Initial scale for logo animation
+  const logoOpacity = useRef(new Animated.Value(0)).current; // Initial opacity for logo animation
+  const textOpacity = useRef(new Animated.Value(0)).current; // Initial opacity for text animation
+  const barWidth = useRef(new Animated.Value(0)).current; // Initial width for progress bar animation 
 
   useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(logoScale, {
-          toValue: 1,
+    Animated.sequence([ // Sequence to run animations one after another
+      Animated.parallel([ // Run logo scale and opacity animations together
+        Animated.timing(logoScale, { // Animate logo scale means scale to 1
+          toValue: 1, // Animate logo scale means scale to 1
           duration: 600,
           easing: Easing.out(Easing.back(1.5)),
           useNativeDriver: true,
         }),
-        Animated.timing(logoOpacity, {
-          toValue: 1,
+        Animated.timing(logoOpacity, { // Animate logo opacity means fade in to 1
+          toValue: 1, // Animate logo opacity means fade in to 1
           duration: 500,
           useNativeDriver: true,
         }),
       ]),
       Animated.timing(textOpacity, {
-        toValue: 1,
+        toValue: 1, // Animate text opacity means fade in to 1
         duration: 400,
         useNativeDriver: true,
       }),
       Animated.timing(barWidth, {
-        toValue: 1,
+        toValue: 1, // Animate bar width means fill to 100%
         duration: 1800,
         easing: Easing.inOut(Easing.ease),
         useNativeDriver: false,
@@ -45,7 +45,7 @@ export default function LandingScreen() {
     ]).start(() => {
       router.replace('/login');
     });
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount
 
   return (
     <View style={styles.container}>

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
+  FlatList, // FlatList for efficient rendering of conversation list
   StyleSheet,
   Text,
   TextInput,
@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 
-interface Conversation {
+interface Conversation { // Conversation type definition for the conversation list items
   id: string;
   name: string;
   message: string;
@@ -24,7 +24,7 @@ interface Conversation {
   unreadCount: number;
 }
 
-interface ConversationResponseItem {
+interface ConversationResponseItem { // Type definition for the conversation items received from the backend API. This type includes all the fields that we expect to receive from the API, with some fields marked as optional in case they are not provided by the backend. This allows us to handle cases where certain data might be missing without causing errors in our application.
   conversationId: number;
   otherParticipantId?: number;
   otherParticipantName?: string;
@@ -36,10 +36,10 @@ interface ConversationResponseItem {
 
 const DriverChatScreen = () => {
   const router = useRouter();
-  const { user } = useUser();
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { user } = useUser(); // Access the user state from the UserContext
+  const insets = useSafeAreaInsets(); // Get safe area insets for the status bar and navigation bar
+  const { width } = useWindowDimensions(); // Get the width of the screen by using the useWindowDimensions hook
+  const [searchQuery, setSearchQuery] = useState(''); // State for search query
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,11 +58,11 @@ const DriverChatScreen = () => {
         setIsLoading(true);
         setError(null);
 
-        const endpoint = new URL(`http://10.43.239.185:8080/api/users/${user.userId}/conversations`);
-        endpoint.searchParams.set('page', '0');
-        endpoint.searchParams.set('size', '20');
-        if (searchQuery.trim()) {
-          endpoint.searchParams.set('q', searchQuery.trim());
+        const endpoint = new URL(`http://10.233.234.185:8080/api/users/${user.userId}/conversations`); 
+        endpoint.searchParams.set('page', '0'); // Always fetch the first page of conversations for simplicity. In a real app, you would implement pagination to load more conversations as the user scrolls.
+        endpoint.searchParams.set('size', '20'); // Fetch up to 20 conversations at a time. This is a reasonable number to display in a chat list without overwhelming the user, while also allowing for some level of pagination if needed.
+        if (searchQuery.trim()) { // If there is a search query, include it as a query parameter to filter conversations on the server side. This allows the backend to return only conversations that match the search criteria, improving performance and relevance of the results.
+          endpoint.searchParams.set('q', searchQuery.trim()); //q means query
         }
 
         const response = await fetch(endpoint.toString(), {
@@ -78,10 +78,10 @@ const DriverChatScreen = () => {
         }
 
         const result = await response.json();
-        const items: ConversationResponseItem[] = Array.isArray(result.content) ? result.content : [];
+        const items: ConversationResponseItem[] = Array.isArray(result.content) ? result.content : []; // Ensure that we have an array of conversations from the response. If the content is not an array, we default to an empty array to avoid errors when mapping over it.
 
         setConversations(
-          items.map((item) => ({
+          items.map((item) => ({  // Map each conversation item to our Conversation type, providing default values for any missing fields.
             id: String(item.conversationId),
             name: item.otherParticipantName ?? `User #${item.otherParticipantId ?? item.conversationId}`,
             message: item.lastMessage ?? 'No messages yet',
@@ -89,7 +89,7 @@ const DriverChatScreen = () => {
             participantType: formatParticipantType(item.otherParticipantType),
             unreadCount: item.unreadCount ?? 0,
           }))
-        );
+        ); // Map the response items to our Conversation type, providing default values for any missing fields. This ensures that our UI can display a consistent conversation list even if some data is not available from the backend.
       } catch (fetchError) {
         console.error('Error fetching driver conversations:', fetchError);
         setError(fetchError instanceof Error ? fetchError.message : 'Failed to load conversations');
@@ -98,17 +98,17 @@ const DriverChatScreen = () => {
       }
     };
 
-    const debounceTimer = setTimeout(fetchConversations, 250);
-    return () => clearTimeout(debounceTimer);
-  }, [searchQuery, user?.token, user?.userId]);
+    const debounceTimer = setTimeout(fetchConversations, 250); // Delay the fetch by 250ms to avoid overloading the server with requests.
+    return () => clearTimeout(debounceTimer); // Clear the debounce timer if the component unmounts or if the search query changes before the timer completes, preventing unnecessary API calls and ensuring that we only fetch conversations when the user has paused typing.
+  }, [searchQuery, user?.token, user?.userId]); // Re-run the effect whenever the search query changes or when the user's authentication information changes, ensuring that we always have the most up-to-date conversations based on the current search criteria and user context.
 
-  const filteredConversations = useMemo(() => {
+  const filteredConversations = useMemo(() => {   // useMemo to memoize the filtered conversations based on the search query and the full conversations list. This optimization prevents unnecessary re-computation of the filtered list on every render, improving performance, especially when the conversations list is large.
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return conversations;
+    if (!query) return conversations; // If there is no search query, return the full list of conversations
 
-    return conversations.filter((item) => (
+    return conversations.filter((item) => (   // Filter the conversations based on the search query, checking if the query is included in the participant's name, last message, timestamp, or participant type. This allows users to quickly find relevant conversations by typing keywords related to any of these fields.
       item.name.toLowerCase().includes(query) ||
-      item.message.toLowerCase().includes(query) ||
+      item.message.toLowerCase().includes(query) || // message is the last message
       item.timestamp.toLowerCase().includes(query) ||
       item.participantType.toLowerCase().includes(query)
     ));
@@ -135,7 +135,7 @@ const DriverChatScreen = () => {
     [horizontalPadding, insets.bottom, isSmallPhone, theme]
   );
 
-  const renderConversation = ({ item }: { item: Conversation }) => (
+  const renderConversation = ({ item }: { item: Conversation }) => ( // Render a single conversation item as a TouchableOpacity component. When pressed, it navigates to the chat screen for that conversation, passing the conversation ID and participant name as parameters. The conversation item displays an avatar with the participant's initials, the participant's name, the last message, the timestamp of the last message, and any unread message count. If there are unread messages, a badge is shown on the avatar indicating the number of unread messages.
     <TouchableOpacity
       style={styles.conversationItem}
       onPress={() =>

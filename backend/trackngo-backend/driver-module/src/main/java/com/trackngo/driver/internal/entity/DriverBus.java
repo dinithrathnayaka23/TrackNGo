@@ -5,10 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
+import java.time.LocalDate; // for date
 import java.time.LocalTime;
 
-@Entity
+@Entity //jpa annonations , 'this is a db table'
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

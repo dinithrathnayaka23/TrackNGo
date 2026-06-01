@@ -5,39 +5,39 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  useWindowDimensions,
+  useWindowDimensions, // Get screen dimensions
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';  // Import the Print module
+import * as Sharing from 'expo-sharing'; // Import the Sharing module to allow sharing the generated PDF
 import { useTheme } from '@/context/ThemeContext';
 
 
 type EarningItem = {
-  id: string;
+  id: string; // Unique identifier for each earning item
   route: string;
   date: string;
   time: string;
   amount: string;
-};
+}; // Define the type for each earning item
 
 type WeeklyPoint = {
   day: string;
   amount: number;
-  isHighlighted?: boolean;
-};
+  isHighlighted?: boolean; // in the chart
+}; // Define the type for each weekly point
 
-export default function DriverEarningsScreen() {
-  const router = useRouter();
-  const { user } = useUser();
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+export default function DriverEarningsScreen() { 
+  const router = useRouter();   
+  const { user } = useUser();  // Get the current user from the UserContext 
+  const insets = useSafeAreaInsets(); // Get the safe area insets to ensure content is not hidden behind notches or system UI elements
+  const { width } = useWindowDimensions();  // Get the window width 
 
-  const [showWeekly, setShowWeekly] = useState(false);
-  const [profileData, setProfileData] = useState<DriverProfile | null>(null);
+  const [showWeekly, setShowWeekly] = useState(false);  // State to controlweekly earnings breakdown modal
+  const [profileData, setProfileData] = useState<DriverProfile | null>(null); // comng fom the user context
 
   
   
@@ -83,13 +83,13 @@ export default function DriverEarningsScreen() {
   const [receipt, setReceipt] = useState<EarningItem | null>(null);
   useEffect(() => {
   const fetchDriverProfile = async () => {
-    if (!user?.userId || !user?.token) {
+    if (!user?.userId || !user?.token) { 
       return;
     }
 
     try {
       const response = await fetch(
-        `http://10.43.239.185:8080/api/drivers/${user.userId}/profile`,
+        `http://10.233.234.185:8080/api/drivers/${user.userId}/profile`,
         {
           method: 'GET',
           headers: {
@@ -103,7 +103,7 @@ export default function DriverEarningsScreen() {
         throw new Error(`Failed to fetch earnings profile: ${response.statusText}`);
       }
 
-      const result = await response.json();
+      const result = await response.json(); //wait till the response is converted to json
 
       if (result.success && result.data) {
         setProfileData(result.data);
@@ -119,8 +119,8 @@ export default function DriverEarningsScreen() {
 const earningsAmount = profileData?.driverEarnings ?? 0;
 
 
-  const maxAmount = Math.max(...weeklyData.map((d) => d.amount));
-  const handleExportPDF = async () => {
+  const maxAmount = Math.max(...weeklyData.map((d) => d.amount)); // Find the maximum amount in the weeklyData array for bar chart
+  const handleExportPDF = async () => { 
   const html = `
       <html>
       <head>
@@ -219,9 +219,9 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
 
         <div class="card">
           <div class="label">Total Earnings</div>
-          <div class="value">LKR ${earningsAmount.toLocaleString('en-US', {
+          <div class="value">LKR ${earningsAmount.toLocaleString('en-US', { //convert amount to string with d.p & commas
               minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
+              maximumFractionDigits: 2, // 2 d.p
             })}</div>
         </div>
 
@@ -241,13 +241,13 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
             </tr>
           `
             )
-            .join('')}
-        </table>
+            .join('')} //join the table rows
+        </table> 
 
         <div class="total">
           Net Total: LKR ${earningsAmount.toLocaleString('en-US', {
             minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            maximumFractionDigits: 2, // 2 d.p
           })}
         </div>
 
@@ -259,20 +259,20 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
       </html>
       `;
 
-  const { uri } = await Print.printToFileAsync({ html });
-  await Sharing.shareAsync(uri);
+  const { uri } = await Print.printToFileAsync({ html }); // Generate a PDF file from the HTML content and get the file URI
+  await Sharing.shareAsync(uri); // Share the generated PDF file
 };
 
   const isSmallPhone = width < 360;
   const isCompact = width < 390;
   const horizontalPadding = isSmallPhone ? 14 : 16;
-  const contentWidth = Math.min(width - horizontalPadding * 2, 560);
+  const contentWidth = Math.min(width - horizontalPadding * 2, 560); // calculates the width of the content area
 
-  const chartYAxisWidth = isSmallPhone ? 32 : 38;
+  const chartYAxisWidth = isSmallPhone ? 32 : 38; 
   const chartAreaWidth = contentWidth - 32 - chartYAxisWidth;
   const barWidth = Math.max(16, Math.min(26, Math.floor(chartAreaWidth / 10)));
 
-  const { darkMode } = useTheme();
+  const { darkMode } = useTheme(); // Get the current theme mode (dark or light) from the ThemeContext to apply appropriate colors to the UI elements, ensuring that the design is consistent with the user's theme preference and provides good readability and visual appeal in both modes.
 
   const theme = useMemo(() => ({
   background: darkMode ? '#111' : '#F5F5F5',
@@ -295,7 +295,7 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
     [horizontalPadding, insets.bottom, isSmallPhone, isCompact, barWidth, theme]
   );
 
-  const renderEarningItem = (item: EarningItem) => (
+  const renderEarningItem = (item: EarningItem) => ( //this function renders each earning item
     <View key={item.id}>
       <View style={styles.earningItemContainer}>
         <View style={[styles.earningItem, isCompact && styles.earningItemStack]}>
@@ -331,8 +331,8 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false} // Hide the vertical scroll indicator for a cleaner look
+        contentInsetAdjustmentBehavior="automatic" //auto adjust safe area
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.content}>
@@ -360,8 +360,8 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
           </View>
 
           <View style={styles.earningsCard}>
-            <View style={[styles.cardHeader, isCompact && styles.cardHeaderStack]}>
-              <Text style={styles.cardLabel}>Your Earnings</Text>
+            <View style={[styles.cardHeader, isCompact && styles.cardHeaderStack]}> 
+              <Text style={styles.cardLabel}>Your Monthly Earnings</Text>
 
               <View style={styles.percentageBadge}>
                 <MaterialCommunityIcons name="trending-up" size={14} color="#22C55E" />
@@ -376,7 +376,7 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
           </View>
 
           <View style={styles.weeklySection}>
-            <View style={[styles.weeklyHeader, isCompact && styles.weeklyHeaderStack]}>
+            <View style={[styles.weeklyHeader, isCompact && styles.weeklyHeaderStack]}> 
               <View style={styles.weeklyHeaderText}>
                 <Text style={styles.weeklyTitle}>Weekly Earnings</Text>
                 <Text style={styles.weeklySubtitle}>Last 7 Days</Text>
@@ -480,7 +480,7 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
       <View style={styles.weekTotalBox}>
         <Text style={styles.weekTotalText}>
           Total: LKR {weeklyData.reduce((a, b) => a + b.amount, 0)}
-        </Text>
+        </Text> 
       </View>
 
       <TouchableOpacity

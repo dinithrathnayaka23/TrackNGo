@@ -1,41 +1,41 @@
-package com.trackngo.driver.internal.service;
+package com.trackngo.driver.internal.service; //package only internal, not exposed outside
 
-import com.trackngo.driver.api.DriverService;
-import com.trackngo.driver.api.dto.BusAssignmentDto;
-import com.trackngo.driver.api.dto.DriverProfileDto;
-import com.trackngo.driver.internal.entity.DriverBus;
-import com.trackngo.driver.internal.entity.Driver;
-import com.trackngo.driver.internal.entity.DriverUser;
-import com.trackngo.driver.internal.repository.BusRepository;
-import com.trackngo.driver.internal.repository.DriverFileRepository;
-import com.trackngo.driver.internal.repository.UserDriverRepository;
-import com.trackngo.tracking.api.RouteService;
-import com.trackngo.tracking.api.dto.RouteDto;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+import com.trackngo.driver.api.DriverService; //service interface
+import com.trackngo.driver.api.dto.BusAssignmentDto; //DTO for bus assignment 
+import com.trackngo.driver.api.dto.DriverProfileDto; //DTO 
+import com.trackngo.driver.internal.entity.DriverBus; //entity
+import com.trackngo.driver.internal.entity.Driver;  //entity
+import com.trackngo.driver.internal.entity.DriverUser;  //entity
+import com.trackngo.driver.internal.repository.BusRepository; //built in CRUD
+import com.trackngo.driver.internal.repository.DriverFileRepository; //built in CRUD
+import com.trackngo.driver.internal.repository.UserDriverRepository; //built in CRUD
+import com.trackngo.tracking.api.RouteService; 
+import com.trackngo.tracking.api.dto.RouteDto;  
+import lombok.RequiredArgsConstructor; 
+import org.springframework.stereotype.Service; //annonations (@service, @RequiredArgsConstructor etc)
 
-import java.util.Optional;
+import java.util.Optional; //import optional keyword from java
 
-@Service
-@RequiredArgsConstructor
+@Service // service layer component
+@RequiredArgsConstructor //lombok to generate constructor for final fields (repositories and services)
 public class DriverServiceImpl implements DriverService {
-    private final DriverFileRepository driverFileRepository;
-    private final UserDriverRepository userDriverRepository;
+    private final DriverFileRepository driverFileRepository; 
+    private final UserDriverRepository userDriverRepository; //dependancy injec: can access them
     private final BusRepository busRepository;
-    private final RouteService routeService;
+    private final RouteService routeService; //service layer coming from dinith's part (tracking module)
 
     @Override
-    public DriverProfileDto getDriverProfile(Long driverId) {
+    public DriverProfileDto getDriverProfile(Long driverId) { //interface from service 
         // Fetch driver details
-        Driver driver = driverFileRepository.findByDriverId(driverId)
-                .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + driverId));
+        Driver driver = driverFileRepository.findByDriverId(driverId) 
+                .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + driverId)); //lambda to handle not found case
 
         // Fetch user details
-        DriverUser user = userDriverRepository.findById(driverId)
+        DriverUser user = userDriverRepository.findById(driverId) //db data to java obj
                 .orElseThrow(() -> new RuntimeException("User not found with ID: " + driverId));
 
         // Map to DTO
-        DriverProfileDto dto = new DriverProfileDto();
+        DriverProfileDto dto = new DriverProfileDto(); //create dto, noargs constructor will be called
         dto.setDriverId(driver.getDriverId());
         dto.setFirstName(user.getFirstName());
         dto.setLastName(user.getLastName());
@@ -52,24 +52,24 @@ public class DriverServiceImpl implements DriverService {
         dto.setDriverEarnings(driver.getDriverEarnings());
         dto.setAccountNumber(driver.getAccountNumber());
         dto.setIsPhoneVerified(driver.getIsPhoneVerified());
-
-        return dto;
+        //take data from driver entity and set it in dto
+        return dto; //send to controller and then to frontend , in json format (jackson's work)
     }
 
     @Override
-    public BusAssignmentDto getCurrentAssignment(Long driverId) {
+    public BusAssignmentDto getCurrentAssignment(Long driverId) { //from controller
         // Fetch bus assigned to driver
-        Optional<DriverBus> busOptional = busRepository.findByDriverId(driverId);
+        Optional<DriverBus> busOptional = busRepository.findByDriverId(driverId); //go to bus table (Driverbus entity) and find by driver id (may or may not exist so wrap it in optional)
 
         if (busOptional.isEmpty()) {
             return null; // No current assignment
         }
 
-        DriverBus bus = busOptional.get();
+        DriverBus bus = busOptional.get(); //get the bus
 
         // Map to DTO
         BusAssignmentDto dto = new BusAssignmentDto();
-        dto.setBusId(bus.getBusId());
+        dto.setBusId(bus.getBusId()); // get the data from bus entity and then set it in dto format to return to controller and then to frontend
         dto.setBusNumber(bus.getBusNumber());
         dto.setBusBrand(bus.getBusBrand());
         dto.setRegistrationNumber(bus.getRegistrationNumber());
@@ -84,7 +84,7 @@ public class DriverServiceImpl implements DriverService {
         dto.setRouteId(bus.getRouteId());
         dto.setRouteName(getRouteName(bus.getRouteId()));
 
-        return dto;
+        return dto; 
     }
 
     private String getRouteName(Long routeId) {
@@ -94,7 +94,7 @@ public class DriverServiceImpl implements DriverService {
 
         try {
             RouteDto route = routeService.get(routeId);
-            return route != null ? route.getName() : null;
+            return route != null ? route.getName() : null; //if route is not null return name else return null
         } catch (RuntimeException ex) {
             return null;
         }

@@ -61,7 +61,7 @@ export default function ChatScreen() {
         setError(null);
 
         const response = await fetch(
-          `http://10.43.239.185:8080/api/conversations/${id}/messages?page=0&size=50`,
+          `http://10.237.176.185:8080/api/conversations/${id}/messages?page=0&size=50`,
           {
             method: 'GET',
             headers: {
@@ -84,9 +84,9 @@ export default function ChatScreen() {
             senderId: item.senderId,
             content: item.deleted ? 'Message deleted' : item.content ?? '',
             createdAt: item.createdAt ?? '',
-            isMine: item.senderId === user?.userId,
+            isMine: item.senderId === user?.userId, // Set isMine based on senderId
           }))
-          .sort((a: Message, b: Message) => {
+          .sort((a: Message, b: Message) => { // Sort messages by createdAt
             const aTime = new Date(a.createdAt).getTime();
             const bTime = new Date(b.createdAt).getTime();
             return aTime - bTime;
@@ -94,7 +94,7 @@ export default function ChatScreen() {
 
         setMessages(mapped);
 
-        await fetch(`http://10.43.239.185:8080/api/conversations/${id}/read?userId=${user.userId}`, {
+        await fetch(`http://10.237.176.185:8080/api/conversations/${id}/read?userId=${user.userId}`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${user.token}`,
@@ -128,7 +128,7 @@ export default function ChatScreen() {
       setIsSending(true);
 
       const response = await fetch(
-        `http://10.43.239.185:8080/api/conversations/${id}/messages`,
+        `http://10.237.176.185:8080/api/conversations/${id}/messages`,
         {
           method: 'POST',
           headers: {

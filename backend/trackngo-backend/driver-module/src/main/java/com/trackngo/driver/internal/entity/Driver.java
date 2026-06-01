@@ -1,21 +1,21 @@
 package com.trackngo.driver.internal.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.*; //jpa
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Data; //is used for getters and setters
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
+import java.math.BigDecimal; // used for decimals
 import java.time.LocalDate;
 
-@Entity
+@Entity //this class is a db entity (jpa annonations)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "driver")
-public class Driver {
-    @Id
-    @Column(name = "driver_id")
+@Table(name = "driver") // db conn
+public class Driver { //db table structure
+    @Id //pk
+    @Column(name = "driver_id") //db column name (driver.getDriverId() done by @Data)
     private Long driverId;
 
     @Column(name = "licence_expiry")
@@ -30,7 +30,7 @@ public class Driver {
     @Column(name = "account_number")
     private String accountNumber;
 
-    @Column(name = "phone_number", unique = true)
+    @Column(name = "phone_number", unique = true) //no duplicates
     private String phoneNumber;
 
     @Column(name = "is_phone_verified")

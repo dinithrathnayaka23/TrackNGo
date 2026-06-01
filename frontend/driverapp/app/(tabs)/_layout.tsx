@@ -1,9 +1,9 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs } from 'expo-router'; // Tabs for navigation
+import React from 'react'; //for React library
 
-import { HapticTab } from '@/components/haptic-tab';
-import { useTheme } from '@/context/ThemeContext';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { HapticTab } from '@/components/haptic-tab'; // HapticTab for haptic feedback
+import { useTheme } from '@/context/ThemeContext'; 
+import { MaterialCommunityIcons } from '@expo/vector-icons'; 
 import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
@@ -69,7 +69,7 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
+      <Tabs.Screen //this screen is hidden from the user because it is only for internal use
         name="explore"
         options={{
           href: null,

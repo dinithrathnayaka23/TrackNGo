@@ -14,9 +14,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { getBusImage } from "../../utils/busImage";
+import { API_BASE_URL as ENV_API_BASE_URL } from "../../config/env";
 
 // 🔹 CONFIG
-const API_BASE_URL = "http://192.168.1.4:8080/api";
+const API_BASE_URL = `${ENV_API_BASE_URL}/api`;
 
 export default function NegotiationScreen() {
   const router = useRouter();

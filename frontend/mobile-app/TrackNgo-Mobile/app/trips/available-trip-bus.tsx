@@ -12,9 +12,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { getBusImage } from "../../utils/busImage";
+import { API_BASE_URL as ENV_API_BASE_URL } from "../../config/env";
 
 // 🔹 CONFIG
-const API_BASE_URL = "http://192.168.1.4:8080/api"; // Same as your BookATrip.tsx
+const API_BASE_URL = `${ENV_API_BASE_URL}/api`; // Same as your BookATrip.tsx
 
 interface Bus {
   busId: number;

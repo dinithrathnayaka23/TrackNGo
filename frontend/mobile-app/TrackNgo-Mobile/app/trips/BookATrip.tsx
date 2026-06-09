@@ -16,9 +16,10 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import MapViewDirections from 'react-native-maps-directions';
 import { useSession } from "../../store/sessionStore";
+import { API_BASE_URL as ENV_API_BASE_URL } from "../../config/env";
 
 // 🔹 CONFIG: API & GOOGLE MAPS KEY
-const API_BASE_URL = "http://192.168.1.4:8080/api";
+const API_BASE_URL = `${ENV_API_BASE_URL}/api`;
 const GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY_HERE";
 
 export default function BookATrip() {

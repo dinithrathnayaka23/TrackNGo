@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'; // For storing user data and token permanently on the device.
+import { apiUrl } from '@/config/env';
 
-// Use the same IP as other screens in the app
-const API_BASE_URL = 'http://10.233.234.185:8080/api';
+const API_URL = apiUrl('/api');
 
-console.log('API_BASE_URL:', API_BASE_URL);
+console.log('Driver API_URL:', API_URL);
 
 interface SeatLayoutRow {
   rowNum: number;
@@ -58,7 +58,7 @@ export const seatBookingService = {
    
   async getDriverAssignment(driverId: number, token: string): Promise<BusAssignment> { // Get the assigned bus for a specific driver
     try {
-      const url = `${API_BASE_URL}/drivers/${driverId}/profile-and-assignment`;
+      const url = `${API_URL}/drivers/${driverId}/profile-and-assignment`;
       console.log('Fetching driver assignment from:', url);
       console.log('Token:', token ? '***' : 'MISSING'); // Log the token
       
@@ -98,7 +98,7 @@ export const seatBookingService = {
    */
   async getSeatLayout(busId: number, token: string): Promise<SeatLayoutRow[]> {
     try {
-      const url = `${API_BASE_URL}/booking-flow/buses/${busId}/seat-layout`;
+      const url = `${API_URL}/booking-flow/buses/${busId}/seat-layout`;
       console.log('Fetching seat layout from:', url);
       
       const response = await fetch(url, {
@@ -143,8 +143,8 @@ export const seatBookingService = {
     journeyDate: string,
     token: string
   ): Promise<BookedSeatData[]> {
-    const detailUrl = `${API_BASE_URL}/booking-flow/buses/${busId}/booked-seats-details?date=${journeyDate}`; // URL for seat details
-    const legacyUrl = `${API_BASE_URL}/booking-flow/buses/${busId}/booked-seats?date=${journeyDate}`; //fallback mechanism
+    const detailUrl = `${API_URL}/booking-flow/buses/${busId}/booked-seats-details?date=${journeyDate}`; // URL for seat details
+    const legacyUrl = `${API_URL}/booking-flow/buses/${busId}/booked-seats?date=${journeyDate}`; //fallback mechanism
 
     const fetchBookedSeats = async (url: string) => {
       const response = await fetch(url, {
@@ -230,7 +230,7 @@ export const seatBookingService = {
    */
   async getBusDetails(busId: number, token: string): Promise<any> {
     try {
-      const url = `${API_BASE_URL}/booking-flow/buses/${busId}/details`;
+      const url = `${API_URL}/booking-flow/buses/${busId}/details`;
       console.log('Fetching bus details from:', url);
       
       const response = await fetch(url, {
@@ -269,7 +269,7 @@ export const seatBookingService = {
     token: string
   ): Promise<boolean> {
     try {
-      const url = `${API_BASE_URL}/bookings/${seatBookingId}/boarded`;
+      const url = `${API_URL}/bookings/${seatBookingId}/boarded`;
       console.log('Marking passenger as boarded:', url);
       
       const response = await fetch(url, {
@@ -313,7 +313,7 @@ export const seatBookingService = {
    */
   async getRouteDetails(routeId: number, token: string): Promise<any> {
     try {
-      const url = `${API_BASE_URL}/routes/${routeId}`;
+      const url = `${API_URL}/routes/${routeId}`;
       console.log('Fetching route details from:', url);
       
       const response = await fetch(url, {

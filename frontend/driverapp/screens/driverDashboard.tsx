@@ -12,6 +12,7 @@ import {
 } from 'react-native';  
 import { MaterialCommunityIcons } from '@expo/vector-icons'; 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; 
+import { apiUrl } from '@/config/env';
 import { useUser } from '@/context/UserContext';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -103,7 +104,7 @@ export default function DriverDashboardScreen() {
 
       try {
         const response = await fetch(
-          `http://10.233.234.185:8080/api/drivers/${user.userId}/profile-and-assignment`, 
+          apiUrl(`/api/drivers/${user.userId}/profile-and-assignment`),
           {
             method: 'GET',
             headers: {
@@ -132,7 +133,7 @@ export default function DriverDashboardScreen() {
 
         if (routeId) {
           const geometryResponse = await fetch(
-            `http://10.233.234.185:8080/api/tracking/routes/${routeId}/geometry`, // Make an API call to fetch the geometry of the route using the extracted route ID. 
+            apiUrl(`/api/tracking/routes/${routeId}/geometry`), // Make an API call to fetch the geometry of the route using the extracted route ID.
             {
               method: 'GET',
               headers: {
@@ -160,7 +161,7 @@ export default function DriverDashboardScreen() {
 
         if (busNumber) {
           const liveLocationResponse = await fetch(
-            `http://10.233.234.185:8080/api/tracking/live-location/${encodeURIComponent(busNumber)}`, //encodeURIComponent(busNumber) is used to encode the bus number in the URL.
+            apiUrl(`/api/tracking/live-location/${encodeURIComponent(busNumber)}`), //encodeURIComponent(busNumber) is used to encode the bus number in the URL.
             {
               method: 'GET',
               headers: {

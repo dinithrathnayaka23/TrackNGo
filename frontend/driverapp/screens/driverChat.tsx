@@ -12,6 +12,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { apiUrl } from '@/config/env';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 
@@ -58,7 +59,7 @@ const DriverChatScreen = () => {
         setIsLoading(true);
         setError(null);
 
-        const endpoint = new URL(`http://10.233.234.185:8080/api/users/${user.userId}/conversations`); 
+        const endpoint = new URL(apiUrl(`/api/users/${user.userId}/conversations`));
         endpoint.searchParams.set('page', '0'); // Always fetch the first page of conversations for simplicity. In a real app, you would implement pagination to load more conversations as the user scrolls.
         endpoint.searchParams.set('size', '20'); // Fetch up to 20 conversations at a time. This is a reasonable number to display in a chat list without overwhelming the user, while also allowing for some level of pagination if needed.
         if (searchQuery.trim()) { // If there is a search query, include it as a query parameter to filter conversations on the server side. This allows the backend to return only conversations that match the search criteria, improving performance and relevance of the results.

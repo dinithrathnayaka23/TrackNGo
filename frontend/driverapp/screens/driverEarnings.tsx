@@ -13,6 +13,7 @@ import { useUser } from '@/context/UserContext';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';  // Import the Print module
 import * as Sharing from 'expo-sharing'; // Import the Sharing module to allow sharing the generated PDF
+import { apiUrl } from '@/config/env';
 import { useTheme } from '@/context/ThemeContext';
 
 
@@ -89,7 +90,7 @@ export default function DriverEarningsScreen() {
 
     try {
       const response = await fetch(
-        `http://10.233.234.185:8080/api/drivers/${user.userId}/profile`,
+        apiUrl(`/api/drivers/${user.userId}/profile`),
         {
           method: 'GET',
           headers: {

@@ -16,6 +16,18 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+## API configuration
+
+The driver app reads its backend base URL from `EXPO_PUBLIC_API_BASE_URL`.
+Copy `.env.example` to `.env` in this folder when you need to override it:
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://YOUR_BACKEND_HOST:8080
+```
+
+If the variable is not set, the app uses the Expo dev host on port `8080`,
+falling back to `http://localhost:8080`.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

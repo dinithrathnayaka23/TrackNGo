@@ -11,6 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { apiUrl } from '@/config/env';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 
@@ -61,7 +62,7 @@ export default function ChatScreen() {
         setError(null);
 
         const response = await fetch(
-          `http://10.237.176.185:8080/api/conversations/${id}/messages?page=0&size=50`,
+          apiUrl(`/api/conversations/${id}/messages?page=0&size=50`),
           {
             method: 'GET',
             headers: {
@@ -94,7 +95,7 @@ export default function ChatScreen() {
 
         setMessages(mapped);
 
-        await fetch(`http://10.237.176.185:8080/api/conversations/${id}/read?userId=${user.userId}`, {
+        await fetch(apiUrl(`/api/conversations/${id}/read?userId=${user.userId}`), {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${user.token}`,
@@ -128,7 +129,7 @@ export default function ChatScreen() {
       setIsSending(true);
 
       const response = await fetch(
-        `http://10.237.176.185:8080/api/conversations/${id}/messages`,
+        apiUrl(`/api/conversations/${id}/messages`),
         {
           method: 'POST',
           headers: {

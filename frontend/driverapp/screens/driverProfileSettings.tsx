@@ -17,6 +17,7 @@ import { useUser } from '@/context/UserContext'; //gloablly shared user data and
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; //prevent content overlap
 import * as ImagePicker from 'expo-image-picker'; // opening gallery to pick
 import { Image } from 'react-native'; //why because we need to diplay dp img
+import { apiUrl } from '@/config/env';
 import { useTheme } from '@/context/ThemeContext'; //global theme data
 import { formatDate, isLicenseExpired } from '@/utils/dateFormatter'; // Import utility functions for date formatting and license expiry checking
 
@@ -94,7 +95,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
       
       // Fetch driver profile from API URL
       const response = await fetch(
-        `http://10.233.234.185:8080/api/drivers/${user.userId}/profile-and-assignment`,
+        apiUrl(`/api/drivers/${user.userId}/profile-and-assignment`),
         {
           method: 'GET',
           headers: {

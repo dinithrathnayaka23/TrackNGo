@@ -1,5 +1,7 @@
+import { apiUrl } from '@/config/env';
+
 export const driverLogin = async (email: string, password: string) => {
-  const response = await fetch("http://10.233.234.185:8080/api/auth/login", {
+  const response = await fetch(apiUrl('/api/auth/login'), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -109,6 +109,11 @@
     </dependency>
     <dependency>
       <groupId>com.trackngo</groupId>
+      <artifactId>driver-module</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.trackngo</groupId>
       <artifactId>payment-module</artifactId>
       <version>${project.version}</version>
     </dependency>

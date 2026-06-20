@@ -1,6 +1,6 @@
 package com.trackngo.tracking.internal.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper; // Jackson JSON library
 import com.trackngo.commons.ApiResponse;
 import com.trackngo.tracking.api.dto.LiveBusLocationDto;
 import com.trackngo.tracking.api.dto.RouteGeometryDto;
@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.socket.TextMessage;
 
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/tracking")
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class LiveTrackingController {
 
     private final TrackingWebSocketHandler trackingWebSocketHandler;
@@ -41,6 +43,7 @@ public class LiveTrackingController {
       Called by another device (e.g. a phone acting as the bus) to publish its current location.
     */
     @PostMapping("/live-location")
+    @Transactional
     public ResponseEntity<ApiResponse<LiveBusLocationDto>> publishBusLocation(
             @Valid @RequestBody LiveBusLocationDto dto) {
 
@@ -115,6 +118,45 @@ public class LiveTrackingController {
 
         if (matched.getStops() != null) {
             List<RouteStopDto> stops = matched.getStops().stream()
+                    .map(stop -> {
+                        RouteStopDto dto = new RouteStopDto();
+                        dto.setName(stop.getName());
+                        dto.setLatitude(stop.getLatitude() != null ? stop.getLatitude().doubleValue() : null);
+                        dto.setLongitude(stop.getLongitude() != null ? stop.getLongitude().doubleValue() : null);
+                        dto.setPriority(stop.getId().getPriority());
+                        dto.setDistanceFromStart(stop.getDistanceFromStart() != null
+                                ? stop.getDistanceFromStart().doubleValue() : null);
+                        dto.setEstimatedArrivalMins(stop.getEstimatedArrivalMins());
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+            geometry.setStops(stops);
+        }
+
+        return ResponseEntity.ok(ApiResponse.ok("Route geometry", geometry));
+    }
+
+    /**
+     * GET /api/tracking/routes/{routeId}/geometry
+     * Returns route stops with coordinates for a specific route id.
+     */
+    @GetMapping("/routes/{routeId}/geometry")
+    public ResponseEntity<ApiResponse<RouteGeometryDto>> getRouteGeometryById(
+            @PathVariable Long routeId) {
+
+        Route route = routeRepository.findByIdWithStops(routeId).orElse(null);
+        if (route == null) {
+            return ResponseEntity.ok(ApiResponse.ok("No route found", null));
+        }
+
+        RouteGeometryDto geometry = new RouteGeometryDto();
+        geometry.setRouteId(route.getId());
+        geometry.setRouteName(route.getRouteName());
+        geometry.setStartLocation(route.getStartLocation());
+        geometry.setEndLocation(route.getEndLocation());
+
+        if (route.getStops() != null) {
+            List<RouteStopDto> stops = route.getStops().stream()
                     .map(stop -> {
                         RouteStopDto dto = new RouteStopDto();
                         dto.setName(stop.getName());

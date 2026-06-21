@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- 
+    TrackNGo Root Project Configuration
+    This is the Parent POM for a Modular Monolith architecture.
+    It manages common versions and orchestrates the build for all functional modules.
+  -->
+  <groupId>com.trackngo</groupId>
+  <artifactId>trackngo-backend</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+
+  <!-- 
+    Module Definitions
+    Each module represents a distinct bounded context of the application.
+    - commons: Shared utilities and event infrastructure.
+    - app: The main aggregator that bundles all modules into a single deployment.
+  -->
+  <modules>
+    <module>commons</module>
+    <module>auth-user-module</module>
+    <module>booking-module</module>
+    <module>tracking-module</module>
+    <module>driver-fleet-module</module>
+    <module>driver-module</module>
+    <module>payment-module</module>
+    <module>notification-module</module>
+    <module>complaint-module</module>
+    <module>chat-module</module>
+    <module>feedback-rating-module</module>
+    <module>admin-module</module>
+    <module>sos-module</module>
+    <module>app</module>
+  </modules>
+
+  <properties>
+    <java.version>21</java.version>
+    <spring-boot.version>3.2.4</spring-boot.version>
+    <jjwt.version>0.12.7</jjwt.version>
+    <maven.compiler.release>21</maven.compiler.release>
+    <lombok.version>1.18.30</lombok.version>
+  </properties>
+
+  <!-- 
+    Dependency Management
+    Centralizes version control for dependencies used across multiple modules.
+    Modules inherit these versions without needing to specify them locally.
+  -->
+  <dependencyManagement>
+    <dependencies>
+      <!-- Spring Boot BOM for consistent versioning of all starter dependencies -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- JWT for security and authentication -->
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-bom</artifactId>
+        <version>${jjwt.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- Lombok for boilerplate reduction -->
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok.version}</version>
+        <scope>provided</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <!-- Standard Compiler Plugin configured for Java 21 and Lombok -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.11.0</version>
+          <configuration>
+            <source>21</source>
+            <target>21</target>
+            <parameters>true</parameters>
+            <annotationProcessorPaths>
+              <path>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+              </path>
+            </annotationProcessorPaths>
+          </configuration>
+        </plugin>
+        <!-- Spring Boot Plugin for packaging and running the application -->
+        <plugin>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-maven-plugin</artifactId>
+          <version>${spring-boot.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.0.0-M9</version>
+          <configuration>
+            <reportFormat>plain</reportFormat>
+            <reportFormat>xml</reportFormat>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-report-plugin</artifactId>
+          <version>3.0.0-M9</version>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>0.8.10</version>
+          <executions>
+            <execution>
+              <goals>
+                <goal>prepare-agent</goal>
+              </goals>
+            </execution>
+            <execution>
+              <id>report</id>
+              <phase>test</phase>
+              <goals>
+                <goal>report</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>

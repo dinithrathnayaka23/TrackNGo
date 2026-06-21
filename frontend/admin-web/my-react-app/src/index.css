@@ -1,0 +1,216 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    font-size: 14px;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  img,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .animate-auth-card {
+    animation: authCardIn 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-auth-left {
+    animation: authLeftIn 850ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-auth-fade-up {
+    animation: authFadeUp 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-auth-float {
+    animation: authFloat 3.6s ease-in-out infinite;
+  }
+
+  .animate-dash-in {
+    animation: dashIn 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .dashboard-card {
+    transition: transform 220ms ease, box-shadow 220ms ease;
+  }
+
+  .dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(34, 47, 80, 0.08);
+  }
+
+  .animate-status-dot {
+    animation: statusPulse 1.8s ease-in-out infinite;
+  }
+
+  .chart-line-1,
+  .chart-line-2,
+  .chart-line-3,
+  .chart-line-4 {
+    stroke-dasharray: 1200;
+    stroke-dashoffset: 1200;
+    animation: chartDraw 1300ms ease-out forwards;
+  }
+
+  .chart-line-2 {
+    animation-delay: 120ms;
+  }
+
+  .chart-line-3 {
+    animation-delay: 220ms;
+  }
+
+  .chart-line-4 {
+    animation-delay: 320ms;
+  }
+
+  .animate-analytics-ring {
+    animation: analyticsRingIn 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    transform-origin: center;
+  }
+}
+
+@keyframes authCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes authLeftIn {
+  from {
+    opacity: 0;
+    transform: translateX(-22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes authFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes authFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes dashIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.82);
+    opacity: 0.75;
+  }
+}
+
+@keyframes chartDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes analyticsRingIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88) rotate(-12deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-auth-card,
+  .animate-auth-left,
+  .animate-auth-fade-up,
+  .animate-auth-float,
+  .animate-dash-in,
+  .animate-status-dot,
+  .chart-line-1,
+  .chart-line-2,
+  .chart-line-3,
+  .chart-line-4,
+  .animate-analytics-ring {
+    animation: none !important;
+  }
+
+  .dashboard-card {
+    transition: none !important;
+  }
+
+  .dashboard-card:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}

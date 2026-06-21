@@ -1,0 +1,12 @@
+package com.trackngo.payment.events;
+
+import com.trackngo.commons.events.BaseEvent;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public class InvoiceCreatedEvent extends BaseEvent {
+    // Identifier of the invoice that was just persisted.
+    private final Long id;
+}

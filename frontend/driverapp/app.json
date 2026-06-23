@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "TrackNGo Driver uses your location to update live bus tracking."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,6 +21,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -27,6 +34,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "TrackNGo Driver uses your location to update live bus tracking.",
+          "locationAlwaysAndWhenInUsePermission": "TrackNGo Driver uses your location to update live bus tracking."
+        }
+      ],
       [
         "expo-splash-screen",
         {

@@ -1,14 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react'; 
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   useWindowDimensions,
-  Linking, // Import Linking to go to google maps
 } from 'react-native';  
 import { MaterialCommunityIcons } from '@expo/vector-icons'; 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; 
@@ -17,6 +16,11 @@ import { useUser } from '@/context/UserContext';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
+import { useFocusEffect } from '@react-navigation/native';
+import DriverRouteMap from '@/components/DriverRouteMap';
+
+const DRIVER_SHARE_LOCATION_KEY = 'driverShareLocation';
 
 interface DriverProfile { 
   averageRating: number;
@@ -38,6 +42,7 @@ interface RouteStop {
   name: string;
   latitude: number | null;
   longitude: number | null;
+  priority?: number | null;
   estimatedArrivalMins?: number | null;
 }
 
@@ -53,14 +58,12 @@ interface LiveBusLocation {
   busNumber: string;
   latitude: number;
   longitude: number;
+  heading?: number | null;
+  speed?: number | null;
+  timestamp?: number | null;
 }
 
-interface RoutePoint { //represents a point on the route
-  name: string;
-  x: number;
-  y: number;
-  isBus?: boolean;
-}
+type LocationSharingStatus = 'idle' | 'active' | 'disabled' | 'permission-denied' | 'error';
 
 export default function DriverDashboardScreen() { 
   const { user } = useUser(); // Accessing user information from the user context
@@ -74,8 +77,10 @@ export default function DriverDashboardScreen() {
   const [routeGeometry, setRouteGeometry] = useState<RouteGeometry | null>(null); 
   const [liveBusLocation, setLiveBusLocation] = useState<LiveBusLocation | null>(null); 
   const [isLoadingTrip, setIsLoadingTrip] = useState(true); 
-  const [stopsWithCoordinates, setStopsWithCoordinates] = useState<RouteStop[]>([]); 
-  const [waypoints, setWaypoints] = useState<string>(''); // Store the waypoints string for Google Maps URL
+  const [shareLocationEnabled, setShareLocationEnabled] = useState(true);
+  const [locationSharingStatus, setLocationSharingStatus] =
+    useState<LocationSharingStatus>('idle');
+  const [waypoints, setWaypoints] = useState<string>('');
 
   useEffect(() => {                         
     const loadUser = async () => { 
@@ -94,6 +99,26 @@ export default function DriverDashboardScreen() {
 
     loadUser(); 
   }, []); //every refresh
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      AsyncStorage.getItem(DRIVER_SHARE_LOCATION_KEY)
+        .then((value) => {
+          if (isActive) {
+            setShareLocationEnabled(value !== 'false');
+          }
+        })
+        .catch((error) => {
+          console.warn('Failed to load location sharing preference:', error);
+        });
+
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
 
   useEffect(() => {      
     const fetchDashboardData = async () => { 
@@ -189,14 +214,119 @@ export default function DriverDashboardScreen() {
   }, [user?.token, user?.userId]);  // useEffect 
 
   useEffect(() => {
-  if (!routeGeometry?.stops) return; // If there are no stops in the route geometry, exit early
+    if (!routeGeometry?.stops) {
+      setWaypoints('');
+      return;
+    } // If there are no stops in the route geometry, exit early
 
-  const waypointNames = routeGeometry.stops // Extract the names of the stops from the route geometry
-    .map((stop) => stop.name) // Get the name property of each stop
-    .join(' → ');
+    const waypointNames = routeGeometry.stops // Extract the names of the stops from the route geometry
+      .map((stop) => stop.name) // Get the name property of each stop
+      .join(' -> ');
 
-  setWaypoints(waypointNames); //update the waypoints in useState
-}, [routeGeometry]); 
+    setWaypoints(waypointNames); //update the waypoints in useState
+  }, [routeGeometry]);
+
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
+    let isCancelled = false;
+    const busNumber = assignment?.busNumber;
+
+    if (!busNumber || !user?.token) {
+      setLocationSharingStatus('idle');
+      return;
+    }
+
+    if (!shareLocationEnabled) {
+      setLocationSharingStatus('disabled');
+      return;
+    }
+
+    const publishLocation = async (location: Location.LocationObject) => {
+      const payload: LiveBusLocation = {
+        busNumber,
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        heading: location.coords.heading,
+        speed: location.coords.speed,
+        timestamp: Date.now(),
+      };
+
+      setLiveBusLocation(payload);
+
+      try {
+        const response = await fetch(apiUrl('/api/tracking/live-location'), {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to publish live location: ${response.status}`);
+        }
+
+        if (!isCancelled) {
+          setLocationSharingStatus('active');
+        }
+      } catch (error) {
+        console.warn('Failed to publish live driver location:', error);
+        if (!isCancelled) {
+          setLocationSharingStatus('error');
+        }
+      }
+    };
+
+    const startLocationSharing = async () => {
+      try {
+        const currentPermission = await Location.getForegroundPermissionsAsync();
+        const permission = currentPermission.granted
+          ? currentPermission
+          : await Location.requestForegroundPermissionsAsync();
+
+        if (isCancelled) return;
+
+        if (permission.status !== 'granted') {
+          setLocationSharingStatus('permission-denied');
+          return;
+        }
+
+        setLocationSharingStatus('active');
+
+        const currentLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        if (!isCancelled) {
+          await publishLocation(currentLocation);
+        }
+
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000,
+            distanceInterval: 10,
+          },
+          (location) => {
+            void publishLocation(location);
+          }
+        );
+      } catch (error) {
+        console.warn('Unable to start driver location sharing:', error);
+        if (!isCancelled) {
+          setLocationSharingStatus('error');
+        }
+      }
+    };
+
+    void startLocationSharing();
+
+    return () => {
+      isCancelled = true;
+      subscription?.remove();
+    };
+  }, [assignment?.busNumber, shareLocationEnabled, user?.token]);
 
   const isSmallPhone = width < 360;  
   const isCompact = width < 390;  
@@ -217,13 +347,11 @@ export default function DriverDashboardScreen() {
   const roundedRating = Math.round(ratingValue);  
   const earningsAmount = profileData?.driverEarnings ?? 0;  
 
-  const routePoints = useMemo( // useMemo to memoize the route points calculation
-    () => buildRoutePoints(routeGeometry?.stops ?? [], contentWidth, mapHeight, liveBusLocation),
-    [routeGeometry?.stops, contentWidth, mapHeight, liveBusLocation] // useMemo to memoize the route points calculation based on the route geometry, content width, map height, and live bus location.
-  ); 
   const routeDisplay = routeGeometry
     ? `${routeGeometry.startLocation} -> ${routeGeometry.endLocation}`
     : assignment?.routeName ?? 'No current route';
+
+  const trackingStatusText = getTrackingStatusText(locationSharingStatus, liveBusLocation);
     
 
   const etaText = getEtaText(routeGeometry?.stops ?? []); 
@@ -249,75 +377,20 @@ export default function DriverDashboardScreen() {
     [horizontalPadding, mapHeight, insets.bottom, isSmallPhone, darkMode]
   );
 
-  const handleNavigate = () => {  
-    Alert.alert( 'Navigation integration is not connected yet.');
-  };
+  const openGoogleDirections = async () => {
+    const googleMapsUrl = routeGeometry ? buildGoogleMapsDirectionsUrl(routeGeometry) : null;
 
-  const handleMapPress = async () => {  // Function to handle when the map is pressed. This will attempt to open Google Maps with the route from the current trip. It checks if route geometry is available and constructs a Google Maps URL with the stops as waypoints. If no coordinates are available, it falls back to using location names. It also includes error handling for cases where Google Maps cannot be opened.
-    console.log('Map pressed - routeGeometry:', routeGeometry);
-    
-    if (!routeGeometry) {
+    if (!googleMapsUrl) {
       Alert.alert('No Route Available', 'No route information available for navigation.');
-      return; //
+      return;
     }
 
     try {
-      // Get all stops with valid coordinates
-      const stopsWithCoordinates = (routeGeometry.stops || []).filter( 
-        (stop) => typeof stop.latitude === 'number' && typeof stop.longitude === 'number' 
-      ); // Filter out stops without valid coordinates
-
-      console.log('Stops with coordinates:', stopsWithCoordinates);
-
-
-      if (stopsWithCoordinates.length === 0) {
-        // Fallback to location names if no coordinates available
-        console.log('No stops with coordinates, using location names');
-        const startLocation = encodeURIComponent(routeGeometry.startLocation); //make sure to encode the location names, beocze they can contain special characters
-        const endLocation = encodeURIComponent(routeGeometry.endLocation);
-        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${startLocation}&destination=${endLocation}&travelmode=driving`; // Construct a Google Maps URL using the start and end location names if no coordinates are available. This will allow the user to still navigate to the general area of the route, even if we don't have precise coordinates for the stops. We encode the location names to ensure they are properly formatted for a URL.
-
-        console.log('Google Maps URL (names):', googleMapsUrl);
-
-        const supported = await Linking.canOpenURL(googleMapsUrl);
-        if (supported) {
-          await Linking.openURL(googleMapsUrl);
-        } else {
-          Alert.alert('Error', 'Unable to open Google Maps. Please make sure Google Maps is installed.');
-        }
-        return;
-      }
-
-      // Build URL with coordinates and waypoints
-      const origin = `${stopsWithCoordinates[0].latitude},${stopsWithCoordinates[0].longitude}`;
-      const destination = `${stopsWithCoordinates[stopsWithCoordinates.length - 1].latitude},${stopsWithCoordinates[stopsWithCoordinates.length - 1].longitude}`;
-      
-      // Add intermediate stops as waypoints
-      const waypoints = stopsWithCoordinates
-        .slice(1, -1)
-        .map((stop) => stop.name)
-        .join(' → '); // Construct the waypoints parameter by taking all stops except the first and last
-
-      console.log('Origin:', origin);
-      console.log('Destination:', destination);
-      console.log('Waypoints:', waypoints);
-      setWaypoints(waypoints); // Store stops with coordinates in state for potential use elsewhere in the component
-
-
-      let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
-      
-      if (waypoints) {
-        googleMapsUrl += `&waypoints=${waypoints}`; // If there are waypoints, add them to the Google Maps URL.
-      }
-
-      console.log('Google Maps URL (coordinates):', googleMapsUrl);
-
       const supported = await Linking.canOpenURL(googleMapsUrl);
       if (supported) {
-        console.log('Opening Google Maps...');
         await Linking.openURL(googleMapsUrl);
       } else {
-        Alert.alert('Error', 'Unable to open Google Maps. Please make sure Google Maps is installed.');
+        Alert.alert('Error', 'Unable to open Google Maps on this device.');
       }
     } catch (error) {
       console.error('Error opening Google Maps:', error);
@@ -422,68 +495,28 @@ export default function DriverDashboardScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.mapContainer} onPress={handleMapPress} activeOpacity={0.9}>
-              {routePoints.length > 0 ? (
-                <View style={styles.routeMapSurface}>
-                  {routePoints.slice(0, -1).map((point, index) => { // Render route segments and bus stops, slice off the last point coz it has no next point
-                    const nextPoint = routePoints[index + 1]; // Get the next point
-                    const segment = buildSegmentStyle(point, nextPoint); // Build the segment style means calculate the angle
+            <View style={styles.mapContainer}>
+              <DriverRouteMap
+                stops={routeGeometry?.stops ?? []}
+                liveBusLocation={liveBusLocation}
+                loading={isLoadingTrip}
+                darkMode={darkMode}
+              />
 
-                    return ( // this will return a view for each segment
-                      <View
-                        key={`segment-${index}`} 
-                        style={[
-                          styles.routeSegment,
-                          {
-                            left: segment.left,
-                            top: segment.top,
-                            width: segment.length,
-                            transform: [{ rotateZ: `${segment.angle}deg` }], // Rotate the segment based on its angle
-                          },
-                        ]}
-                      />
-                    );
-                  })}
-
-                  {routePoints.map((point, index) => (
-                    <View
-                      key={`${point.name}-${index}`}
-                      style={[
-                        styles.routeStop,
-                        point.isBus && styles.routeBusStop,
-                        {
-                          left: point.x - (point.isBus ? 8 : 5),
-                          top: point.y - (point.isBus ? 8 : 5),
-                        },
-                      ]}
-                    />
-                  ))}
-
-                  <View style={styles.mapLegend}>
-                    <Text style={styles.mapLegendText}>
-                      {liveBusLocation ? 'Live bus position shown in blue' : 'Assigned route stop layout'} • Tap to navigate
-                    </Text>
-                  </View>
-                </View>
-              ) : isLoadingTrip ? (
-                <View style={styles.mapState}>
-                  <ActivityIndicator size="small" color="#0066FF" />
-                  <Text style={styles.mapStateText}>Loading route map...</Text>
-                </View>
-              ) : (
-                <View style={styles.mapState}>
-                  <MaterialCommunityIcons name="map-marker-path" size={28} color="#94A3B8" />
-                  <Text style={styles.mapStateText}>No route map available</Text>
-                </View>
-              )}
+              <TouchableOpacity
+                style={styles.mapOpenButton}
+                onPress={openGoogleDirections}
+                activeOpacity={0.85}
+              >
+                <MaterialCommunityIcons name="google-maps" size={15} color="#FFFFFF" />
+                <Text style={styles.mapOpenButtonText}>Open Maps</Text>
+              </TouchableOpacity>
 
               <View style={styles.inTransitBadge}>
                 <MaterialCommunityIcons name="play" size={12} color={theme.text} />
-                <Text style={styles.inTransitText}>
-                  {liveBusLocation ? 'Live Route' : 'Assigned Route'} 
-                </Text>
+                <Text style={styles.inTransitText}>{trackingStatusText}</Text>
               </View>
-            </TouchableOpacity>
+            </View>
 
             <View style={[styles.tripDetails, isCompact && styles.tripDetailsStack]}>
               <View style={styles.routeContainer}>
@@ -512,7 +545,7 @@ export default function DriverDashboardScreen() {
 
               <TouchableOpacity
                 style={[styles.navigateButton, isSmallPhone && styles.fullWidthButton]}
-                onPress={handleNavigate}
+                onPress={openGoogleDirections}
               >
                 <MaterialCommunityIcons name="navigation" size={20} color="#FFF" />
                 <Text style={styles.navigateButtonText}>Navigate</Text>
@@ -741,58 +774,22 @@ function createStyles({
       position: 'relative',
       backgroundColor: '#E0E7FF',
     },
-    routeMapSurface: {
-      flex: 1,
-      backgroundColor: '#ECF5FF',
-    },
-    routeSegment: {
-      position: 'absolute',
-      height: 3,
-      backgroundColor: '#60A5FA',
-      borderRadius: 999,
-    },
-    routeStop: {
-      position: 'absolute',
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-      backgroundColor: '#1D4ED8',
-      borderWidth: 2,
-      borderColor: '#DBEAFE',
-    },
-    routeBusStop: {
-      width: 16,
-      height: 16,
-      borderRadius: 8,
-      backgroundColor: '#0066FF',
-      borderWidth: 3,
-      borderColor: '#FFFFFF',
-    },
-    mapLegend: {
+    mapOpenButton: {
       position: 'absolute',
       top: 12,
-      left: 12,
       right: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 10,
-      backgroundColor: 'rgba(255,255,255,0.88)',
-    },
-    mapLegendText: {
-      fontSize: 11,
-      color: '#334155',
-      fontWeight: '600',
-    },
-    mapState: {
-      flex: 1,
-      justifyContent: 'center',
+      flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 6,
+      backgroundColor: '#0066FF',
+      paddingHorizontal: 11,
+      paddingVertical: 6,
+      borderRadius: 20,
     },
-    mapStateText: {
-      fontSize: 12,
-      color: '#64748B',
-      fontWeight: '600',
+    mapOpenButtonText: {
+      fontSize: 11,
+      color: '#FFFFFF',
+      fontWeight: '700',
     },
     inTransitBadge: {
       position: 'absolute',
@@ -943,66 +940,58 @@ function createStyles({
   });
 }
 
-function buildRoutePoints(
-  stops: RouteStop[],
-  width: number,
-  height: number,
-  liveBusLocation: LiveBusLocation | null
-): RoutePoint[] {
-  const validStops = stops.filter(
-    (stop) => typeof stop.latitude === 'number' && typeof stop.longitude === 'number'
-  ) as Array<RouteStop & { latitude: number; longitude: number }>;
+function buildGoogleMapsDirectionsUrl(routeGeometry: RouteGeometry): string {
+  const stopsWithCoordinates = getStopsWithCoordinates(routeGeometry.stops ?? []);
+  const params = ['api=1', 'travelmode=driving'];
 
-  if (validStops.length === 0) {
-    return [];
+  if (stopsWithCoordinates.length >= 2) {
+    const origin = formatCoordinate(stopsWithCoordinates[0]);
+    const destination = formatCoordinate(stopsWithCoordinates[stopsWithCoordinates.length - 1]);
+    const waypoints = stopsWithCoordinates.slice(1, -1).map(formatCoordinate);
+
+    params.push(`origin=${encodeURIComponent(origin)}`);
+    params.push(`destination=${encodeURIComponent(destination)}`);
+
+    if (waypoints.length > 0) {
+      params.push(`waypoints=${encodeURIComponent(waypoints.join('|'))}`);
+    }
+  } else {
+    params.push(`origin=${encodeURIComponent(routeGeometry.startLocation)}`);
+    params.push(`destination=${encodeURIComponent(routeGeometry.endLocation)}`);
   }
 
-  const latitudes = validStops.map((stop) => stop.latitude);
-  const longitudes = validStops.map((stop) => stop.longitude);
-
-  if (liveBusLocation) {
-    latitudes.push(liveBusLocation.latitude);
-    longitudes.push(liveBusLocation.longitude);
-  }
-
-  const minLat = Math.min(...latitudes);
-  const maxLat = Math.max(...latitudes);
-  const minLng = Math.min(...longitudes);
-  const maxLng = Math.max(...longitudes);
-  const latRange = maxLat - minLat || 0.01;
-  const lngRange = maxLng - minLng || 0.01;
-  const padding = 18;
-  const innerWidth = Math.max(width - padding * 2, 10);
-  const innerHeight = Math.max(height - padding * 2, 10);
-
-  const points: RoutePoint[] = validStops.map((stop) => ({
-    name: stop.name,
-    x: padding + ((stop.longitude - minLng) / lngRange) * innerWidth,
-    y: padding + (1 - (stop.latitude - minLat) / latRange) * innerHeight,
-  }));
-
-  if (liveBusLocation) {
-    points.push({
-      name: liveBusLocation.busNumber,
-      x: padding + ((liveBusLocation.longitude - minLng) / lngRange) * innerWidth,
-      y: padding + (1 - (liveBusLocation.latitude - minLat) / latRange) * innerHeight,
-      isBus: true,
-    });
-  }
-
-  return points;
+  return `https://www.google.com/maps/dir/?${params.join('&')}`;
 }
 
-function buildSegmentStyle(start: RoutePoint, end: RoutePoint) {
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
+function getStopsWithCoordinates(stops: RouteStop[]) {
+  return stops
+    .filter(isCoordinate)
+    .sort((a, b) => {
+      const aPriority = typeof a.priority === 'number' ? a.priority : Number.MAX_SAFE_INTEGER;
+      const bPriority = typeof b.priority === 'number' ? b.priority : Number.MAX_SAFE_INTEGER;
+      return aPriority - bPriority;
+    });
+}
 
-  return {
-    left: start.x,
-    top: start.y,
-    length: Math.sqrt(dx * dx + dy * dy),
-    angle: (Math.atan2(dy, dx) * 180) / Math.PI,
-  };
+function isCoordinate<T extends { latitude: number | null; longitude: number | null }>(
+  value: T
+): value is T & { latitude: number; longitude: number } {
+  return typeof value.latitude === 'number' && typeof value.longitude === 'number';
+}
+
+function formatCoordinate(coordinate: { latitude: number; longitude: number }) {
+  return `${coordinate.latitude},${coordinate.longitude}`;
+}
+
+function getTrackingStatusText(
+  status: LocationSharingStatus,
+  liveBusLocation: LiveBusLocation | null
+) {
+  if (status === 'active') return 'Live sharing';
+  if (status === 'disabled') return 'Sharing off';
+  if (status === 'permission-denied') return 'Location denied';
+  if (status === 'error') return 'Tracking retrying';
+  return liveBusLocation ? 'Live Route' : 'Assigned Route';
 }
 
 function getEtaText(stops: RouteStop[]) {

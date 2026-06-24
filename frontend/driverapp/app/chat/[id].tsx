@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,9 +11,14 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiUrl } from '@/config/env';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
+import {
+  getConversationMessages,
+  markConversationRead,
+  sendConversationMessage,
+  type ChatMessageDto,
+} from '@/services/chatApi';
 
 interface Message {
   id: string;
@@ -24,7 +29,12 @@ interface Message {
 }
 
 export default function ChatScreen() {
-  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const { id, name, otherUserId, otherUserType } = useLocalSearchParams<{
+    id?: string;
+    name?: string;
+    otherUserId?: string;
+    otherUserType?: string;
+  }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { darkMode } = useTheme();
@@ -35,6 +45,11 @@ export default function ChatScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const conversationId = Number(id);
+  const recipientId = Number(otherUserId);
+  const hasConversation = Number.isFinite(conversationId) && conversationId > 0;
+  const hasRecipient = Number.isFinite(recipientId) && recipientId > 0;
 
   const theme = useMemo(
     () => ({
@@ -50,67 +65,61 @@ export default function ChatScreen() {
     [darkMode]
   );
 
-  useEffect(() => {
-    const fetchMessages = async () => {
-      if (!id || !user?.token) {
+  const loadMessages = useCallback(
+    async (showLoading = true) => {
+      if (!hasConversation || !user?.token || !user.userId) {
         setIsLoading(false);
         return;
       }
 
       try {
-        setIsLoading(true);
-        setError(null);
-
-        const response = await fetch(
-          apiUrl(`/api/conversations/${id}/messages?page=0&size=50`),
-          {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${user.token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch messages: ${response.statusText}`);
+        if (showLoading) {
+          setIsLoading(true);
         }
 
-        const result = await response.json();
+        const result = await getConversationMessages({
+          token: user.token,
+          conversationId,
+          page: 0,
+          size: 50,
+        });
+
         const items = Array.isArray(result.content) ? result.content : [];
-
         const mapped = items
-          .map((item: any) => ({
-            id: String(item.messageId),
-            senderId: item.senderId,
-            content: item.deleted ? 'Message deleted' : item.content ?? '',
-            createdAt: item.createdAt ?? '',
-            isMine: item.senderId === user?.userId, // Set isMine based on senderId
-          }))
-          .sort((a: Message, b: Message) => { // Sort messages by createdAt
-            const aTime = new Date(a.createdAt).getTime();
-            const bTime = new Date(b.createdAt).getTime();
-            return aTime - bTime;
-          });
+          .map((item) => mapMessage(item, user.userId))
+          .sort(compareMessages);
 
-        setMessages(mapped);
+        setMessages((current) => mergeMessages(current, mapped));
+        setError(null);
 
-        await fetch(apiUrl(`/api/conversations/${id}/read?userId=${user.userId}`), {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-          },
+        await markConversationRead({
+          token: user.token,
+          conversationId,
+          userId: user.userId,
         });
       } catch (fetchError) {
         console.error('Error fetching chat messages:', fetchError);
-        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load messages');
+        if (showLoading) {
+          setError(fetchError instanceof Error ? fetchError.message : 'Failed to load messages');
+        }
       } finally {
-        setIsLoading(false);
+        if (showLoading) {
+          setIsLoading(false);
+        }
       }
-    };
+    },
+    [conversationId, hasConversation, user?.token, user?.userId]
+  );
 
-    fetchMessages();
-  }, [id, user?.token, user?.userId]);
+  useEffect(() => {
+    void loadMessages(true);
+
+    const refreshTimer = setInterval(() => {
+      void loadMessages(false);
+    }, 4000);
+
+    return () => clearInterval(refreshTimer);
+  }, [loadMessages]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -121,46 +130,31 @@ export default function ChatScreen() {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!draft.trim() || !id || !user?.token || !user?.userId) {
+    if (!draft.trim() || !hasConversation || !user?.token || !user.userId) {
       return;
     }
 
     try {
       setIsSending(true);
 
-      const response = await fetch(
-        apiUrl(`/api/conversations/${id}/messages`),
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            senderId: user.userId,
-            senderType: 'DRIVER',
-            content: draft.trim(),
-            messageType: 'TEXT',
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to send message: ${response.statusText}`);
-      }
-
-      const saved = await response.json();
-      setMessages((current) => [
-        ...current,
-        {
-          id: String(saved.messageId),
-          senderId: saved.senderId,
-          content: saved.content ?? '',
-          createdAt: saved.createdAt ?? new Date().toISOString(),
-          isMine: true,
+      const saved = await sendConversationMessage({
+        token: user.token,
+        conversationId,
+        message: {
+          senderId: user.userId,
+          recipientId: hasRecipient ? recipientId : null,
+          senderType: 'DRIVER',
+          content: draft.trim(),
+          messageType: 'TEXT',
         },
-      ]);
+      });
+
+      setMessages((current) =>
+        mergeMessages(current, [mapMessage(saved, user.userId)])
+      );
       setDraft('');
+      setError(null);
+      void loadMessages(false);
     } catch (sendError) {
       console.error('Error sending chat message:', sendError);
       setError(sendError instanceof Error ? sendError.message : 'Failed to send message');
@@ -181,7 +175,10 @@ export default function ChatScreen() {
           styles.messageBubble,
           item.isMine
             ? [styles.messageBubbleMine, { backgroundColor: theme.mine }]
-            : [styles.messageBubbleTheirs, { backgroundColor: theme.theirs, borderColor: theme.border }],
+            : [
+                styles.messageBubbleTheirs,
+                { backgroundColor: theme.theirs, borderColor: theme.border },
+              ],
         ]}
       >
         <Text style={[styles.messageText, { color: item.isMine ? theme.mineText : theme.text }]}>
@@ -206,7 +203,9 @@ export default function ChatScreen() {
           <MaterialCommunityIcons name="arrow-left" size={24} color="#0066FF" />
         </TouchableOpacity>
 
-        <Text style={[styles.title, { color: theme.text }]}>{name || `Chat ${id}`}</Text>
+        <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+          {name || `Chat ${id}`}
+        </Text>
 
         <View style={{ width: 24 }} />
       </View>
@@ -214,7 +213,9 @@ export default function ChatScreen() {
       {isLoading ? (
         <View style={styles.stateContainer}>
           <ActivityIndicator size="large" color="#0066FF" />
-          <Text style={[styles.subText, { color: theme.secondaryText }]}>Loading conversation...</Text>
+          <Text style={[styles.subText, { color: theme.secondaryText }]}>
+            Loading conversation...
+          </Text>
         </View>
       ) : error ? (
         <View style={styles.stateContainer}>
@@ -242,8 +243,17 @@ export default function ChatScreen() {
 
           <View style={[styles.inputBar, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
             <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
-              placeholder="Type a message..."
+              style={[
+                styles.input,
+                {
+                  color: theme.text,
+                  borderColor: theme.border,
+                  backgroundColor: theme.background,
+                },
+              ]}
+              placeholder={
+                otherUserType === 'ADMIN' ? 'Message admin support...' : 'Type a message...'
+              }
               placeholderTextColor="#999"
               value={draft}
               onChangeText={setDraft}
@@ -261,6 +271,33 @@ export default function ChatScreen() {
       )}
     </SafeAreaView>
   );
+}
+
+function mapMessage(item: ChatMessageDto, currentUserId: number): Message {
+  const createdAt = item.createdAt ?? new Date().toISOString();
+  return {
+    id: String(item.messageId ?? `${item.senderId}-${createdAt}-${item.content}`),
+    senderId: item.senderId,
+    content: item.deleted ? 'Message deleted' : item.content ?? '',
+    createdAt,
+    isMine: item.senderId === currentUserId,
+  };
+}
+
+function mergeMessages(current: Message[], incoming: Message[]) {
+  const byId = new Map<string, Message>();
+
+  [...current, ...incoming].forEach((message) => {
+    byId.set(message.id, message);
+  });
+
+  return Array.from(byId.values()).sort(compareMessages);
+}
+
+function compareMessages(a: Message, b: Message) {
+  const aTime = new Date(a.createdAt).getTime();
+  const bTime = new Date(b.createdAt).getTime();
+  return aTime - bTime;
 }
 
 function formatMessageTime(timestamp?: string) {
@@ -288,6 +325,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   title: {
+    flex: 1,
+    marginHorizontal: 12,
+    textAlign: 'center',
     fontSize: 16,
     fontWeight: '700',
   },

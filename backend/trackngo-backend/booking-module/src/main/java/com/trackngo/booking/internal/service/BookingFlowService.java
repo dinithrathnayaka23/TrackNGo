@@ -698,6 +698,16 @@ public class BookingFlowService {
         }
     }
 
+    public void markPassengerBoarded(Long seatBookingId) {
+        int updated = jdbc.update(
+            "UPDATE seat_booking SET status = 'boarded' WHERE seat_booking_id = ? AND status != 'cancelled'",
+            seatBookingId
+        );
+        if (updated == 0) {
+            throw new RuntimeException("Booking not found or already cancelled");
+        }
+    }
+
     /*
        HELPERS
     */

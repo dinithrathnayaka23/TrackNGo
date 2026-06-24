@@ -12,9 +12,15 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiUrl } from '@/config/env';
+import { ADMIN_SUPPORT_USER_ID } from '@/config/env';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
+import {
+  createConversation,
+  getUserConversations,
+  type ChatParticipantType,
+  type ConversationDto,
+} from '@/services/chatApi';
 
 interface Conversation { // Conversation type definition for the conversation list items
   id: string;
@@ -23,16 +29,9 @@ interface Conversation { // Conversation type definition for the conversation li
   timestamp: string;
   participantType: string;
   unreadCount: number;
-}
-
-interface ConversationResponseItem { // Type definition for the conversation items received from the backend API. This type includes all the fields that we expect to receive from the API, with some fields marked as optional in case they are not provided by the backend. This allows us to handle cases where certain data might be missing without causing errors in our application.
-  conversationId: number;
-  otherParticipantId?: number;
-  otherParticipantName?: string;
-  otherParticipantType?: string;
-  unreadCount?: number;
-  lastMessage?: string;
-  lastMessageTimestamp?: string;
+  otherUserId?: number | null;
+  otherUserType?: ChatParticipantType | null;
+  isSupport: boolean;
 }
 
 const DriverChatScreen = () => {
@@ -59,38 +58,33 @@ const DriverChatScreen = () => {
         setIsLoading(true);
         setError(null);
 
-        const endpoint = new URL(apiUrl(`/api/users/${user.userId}/conversations`));
-        endpoint.searchParams.set('page', '0'); // Always fetch the first page of conversations for simplicity. In a real app, you would implement pagination to load more conversations as the user scrolls.
-        endpoint.searchParams.set('size', '20'); // Fetch up to 20 conversations at a time. This is a reasonable number to display in a chat list without overwhelming the user, while also allowing for some level of pagination if needed.
-        if (searchQuery.trim()) { // If there is a search query, include it as a query parameter to filter conversations on the server side. This allows the backend to return only conversations that match the search criteria, improving performance and relevance of the results.
-          endpoint.searchParams.set('q', searchQuery.trim()); //q means query
-        }
-
-        const response = await fetch(endpoint.toString(), {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-            'Content-Type': 'application/json',
-          },
+        const result = await getUserConversations({
+          token: user.token,
+          userId: user.userId,
+          page: 0,
+          size: 20,
+          q: searchQuery.trim() || undefined,
         });
+        let items = Array.isArray(result.content) ? result.content : [];
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch conversations: ${response.statusText}`);
+        const supportConversation = items.find((item) =>
+          isSupportConversation(item, user.userId)
+        );
+
+        if (!supportConversation && !searchQuery.trim()) {
+          const createdSupportConversation = await createConversation({
+            token: user.token,
+            user1Id: user.userId,
+            user1Type: 'DRIVER',
+            user2Id: ADMIN_SUPPORT_USER_ID,
+            user2Type: 'ADMIN',
+          });
+          items = [createdSupportConversation, ...items];
         }
-
-        const result = await response.json();
-        const items: ConversationResponseItem[] = Array.isArray(result.content) ? result.content : []; // Ensure that we have an array of conversations from the response. If the content is not an array, we default to an empty array to avoid errors when mapping over it.
 
         setConversations(
-          items.map((item) => ({  // Map each conversation item to our Conversation type, providing default values for any missing fields.
-            id: String(item.conversationId),
-            name: item.otherParticipantName ?? `User #${item.otherParticipantId ?? item.conversationId}`,
-            message: item.lastMessage ?? 'No messages yet',
-            timestamp: formatTimestamp(item.lastMessageTimestamp),
-            participantType: formatParticipantType(item.otherParticipantType),
-            unreadCount: item.unreadCount ?? 0,
-          }))
-        ); // Map the response items to our Conversation type, providing default values for any missing fields. This ensures that our UI can display a consistent conversation list even if some data is not available from the backend.
+          dedupeConversations(items).map((item) => mapConversation(item, user.userId))
+        );
       } catch (fetchError) {
         console.error('Error fetching driver conversations:', fetchError);
         setError(fetchError instanceof Error ? fetchError.message : 'Failed to load conversations');
@@ -142,7 +136,12 @@ const DriverChatScreen = () => {
       onPress={() =>
         router.push({
           pathname: '/chat/[id]',
-          params: { id: item.id, name: item.name },
+          params: {
+            id: item.id,
+            name: item.name,
+            otherUserId: item.otherUserId ? String(item.otherUserId) : '',
+            otherUserType: item.otherUserType ?? '',
+          },
         })
       }
     >
@@ -175,7 +174,7 @@ const DriverChatScreen = () => {
 
         {!!item.participantType && (
           <Text style={styles.participantTypeText} numberOfLines={1}>
-            {item.participantType}
+            {item.isSupport ? 'Admin Support' : item.participantType}
           </Text>
         )}
       </View>
@@ -259,6 +258,65 @@ function formatParticipantType(type?: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function getOtherParticipant(item: ConversationDto, currentUserId: number) {
+  if (item.participant1Id === currentUserId) {
+    return {
+      id: item.participant2Id,
+      type: item.participant2Type,
+      unreadCount: item.participant1Unread ?? item.unreadCount ?? 0,
+    };
+  }
+
+  if (item.participant2Id === currentUserId) {
+    return {
+      id: item.participant1Id,
+      type: item.participant1Type,
+      unreadCount: item.participant2Unread ?? item.unreadCount ?? 0,
+    };
+  }
+
+  return {
+    id: item.otherParticipantId,
+    type: item.otherParticipantType,
+    unreadCount: item.unreadCount ?? 0,
+  };
+}
+
+function isSupportConversation(item: ConversationDto, currentUserId: number) {
+  const other = getOtherParticipant(item, currentUserId);
+  return other.id === ADMIN_SUPPORT_USER_ID && other.type === 'ADMIN';
+}
+
+function dedupeConversations(items: ConversationDto[]) {
+  const seen = new Set<number>();
+  return items.filter((item) => {
+    if (seen.has(item.conversationId)) {
+      return false;
+    }
+    seen.add(item.conversationId);
+    return true;
+  });
+}
+
+function mapConversation(item: ConversationDto, currentUserId: number): Conversation {
+  const other = getOtherParticipant(item, currentUserId);
+  const isSupport = other.id === ADMIN_SUPPORT_USER_ID && other.type === 'ADMIN';
+  const participantType = formatParticipantType(other.type ?? item.otherParticipantType ?? undefined);
+  const fallbackName = other.id ? `User #${other.id}` : `Conversation #${item.conversationId}`;
+
+  return {
+    id: String(item.conversationId),
+    name: isSupport ? 'Admin Support' : item.otherParticipantName ?? fallbackName,
+    message: item.lastMessage ?? 'No messages yet',
+    timestamp: formatTimestamp(item.lastMessageTimestamp ?? undefined),
+    participantType,
+    unreadCount: other.unreadCount,
+    otherUserId: other.id ?? item.otherParticipantId,
+    otherUserType: other.type ?? item.otherParticipantType,
+    isSupport,
+  };
 }
 
 function formatTimestamp(timestamp?: string) {

@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  Linking,
+  Animated,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,10 +20,26 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useFocusEffect } from '@react-navigation/native';
 import DriverRouteMap from '@/components/DriverRouteMap';
+import {
+  getLatestBusLocation,
+  publishDriverLocation,
+  type LiveBusLocation,
+} from '@/services/trackingApi';
+import { resolveAssetUrl } from '@/utils/media';
+import {
+  formatStopEta,
+  getOrderedStops,
+  getStopsWithCoordinates,
+  type RouteGeometry,
+  type RouteStop,
+} from '@/utils/routeNavigation';
 
 const DRIVER_SHARE_LOCATION_KEY = 'driverShareLocation';
 
 interface DriverProfile { 
+  firstName?: string;
+  lastName?: string;
+  profilePhoto?: string | null;
   averageRating: number;
   driverEarnings: number;
 }
@@ -36,31 +53,6 @@ interface DriverAssignment {
   startTime?: string;
   endTime?: string;
   seatCapacity?: number;
-}
-
-interface RouteStop {
-  name: string;
-  latitude: number | null;
-  longitude: number | null;
-  priority?: number | null;
-  estimatedArrivalMins?: number | null;
-}
-
-interface RouteGeometry {
-  routeId: number;
-  routeName: string;
-  startLocation: string;
-  endLocation: string;
-  stops: RouteStop[];
-}
-
-interface LiveBusLocation {
-  busNumber: string;
-  latitude: number;
-  longitude: number;
-  heading?: number | null;
-  speed?: number | null;
-  timestamp?: number | null;
 }
 
 type LocationSharingStatus = 'idle' | 'active' | 'disabled' | 'permission-denied' | 'error';
@@ -80,7 +72,8 @@ export default function DriverDashboardScreen() {
   const [shareLocationEnabled, setShareLocationEnabled] = useState(true);
   const [locationSharingStatus, setLocationSharingStatus] =
     useState<LocationSharingStatus>('idle');
-  const [waypoints, setWaypoints] = useState<string>('');
+  const earningsPulseOpacity = useRef(new Animated.Value(0.45)).current;
+  const livePulseOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {                         
     const loadUser = async () => { 
@@ -99,6 +92,26 @@ export default function DriverDashboardScreen() {
 
     loadUser(); 
   }, []); //every refresh
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(earningsPulseOpacity, {
+          toValue: 1,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+        Animated.timing(earningsPulseOpacity, {
+          toValue: 0.35,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    animation.start();
+    return () => animation.stop();
+  }, [earningsPulseOpacity]);
 
   useFocusEffect(
     useCallback(() => {
@@ -120,111 +133,84 @@ export default function DriverDashboardScreen() {
     }, [])
   );
 
-  useEffect(() => {      
-    const fetchDashboardData = async () => { 
-      if (!user?.userId || !user?.token) { 
-        setIsLoadingTrip(false); // user data is not available
-        return;
+  const fetchDashboardData = useCallback(async () => {
+    if (!user?.userId || !user?.token) {
+      setIsLoadingTrip(false);
+      return;
+    }
+
+    try {
+      setIsLoadingTrip(true);
+
+      const response = await fetch(
+        apiUrl(`/api/drivers/${user.userId}/profile-and-assignment`),
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch dashboard data: ${response.statusText}`);
       }
 
-      try {
-        const response = await fetch(
-          apiUrl(`/api/drivers/${user.userId}/profile-and-assignment`),
-          {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${user.token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+      const result = await response.json();
+      if (!(result.success && result.data?.profile)) {
+        throw new Error(result.message || 'Failed to load dashboard data');
+      }
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch dashboard data: ${response.statusText}`);
-        }
+      const profile = result.data.profile as DriverProfile;
+      const currentAssignment = result.data.assignment ?? null;
+      setProfileData(profile);
+      setAssignment(currentAssignment);
 
-        const result = await response.json();  // Parse the JSON response from the API call to an object. 
-        console.log("API FULL RESPONSE", result);
-        if (!(result.success && result.data?.profile)) { 
-          throw new Error(result.message || 'Failed to load dashboard data');
-        }
+      if (profile.firstName) {
+        setFirstName(profile.firstName);
+      }
 
-        setProfileData(result.data.profile);    
-        setAssignment(result.data.assignment ?? null);  
+      const routeId = currentAssignment?.routeId;
+      const busNumber = currentAssignment?.busNumber;
 
-        const routeId = result.data.assignment?.routeId; 
-        const busNumber = result.data.assignment?.busNumber;  
-        console.log('Dashboard Data - routeId:', routeId, 'busNumber:', busNumber);  
+      if (routeId) {
+        const geometryResponse = await fetch(apiUrl(`/api/tracking/routes/${routeId}/geometry`), {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-        if (routeId) {
-          const geometryResponse = await fetch(
-            apiUrl(`/api/tracking/routes/${routeId}/geometry`), // Make an API call to fetch the geometry of the route using the extracted route ID.
-            {
-              method: 'GET',
-              headers: {
-                Authorization: `Bearer ${user.token}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-
-          console.log('Route geometry response status:', geometryResponse.status); 
-
-          if (geometryResponse.ok) {
-            const geometryResult = await geometryResponse.json(); // Parse the JSON response to get the route geometry data. This should include the start and end locations, as well as the stops along the route with their coordinates and estimated arrival times. The geometry data will be used to display the route on the map and calculate ETAs.
-            console.log('Route geometry result:', geometryResult); 
-            setRouteGeometry(geometryResult.data ?? null); 
-          } else {
-            const errorText = await geometryResponse.text();
-            console.error('Route geometry error:', geometryResponse.status, errorText);
-            setRouteGeometry(null);
-          }
+        if (geometryResponse.ok) {
+          const geometryResult = await geometryResponse.json();
+          setRouteGeometry(geometryResult.data ?? null);
         } else {
-          console.warn('No routeId in assignment');
           setRouteGeometry(null);
         }
-
-        if (busNumber) {
-          const liveLocationResponse = await fetch(
-            apiUrl(`/api/tracking/live-location/${encodeURIComponent(busNumber)}`), //encodeURIComponent(busNumber) is used to encode the bus number in the URL.
-            {
-              method: 'GET',
-              headers: {
-                Authorization: `Bearer ${user.token}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-
-          if (liveLocationResponse.ok) {
-            const liveLocationResult = await liveLocationResponse.json();
-            setLiveBusLocation(liveLocationResult.data ?? null); 
-          }
-        } else {
-          setLiveBusLocation(null);
-        }
-      } catch (error) { 
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setIsLoadingTrip(false);
+      } else {
+        setRouteGeometry(null);
       }
-    };
 
-    fetchDashboardData();         
-  }, [user?.token, user?.userId]);  // useEffect 
+      if (busNumber) {
+        const latestLocation = await getLatestBusLocation(user.token, busNumber);
+        setLiveBusLocation(latestLocation);
+      } else {
+        setLiveBusLocation(null);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setIsLoadingTrip(false);
+    }
+  }, [user?.token, user?.userId]);
 
-  useEffect(() => {
-    if (!routeGeometry?.stops) {
-      setWaypoints('');
-      return;
-    } // If there are no stops in the route geometry, exit early
-
-    const waypointNames = routeGeometry.stops // Extract the names of the stops from the route geometry
-      .map((stop) => stop.name) // Get the name property of each stop
-      .join(' -> ');
-
-    setWaypoints(waypointNames); //update the waypoints in useState
-  }, [routeGeometry]);
+  useFocusEffect(
+    useCallback(() => {
+      void fetchDashboardData();
+    }, [fetchDashboardData])
+  );
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -254,20 +240,10 @@ export default function DriverDashboardScreen() {
       setLiveBusLocation(payload);
 
       try {
-        const response = await fetch(apiUrl('/api/tracking/live-location'), {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to publish live location: ${response.status}`);
-        }
+        const publishedLocation = await publishDriverLocation(user.token, payload);
 
         if (!isCancelled) {
+          setLiveBusLocation(publishedLocation);
           setLocationSharingStatus('active');
         }
       } catch (error) {
@@ -346,12 +322,47 @@ export default function DriverDashboardScreen() {
   const ratingValue = profileData?.averageRating ?? 0;  
   const roundedRating = Math.round(ratingValue);  
   const earningsAmount = profileData?.driverEarnings ?? 0;  
-
-  const routeDisplay = routeGeometry
-    ? `${routeGeometry.startLocation} -> ${routeGeometry.endLocation}`
-    : assignment?.routeName ?? 'No current route';
+  const profilePhotoUri = resolveAssetUrl(profileData?.profilePhoto);
+  const orderedStops = useMemo(
+    () => getOrderedStops(routeGeometry?.stops ?? []),
+    [routeGeometry?.stops]
+  );
+  const coordinateStopCount = getStopsWithCoordinates(orderedStops).length;
+  const routeStart = orderedStops[0]?.name ?? routeGeometry?.startLocation;
+  const routeEnd = orderedStops[orderedStops.length - 1]?.name ?? routeGeometry?.endLocation;
+  const routeDisplay =
+    routeStart && routeEnd
+      ? `${routeStart} -> ${routeEnd}`
+      : assignment?.routeName ?? 'No current route';
 
   const trackingStatusText = getTrackingStatusText(locationSharingStatus, liveBusLocation);
+  const isTripLive = getTripLiveStatus(locationSharingStatus, liveBusLocation);
+
+  useEffect(() => {
+    if (!isTripLive) {
+      livePulseOpacity.stopAnimation();
+      livePulseOpacity.setValue(1);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(livePulseOpacity, {
+          toValue: 0.2,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+        Animated.timing(livePulseOpacity, {
+          toValue: 1,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    animation.start();
+    return () => animation.stop();
+  }, [isTripLive, livePulseOpacity]);
     
 
   const etaText = getEtaText(routeGeometry?.stops ?? []); 
@@ -377,27 +388,6 @@ export default function DriverDashboardScreen() {
     [horizontalPadding, mapHeight, insets.bottom, isSmallPhone, darkMode]
   );
 
-  const openGoogleDirections = async () => {
-    const googleMapsUrl = routeGeometry ? buildGoogleMapsDirectionsUrl(routeGeometry) : null;
-
-    if (!googleMapsUrl) {
-      Alert.alert('No Route Available', 'No route information available for navigation.');
-      return;
-    }
-
-    try {
-      const supported = await Linking.canOpenURL(googleMapsUrl);
-      if (supported) {
-        await Linking.openURL(googleMapsUrl);
-      } else {
-        Alert.alert('Error', 'Unable to open Google Maps on this device.');
-      }
-    } catch (error) {
-      console.error('Error opening Google Maps:', error);
-      Alert.alert('Error', 'Failed to open Google Maps navigation.');
-    }
-  };
-
   const handleDetails = () => {
     router.push('/allocations');
   };
@@ -414,6 +404,15 @@ export default function DriverDashboardScreen() {
     router.push('/earnings');
   };
 
+  const handleNavigation = () => {
+    if (!assignment?.routeId && !routeGeometry) {
+      Alert.alert('No Route Available', 'No route information available for navigation.');
+      return;
+    }
+
+    router.push('/navigation');
+  };
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <ScrollView
@@ -425,11 +424,15 @@ export default function DriverDashboardScreen() {
           <View style={styles.headerContainer}>
             <View style={styles.greetingContainer}>
               <TouchableOpacity style={styles.avatarPlaceholder} onPress={handleProfilePress}>
-                <MaterialCommunityIcons
-                  name="account"
-                  size={isSmallPhone ? 24 : 28}
-                  color="#0066FF"
-                />
+                {profilePhotoUri ? (
+                  <Image source={{ uri: profilePhotoUri }} style={styles.avatarImage} />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="account"
+                    size={isSmallPhone ? 24 : 28}
+                    color="#0066FF"
+                  />
+                )}
               </TouchableOpacity>
 
               <View style={styles.greetingText}>
@@ -468,8 +471,10 @@ export default function DriverDashboardScreen() {
             <View style={styles.earningsHeader}>
               <Text style={styles.sectionLabel}>Monthly Earnings</Text>
 
-              <View style={styles.chartPlaceholder}>
-                <View style={styles.chartSegment} />
+              <View style={styles.earningsIndicator}>
+                <Animated.View
+                  style={[styles.earningsPulseDot, { opacity: earningsPulseOpacity }]}
+                />
               </View>
             </View>
 
@@ -490,9 +495,28 @@ export default function DriverDashboardScreen() {
           <View style={styles.card}>
             <View style={styles.tripHeader}>
               <Text style={styles.sectionTitle}>Current Trip</Text>
-              <TouchableOpacity>
-                <Text style={styles.liveButton}>Live</Text>
-              </TouchableOpacity>
+              <View
+                style={[
+                  styles.liveStatusPill,
+                  isTripLive ? styles.liveStatusPillActive : styles.liveStatusPillInactive,
+                ]}
+              >
+                <Animated.View
+                  style={[
+                    styles.liveStatusDot,
+                    isTripLive ? styles.liveStatusDotActive : styles.liveStatusDotInactive,
+                    isTripLive ? { opacity: livePulseOpacity } : null,
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.liveStatusText,
+                    isTripLive ? styles.liveStatusTextActive : styles.liveStatusTextInactive,
+                  ]}
+                >
+                  {isTripLive ? 'Live' : 'Not Live'}
+                </Text>
+              </View>
             </View>
 
             <View style={styles.mapContainer}>
@@ -505,11 +529,11 @@ export default function DriverDashboardScreen() {
 
               <TouchableOpacity
                 style={styles.mapOpenButton}
-                onPress={openGoogleDirections}
+                onPress={handleNavigation}
                 activeOpacity={0.85}
               >
                 <MaterialCommunityIcons name="google-maps" size={15} color="#FFFFFF" />
-                <Text style={styles.mapOpenButtonText}>Open Maps</Text>
+                <Text style={styles.mapOpenButtonText}>Map View</Text>
               </TouchableOpacity>
 
               <View style={styles.inTransitBadge}>
@@ -523,7 +547,48 @@ export default function DriverDashboardScreen() {
                 <Text style={styles.routeText} numberOfLines={1}>
                   {routeDisplay}
                 </Text>
-                <Text style={styles.waypointText}>{waypoints}</Text>
+                {orderedStops.length > 0 ? (
+                  <View style={styles.stopsBlock}>
+                    <View style={styles.stopsHeader}>
+                      <Text style={styles.stopsTitle}>Route Stops</Text>
+                      <Text style={styles.stopsCount}>
+                        {coordinateStopCount}/{orderedStops.length} mapped
+                      </Text>
+                    </View>
+
+                    <ScrollView
+                      horizontal
+                      nestedScrollEnabled
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.stopsTrack}
+                    >
+                      {orderedStops.map((stop, index) => {
+                        const eta = formatStopEta(stop);
+
+                        return (
+                          <View
+                            key={`${stop.name}-${index}`}
+                            style={[
+                              styles.stopChip,
+                              index === 0 && styles.stopChipStart,
+                              index === orderedStops.length - 1 && styles.stopChipEnd,
+                            ]}
+                          >
+                            <View style={styles.stopNumber}>
+                              <Text style={styles.stopNumberText}>{index + 1}</Text>
+                            </View>
+                            <Text style={styles.stopName} numberOfLines={1}>
+                              {stop.name}
+                            </Text>
+                            {eta ? <Text style={styles.stopEta}>{eta}</Text> : null}
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                ) : (
+                  <Text style={styles.emptyStopsText}>Stops not loaded from route database</Text>
+                )}
                 <Text style={styles.etaLabel}>ETA</Text>
                 <Text style={styles.etaTime}>{etaText}</Text>
               </View>
@@ -545,7 +610,7 @@ export default function DriverDashboardScreen() {
 
               <TouchableOpacity
                 style={[styles.navigateButton, isSmallPhone && styles.fullWidthButton]}
-                onPress={openGoogleDirections}
+                onPress={handleNavigation}
               >
                 <MaterialCommunityIcons name="navigation" size={20} color="#FFF" />
                 <Text style={styles.navigateButtonText}>Navigate</Text>
@@ -638,6 +703,11 @@ function createStyles({
       alignItems: 'center',
       marginRight: 12,
       flexShrink: 0,
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     greetingText: {
       flex: 1,
@@ -647,7 +717,7 @@ function createStyles({
       fontSize: isSmallPhone ? 14 : 15,
       fontWeight: '700',
       color: theme.text,
-      letterSpacing: -0.3,
+      letterSpacing: 0,
     },
     dateContainer: {
       flexDirection: 'row',
@@ -664,12 +734,6 @@ function createStyles({
       position: 'relative',
       padding: 8,
       flexShrink: 0,
-    },
-    waypointText:{
-      fontSize: 12,
-      color: '#334155',
-      fontWeight: '500',
-      marginBottom: 4,
     },
     notificationBadge: {
       position: 'absolute',
@@ -716,19 +780,19 @@ function createStyles({
       color: theme.text,
       flexShrink: 1,
     },
-    chartPlaceholder: {
-      width: isSmallPhone ? 44 : 50,
-      height: isSmallPhone ? 44 : 50,
-      borderRadius: 999,
-      backgroundColor: '#E0E7FF',
+    earningsIndicator: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: '#EAF2FF',
       justifyContent: 'center',
       alignItems: 'center',
       flexShrink: 0,
     },
-    chartSegment: {
-      width: isSmallPhone ? 34 : 40,
-      height: isSmallPhone ? 34 : 40,
-      borderRadius: 999,
+    earningsPulseDot: {
+      width: 9,
+      height: 9,
+      borderRadius: 5,
       backgroundColor: '#0066FF',
     },
     earningsAmount: {
@@ -736,7 +800,7 @@ function createStyles({
       fontWeight: '700',
       color: theme.text,
       marginVertical: 8,
-      letterSpacing: -0.5,
+      letterSpacing: 0,
     },
     growthContainer: {
       flexDirection: 'row',
@@ -759,12 +823,43 @@ function createStyles({
       fontWeight: '700',
       color: theme.text,
     },
-    liveButton: {
+    liveStatusPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 999,
+      borderWidth: 1,
+    },
+    liveStatusPillActive: {
+      backgroundColor: '#ECFDF3',
+      borderColor: '#BBF7D0',
+    },
+    liveStatusPillInactive: {
+      backgroundColor: '#FEF2F2',
+      borderColor: '#FECACA',
+    },
+    liveStatusDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+    },
+    liveStatusDotActive: {
+      backgroundColor: '#16A34A',
+    },
+    liveStatusDotInactive: {
+      backgroundColor: '#DC2626',
+    },
+    liveStatusText: {
       fontSize: 11,
-      fontWeight: '700',
-      color: '#0066FF',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      fontWeight: '800',
+    },
+    liveStatusTextActive: {
+      color: '#15803D',
+    },
+    liveStatusTextInactive: {
+      color: '#B91C1C',
     },
     mapContainer: {
       borderRadius: 12,
@@ -828,6 +923,81 @@ function createStyles({
       fontWeight: '700',
       color: theme.text,
       marginBottom: 4,
+    },
+    stopsBlock: {
+      marginTop: 8,
+      marginBottom: 16,
+    },
+    stopsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      marginBottom: 8,
+    },
+    stopsTitle: {
+      fontSize: 10,
+      color: theme.secondaryText,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+    stopsCount: {
+      fontSize: 10,
+      color: '#64748B',
+      fontWeight: '700',
+    },
+    stopsTrack: {
+      gap: 10,
+      paddingRight: 8,
+      paddingBottom: 3,
+    },
+    stopChip: {
+      minWidth: 88,
+      maxWidth: 112,
+      minHeight: 44,
+      paddingHorizontal: 8,
+      paddingVertical: 7,
+      borderRadius: 8,
+      backgroundColor: theme.background,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    stopChipStart: {
+      borderColor: '#86EFAC',
+    },
+    stopChipEnd: {
+      borderColor: '#FCA5A5',
+    },
+    stopNumber: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: '#0066FF',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 4,
+    },
+    stopNumberText: {
+      fontSize: 8,
+      color: '#FFFFFF',
+      fontWeight: '800',
+    },
+    stopName: {
+      fontSize: 10,
+      color: theme.text,
+      fontWeight: '700',
+    },
+    stopEta: {
+      fontSize: 9,
+      color: theme.secondaryText,
+      fontWeight: '700',
+      marginTop: 2,
+    },
+    emptyStopsText: {
+      fontSize: 11,
+      color: theme.secondaryText,
+      fontWeight: '600',
+      marginBottom: 8,
     },
     etaLabel: {
       fontSize: 10,
@@ -940,49 +1110,6 @@ function createStyles({
   });
 }
 
-function buildGoogleMapsDirectionsUrl(routeGeometry: RouteGeometry): string {
-  const stopsWithCoordinates = getStopsWithCoordinates(routeGeometry.stops ?? []);
-  const params = ['api=1', 'travelmode=driving'];
-
-  if (stopsWithCoordinates.length >= 2) {
-    const origin = formatCoordinate(stopsWithCoordinates[0]);
-    const destination = formatCoordinate(stopsWithCoordinates[stopsWithCoordinates.length - 1]);
-    const waypoints = stopsWithCoordinates.slice(1, -1).map(formatCoordinate);
-
-    params.push(`origin=${encodeURIComponent(origin)}`);
-    params.push(`destination=${encodeURIComponent(destination)}`);
-
-    if (waypoints.length > 0) {
-      params.push(`waypoints=${encodeURIComponent(waypoints.join('|'))}`);
-    }
-  } else {
-    params.push(`origin=${encodeURIComponent(routeGeometry.startLocation)}`);
-    params.push(`destination=${encodeURIComponent(routeGeometry.endLocation)}`);
-  }
-
-  return `https://www.google.com/maps/dir/?${params.join('&')}`;
-}
-
-function getStopsWithCoordinates(stops: RouteStop[]) {
-  return stops
-    .filter(isCoordinate)
-    .sort((a, b) => {
-      const aPriority = typeof a.priority === 'number' ? a.priority : Number.MAX_SAFE_INTEGER;
-      const bPriority = typeof b.priority === 'number' ? b.priority : Number.MAX_SAFE_INTEGER;
-      return aPriority - bPriority;
-    });
-}
-
-function isCoordinate<T extends { latitude: number | null; longitude: number | null }>(
-  value: T
-): value is T & { latitude: number; longitude: number } {
-  return typeof value.latitude === 'number' && typeof value.longitude === 'number';
-}
-
-function formatCoordinate(coordinate: { latitude: number; longitude: number }) {
-  return `${coordinate.latitude},${coordinate.longitude}`;
-}
-
 function getTrackingStatusText(
   status: LocationSharingStatus,
   liveBusLocation: LiveBusLocation | null
@@ -992,6 +1119,14 @@ function getTrackingStatusText(
   if (status === 'permission-denied') return 'Location denied';
   if (status === 'error') return 'Tracking retrying';
   return liveBusLocation ? 'Live Route' : 'Assigned Route';
+}
+
+function getTripLiveStatus(
+  status: LocationSharingStatus,
+  liveBusLocation: LiveBusLocation | null
+) {
+  if (!liveBusLocation) return false;
+  return status !== 'disabled' && status !== 'permission-denied' && status !== 'error';
 }
 
 function getEtaText(stops: RouteStop[]) {

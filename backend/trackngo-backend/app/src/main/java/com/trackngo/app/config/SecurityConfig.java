@@ -53,7 +53,7 @@ public class SecurityConfig {
                 .requestMatchers("/bus-sharer.html").permitAll()
                 .requestMatchers("/api/locations/**").permitAll()
                 .requestMatchers("/api/trips/**").permitAll()
-                .requestMatchers("/api/trips/**").permitAll()
+                .requestMatchers("/api/corporate/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

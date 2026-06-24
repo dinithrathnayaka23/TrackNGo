@@ -31,16 +31,11 @@ function RootLayoutNav() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {currentUser == null ? (
-        <>
-          <Stack.Screen name="auth/welcome" />
-          <Stack.Screen name="auth/login" />
-          <Stack.Screen name="auth/registration" />
-          <Stack.Screen name="auth/otp-verification" />
-        </>
-      ) : (
-        <Stack.Screen name="tabs" />
-      )}
+      <Stack.Screen name="auth/welcome" />
+      <Stack.Screen name="auth/login" />
+      <Stack.Screen name="auth/registration" />
+      <Stack.Screen name="auth/otp-verification" />
+      <Stack.Screen name="tabs" />
     </Stack>
   );
 }

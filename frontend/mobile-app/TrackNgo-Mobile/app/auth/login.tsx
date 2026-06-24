@@ -82,7 +82,11 @@ export default function LoginScreen() {
       const userType: UserType =
         USER_TYPE_MAP[data.userType?.toLowerCase()] ?? "PASSENGER";
       await setCurrentUser({ userId: data.userId, userType });
-      router.replace("/tabs");
+      if (userType === "CORPORATE_USER") {
+        router.replace("/corporate/co-op-dashboard");
+      } else {
+        router.replace("/tabs");
+      }
     } catch (error: unknown) {
       let message = "Login failed. Please check your credentials and try again.";
       if (error instanceof Error) {

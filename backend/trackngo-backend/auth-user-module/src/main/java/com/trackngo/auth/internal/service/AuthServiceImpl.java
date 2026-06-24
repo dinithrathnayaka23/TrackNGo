@@ -26,15 +26,26 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(AuthRequest request) {
-        User user = userRepository.findByEmail(request.getIdentifier())
+        User user = userRepository.findByIdentifier(request.getIdentifier().trim())
             .orElseThrow(() -> new BusinessException("Invalid credentials"));
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new BusinessException("Invalid credentials");
         }
-        if (!"driver".equalsIgnoreCase(user.getUserType())) {
-            throw new BusinessException("Access denied. Driver account required.");
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            throw new BusinessException("Account is inactive.");
         }
-        String token = jwtUtil.generateToken(user.getEmail(), Map.of("role", user.getUserType(), "userType", user.getUserType()));
+
+        String requestedUserType = normalizeUserType(request.getExpectedUserType());
+        String actualUserType = normalizeUserType(user.getUserType());
+
+        if (requestedUserType != null && !requestedUserType.equals(actualUserType)) {
+            throw new BusinessException("Access denied. " + toDisplayRole(requestedUserType) + " account required.");
+        }
+
+        String token = jwtUtil.generateToken(
+                user.getEmail(),
+                Map.of("role", actualUserType, "userType", actualUserType)
+        );
         return new AuthResponse(token, user.getId(), user.getUserType(), user.getEmail(), user.getFirstName(), user.getLastName());
     }
 
@@ -54,6 +65,31 @@ public class AuthServiceImpl implements AuthService {
         eventPublisher.publish(new UserRegisteredEvent(saved.getId()));
         String token = jwtUtil.generateToken(saved.getEmail(), Map.of("role", saved.getUserType(), "userType", saved.getUserType()));
         return new AuthResponse(token, saved.getId(), saved.getUserType(), saved.getEmail(), saved.getFirstName(), saved.getLastName());
+    }
+
+    private String normalizeUserType(String userType) {
+        if (userType == null || userType.isBlank()) {
+            return null;
+        }
+
+        String normalized = userType.trim().toLowerCase();
+        return switch (normalized) {
+            case "passenger" -> "passenger";
+            case "driver" -> "driver";
+            case "admin" -> "admin";
+            case "corporate", "corporate_user" -> "corporate";
+            default -> normalized;
+        };
+    }
+
+    private String toDisplayRole(String userType) {
+        return switch (userType) {
+            case "passenger" -> "Passenger";
+            case "driver" -> "Driver";
+            case "admin" -> "Admin";
+            case "corporate" -> "Corporate";
+            default -> userType;
+        };
     }
 }
 

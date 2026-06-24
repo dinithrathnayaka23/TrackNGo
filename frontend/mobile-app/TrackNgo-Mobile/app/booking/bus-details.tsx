@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getBusDetails, type BusDetailResult } from '../../services/bookingFlowApi';
 import { getBusImage } from '../../utils/busImage';
+import { resolveAssetUrl } from '../../utils/media';
 import { getBusRouteLabel, getBusRouteWithSuffix, getJourneyRouteStops } from '../../utils/routeDisplay';
 
 //Lookup table for Amneties data
@@ -64,11 +65,13 @@ export default function BusDetailsScreen() {
   const children = params.children ?? '0';
 
   const [details, setDetails] = useState<BusDetailResult | null>(null);
+  const [driverPhotoFailed, setDriverPhotoFailed] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      setDriverPhotoFailed(false);
       const data = await getBusDetails(busId, from, to);
       setDetails(data);
     } catch (e: any) {
@@ -109,6 +112,9 @@ export default function BusDetailsScreen() {
   const busRouteLabel = getBusRouteWithSuffix(details, { segmentFrom: from, segmentTo: to });
   const busRouteName = getBusRouteLabel(details, { segmentFrom: from, segmentTo: to });
   const driverRating = details.driver?.rating?.toFixed(1) ?? 'N/A';
+  const driverPhotoUri = driverPhotoFailed
+    ? null
+    : resolveAssetUrl(details.driver?.profilePhoto);
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -254,8 +260,12 @@ export default function BusDetailsScreen() {
 
         <View style={styles.driverCard}>
           <View style={styles.driverAvatar}>
-            {details.driver?.profilePhoto ? (
-              <Image source={{ uri: details.driver.profilePhoto }} style={styles.driverImage} />
+            {driverPhotoUri ? (
+              <Image
+                source={{ uri: driverPhotoUri }}
+                style={styles.driverImage}
+                onError={() => setDriverPhotoFailed(true)}
+              />
             ) : (
               <View style={[styles.driverImage, { backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center' }]}>
                 <Ionicons name="person" size={20} color="#94A3B8" />

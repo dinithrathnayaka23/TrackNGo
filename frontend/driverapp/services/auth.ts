@@ -7,8 +7,9 @@ export const driverLogin = async (email: string, password: string) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ //means we are sending a json
-      identifier: email,
+      identifier: email.trim(),
       password: password,
+      expectedUserType: 'driver',
     }),
   });
 

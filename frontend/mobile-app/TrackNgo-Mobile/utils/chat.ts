@@ -5,6 +5,7 @@ import type {
   SessionUser,
   UserProfile,
 } from "../types/chat";
+import { resolveAssetUrl } from "./media";
 
 type ParticipantProfileFields = {
   fullName?: string | null;
@@ -154,7 +155,7 @@ export function getParticipantAvatarFallback(
 export function getParticipantAvatarUri(
   profile?: Pick<UserProfile, "profilePhoto"> | null,
 ) {
-  return cleanValue(profile?.profilePhoto) ?? null;
+  return resolveAssetUrl(cleanValue(profile?.profilePhoto));
 }
 
 // Converts the latest-message metadata into a short conversation preview.

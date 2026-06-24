@@ -1,6 +1,8 @@
 import { apiUrl } from '@/config/env';
 
 export type ChatParticipantType = 'ADMIN' | 'DRIVER' | 'PASSENGER' | 'CORPORATE_USER' | string;
+export type ChatMessageType = 'TEXT' | 'IMAGE' | 'VOICE' | 'LOCATION' | 'SYSTEM' | string;
+export type ChatMessageStatus = 'SENT' | 'DELIVERED' | 'READ' | string;
 
 export interface ConversationDto {
   conversationId: number;
@@ -26,9 +28,31 @@ export interface ChatMessageDto {
   recipientId?: number | null;
   senderType: ChatParticipantType;
   content: string;
-  messageType: string;
+  messageType: ChatMessageType;
+  status?: ChatMessageStatus | null;
+  clientMessageId?: string | null;
+  mediaUrl?: string | null;
+  compressedMediaUrl?: string | null;
+  fileName?: string | null;
+  mediaMimeType?: string | null;
+  mediaSizeBytes?: number | null;
+  compressedSizeBytes?: number | null;
+  durationSeconds?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  readByParticipant1?: boolean | null;
+  readByParticipant2?: boolean | null;
   deleted?: boolean | null;
   createdAt?: string | null;
+  deliveredAt?: string | null;
+  readAt?: string | null;
+}
+
+export interface MediaUploadResponse {
+  fileName: string;
+  mediaUrl: string;
+  mimeType: string;
+  sizeBytes: number;
 }
 
 export interface PagedResponse<T> {
@@ -40,7 +64,7 @@ export interface PagedResponse<T> {
   last?: boolean;
 }
 
-function buildQuery(params: Record<string, string | number | undefined | null>) {
+function buildQuery(params: Record<string, string | number | boolean | undefined | null>) {
   return Object.entries(params)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
@@ -63,6 +87,28 @@ async function requestJson<T>(
 
   if (!response.ok) {
     throw new Error(`Chat request failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function requestForm<T>(
+  token: string,
+  path: string,
+  formData: FormData,
+  query?: Record<string, string | number | boolean | undefined | null>
+): Promise<T> {
+  const queryString = query ? buildQuery(query) : '';
+  const response = await fetch(apiUrl(queryString ? `${path}?${queryString}` : path), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Media upload failed: ${response.status}`);
   }
 
   return response.json();
@@ -136,5 +182,37 @@ export async function markConversationRead(params: {
   const query = buildQuery({ userId });
   await requestJson<unknown>(token, `/api/conversations/${conversationId}/read?${query}`, {
     method: 'POST',
+  });
+}
+
+export async function markConversationDelivered(params: {
+  token: string;
+  conversationId: number;
+  userId: number;
+}) {
+  const { token, conversationId, userId } = params;
+  const query = buildQuery({ userId });
+  await requestJson<unknown>(token, `/api/conversations/${conversationId}/delivered?${query}`, {
+    method: 'POST',
+  });
+}
+
+export function uploadMedia(params: {
+  token: string;
+  uri: string;
+  fileName: string;
+  mimeType: string;
+  compressed?: boolean;
+}) {
+  const { token, uri, fileName, mimeType, compressed = false } = params;
+  const formData = new FormData();
+  formData.append('file', {
+    uri,
+    name: fileName,
+    type: mimeType,
+  } as unknown as Blob);
+
+  return requestForm<MediaUploadResponse>(token, '/api/media/upload', formData, {
+    compressed,
   });
 }

@@ -75,7 +75,7 @@ export default function LoginScreen() {
       const response = await httpPost<ApiResponse<LoginApiData>>(
         "/api/auth/login",
         undefined,
-        { identifier: identifier.trim(), password }
+        { identifier: identifier.trim(), password, expectedUserType: "passenger" }
       );
       const data = response.data;
       await AsyncStorage.setItem(TOKEN_KEY, data.token);

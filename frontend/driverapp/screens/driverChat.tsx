@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList, // FlatList for efficient rendering of conversation list
@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ADMIN_SUPPORT_USER_ID } from '@/config/env';
@@ -17,6 +18,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import {
   createConversation,
+  getConversationMessages,
+  type ChatMessageDto,
   getUserConversations,
   type ChatParticipantType,
   type ConversationDto,
@@ -32,6 +35,9 @@ interface Conversation { // Conversation type definition for the conversation li
   otherUserId?: number | null;
   otherUserType?: ChatParticipantType | null;
   isSupport: boolean;
+  lastMessageSenderId?: number | null;
+  lastMessageStatus?: string | null;
+  lastMessageType?: string | null;
 }
 
 const DriverChatScreen = () => {
@@ -47,15 +53,17 @@ const DriverChatScreen = () => {
   const isSmallPhone = width < 360;
   const horizontalPadding = isSmallPhone ? 14 : 16;
 
-  useEffect(() => {
-    const fetchConversations = async () => {
+  const refreshConversations = useCallback(
+    async (showLoading = false) => {
       if (!user?.userId || !user?.token) {
         setIsLoading(false);
         return;
       }
 
       try {
-        setIsLoading(true);
+        if (showLoading) {
+          setIsLoading(true);
+        }
         setError(null);
 
         const result = await getUserConversations({
@@ -82,20 +90,44 @@ const DriverChatScreen = () => {
           items = [createdSupportConversation, ...items];
         }
 
-        setConversations(
-          dedupeConversations(items).map((item) => mapConversation(item, user.userId))
+        const mapped = dedupeConversations(items).map((item) =>
+          mapConversation(item, user.userId)
         );
+        const enriched = await Promise.all(
+          mapped.map((item) => enrichConversationWithLatestMessage(item, user.token))
+        );
+
+        setConversations(enriched);
       } catch (fetchError) {
         console.error('Error fetching driver conversations:', fetchError);
         setError(fetchError instanceof Error ? fetchError.message : 'Failed to load conversations');
       } finally {
-        setIsLoading(false);
+        if (showLoading) {
+          setIsLoading(false);
+        }
       }
-    };
+    },
+    [searchQuery, user?.token, user?.userId]
+  );
 
-    const debounceTimer = setTimeout(fetchConversations, 250); // Delay the fetch by 250ms to avoid overloading the server with requests.
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      void refreshConversations(true);
+    }, 250); // Delay the fetch by 250ms to avoid overloading the server with requests.
     return () => clearTimeout(debounceTimer); // Clear the debounce timer if the component unmounts or if the search query changes before the timer completes, preventing unnecessary API calls and ensuring that we only fetch conversations when the user has paused typing.
-  }, [searchQuery, user?.token, user?.userId]); // Re-run the effect whenever the search query changes or when the user's authentication information changes, ensuring that we always have the most up-to-date conversations based on the current search criteria and user context.
+  }, [refreshConversations]); // Re-run the effect whenever the search query changes or when the user's authentication information changes, ensuring that we always have the most up-to-date conversations based on the current search criteria and user context.
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshConversations(conversations.length === 0);
+
+      const refreshTimer = setInterval(() => {
+        void refreshConversations(false);
+      }, 4000);
+
+      return () => clearInterval(refreshTimer);
+    }, [conversations.length, refreshConversations])
+  );
 
   const filteredConversations = useMemo(() => {   // useMemo to memoize the filtered conversations based on the search query and the full conversations list. This optimization prevents unnecessary re-computation of the filtered list on every render, improving performance, especially when the conversations list is large.
     const query = searchQuery.trim().toLowerCase();
@@ -117,6 +149,8 @@ const DriverChatScreen = () => {
     text: darkMode ? '#FFF' : '#000',
     secondaryText: darkMode ? '#AAA' : '#666',
     border: darkMode ? '#333' : '#E0E0E0',
+    accent: '#0066FF',
+    accentSoft: darkMode ? '#102646' : '#EAF2FF',
   }), [darkMode]);
 
   const styles = useMemo(
@@ -130,56 +164,76 @@ const DriverChatScreen = () => {
     [horizontalPadding, insets.bottom, isSmallPhone, theme]
   );
 
-  const renderConversation = ({ item }: { item: Conversation }) => ( // Render a single conversation item as a TouchableOpacity component. When pressed, it navigates to the chat screen for that conversation, passing the conversation ID and participant name as parameters. The conversation item displays an avatar with the participant's initials, the participant's name, the last message, the timestamp of the last message, and any unread message count. If there are unread messages, a badge is shown on the avatar indicating the number of unread messages.
-    <TouchableOpacity
-      style={styles.conversationItem}
-      onPress={() =>
-        router.push({
-          pathname: '/chat/[id]',
-          params: {
-            id: item.id,
-            name: item.name,
-            otherUserId: item.otherUserId ? String(item.otherUserId) : '',
-            otherUserType: item.otherUserType ?? '',
-          },
-        })
-      }
-    >
-      <View style={styles.avatarContainer}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
+  const renderConversation = ({ item }: { item: Conversation }) => {
+    const hasUnread = item.unreadCount > 0;
+    const isOutgoingLast = item.lastMessageSenderId === user?.userId;
+
+    return (
+      <TouchableOpacity
+        style={[styles.conversationItem, hasUnread && styles.conversationItemUnread]}
+        onPress={() =>
+          router.push({
+            pathname: '/chat/[id]',
+            params: {
+              id: item.id,
+              name: item.name,
+              otherUserId: item.otherUserId ? String(item.otherUserId) : '',
+              otherUserType: item.otherUserType ?? '',
+            },
+          })
+        }
+      >
+        <View style={styles.avatarContainer}>
+          <View style={[styles.avatar, item.isSupport && styles.avatarSupport]}>
+            <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
+          </View>
         </View>
-        {item.unreadCount > 0 && (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadBadgeText}>
-              {item.unreadCount > 99 ? '99+' : item.unreadCount}
+
+        <View style={styles.conversationContent}>
+          <View style={styles.conversationHeader}>
+            <Text
+              style={[styles.conversationName, hasUnread && styles.conversationNameUnread]}
+              numberOfLines={1}
+            >
+              {item.name}
             </Text>
           </View>
-        )}
-      </View>
 
-      <View style={styles.conversationContent}>
-        <View style={styles.conversationHeader}>
-          <Text style={styles.conversationName} numberOfLines={1}>
-            {item.name}
-          </Text>
-          <Text style={styles.conversationTime} numberOfLines={1}>
-            {item.timestamp}
-          </Text>
+          <View style={styles.messagePreviewRow}>
+            {isOutgoingLast ? <ListReadTick status={item.lastMessageStatus} /> : null}
+            <Text
+              style={[styles.conversationMessage, hasUnread && styles.conversationMessageUnread]}
+              numberOfLines={1}
+            >
+              {item.message}
+            </Text>
+          </View>
+
+          {!!item.participantType && (
+            <Text style={styles.participantTypeText} numberOfLines={1}>
+              {item.isSupport ? 'Admin Support' : item.participantType}
+            </Text>
+          )}
         </View>
 
-        <Text style={styles.conversationMessage} numberOfLines={1}>
-          {item.message}
-        </Text>
-
-        {!!item.participantType && (
-          <Text style={styles.participantTypeText} numberOfLines={1}>
-            {item.isSupport ? 'Admin Support' : item.participantType}
+        <View style={styles.conversationMeta}>
+          <Text
+            style={[styles.conversationTime, hasUnread && styles.conversationTimeUnread]}
+            numberOfLines={1}
+          >
+            {item.timestamp}
           </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+          {hasUnread ? (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>
+                {item.unreadCount > 99 ? '99+' : item.unreadCount}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -309,14 +363,76 @@ function mapConversation(item: ConversationDto, currentUserId: number): Conversa
   return {
     id: String(item.conversationId),
     name: isSupport ? 'Admin Support' : item.otherParticipantName ?? fallbackName,
-    message: item.lastMessage ?? 'No messages yet',
+    message: formatConversationPreview(item.lastMessage, item.lastMessageType),
     timestamp: formatTimestamp(item.lastMessageTimestamp ?? undefined),
     participantType,
     unreadCount: other.unreadCount,
     otherUserId: other.id ?? item.otherParticipantId,
     otherUserType: other.type ?? item.otherParticipantType,
     isSupport,
+    lastMessageType: item.lastMessageType,
   };
+}
+
+async function enrichConversationWithLatestMessage(
+  conversation: Conversation,
+  token: string
+): Promise<Conversation> {
+  try {
+    const result = await getConversationMessages({
+      token,
+      conversationId: Number(conversation.id),
+      page: 0,
+      size: 1,
+    });
+    const latest = result.content?.[0];
+    if (!latest) {
+      return conversation;
+    }
+
+    return {
+      ...conversation,
+      message: formatMessagePreview(latest),
+      lastMessageSenderId: latest.senderId,
+      lastMessageStatus: latest.status,
+      lastMessageType: latest.messageType,
+      timestamp: formatTimestamp(latest.createdAt ?? undefined) || conversation.timestamp,
+    };
+  } catch {
+    return conversation;
+  }
+}
+
+function formatConversationPreview(lastMessage?: string | null, messageType?: string | null) {
+  if (lastMessage?.trim()) {
+    return lastMessage;
+  }
+  if (messageType === 'IMAGE') return 'Photo';
+  if (messageType === 'VOICE') return 'Voice message';
+  if (messageType === 'LOCATION') return 'Shared location';
+  return 'No messages yet';
+}
+
+function formatMessagePreview(message: ChatMessageDto) {
+  if (message.deleted) return 'Message deleted';
+  if (message.messageType === 'IMAGE') return 'Photo';
+  if (message.messageType === 'VOICE') return 'Voice message';
+  if (message.messageType === 'LOCATION') return 'Shared location';
+  return message.content || 'Message';
+}
+
+function ListReadTick({ status }: { status?: string | null }) {
+  const isRead = status === 'READ';
+  const isDelivered = status === 'DELIVERED' || isRead;
+
+  return (
+    <MaterialCommunityIcons
+      name={isDelivered ? 'check-all' : 'check'}
+      size={14}
+      color={isRead ? '#0066FF' : '#94A3B8'}
+      style={stylesStatic.listTick}
+    />
+  );
 }
 
 function formatTimestamp(timestamp?: string) {
@@ -409,6 +525,9 @@ function createStyles({
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
     },
+    conversationItemUnread: {
+      backgroundColor: theme.accentSoft,
+    },
     avatarContainer: {
       position: 'relative',
       marginRight: 12,
@@ -422,22 +541,23 @@ function createStyles({
       justifyContent: 'center',
       alignItems: 'center',
     },
+    avatarSupport: {
+      backgroundColor: '#00AA00',
+    },
     avatarText: {
       fontSize: isSmallPhone ? 14 : 16,
       fontWeight: '700',
       color: '#FFF',
     },
     unreadBadge: {
-      position: 'absolute',
-      top: -2,
-      right: -4,
       minWidth: 18,
       height: 18,
       borderRadius: 9,
-      backgroundColor: '#EF4444',
+      backgroundColor: theme.accent,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 4,
+      marginTop: 6,
     },
     unreadBadgeText: {
       color: '#FFF',
@@ -461,15 +581,40 @@ function createStyles({
       color: theme.text,
       marginRight: 8,
     },
+    conversationNameUnread: {
+      fontWeight: '800',
+    },
+    messagePreviewRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minWidth: 0,
+    },
     conversationTime: {
       fontSize: 11,
-      color: '#0066FF',
-      fontWeight: '500',
+      color: theme.secondaryText,
+      fontWeight: '600',
       flexShrink: 0,
     },
+    conversationTimeUnread: {
+      color: theme.accent,
+      fontWeight: '800',
+    },
     conversationMessage: {
+      flex: 1,
+      minWidth: 0,
       fontSize: 12,
       color: theme.secondaryText,
+    },
+    conversationMessageUnread: {
+      color: theme.text,
+      fontWeight: '800',
+    },
+    conversationMeta: {
+      alignItems: 'flex-end',
+      alignSelf: 'stretch',
+      justifyContent: 'center',
+      marginLeft: 10,
+      minWidth: 54,
     },
     participantTypeText: {
       fontSize: 10,
@@ -492,5 +637,11 @@ function createStyles({
     },
   });
 }
+
+const stylesStatic = StyleSheet.create({
+  listTick: {
+    marginRight: 3,
+  },
+});
 
 export default DriverChatScreen;

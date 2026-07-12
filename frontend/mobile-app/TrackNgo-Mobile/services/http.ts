@@ -114,13 +114,17 @@ export async function httpPut<T>(
 export async function httpDelete<T>(
   path: string,
   query?: Record<string, string | number | undefined>,
+  headers?: Record<string, string>,
 ): Promise<T> {
   const url = buildUrl(path, query);
   console.log(`[HTTP DELETE] ${url}`);
   try {
     const response = await fetch(url, {
       method: "DELETE",
-      headers: defaultHeaders,
+      headers: {
+        ...defaultHeaders,
+        ...(headers ?? {}),
+      },
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -166,3 +170,4 @@ export async function httpPostForm<T>(
     throw err;
   }
 }
+

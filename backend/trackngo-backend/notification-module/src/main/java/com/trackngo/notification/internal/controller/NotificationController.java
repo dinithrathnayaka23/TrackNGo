@@ -26,8 +26,22 @@ public class NotificationController {
     }
 
     @GetMapping
-    public ApiResponse<List<NotificationDto>> getAll() {
+    public ApiResponse<List<NotificationDto>> getAll(
+        @RequestParam(required = false) Long userId,
+        @RequestParam(required = false) String type
+    ) {
+        if (userId != null) {
+            return ApiResponse.ok("Fetched", service.getPassengerNotifications(userId, type));
+        }
         return ApiResponse.ok("Fetched", service.getAll());
+    }
+
+    @GetMapping("/passenger/{passengerId}")
+    public ApiResponse<List<NotificationDto>> getPassengerNotifications(
+        @PathVariable Long passengerId,
+        @RequestParam(required = false) String type
+    ) {
+        return ApiResponse.ok("Fetched", service.getPassengerNotifications(passengerId, type));
     }
 
     @PutMapping("/{id}")
@@ -35,9 +49,26 @@ public class NotificationController {
         return ApiResponse.ok("Updated", service.update(id, dto));
     }
 
+    @PutMapping("/{id}/read")
+    public ApiResponse<NotificationDto> markRead(@PathVariable Long id) {
+        return ApiResponse.ok("Updated", service.markRead(id));
+    }
+
+    @PutMapping("/passenger/{passengerId}/read")
+    public ApiResponse<Void> markPassengerNotificationsRead(@PathVariable Long passengerId) {
+        service.markPassengerNotificationsRead(passengerId);
+        return ApiResponse.ok("Updated", null);
+    }
+
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         service.delete(id);
+        return ApiResponse.ok("Deleted", null);
+    }
+
+    @DeleteMapping("/passenger/{passengerId}")
+    public ApiResponse<Void> deletePassengerNotifications(@PathVariable Long passengerId) {
+        service.deletePassengerNotifications(passengerId);
         return ApiResponse.ok("Deleted", null);
     }
 }

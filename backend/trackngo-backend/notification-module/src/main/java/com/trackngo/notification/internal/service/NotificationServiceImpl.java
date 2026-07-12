@@ -62,6 +62,25 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<NotificationDto> getDriverNotifications(Long driverId, String notificationType) {
+        if (notificationType == null || notificationType.isBlank()) {
+            return repository.findByDriverIdOrderByCreatedAtDesc(driverId)
+                .stream()
+                .map(this::toDto)
+                .toList();
+        }
+
+        return repository.findByDriverIdAndNotificationTypeOrderByCreatedAtDesc(
+                driverId,
+                notificationType.trim().toLowerCase(Locale.ROOT)
+            )
+            .stream()
+            .map(this::toDto)
+            .toList();
+    }
+
+    @Override
     public NotificationDto update(Long id, NotificationDto dto) {
         Notification entity = findNotification(id);
         applyDto(entity, dto);
@@ -81,6 +100,11 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    public void markDriverNotificationsRead(Long driverId) {
+        repository.markDriverNotificationsRead(driverId);
+    }
+
+    @Override
     public void delete(Long id) {
         if (!repository.existsById(id)) {
             throw new ResourceNotFoundException("Notification not found");
@@ -91,6 +115,11 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public void deletePassengerNotifications(Long passengerId) {
         repository.deleteByPassengerId(passengerId);
+    }
+
+    @Override
+    public void deleteDriverNotifications(Long driverId) {
+        repository.deleteByDriverId(driverId);
     }
 
     private Notification findNotification(Long id) {

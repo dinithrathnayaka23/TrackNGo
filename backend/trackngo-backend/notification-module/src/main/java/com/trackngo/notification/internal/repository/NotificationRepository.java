@@ -18,11 +18,26 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         String notificationType
     );
 
+    List<Notification> findByDriverIdOrderByCreatedAtDesc(Long driverId);
+
+    List<Notification> findByDriverIdAndNotificationTypeOrderByCreatedAtDesc(
+        Long driverId,
+        String notificationType
+    );
+
     @Modifying
     @Query("update Notification n set n.read = true where n.passengerId = :passengerId")
     int markPassengerNotificationsRead(@Param("passengerId") Long passengerId);
 
     @Modifying
+    @Query("update Notification n set n.read = true where n.driverId = :driverId")
+    int markDriverNotificationsRead(@Param("driverId") Long driverId);
+
+    @Modifying
     @Query("delete from Notification n where n.passengerId = :passengerId")
     int deleteByPassengerId(@Param("passengerId") Long passengerId);
+
+    @Modifying
+    @Query("delete from Notification n where n.driverId = :driverId")
+    int deleteByDriverId(@Param("driverId") Long driverId);
 }

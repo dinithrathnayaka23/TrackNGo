@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="2" failures="0" errors="0" time="10.511">
+  <testsuite name="driver notification helpers" errors="0" failures="0" skipped="0" timestamp="2026-07-12T18:57:14" time="8.631" tests="2">
+    <testcase classname="driver notification helpers" name="groups recent timestamps into the expected sections" time="0.01">
+    </testcase>
+    <testcase classname="driver notification helpers" name="formats relative time for recent activity" time="0.001">
+    </testcase>
+  </testsuite>
+</testsuites>

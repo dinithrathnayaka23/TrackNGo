@@ -44,6 +44,14 @@ public class NotificationController {
         return ApiResponse.ok("Fetched", service.getPassengerNotifications(passengerId, type));
     }
 
+    @GetMapping("/driver/{driverId}")
+    public ApiResponse<List<NotificationDto>> getDriverNotifications(
+        @PathVariable Long driverId,
+        @RequestParam(required = false) String type
+    ) {
+        return ApiResponse.ok("Fetched", service.getDriverNotifications(driverId, type));
+    }
+
     @PutMapping("/{id}")
     public ApiResponse<NotificationDto> update(@PathVariable Long id, @Valid @RequestBody NotificationDto dto) {
         return ApiResponse.ok("Updated", service.update(id, dto));
@@ -60,6 +68,12 @@ public class NotificationController {
         return ApiResponse.ok("Updated", null);
     }
 
+    @PutMapping("/driver/{driverId}/read")
+    public ApiResponse<Void> markDriverNotificationsRead(@PathVariable Long driverId) {
+        service.markDriverNotificationsRead(driverId);
+        return ApiResponse.ok("Updated", null);
+    }
+
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         service.delete(id);
@@ -69,6 +83,12 @@ public class NotificationController {
     @DeleteMapping("/passenger/{passengerId}")
     public ApiResponse<Void> deletePassengerNotifications(@PathVariable Long passengerId) {
         service.deletePassengerNotifications(passengerId);
+        return ApiResponse.ok("Deleted", null);
+    }
+
+    @DeleteMapping("/driver/{driverId}")
+    public ApiResponse<Void> deleteDriverNotifications(@PathVariable Long driverId) {
+        service.deleteDriverNotifications(driverId);
         return ApiResponse.ok("Deleted", null);
     }
 }

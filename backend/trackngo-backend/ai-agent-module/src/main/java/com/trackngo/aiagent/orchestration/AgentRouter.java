@@ -24,7 +24,7 @@ public class AgentRouter {
             return primaryChatClient.prompt()
                     .user(userQuery)
                     .advisors(a -> a.param("chat_memory_conversation_id", chatId))
-                    .functions("findRoutes", "reserveSeat", "getLiveEta") // Agent tools
+                    .functions("findRoutes", "reserveSeat", "getLiveEta", "analyzeComplaint", "generateRecommendations") // Agent tools
                     .call()
                     .content();
         } catch (Exception e) {
@@ -34,7 +34,7 @@ public class AgentRouter {
                 return primaryChatClient.prompt()
                         .user(userQuery)
                         .advisors(a -> a.param("chat_memory_conversation_id", chatId))
-                        .functions("findRoutes", "reserveSeat", "getLiveEta") // Agent tools
+                        .functions("findRoutes", "reserveSeat", "getLiveEta", "analyzeComplaint", "generateRecommendations") // Agent tools
                         // Override the model at request level for fallback
                         .options(org.springframework.ai.openai.OpenAiChatOptions.builder()
                                 .withModel(fallbackModelName)

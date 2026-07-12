@@ -52,6 +52,14 @@ public class NotificationController {
         return ApiResponse.ok("Fetched", service.getDriverNotifications(driverId, type));
     }
 
+    @GetMapping("/admin/{adminId}")
+    public ApiResponse<List<NotificationDto>> getAdminNotifications(
+        @PathVariable Long adminId,
+        @RequestParam(required = false) String type
+    ) {
+        return ApiResponse.ok("Fetched", service.getAdminNotifications(adminId, type));
+    }
+
     @PutMapping("/{id}")
     public ApiResponse<NotificationDto> update(@PathVariable Long id, @Valid @RequestBody NotificationDto dto) {
         return ApiResponse.ok("Updated", service.update(id, dto));
@@ -74,6 +82,12 @@ public class NotificationController {
         return ApiResponse.ok("Updated", null);
     }
 
+    @PutMapping("/admin/{adminId}/read")
+    public ApiResponse<Void> markAdminNotificationsRead(@PathVariable Long adminId) {
+        service.markAdminNotificationsRead(adminId);
+        return ApiResponse.ok("Updated", null);
+    }
+
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         service.delete(id);
@@ -89,6 +103,12 @@ public class NotificationController {
     @DeleteMapping("/driver/{driverId}")
     public ApiResponse<Void> deleteDriverNotifications(@PathVariable Long driverId) {
         service.deleteDriverNotifications(driverId);
+        return ApiResponse.ok("Deleted", null);
+    }
+
+    @DeleteMapping("/admin/{adminId}")
+    public ApiResponse<Void> deleteAdminNotifications(@PathVariable Long adminId) {
+        service.deleteAdminNotifications(adminId);
         return ApiResponse.ok("Deleted", null);
     }
 }

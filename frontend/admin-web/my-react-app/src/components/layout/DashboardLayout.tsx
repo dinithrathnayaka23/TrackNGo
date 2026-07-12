@@ -9,13 +9,17 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import Sidebar from "./Sidebar";
 import SosAlertPopup from "../SosAlertPopup";
+import AdminNotificationsPanel from "../AdminNotificationsPanel";
 import { logoutToLogin } from "../../utils/authSession";
+import { fetchAdminNotifications } from "../../services/adminNotificationService";
 
 type DashboardLayoutProps = {
   children: ReactNode;
 };
 
-const SUPPORT_ADMIN_ID = Number(import.meta.env.VITE_ADMIN_SUPPORT_USER_ID ?? "1");
+const SUPPORT_ADMIN_ID = Number(
+  import.meta.env.VITE_ADMIN_SUPPORT_USER_ID ?? "1",
+);
 const ADMIN_FORCE_OFFLINE_EVENT = "trackngo:admin-force-offline";
 const OFFLINE_SOCKET_CLOSE_DELAY_MS = 120;
 
@@ -87,6 +91,8 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const segment = location.pathname.split("/")[2] || "dashboard";
   const labelBySegment: Record<string, string> = {
     dashboard: "Dashboard",
@@ -106,7 +112,10 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
   const subSegment = location.pathname.split("/")[3] || "";
   const handleLogout = () => {
     window.dispatchEvent(new Event(ADMIN_FORCE_OFFLINE_EVENT));
-    window.setTimeout(() => logoutToLogin(navigate), OFFLINE_SOCKET_CLOSE_DELAY_MS);
+    window.setTimeout(
+      () => logoutToLogin(navigate),
+      OFFLINE_SOCKET_CLOSE_DELAY_MS,
+    );
   };
   const breadcrumbTrail =
     segment === "passenger" || segment === "driver"
@@ -120,6 +129,31 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
             : segment === "buses" && subSegment
               ? ["Buses", "Bus Details"]
               : [labelBySegment[segment] ?? "Dashboard"];
+
+  useEffect(() => {
+    let active = true;
+    const loadUnreadCount = async () => {
+      try {
+        const notifications = await fetchAdminNotifications();
+        if (!active) return;
+        setUnreadCount(
+          notifications.filter((notification) => !notification.read).length,
+        );
+      } catch {
+        if (active) setUnreadCount(0);
+      }
+    };
+
+    void loadUnreadCount();
+    const intervalId = window.setInterval(() => {
+      void loadUnreadCount();
+    }, 30000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen bg-[#f3f4f8] text-[#111827]">
@@ -187,11 +221,23 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               </button>
               <button
                 type="button"
+                onClick={() => setShowNotifications((current) => !current)}
                 className="relative text-sm text-[#3b4253] transition duration-200 hover:scale-105"
                 aria-label="Notifications"
               >
                 <FontAwesomeIcon icon={faBell} />
+                {unreadCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 min-h-4 min-w-4 rounded-full bg-[#f24f4f] px-1 text-[10px] font-semibold leading-4 text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                ) : null}
               </button>
+              <div className="relative">
+                <AdminNotificationsPanel
+                  open={showNotifications}
+                  onClose={() => setShowNotifications(false)}
+                />
+              </div>
             </div>
           </header>
 

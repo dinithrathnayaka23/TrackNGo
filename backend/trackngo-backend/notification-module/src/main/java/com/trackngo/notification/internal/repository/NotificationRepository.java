@@ -25,6 +25,13 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         String notificationType
     );
 
+    List<Notification> findByAdminIdOrderByCreatedAtDesc(Long adminId);
+
+    List<Notification> findByAdminIdAndNotificationTypeOrderByCreatedAtDesc(
+        Long adminId,
+        String notificationType
+    );
+
     @Modifying
     @Query("update Notification n set n.read = true where n.passengerId = :passengerId")
     int markPassengerNotificationsRead(@Param("passengerId") Long passengerId);
@@ -34,10 +41,18 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     int markDriverNotificationsRead(@Param("driverId") Long driverId);
 
     @Modifying
+    @Query("update Notification n set n.read = true where n.adminId = :adminId")
+    int markAdminNotificationsRead(@Param("adminId") Long adminId);
+
+    @Modifying
     @Query("delete from Notification n where n.passengerId = :passengerId")
     int deleteByPassengerId(@Param("passengerId") Long passengerId);
 
     @Modifying
     @Query("delete from Notification n where n.driverId = :driverId")
     int deleteByDriverId(@Param("driverId") Long driverId);
+
+    @Modifying
+    @Query("delete from Notification n where n.adminId = :adminId")
+    int deleteByAdminId(@Param("adminId") Long adminId);
 }

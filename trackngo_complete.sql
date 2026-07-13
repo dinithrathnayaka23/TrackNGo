@@ -243,7 +243,7 @@ CREATE TABLE emergency_contact (
 
 CREATE TABLE notification (
     notification_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    notification_type ENUM('booking_confirmation', 'journey_reminder', 'payment_success', 'cancellation', 'rating_request', 'complaint_update', 'promotion', 'system_alert', 'sos_alert') NOT NULL,
+    notification_type ENUM('booking', 'journey', 'payment', 'cancellation', 'rating', 'complaint', 'promotion', 'system_alert', 'sos') NOT NULL,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
     is_read BOOLEAN DEFAULT false,

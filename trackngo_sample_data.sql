@@ -400,21 +400,21 @@ INSERT INTO sos_alert (
 -- =============================================
 
 INSERT INTO notification (notification_id, notification_type, title, message, is_read, passenger_id, driver_id, corporate_user_id, admin_id) VALUES
-(1, 'booking_confirmation', 'Booking Confirmed!',           'Your trip to Sigiriya on Feb 15 has been confirmed. Driver: Roshan Mendis.',          true,  4,    NULL, NULL, NULL),
-(2, 'payment_success',      'Payment Received',             'Rs. 12,500 advance payment received for Sigiriya trip. Booking Ref: TB-001.',          true,  4,    NULL, NULL, NULL),
-(3, 'journey_reminder',     'Trip Tomorrow!',               'Reminder: Your Kandy to Nuwara Eliya trip is tomorrow at 7:00 AM.',                   true,  5,    NULL, NULL, NULL),
-(4, 'rating_request',       'Rate Your Journey',            'How was your Yala trip? Please rate your experience.',                                 false, 6,    NULL, NULL, NULL),
+(1, 'booking', 'Booking Confirmed!',           'Your trip to Sigiriya on Feb 15 has been confirmed. Driver: Roshan Mendis.',          true,  4,    NULL, NULL, NULL),
+(2, 'payment',      'Payment Received',             'Rs. 12,500 advance payment received for Sigiriya trip. Booking Ref: TB-001.',          true,  4,    NULL, NULL, NULL),
+(3, 'journey',     'Trip Tomorrow!',               'Reminder: Your Kandy to Nuwara Eliya trip is tomorrow at 7:00 AM.',                   true,  5,    NULL, NULL, NULL),
+(4, 'rating',       'Rate Your Journey',            'How was your Yala trip? Please rate your experience.',                                 false, 6,    NULL, NULL, NULL),
 (5, 'cancellation',         'Booking Cancelled',            'Your Mirissa trip booking has been cancelled. Refund will be processed in 3-5 days.',  true,  12,   NULL, NULL, NULL),
-(6, 'complaint_update',     'Complaint Update',             'Your complaint #1 regarding driver behavior has been resolved.',                       true,  4,    NULL, NULL, NULL),
+(6, 'complaint',     'Complaint Update',             'Your complaint #1 regarding driver behavior has been resolved.',                       true,  4,    NULL, NULL, NULL),
 (7, 'promotion',            'Special Offer!',               'Book any highway seat this week and get 15% off! Use code: SAVE15.',                   false, 7,    NULL, NULL, NULL),
-(8, 'system_alert',         'License Expiry Alert',         'Your driving license expires on 2025-12-31. Please renew soon.',                       false, NULL, 16,   NULL, NULL),
-(9, 'booking_confirmation', 'New Trip Booking',             'New trip booking from Amara Silva. Sigiriya, Feb 15. Please confirm.',                 true,  NULL, 14,   NULL, NULL),
-(10, 'rating_request',       'You Got a New Rating!',        'Amara Silva gave you 5 stars for the Sigiriya trip. Great work!',                      true,  NULL, 14,   NULL, NULL),
-(11, 'sos_alert',            'SOS Alert Received',           'Passenger Amara Silva triggered SOS near Warakapola. Coordinates shared.',             false, NULL, NULL, NULL, 1),
-(12, 'complaint_update',     'New Complaint Assigned',       'Complaint #5 regarding speeding has been assigned to you for review.',                 false, NULL, NULL, NULL, 2),
-(13, 'booking_confirmation', 'Contract Application Received','Your corporate transport contract application is under review.',                       false, NULL, NULL, 22,   NULL),
+(8, 'system',         'License Expiry Alert',         'Your driving license expires on 2025-12-31. Please renew soon.',                       false, NULL, 16,   NULL, NULL),
+(9, 'booking', 'New Trip Booking',             'New trip booking from Amara Silva. Sigiriya, Feb 15. Please confirm.',                 true,  NULL, 14,   NULL, NULL),
+(10, 'rating',       'You Got a New Rating!',        'Amara Silva gave you 5 stars for the Sigiriya trip. Great work!',                      true,  NULL, 14,   NULL, NULL),
+(11, 'sos',            'SOS Alert Received',           'Passenger Amara Silva triggered SOS near Warakapola. Coordinates shared.',             false, NULL, NULL, NULL, 1),
+(12, 'complaint',     'New Complaint Assigned',       'Complaint #5 regarding speeding has been assigned to you for review.',                 false, NULL, NULL, NULL, 2),
+(13, 'booking', 'Contract Application Received','Your corporate transport contract application is under review.',                       false, NULL, NULL, 22,   NULL),
 (14, 'promotion',            'Contract Renewal Reminder',    'Your employee transport contract expires on 2025-12-31. Renew now for discounts.',      false, NULL, NULL, 23,   NULL),
-(15, 'system_alert',         'Invoice Ready',                'Monthly invoice #3 for Jan 2025 is ready. Amount: Rs. 280,000.',                        true,  NULL, NULL, 22,   NULL);
+(15, 'system',         'Invoice Ready',                'Monthly invoice #3 for Jan 2025 is ready. Amount: Rs. 280,000.',                        true,  NULL, NULL, 22,   NULL);
 
 
 -- =============================================

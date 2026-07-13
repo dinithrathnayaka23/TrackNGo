@@ -7,9 +7,11 @@ import {
   faMagnifyingGlass,
   faSignOutAlt,
 } from "@fortawesome/free-solid-svg-icons";
+import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import Sidebar from "./Sidebar";
 import SosAlertPopup from "../SosAlertPopup";
 import AdminNotificationsPanel from "../AdminNotificationsPanel";
+import AiAssistantPanel from "../AiAssistantPanel";
 import { logoutToLogin } from "../../utils/authSession";
 import { fetchAdminNotifications } from "../../services/adminNotificationService";
 
@@ -92,6 +94,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAiAssistant, setShowAiAssistant] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const segment = location.pathname.split("/")[2] || "dashboard";
   const labelBySegment: Record<string, string> = {
@@ -219,6 +222,20 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
                 <FontAwesomeIcon icon={faSignOutAlt} />
                 Logout
               </button>
+              <button
+                type="button"
+                onClick={() => setShowAiAssistant((current) => !current)}
+                className="text-sm text-[#3b4253] transition duration-200 hover:scale-105"
+                aria-label="AI Assistant"
+              >
+                <FontAwesomeIcon icon={faRobot} />
+              </button>
+              <div className="relative">
+                <AiAssistantPanel
+                  open={showAiAssistant}
+                  onClose={() => setShowAiAssistant(false)}
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => setShowNotifications((current) => !current)}

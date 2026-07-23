@@ -513,6 +513,31 @@ INSERT INTO bus_locations (bus_number, latitude, longitude, heading, speed, reco
 ('NB-0112', 6.96750, 79.88972, 350.00, 45.00, DATE_SUB(NOW(), INTERVAL 1 MINUTE)),
 ('CB-0301', 6.90000, 79.87000, 270.00, 30.00, DATE_SUB(NOW(), INTERVAL 3 MINUTE));
 
+-- =============================================
+-- AI ASSISTANT KNOWLEDGE AND SAMPLE MEMORY
+-- =============================================
+
+INSERT INTO ai_domain_knowledge (title, content, tags, priority, active) VALUES
+('TrackNGo Sri Lankan Route Network',
+ 'TrackNGo route search should prefer active Sri Lankan bus routes and stops saved in the database, including Colombo Fort, Kandy, Galle, Matara, Jaffna, Negombo, Kadawatha, Panadura, Kalutara, Hikkaduwa, Weligama, Kurunegala, Dambulla, Vavuniya, Kilinochchi, Peradeniya, Gampola, and Nuwara Eliya.',
+ 'all,routes,booking', 100, true),
+('Booking Safety Rule',
+ 'The assistant must not invent booking references or payment confirmations. A booking is confirmed only when the booking tool returns a booking reference from the TrackNGo database transaction.',
+ 'all,booking,safety', 100, true),
+('Sri Lankan Payment Language',
+ 'Use LKR for fares and mention PayHere, card, or TrackNGo counter payment only when the booking flow supports or requests it.',
+ 'all,payments,booking', 80, true),
+('Passenger Delay Handling',
+ 'For late buses, combine live GPS ETA with alternative active buses on the same source and destination. Offer cancellation or rebooking only after confirming seat availability.',
+ 'all,eta,support', 90, true);
+
+INSERT INTO ai_chat_message (chat_id, user_id, user_email, role, content, created_at) VALUES
+('seed-ai-amara', 4, 'amara.silva@gmail.com', 'user', 'Find a bus from Colombo Fort to Kandy tomorrow morning', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+('seed-ai-amara', 4, 'amara.silva@gmail.com', 'assistant', 'NB-0012 leaves Colombo Fort at 05:30 and arrives Kandy at 08:15. Fare is LKR 450.00 with live seat availability.', DATE_SUB(NOW(), INTERVAL 2 DAY));
+
+INSERT INTO ai_agent_interaction (chat_id, user_id, user_email, detected_intent, status, latency_ms, model_name, created_at) VALUES
+('seed-ai-amara', 4, 'amara.silva@gmail.com', 'TRIP_PLANNING', 'SUCCESS', 1180, 'gemini-1.5-pro', DATE_SUB(NOW(), INTERVAL 2 DAY));
+
 
 -- =============================================
 -- VERIFY

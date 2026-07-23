@@ -11,6 +11,7 @@ interface ApiResponse<T> {
   success?: boolean;
   message?: string;
   reply?: string;
+  chatId?: string;
   data?: T;
 }
 

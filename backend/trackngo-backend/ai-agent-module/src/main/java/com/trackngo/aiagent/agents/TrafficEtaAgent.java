@@ -18,8 +18,22 @@ public class TrafficEtaAgent {
         this.trafficEtaAgentService = trafficEtaAgentService;
     }
 
-    public record EtaRequest(String busId) {}
-    public record EtaResponse(String currentLocation, int estimatedDelayMinutes, String message) {}
+    public record EtaRequest(String busId, String destinationStop) {
+        public EtaRequest(String busId) {
+            this(busId, null);
+        }
+    }
+
+    public record EtaResponse(
+            String currentLocation,
+            int estimatedDelayMinutes,
+            String message,
+            String confidence,
+            String source) {
+        public EtaResponse(String currentLocation, int estimatedDelayMinutes, String message) {
+            this(currentLocation, estimatedDelayMinutes, message, "low", "fallback");
+        }
+    }
 
     @Bean
     @Description("Predicts delays and provides ETA using GPS and traffic data for a specific bus.")

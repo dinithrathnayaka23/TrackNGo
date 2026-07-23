@@ -18,8 +18,25 @@ public class NotificationAgent {
         this.notificationAgentService = notificationAgentService;
     }
 
-    public record NotificationRequest(String type, String busId, String eventMessage, String source, String destination) {}
-    public record NotificationResponse(String type, String message, String suggestedRoute) {}
+    public record NotificationRequest(
+            String type,
+            String busId,
+            String eventMessage,
+            String source,
+            String destination,
+            Long passengerId,
+            Long driverId,
+            Long adminId) {
+        public NotificationRequest(String type, String busId, String eventMessage, String source, String destination) {
+            this(type, busId, eventMessage, source, destination, null, null, null);
+        }
+    }
+
+    public record NotificationResponse(String type, String message, String suggestedRoute, Long notificationId) {
+        public NotificationResponse(String type, String message, String suggestedRoute) {
+            this(type, message, suggestedRoute, null);
+        }
+    }
 
     @Bean
     @Description("Sends ride reminders, delay alerts, and alternative-route suggestions for passengers.")

@@ -53,9 +53,14 @@ export async function httpPost<T>(
   query?: Record<string, string | number | undefined>,
   body?: unknown,
   headers?: Record<string, string>,
+  timeoutMs?: number,
 ): Promise<T> {
   const url = buildUrl(path, query);
   console.log(`[HTTP POST] ${url}`, body);
+  const controller = timeoutMs ? new AbortController() : undefined;
+  const timeout = controller
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : undefined;
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -65,6 +70,7 @@ export async function httpPost<T>(
         ...(headers ?? {}),
       },
       body: body ? JSON.stringify(body) : undefined,
+      signal: controller?.signal,
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -77,6 +83,10 @@ export async function httpPost<T>(
   } catch (err) {
     console.error(`[HTTP POST] Exception:`, err);
     throw err;
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
   }
 }
 

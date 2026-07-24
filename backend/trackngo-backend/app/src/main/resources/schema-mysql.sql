@@ -21,6 +21,13 @@ ALTER TABLE chat_message ADD COLUMN IF NOT EXISTS read_at TIMESTAMP NULL;
 ALTER TABLE bus ADD COLUMN IF NOT EXISTS return_start_time TIME NULL;
 ALTER TABLE bus ADD COLUMN IF NOT EXISTS return_end_time TIME NULL;
 
+ALTER TABLE bus_locations ADD COLUMN IF NOT EXISTS bus_number VARCHAR(50) NULL;
+ALTER TABLE bus_locations ADD COLUMN IF NOT EXISTS latitude DECIMAL(10, 8) NULL;
+ALTER TABLE bus_locations ADD COLUMN IF NOT EXISTS longitude DECIMAL(11, 8) NULL;
+ALTER TABLE bus_locations ADD COLUMN IF NOT EXISTS heading DECIMAL(6, 2) NULL;
+ALTER TABLE bus_locations ADD COLUMN IF NOT EXISTS speed DECIMAL(6, 2) NULL;
+ALTER TABLE bus_locations ADD COLUMN IF NOT EXISTS recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
 -- Backfill return schedules for existing route buses when missing:
 -- return_start_time = forward start + route duration + 45-minute layover
 -- return_end_time   = return_start_time + route duration
@@ -90,4 +97,56 @@ CREATE TABLE IF NOT EXISTS promotion_redemption (
     INDEX idx_promotion (promotion_id),
     INDEX idx_passenger (passenger_id),
     INDEX idx_created (created_at DESC)
+);
+
+CREATE TABLE IF NOT EXISTS ai_chat_message (
+    ai_chat_message_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    chat_id VARCHAR(120) NOT NULL,
+    user_id BIGINT NULL,
+    user_email VARCHAR(255) NULL,
+    role VARCHAR(30) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ai_chat_message_chat (chat_id, created_at),
+    INDEX idx_ai_chat_message_user (user_id, created_at)
+);
+
+CREATE TABLE IF NOT EXISTS ai_agent_interaction (
+    ai_agent_interaction_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    chat_id VARCHAR(120) NOT NULL,
+    user_id BIGINT NULL,
+    user_email VARCHAR(255) NULL,
+    detected_intent VARCHAR(80) NULL,
+    status VARCHAR(40) NOT NULL,
+    latency_ms INT NULL,
+    model_name VARCHAR(120) NULL,
+    error_message TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ai_agent_interaction_chat (chat_id, created_at),
+    INDEX idx_ai_agent_interaction_intent (detected_intent, status)
+);
+
+CREATE TABLE IF NOT EXISTS ai_feedback (
+    ai_feedback_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    chat_id VARCHAR(120) NOT NULL,
+    ai_chat_message_id BIGINT NULL,
+    user_id BIGINT NULL,
+    rating TINYINT NOT NULL,
+    comment TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ai_feedback_chat (chat_id),
+    INDEX idx_ai_feedback_user (user_id)
+);
+
+CREATE TABLE IF NOT EXISTS ai_domain_knowledge (
+    ai_domain_knowledge_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(180) NOT NULL,
+    content TEXT NOT NULL,
+    tags VARCHAR(255) NOT NULL DEFAULT 'all',
+    priority INT NOT NULL DEFAULT 0,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FULLTEXT KEY ft_ai_domain_knowledge (title, content),
+    INDEX idx_ai_domain_knowledge_active (active, priority)
 );

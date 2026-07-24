@@ -26,7 +26,7 @@ export default function AiAssistantPanel({
       id: "1",
       role: "assistant",
       content:
-        "Hi! I am TrackNGo AI Assistant. I can help you with:\n• Finding and booking routes\n• Checking live ETA and traffic\n• Sending notifications\n• Analyzing complaints\n• Getting personalized recommendations\n\nWhat can I help you with today?",
+        "Hi! I am TrackNGo AI Assistant. I can help with Sri Lankan route search, live ETA, bookings, passenger notifications, complaint triage, and recommendations.\n\nTry Colombo Fort to Kandy, Matara, Galle, Jaffna, or Negombo.",
       timestamp: new Date(),
     },
   ]);
@@ -74,7 +74,7 @@ export default function AiAssistantPanel({
       const errorMessage: ChatMessage = {
         id: `msg-${Date.now()}-error`,
         role: "assistant",
-        content: `⚠️ Sorry, I encountered an error: ${err instanceof Error ? err.message : "Unknown error"}. Please try again.`,
+        content: `Sorry, I encountered an error: ${err instanceof Error ? err.message : "Unknown error"}. Please try again.`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -201,8 +201,8 @@ export default function AiAssistantPanel({
             </button>
           </div>
           <p className="mt-2 text-xs text-[#6b7280]">
-            💡 Try: "Find routes to Bangalore", "Send me a reminder", or
-            "Analyze my booking"
+            Try: "Find buses from Colombo Fort to Kandy tomorrow", "ETA for
+            NB-0012", or "Analyze a refund complaint"
           </p>
         </form>
       </div>

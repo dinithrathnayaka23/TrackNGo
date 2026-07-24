@@ -31,16 +31,22 @@ public class ComplaintAgentService {
     }
 
     private String detectCategory(String complaintText) {
-        if (complaintText.contains("safety") || complaintText.contains("accident") || complaintText.contains("medical")) {
+        if (complaintText.contains("safety") || complaintText.contains("accident") || complaintText.contains("medical")
+                || complaintText.contains("harassment") || complaintText.contains("reckless") || complaintText.contains("drunk")
+                || complaintText.contains("speeding") || complaintText.contains("overcrowded") || complaintText.contains("over crowded")) {
             return "SAFETY_INCIDENT";
         }
-        if (complaintText.contains("delay") || complaintText.contains("late") || complaintText.contains("traffic")) {
+        if (complaintText.contains("delay") || complaintText.contains("late") || complaintText.contains("traffic")
+                || complaintText.contains("kadawatha") || complaintText.contains("galle road") || complaintText.contains("a1")
+                || complaintText.contains("southern expressway")) {
             return "SERVICE_DELAY";
         }
-        if (complaintText.contains("refund") || complaintText.contains("payment") || complaintText.contains("charge")) {
+        if (complaintText.contains("refund") || complaintText.contains("payment") || complaintText.contains("charge")
+                || complaintText.contains("payhere") || complaintText.contains("card") || complaintText.contains("lkr")) {
             return "PAYMENT_ISSUE";
         }
-        if (complaintText.contains("driver") || complaintText.contains("rude") || complaintText.contains("behavior")) {
+        if (complaintText.contains("driver") || complaintText.contains("rude") || complaintText.contains("behavior")
+                || complaintText.contains("conductor")) {
             return "DRIVER_BEHAVIOR";
         }
         if (complaintText.contains("bus") || complaintText.contains("route") || complaintText.contains("service")) {
@@ -66,7 +72,7 @@ public class ComplaintAgentService {
         if ("PAYMENT_ISSUE".equals(category)) {
             return "FINANCE_SUPPORT";
         }
-        if ("DRIVER_BEHAVIOR".equals(category)) {
+        if ("DRIVER_BEHAVIOR".equals(category) || "SAFETY_INCIDENT".equals(category)) {
             return "CUSTOMER_SAFETY_TEAM";
         }
         return "CUSTOMER_SUPPORT";

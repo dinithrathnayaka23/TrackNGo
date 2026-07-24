@@ -21,11 +21,11 @@ spring:
     open-in-view: false
   ai:
     openai:
-      api-key: ${GEMINI_API_KEY}
-      base-url: https://generativelanguage.googleapis.com/v1beta/openai/
+      api-key: ${AI_API_KEY:${GEMINI_API_KEY}}
+      base-url: ${AI_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai/}
       chat:
         options:
-          model: ${GEMINI_MODEL:gemini-1.5-pro}
+          model: ${AI_MODEL:${GEMINI_MODEL:gemini-1.5-pro}}
           temperature: 0.7
 
 trackngo:
@@ -57,5 +57,9 @@ stripe:
 
 # Custom fallback model configuration
 ai:
+  model:
+    timeout-seconds: ${AI_MODEL_TIMEOUT_SECONDS:12}
+    functions-enabled: ${AI_MODEL_FUNCTIONS_ENABLED:false}
+    direct-http-enabled: ${AI_MODEL_DIRECT_HTTP_ENABLED:true}
   fallback:
-    model: ${GEMINI_FALLBACK_MODEL:gemini-1.5-flash}
+    model: ${AI_FALLBACK_MODEL:${GEMINI_FALLBACK_MODEL:gemini-1.5-flash}}

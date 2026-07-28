@@ -119,6 +119,7 @@ public class AiSchemaInitializer implements ApplicationRunner {
                   AND b.start_time IS NOT NULL
                 """);
 
+        addColumnIfMissing("bus_locations", "name", "name VARCHAR(255) NULL");
         addColumnIfMissing("bus_locations", "bus_number", "bus_number VARCHAR(50) NULL");
         addColumnIfMissing("bus_locations", "latitude", "latitude DECIMAL(10, 8) NULL");
         addColumnIfMissing("bus_locations", "longitude", "longitude DECIMAL(11, 8) NULL");
@@ -127,13 +128,16 @@ public class AiSchemaInitializer implements ApplicationRunner {
         addColumnIfMissing("bus_locations", "recorded_at", "recorded_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP");
         jdbcTemplate.execute("""
                 UPDATE bus_locations
-                SET bus_number = COALESCE(bus_number, NULLIF(name, '')),
+                SET name = COALESCE(NULLIF(name, ''), bus_number, CONCAT('Bus Location ', id)),
+                    bus_number = COALESCE(bus_number, NULLIF(name, ''), CONCAT('BUS-', id)),
                     latitude = COALESCE(latitude, 7.29360),
                     longitude = COALESCE(longitude, 80.63500),
                     heading = COALESCE(heading, 45.00),
                     speed = COALESCE(speed, 32.00),
                     recorded_at = COALESCE(recorded_at, CURRENT_TIMESTAMP)
-                WHERE bus_number IS NULL
+                WHERE name IS NULL
+                   OR name = ''
+                   OR bus_number IS NULL
                    OR latitude IS NULL
                    OR longitude IS NULL
                    OR speed IS NULL

@@ -129,6 +129,24 @@ class AgentRouterBehaviorTest {
         assertTrue(reply.contains("Admin operations summary"), reply);
         assertTrue(reply.contains("Top complaint buses"), reply);
     }
+    @Test
+    void adminComplaintQuestionUsesOperationsCopilotInsteadOfPassengerComplaintFlow() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class)))
+                .thenReturn(8L, 3L, 2L, 1L, 4L, 12L);
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(BigDecimal.class)))
+                .thenReturn(new BigDecimal("6400.00"));
+        when(jdbcTemplate.queryForList(anyString())).thenReturn(List.of(), List.of());
+        ComplaintAgentService complaintAgentService = mock(ComplaintAgentService.class);
+        AgentExecutionContext.set(new AgentExecutionContext.Context(1L, "admin@trackngo.com", "admin", "chat-admin"));
+
+        AgentRouter router = router(mock(BookingFlowService.class), complaintAgentService, mock(ComplaintService.class), jdbcTemplate);
+
+        String reply = router.processUserQuery("show unresolved complaints", "chat-admin");
+
+        assertTrue(reply.contains("Admin operations summary"), reply);
+        verify(complaintAgentService, never()).analyzeComplaint(any());
+    }
 
     private AgentRouter router(
             BookingFlowService bookingFlowService,

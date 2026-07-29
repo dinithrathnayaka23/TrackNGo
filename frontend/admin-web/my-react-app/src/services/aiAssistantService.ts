@@ -22,6 +22,7 @@ export async function sendChatMessage(
   chatId: string,
 ): Promise<string> {
   const token = authService.getToken();
+  const adminProfile = authService.getAdminProfile();
   const response = await fetch(`${API_BASE}/chat`, {
     method: "POST",
     headers: {
@@ -31,6 +32,7 @@ export async function sendChatMessage(
     body: JSON.stringify({
       message,
       chatId,
+      userId: adminProfile?.userId,
     }),
   });
 

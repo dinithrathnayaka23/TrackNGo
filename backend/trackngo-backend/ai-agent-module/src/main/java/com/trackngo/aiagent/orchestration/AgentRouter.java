@@ -938,7 +938,7 @@ public class AgentRouter {
 
     private String detectIntent(String query) {
         String lower = query.toLowerCase();
-        if (isAdminOpsIntent(lower)) {
+        if (isAdminOpsIntent(lower) || (isAdminContext() && isAdminDashboardQuestion(lower))) {
             return "ADMIN_OPS";
         }
         if (isComplaintIntent(lower)) {
@@ -972,9 +972,30 @@ public class AgentRouter {
                 || lower.contains("complaints this week")
                 || lower.contains("unresolved complaints")
                 || lower.contains("high priority complaints")
-                || lower.contains("safety complaints");
+                || lower.contains("safety complaints")
+                || lower.contains("complaint buses")
+                || lower.contains("complaint drivers")
+                || lower.contains("admin watchlist")
+                || lower.contains("operator watchlist");
+    }
+    private boolean isAdminDashboardQuestion(String lower) {
+        return lower.contains("complaint")
+                || lower.contains("dashboard")
+                || lower.contains("operations")
+                || lower.contains("watchlist")
+                || lower.contains("review today")
+                || lower.contains("urgent issue")
+                || lower.contains("safety issue")
+                || lower.contains("which buses")
+                || lower.contains("which drivers")
+                || lower.contains("top buses")
+                || lower.contains("top drivers");
     }
 
+    private boolean isAdminContext() {
+        AgentExecutionContext.Context context = AgentExecutionContext.get();
+        return context != null && context.role() != null && context.role().equalsIgnoreCase("admin");
+    }
     private boolean isComplaintIntent(String lower) {
         return lower.contains("complaint")
                 || lower.contains("complain")

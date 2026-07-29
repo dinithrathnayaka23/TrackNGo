@@ -17,6 +17,79 @@ export interface AiAssistantPanelProps {
   onClose: () => void;
 }
 
+type InlineSegment = {
+  text: string;
+  bold: boolean;
+};
+
+function parseInlineMarkdown(text: string): InlineSegment[] {
+  const segments: InlineSegment[] = [];
+  const pattern = /\*\*(.+?)\*\*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, match.index), bold: false });
+    }
+    segments.push({ text: match[1], bold: true });
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ text: text.slice(lastIndex), bold: false });
+  }
+
+  return segments.length > 0 ? segments : [{ text, bold: false }];
+}
+
+function InlineMarkdown({ text }: { text: string }) {
+  return (
+    <>
+      {parseInlineMarkdown(text).map((segment, index) => (
+        <span key={`${segment.text}-${index}`} className={segment.bold ? "font-bold" : undefined}>
+          {segment.text}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function AssistantMessageContent({ content }: { content: string }) {
+  return (
+    <div className="space-y-1 break-words text-sm leading-relaxed">
+      {content.split(/\r?\n/).map((rawLine, index) => {
+        const line = rawLine.trim();
+        const bullet = line.match(/^[-*]\s+(.+)$/);
+        const numbered = line.match(/^(\d+)[.)]\s+(.+)$/);
+
+        if (!line) {
+          return <div key={`space-${index}`} className="h-1" />;
+        }
+
+        if (bullet || numbered) {
+          return (
+            <div key={`${line}-${index}`} className="flex items-start gap-2">
+              <span className="mt-[1px] w-5 shrink-0 font-bold text-[#2642a6]">
+                {bullet ? "•" : `${numbered?.[1]}.`}
+              </span>
+              <p className="min-w-0 flex-1">
+                <InlineMarkdown text={bullet?.[1] ?? numbered?.[2] ?? line} />
+              </p>
+            </div>
+          );
+        }
+
+        return (
+          <p key={`${line}-${index}`}>
+            <InlineMarkdown text={line} />
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AiAssistantPanel({
   open,
   onClose,
@@ -26,7 +99,7 @@ export default function AiAssistantPanel({
       id: "1",
       role: "assistant",
       content:
-        "Hi! I am TrackNGo AI Assistant. I can help with Sri Lankan route search, live ETA, bookings, passenger notifications, complaint triage, and recommendations.\n\nTry Colombo Fort to Kandy, Matara, Galle, Jaffna, or Negombo.",
+        "Hi! I am **TrackNGo Admin AI**. I can summarize operations, surface urgent complaints, identify high-risk buses/drivers, and help you decide what to review next.\n\nTry: **admin dashboard summary**, **safety complaints**, or **high priority complaints**.",
       timestamp: new Date(),
     },
   ]);
@@ -34,7 +107,7 @@ export default function AiAssistantPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const chatId = useRef(`chat-${Date.now()}`);
+  const chatId = useRef(`admin-chat-${Date.now()}`);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -94,13 +167,12 @@ export default function AiAssistantPanel({
         onClick={onClose}
       />
       <div className="fixed right-4 top-1/2 z-[141] w-[min(92vw,420px)] -translate-y-1/2 transform rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_25px_75px_rgba(15,23,42,0.3)]">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-[#e5e7eb] bg-gradient-to-r from-[#2642a6] to-[#1a2d7a] px-4 py-4 text-white rounded-t-2xl">
           <div className="flex items-center gap-2">
             <FontAwesomeIcon icon={faRobot} className="text-lg" />
             <div>
-              <p className="font-semibold">TrackNGo AI</p>
-              <p className="text-xs opacity-90">Smart Assistant</p>
+              <p className="font-semibold">TrackNGo Admin AI</p>
+              <p className="text-xs opacity-90">Operations Co-pilot</p>
             </div>
           </div>
           <button
@@ -113,7 +185,6 @@ export default function AiAssistantPanel({
           </button>
         </div>
 
-        {/* Messages */}
         <div className="h-[400px] overflow-y-auto bg-[#fafbfc] px-4 py-4">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center py-8 text-sm text-[#6b7280]">
@@ -142,10 +213,8 @@ export default function AiAssistantPanel({
                       <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8eefc] text-[#2642a6]">
                         <FontAwesomeIcon icon={faRobot} className="text-xs" />
                       </div>
-                      <div className="max-w-[80%] rounded-xl bg-white px-3 py-2 text-sm text-[#111827]">
-                        <p className="whitespace-pre-wrap break-words">
-                          {msg.content}
-                        </p>
+                      <div className="max-w-[80%] rounded-xl bg-white px-3 py-2 text-[#111827]">
+                        <AssistantMessageContent content={msg.content} />
                         <span className="mt-1 block text-xs text-[#9ca3af]">
                           {msg.timestamp.toLocaleTimeString([], {
                             hour: "2-digit",
@@ -176,7 +245,6 @@ export default function AiAssistantPanel({
           )}
         </div>
 
-        {/* Input */}
         <form
           onSubmit={handleSendMessage}
           className="border-t border-[#e5e7eb] bg-white px-4 py-3 rounded-b-2xl"
@@ -185,7 +253,7 @@ export default function AiAssistantPanel({
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Ask me anything..."
+              placeholder="Ask about operations, complaints, buses..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}
@@ -201,8 +269,7 @@ export default function AiAssistantPanel({
             </button>
           </div>
           <p className="mt-2 text-xs text-[#6b7280]">
-            Try: "Find buses from Colombo Fort to Kandy tomorrow", "ETA for
-            NB-0012", or "Analyze a refund complaint"
+            Try: "admin dashboard summary", "safety complaints", or "high priority complaints"
           </p>
         </form>
       </div>

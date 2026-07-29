@@ -501,6 +501,9 @@ public class AgentRouter {
 
     private String deterministicFallback(String userQuery) {
         String lower = userQuery.toLowerCase();
+        if (isComplaintIntent(lower)) {
+            return "I can help submit this complaint for admin review. Please include your past booking reference, for example BK-20250501-ABCD, and describe what happened.";
+        }
         if (lower.contains("book") || lower.contains("seat")) {
             return "I could not reach the AI model, but booking is still available through the TrackNGo booking flow. Tell me the bus number, route, date, boarding stop, destination stop, and seat count so I can retry with the booking tool.";
         }
@@ -512,14 +515,14 @@ public class AgentRouter {
 
     private String detectIntent(String query) {
         String lower = query.toLowerCase();
+        if (isComplaintIntent(lower)) {
+            return "COMPLAINT";
+        }
         if (lower.contains("book") || lower.contains("seat") || lower.contains("reserve")) {
             return "BOOKING";
         }
         if (lower.contains("delay") || lower.contains("eta") || lower.contains("late") || lower.contains("traffic")) {
             return "ETA";
-        }
-        if (lower.contains("complaint") || lower.contains("refund") || lower.contains("rude") || lower.contains("unsafe")) {
-            return "COMPLAINT";
         }
         if (lower.contains("recommend") || lower.contains("suggest") || lower.contains("offer")) {
             return "RECOMMENDATION";
@@ -531,6 +534,18 @@ public class AgentRouter {
             return "TRIP_PLANNING";
         }
         return "GENERAL";
+    }
+
+    private boolean isComplaintIntent(String lower) {
+        return lower.contains("complaint")
+                || lower.contains("complain")
+                || lower.contains("refund")
+                || lower.contains("rude")
+                || lower.contains("unsafe")
+                || lower.contains("harassment")
+                || lower.contains("reckless")
+                || lower.contains("overcrowded")
+                || lower.contains("over crowded");
     }
 
     private int elapsedMs(long startedAt) {

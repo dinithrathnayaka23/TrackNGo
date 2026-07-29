@@ -29,6 +29,84 @@ const quickPrompts = [
   "What should I do if my bus is late?",
 ];
 
+type InlineSegment = {
+  text: string;
+  bold: boolean;
+};
+
+function parseInlineMarkdown(text: string): InlineSegment[] {
+  const segments: InlineSegment[] = [];
+  const pattern = /\*\*(.+?)\*\*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, match.index), bold: false });
+    }
+    segments.push({ text: match[1], bold: true });
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ text: text.slice(lastIndex), bold: false });
+  }
+
+  return segments.length > 0 ? segments : [{ text, bold: false }];
+}
+
+function InlineMarkdown({ text }: { text: string }) {
+  return (
+    <>
+      {parseInlineMarkdown(text).map((segment, index) => (
+        <Text key={`${segment.text}-${index}`} style={segment.bold && styles.markdownBold}>
+          {segment.text}
+        </Text>
+      ))}
+    </>
+  );
+}
+
+function AssistantMarkdownMessage({ content }: { content: string }) {
+  const lines = content.split(/\r?\n/);
+
+  return (
+    <View style={styles.markdownWrap}>
+      {lines.map((rawLine, index) => {
+        const line = rawLine.trim();
+        const bullet = line.match(/^[-*]\s+(.+)$/);
+        const numbered = line.match(/^(\d+)[.)]\s+(.+)$/);
+
+        if (!line) {
+          return <View key={`space-${index}`} style={styles.markdownSpacer} />;
+        }
+
+        if (bullet || numbered) {
+          return (
+            <View key={`${line}-${index}`} style={styles.markdownRow}>
+              <Text style={styles.markdownMarker}>
+                {bullet ? "•" : `${numbered?.[1]}.`}
+              </Text>
+              <Text style={[styles.messageText, styles.assistantText, styles.markdownLine]}>
+                <InlineMarkdown text={bullet?.[1] ?? numbered?.[2] ?? line} />
+              </Text>
+            </View>
+          );
+        }
+
+        return (
+          <Text
+            key={`${line}-${index}`}
+            style={[styles.messageText, styles.assistantText, styles.markdownParagraph]}
+          >
+            <InlineMarkdown text={line} />
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function AssistantScreen() {
   const { currentUser } = useSession();
   const insets = useSafeAreaInsets();
@@ -181,14 +259,13 @@ export default function AssistantScreen() {
               {item.role === "assistant" ? (
                 <Ionicons name="sparkles-outline" size={15} color="#2F6BFF" />
               ) : null}
-              <Text
-                style={[
-                  styles.messageText,
-                  item.role === "user" ? styles.userText : styles.assistantText,
-                ]}
-              >
-                {item.content}
-              </Text>
+              {item.role === "assistant" ? (
+                <AssistantMarkdownMessage content={item.content} />
+              ) : (
+                <Text style={[styles.messageText, styles.userText]}>
+                  {item.content}
+                </Text>
+              )}
             </View>
           )}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
@@ -326,6 +403,35 @@ const styles = StyleSheet.create({
   },
   assistantText: {
     color: "#18212F",
+  },
+  markdownWrap: {
+    flexShrink: 1,
+    flex: 1,
+  },
+  markdownParagraph: {
+    marginBottom: 4,
+  },
+  markdownRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 4,
+  },
+  markdownMarker: {
+    width: 18,
+    paddingTop: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#18212F",
+    fontWeight: "700",
+  },
+  markdownLine: {
+    flex: 1,
+  },
+  markdownBold: {
+    fontWeight: "800",
+  },
+  markdownSpacer: {
+    height: 6,
   },
   composer: {
     flexDirection: "row",

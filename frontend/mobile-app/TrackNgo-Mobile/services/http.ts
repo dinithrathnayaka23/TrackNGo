@@ -4,6 +4,15 @@ const defaultHeaders = {
   Accept: "application/json",
 };
 
+function isAbortError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    String((error as { name?: unknown }).name) === "AbortError"
+  );
+}
+
 function buildUrl(
   path: string,
   query?: Record<string, string | number | undefined>,
@@ -81,6 +90,13 @@ export async function httpPost<T>(
     console.log(`[HTTP POST] Success:`, data);
     return data;
   } catch (err) {
+    if (timeoutMs && isAbortError(err)) {
+      const timeoutError = new Error(
+        `POST ${path} timed out after ${timeoutMs / 1000} seconds`,
+      );
+      console.error(`[HTTP POST] Exception:`, timeoutError);
+      throw timeoutError;
+    }
     console.error(`[HTTP POST] Exception:`, err);
     throw err;
   } finally {

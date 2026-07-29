@@ -45,8 +45,8 @@ export async function getPassengerNotifications(
 ): Promise<NotificationDto[]> {
   const headers = await authHeaders();
   const res = await httpGet<ApiResponse<NotificationDto[]>>(
-    `/api/notifications/passenger/${userId}`,
-    { type },
+    "/api/notifications",
+    { userId, type },
     headers,
   );
   return res.data ?? [];
@@ -70,5 +70,12 @@ export async function markAllPassengerNotificationsRead(
     `/api/notifications/passenger/${userId}/read`,
     undefined,
     headers,
-  );
+  ).catch(async () => {
+    const notifications = await getPassengerNotifications(userId);
+    await Promise.all(
+      notifications
+        .filter((notification) => !notification.read)
+        .map((notification) => markNotificationRead(notification.id)),
+    );
+  });
 }

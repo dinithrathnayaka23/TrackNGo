@@ -55,6 +55,13 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- Complaint Module so AI complaints use the same admin-visible workflow -->
+        <dependency>
+            <groupId>com.trackngo</groupId>
+            <artifactId>complaint-module</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

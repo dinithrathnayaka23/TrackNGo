@@ -2,7 +2,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { httpPost } from "./http";
 
 const TOKEN_KEY = "trackngo.auth.token";
-const AI_REQUEST_TIMEOUT_MS = 30000;
+// The backend may make a second model call after a primary-model timeout.
+// Keep the mobile request alive long enough to receive that response instead
+// of aborting a healthy backend request while it is still processing.
+const AI_REQUEST_TIMEOUT_MS = 60000;
 
 interface ChatApiResponse {
   reply: string;

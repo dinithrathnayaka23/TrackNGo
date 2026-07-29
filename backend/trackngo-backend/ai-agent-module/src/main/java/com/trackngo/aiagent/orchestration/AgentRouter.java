@@ -1,5 +1,6 @@
 package com.trackngo.aiagent.orchestration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.aiagent.context.AgentExecutionContext;
 import com.trackngo.aiagent.agents.TripPlanningAgent;
 import com.trackngo.aiagent.agents.TrafficEtaAgent;
@@ -13,12 +14,22 @@ import com.trackngo.aiagent.services.ComplaintAgentService;
 import com.trackngo.aiagent.services.RecommendationAgentService;
 import com.trackngo.aiagent.services.TrafficEtaAgentService;
 import com.trackngo.aiagent.services.TripPlanningAgentService;
+import com.trackngo.complaint.api.ComplaintService;
+import com.trackngo.complaint.api.dto.ComplaintDto;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,6 +51,7 @@ public class AgentRouter {
     private final TripPlanningAgentService tripPlanningAgentService;
     private final TrafficEtaAgentService trafficEtaAgentService;
     private final ComplaintAgentService complaintAgentService;
+    private final ComplaintService complaintSubmissionService;
     private final RecommendationAgentService recommendationAgentService;
     private final int modelTimeoutSeconds;
     private final boolean modelFunctionsEnabled;
@@ -47,6 +59,8 @@ public class AgentRouter {
     private final String modelApiKey;
     private final String modelBaseUrl;
     private final RestClient restClient;
+    private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
 
     public AgentRouter(
             ChatClient chatClient,
@@ -57,11 +71,13 @@ public class AgentRouter {
             @Value("${ai.model.direct-http-enabled:true}") boolean directHttpModelEnabled,
             @Value("${spring.ai.openai.api-key:}") String modelApiKey,
             @Value("${spring.ai.openai.base-url:}") String modelBaseUrl,
+            ObjectMapper objectMapper,
             AiConversationMemoryService memoryService,
             AiGroundingService groundingService,
             TripPlanningAgentService tripPlanningAgentService,
             TrafficEtaAgentService trafficEtaAgentService,
             ComplaintAgentService complaintAgentService,
+            ComplaintService complaintSubmissionService,
             RecommendationAgentService recommendationAgentService) {
         this.primaryChatClient = chatClient;
         this.primaryModelName = primaryModelName;
@@ -71,12 +87,23 @@ public class AgentRouter {
         this.directHttpModelEnabled = directHttpModelEnabled;
         this.modelApiKey = modelApiKey;
         this.modelBaseUrl = modelBaseUrl;
-        this.restClient = RestClient.builder().build();
+        this.objectMapper = objectMapper;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(Math.max(1, modelTimeoutSeconds)))
+                .build();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        int timeoutMillis = Math.max(1, modelTimeoutSeconds) * 1000;
+        requestFactory.setConnectTimeout(timeoutMillis);
+        requestFactory.setReadTimeout(timeoutMillis);
+        this.restClient = RestClient.builder()
+                .requestFactory(requestFactory)
+                .build();
         this.memoryService = memoryService;
         this.groundingService = groundingService;
         this.tripPlanningAgentService = tripPlanningAgentService;
         this.trafficEtaAgentService = trafficEtaAgentService;
         this.complaintAgentService = complaintAgentService;
+        this.complaintSubmissionService = complaintSubmissionService;
         this.recommendationAgentService = recommendationAgentService;
     }
 
@@ -106,6 +133,12 @@ public class AgentRouter {
             return reply;
         } catch (Exception e) {
             log.warn("Primary model failed: {}. Falling back to model: {}", e.getMessage(), fallbackModelName);
+            if (sameModelName(primaryModelName, fallbackModelName)) {
+                String reply = deterministicFallback(userQuery);
+                memoryService.recordMessage(chatId, "assistant", reply);
+                memoryService.recordInteraction(chatId, detectedIntent, "FAILED_FALLBACK_USED", elapsedMs(startedAt), primaryModelName, e.getMessage());
+                return reply;
+            }
             try {
                 String enrichedPrompt = buildPrompt(userQuery, chatId);
                 String reply = callModelWithTimeout(() -> callFallbackModel(enrichedPrompt, chatId));
@@ -122,6 +155,10 @@ public class AgentRouter {
         }
     }
 
+    public String fallbackReply(String userQuery) {
+        return deterministicFallback(userQuery == null ? "" : userQuery);
+    }
+
     private Optional<String> tryDeterministicToolPath(String userQuery, String chatId, String detectedIntent) {
         return switch (detectedIntent) {
             case "TRIP_PLANNING" -> parseRouteRequest(userQuery)
@@ -131,8 +168,7 @@ public class AgentRouter {
             case "ETA" -> parseBusReference(userQuery)
                     .map(busId -> trafficEtaAgentService.getLiveEta(new TrafficEtaAgent.EtaRequest(busId)))
                     .map(this::formatEtaResponse);
-            case "COMPLAINT" -> Optional.of(formatComplaintResponse(complaintAgentService.analyzeComplaint(
-                    new ComplaintAnalysisRequest(userQuery, currentUserId(), "mobile"))));
+            case "COMPLAINT" -> Optional.of(handleComplaintIntent(userQuery));
             case "RECOMMENDATION" -> Optional.of(formatRecommendationResponse(recommendationAgentService.generateRecommendations(
                     new RecommendationRequest(currentUserId(), userQuery, userQuery, List.of()))));
             default -> Optional.empty();
@@ -162,28 +198,43 @@ public class AgentRouter {
     }
 
     private String formatEtaResponse(TrafficEtaAgent.EtaResponse response) {
-        return "%s\nDelay estimate: %d minutes\nLocation: %s\nConfidence: %s | Source: %s".formatted(
+        return "%s\nDelay estimate: %d minutes\nLocation: %s".formatted(
                 response.message(),
                 response.estimatedDelayMinutes(),
-                response.currentLocation(),
-                response.confidence(),
-                response.source());
+                response.currentLocation());
     }
 
-    private String formatComplaintResponse(ComplaintAnalysisResponse response) {
-        return "Complaint triage complete.\nCategory: %s\nPriority: %s\nAssigned team: %s\nSuggested action: %s\nSummary: %s".formatted(
-                response.category(),
-                response.priority(),
-                response.routingTarget(),
-                response.suggestedAction(),
-                response.summary());
+    private String handleComplaintIntent(String userQuery) {
+        ComplaintAnalysisResponse analysis = complaintAgentService.analyzeComplaint(
+                new ComplaintAnalysisRequest(userQuery, currentUserId(), "mobile"));
+        Optional<String> bookingReference = parseBookingReference(userQuery);
+        AgentExecutionContext.Context context = AgentExecutionContext.get();
+
+        if (context == null || context.email() == null || context.email().isBlank()) {
+            return "I can help submit this complaint, but please sign in first so I can attach it to your passenger account.";
+        }
+        if (bookingReference.isEmpty()) {
+            return "I can submit this complaint for admin review. Please send the booking reference for the past trip, for example BK-20250501-ABCD, and include any extra details you want admin to see.";
+        }
+
+        ComplaintDto request = new ComplaintDto();
+        request.setBookingReference(bookingReference.get());
+        request.setComplaintType(toManualComplaintType(analysis.category()));
+        request.setPriority(toManualPriority(analysis.priority()));
+        request.setDescription(buildComplaintDescription(userQuery, analysis));
+
+        try {
+            ComplaintDto created = complaintSubmissionService.create(context.email(), request);
+            return "I've submitted your complaint to the admin team.\nComplaint ID: COMP-%04d\nStatus: Pending\n\nAdmin can now review it from the complaints dashboard.".formatted(created.getId());
+        } catch (RuntimeException ex) {
+            return "I could not submit the complaint yet: %s. Please check the booking reference and make sure it belongs to a past trip, then send the complaint again.".formatted(ex.getMessage());
+        }
     }
 
     private String formatRecommendationResponse(RecommendationResponse response) {
-        return "Recommendations:\n- %s\n\nReasoning: %s\nConfidence: %s".formatted(
+        return "Recommendations:\n- %s\n\nReasoning: %s".formatted(
                 String.join("\n- ", response.recommendations()),
-                response.reasoning(),
-                response.confidence());
+                response.reasoning());
     }
 
     private String currentUserId() {
@@ -228,19 +279,34 @@ public class AgentRouter {
             throw new IllegalStateException("AI base URL is not configured");
         }
 
-        DirectChatResponse response = restClient.post()
-                .uri(chatCompletionsUrl())
-                .headers(headers -> headers.setBearerAuth(modelApiKey))
-                .body(Map.of(
-                        "model", modelName,
-                        "messages", List.of(
-                                Map.of("role", "system", "content", "You are TrackNGo AI, a concise Sri Lankan bus travel assistant."),
-                                Map.of("role", "user", "content", enrichedPrompt)
-                        ),
-                        "temperature", 0.3
-                ))
-                .retrieve()
-                .body(DirectChatResponse.class);
+        Map<String, Object> requestBody = Map.of(
+                "model", modelName,
+                "messages", List.of(
+                        Map.of("role", "system", "content", "You are TrackNGo AI, a concise Sri Lankan bus travel assistant."),
+                        Map.of("role", "user", "content", enrichedPrompt)
+                ),
+                "temperature", 0.3
+        );
+
+        DirectChatResponse response;
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(chatCompletionsUrl()))
+                    .timeout(Duration.ofSeconds(Math.max(1, modelTimeoutSeconds)))
+                    .header("Authorization", "Bearer " + modelApiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                    .build();
+            HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (httpResponse.statusCode() < 200 || httpResponse.statusCode() >= 300) {
+                throw new IllegalStateException("AI provider returned HTTP " + httpResponse.statusCode());
+            }
+            response = objectMapper.readValue(httpResponse.body(), DirectChatResponse.class);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("AI provider request was interrupted", e);
+        } catch (Exception e) {
+            throw new IllegalStateException("AI provider request failed", e);
+        }
 
         if (response == null || response.choices() == null || response.choices().isEmpty()
                 || response.choices().get(0).message() == null
@@ -249,6 +315,10 @@ public class AgentRouter {
             throw new IllegalStateException("AI provider returned an empty response");
         }
         return response.choices().get(0).message().content().trim();
+    }
+
+    private boolean sameModelName(String first, String second) {
+        return first != null && second != null && first.equalsIgnoreCase(second);
     }
 
     private String chatCompletionsUrl() {
@@ -361,9 +431,41 @@ public class AgentRouter {
         for (int i = 0; i < response.routes().size(); i++) {
             builder.append(i + 1).append(". ").append(response.routes().get(i)).append('\n');
         }
-        builder.append("\nConfidence: ").append(response.confidence())
-                .append(" | Source: ").append(response.source());
-        return builder.toString();
+        return builder.toString().trim();
+    }
+
+    private Optional<String> parseBookingReference(String userQuery) {
+        Matcher matcher = Pattern.compile("(?i)\\bBK-[A-Z0-9-]+\\b").matcher(userQuery == null ? "" : userQuery);
+        if (matcher.find()) {
+            return Optional.of(matcher.group().toUpperCase());
+        }
+        return Optional.empty();
+    }
+
+    private String toManualComplaintType(String category) {
+        return switch (category) {
+            case "SAFETY_INCIDENT" -> "safety_concern";
+            case "SERVICE_DELAY" -> "late_arrival";
+            case "PAYMENT_ISSUE" -> "payment_issue";
+            case "DRIVER_BEHAVIOR" -> "driver_behavior";
+            case "SERVICE_QUALITY" -> "route_issue";
+            default -> "other";
+        };
+    }
+
+    private String toManualPriority(String priority) {
+        return switch (priority) {
+            case "URGENT", "HIGH" -> "high";
+            case "LOW" -> "low";
+            default -> "medium";
+        };
+    }
+
+    private String buildComplaintDescription(String userQuery, ComplaintAnalysisResponse analysis) {
+        return "Submitted through TrackNGo AI.\n\nPassenger message: %s\n\nAI triage: %s. Suggested admin action: %s".formatted(
+                userQuery.trim(),
+                analysis.summary(),
+                analysis.suggestedAction());
     }
 
     private String buildPrompt(String userQuery, String chatId) {
@@ -376,11 +478,11 @@ public class AgentRouter {
         return """
                 You are TrackNGo AI, a production travel assistant for a Sri Lankan bus booking platform.
                 Use Sri Lankan places, LKR fares, local operators, and practical transport wording.
-                Prefer tool results and database facts over general model knowledge. If confidence is low, say what is missing.
+                Prefer tool results and database facts over general model knowledge. If details are missing, ask the passenger for the exact missing information.
                 For bookings, never invent a confirmation number; use reserveSeat and report its exact result.
                 For delays, combine getLiveEta with route alternatives where useful.
                 When multiple agents/tools contribute, summarize their contributions in concise labels.
-                Today is 2026-07-23 in Sri Lanka.
+                Today is %s in Sri Lanka.
 
                 User context:
                 %s
@@ -393,6 +495,7 @@ public class AgentRouter {
                 userContext,
                 memoryService.recentConversationDigest(chatId, 8),
                 groundingService.buildGroundingDigest(userQuery),
+                LocalDate.now(ZoneId.of("Asia/Colombo")),
                 userQuery);
     }
 

@@ -19,6 +19,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSession } from '../../store/sessionStore';
 import { getUserProfile } from '../../services/userProfileApi';
 import { httpGet } from '../../services/http';
+import { formatLocalDate, isPastCalendarDate, normalizeBookableDate, PAST_BOOKING_DATE_MESSAGE, startOfToday } from '../../utils/bookingDate';
 
 const MIN_GAP = 0.08;
 
@@ -56,7 +57,7 @@ export default function SearchBusesScreen() {
   const { busCategory } = useLocalSearchParams<{ busCategory?: string }>();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(startOfToday());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
@@ -248,6 +249,12 @@ export default function SearchBusesScreen() {
       return;
     }
 
+    if (isPastCalendarDate(selectedDate)) {
+      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      setSelectedDate(startOfToday());
+      return;
+    }
+
     // Advanced Validation: Ensure locations exist in the 'allStops' master list
     const stopMap = new Map(allStops.map((stop) => [normalizeStopKey(stop), stop]));
     const resolvedFrom = stopMap.get(normalizeStopKey(trimmedFrom));
@@ -265,11 +272,7 @@ export default function SearchBusesScreen() {
       Alert.alert('Invalid route', 'From and To cannot be the same location.');
       return;
     }
-
-    // Prepare date string
-    const yyyy = selectedDate.getFullYear();
-    const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(selectedDate.getDate()).padStart(2, '0');
+    const journeyDate = formatLocalDate(selectedDate);
 
     const isAllDay = range.start === 0 && range.end === 1;
 
@@ -279,7 +282,7 @@ export default function SearchBusesScreen() {
       params: {
         from: resolvedFrom,
         to: resolvedTo,
-        date: `${yyyy}-${mm}-${dd}`,
+        date: journeyDate,
         passengers: String(adults + children),
         adults: String(adults),
         children: String(children),
@@ -655,10 +658,14 @@ export default function SearchBusesScreen() {
               </View>
               <DateTimePicker
                 value={selectedDate}
+                minimumDate={startOfToday()}
                 mode="date"
                 display="inline"
                 onChange={(_, date) => {
-                  if (date) setSelectedDate(date);
+                  if (date) {
+                    setSelectedDate(normalizeBookableDate(date));
+                    if (isPastCalendarDate(date)) Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+                  }
                 }}
               />
             </Pressable>
@@ -669,6 +676,7 @@ export default function SearchBusesScreen() {
       {showDatePicker && Platform.OS !== 'ios' && (
         <DateTimePicker
           value={selectedDate}
+          minimumDate={startOfToday()}
           mode="date"
           display="calendar"
           onChange={(event, date) => {
@@ -676,7 +684,10 @@ export default function SearchBusesScreen() {
               setShowDatePicker(false);
               return;
             }
-            if (date) setSelectedDate(date);
+            if (date) {
+              setSelectedDate(normalizeBookableDate(date));
+              if (isPastCalendarDate(date)) Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+            }
             setShowDatePicker(false);
           }}
         />

@@ -15,8 +15,11 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Time;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -27,6 +30,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class BookingFlowService {
+
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Colombo");
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
@@ -542,6 +547,8 @@ public class BookingFlowService {
     @Transactional
     public BookingConfirmationResult createBooking(CreateBookingRequest req) {
 
+        validateBookableJourneyDate(req.journeyDate());
+
         // 0) Ensure a passenger record exists for this user (FK requirement)
         ensurePassengerExists(req.passengerId());
 
@@ -707,6 +714,21 @@ public class BookingFlowService {
             throw new RuntimeException("Booking not found or already cancelled");
         }
     }
+
+    private void validateBookableJourneyDate(String journeyDate) {
+        LocalDate parsedDate;
+        try {
+            parsedDate = LocalDate.parse(journeyDate);
+        } catch (DateTimeParseException | NullPointerException ex) {
+            throw new BusinessException("Journey date is invalid. Please choose today or a future date.");
+        }
+
+        LocalDate today = LocalDate.now(APP_ZONE);
+        if (parsedDate.isBefore(today)) {
+            throw new BusinessException("Bookings can only be made for today or a future date.");
+        }
+    }
+
 
     /*
        HELPERS

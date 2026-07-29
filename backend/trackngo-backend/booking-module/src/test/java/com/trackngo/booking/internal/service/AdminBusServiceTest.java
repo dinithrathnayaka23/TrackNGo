@@ -9,6 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.KeyHolder;
 
@@ -96,11 +97,11 @@ class AdminBusServiceTest {
                 "active", List.of("ac"), "08:00", "12:00", "14:00", "18:00",
                 "REG-001", "2026-12-31", 1L, 2L
         );
-        when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+        when(jdbc.update(any(PreparedStatementCreator.class))).thenReturn(1);
         when(mapper.writeValueAsString(any())).thenReturn("[\"ac\"]");
 
         assertThatNoException().isThrownBy(() -> service.updateBus(1L, req));
-        verify(jdbc).update(anyString(), any(Object[].class));
+        verify(jdbc).update(any(PreparedStatementCreator.class));
     }
 
     // ─── deleteBus ────────────────────────────────────────────────────────────

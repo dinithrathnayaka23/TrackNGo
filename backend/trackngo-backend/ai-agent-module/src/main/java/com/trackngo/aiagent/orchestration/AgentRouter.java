@@ -14,15 +14,19 @@ import com.trackngo.aiagent.services.ComplaintAgentService;
 import com.trackngo.aiagent.services.RecommendationAgentService;
 import com.trackngo.aiagent.services.TrafficEtaAgentService;
 import com.trackngo.aiagent.services.TripPlanningAgentService;
+import com.trackngo.booking.api.dto.BookingFlowDtos;
+import com.trackngo.booking.internal.service.BookingFlowService;
 import com.trackngo.complaint.api.ComplaintService;
 import com.trackngo.complaint.api.dto.ComplaintDto;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import lombok.extern.slf4j.Slf4j;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -31,6 +35,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +58,8 @@ public class AgentRouter {
     private final ComplaintAgentService complaintAgentService;
     private final ComplaintService complaintSubmissionService;
     private final RecommendationAgentService recommendationAgentService;
+    private final BookingFlowService bookingFlowService;
+    private final JdbcTemplate jdbcTemplate;
     private final int modelTimeoutSeconds;
     private final boolean modelFunctionsEnabled;
     private final boolean directHttpModelEnabled;
@@ -78,7 +85,9 @@ public class AgentRouter {
             TrafficEtaAgentService trafficEtaAgentService,
             ComplaintAgentService complaintAgentService,
             ComplaintService complaintSubmissionService,
-            RecommendationAgentService recommendationAgentService) {
+            RecommendationAgentService recommendationAgentService,
+            BookingFlowService bookingFlowService,
+            JdbcTemplate jdbcTemplate) {
         this.primaryChatClient = chatClient;
         this.primaryModelName = primaryModelName;
         this.fallbackModelName = fallbackModelName;
@@ -105,6 +114,8 @@ public class AgentRouter {
         this.complaintAgentService = complaintAgentService;
         this.complaintSubmissionService = complaintSubmissionService;
         this.recommendationAgentService = recommendationAgentService;
+        this.bookingFlowService = bookingFlowService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public String processUserQuery(String userQuery, String chatId) {
@@ -165,6 +176,7 @@ public class AgentRouter {
                     .map(tripPlanningAgentService::findRoutes)
                     .map(this::formatRouteResponse);
             case "BOOKING" -> Optional.of(handleBookingIntent(userQuery));
+            case "ADMIN_OPS" -> Optional.of(handleAdminOpsIntent(userQuery));
             case "ETA" -> parseBusReference(userQuery)
                     .map(busId -> trafficEtaAgentService.getLiveEta(new TrafficEtaAgent.EtaRequest(busId)))
                     .map(this::formatEtaResponse);
@@ -176,15 +188,331 @@ public class AgentRouter {
     }
 
     private String handleBookingIntent(String userQuery) {
+        ParsedBookingRequest booking = parseNaturalLanguageBooking(userQuery);
         Optional<TripPlanningAgent.RouteRequest> routeRequest = parseRouteRequest(userQuery);
-        if (routeRequest.isPresent()) {
-            TripPlanningAgent.RouteResponse response = tripPlanningAgentService.findRoutes(routeRequest.get());
-            return formatRouteResponse(response)
-                    + "\n\nTo create the booking, send the bus id or bus number, seat numbers, passenger name, and confirm that I should reserve the seats. I will not create a booking or reference number until those details are confirmed.";
+
+        if (routeRequest.isEmpty()) {
+            return "I can help you book in plain English. Please include **source**, **destination**, **travel date**, and **seat count**.\n\nExample: **Book 2 seats from Colombo Fort to Kandy tomorrow morning**.";
         }
-        return "I can help with the booking, but I need the source, destination, travel date, preferred bus or bus number, and seat count. Example: book 2 seats on NB-0012 from Colombo Fort to Kandy on 2026-07-24.";
+
+        TripPlanningAgent.RouteRequest route = routeRequest.get();
+        String travelDate = resolveTravelDate(route.date());
+        List<BookingFlowDtos.BusSearchResult> buses = searchBookingOptions(route, travelDate);
+        if (buses.isEmpty()) {
+            return "I could not find active TrackNGo buses from **%s** to **%s** on **%s**. Try exact stop names such as Colombo Fort, Kandy, Galle, Matara, Jaffna, or Negombo.".formatted(
+                    route.source(), route.destination(), travelDate);
+        }
+
+        if (!booking.confirmed()) {
+            return formatBookingOptions(route, travelDate, buses, booking.seatCount())
+                    + "\n\nTo finish the booking, reply like: **Confirm bus id %d seats 1A, 1B**. I will only create the booking after that confirmation.".formatted(buses.get(0).busId());
+        }
+
+        AgentExecutionContext.Context context = AgentExecutionContext.get();
+        if (context == null || context.userId() == null) {
+            return "I can prepare the booking, but please sign in first so I can attach it to your passenger account.";
+        }
+
+        if (booking.seatNumbers().isEmpty()) {
+            return formatBookingOptions(route, travelDate, buses, booking.seatCount())
+                    + "\n\nPlease choose the exact seats before I create the booking. Example: **Confirm bus id %d seats 1A, 1B**.".formatted(buses.get(0).busId());
+        }
+
+        Optional<BookingFlowDtos.BusSearchResult> selectedBus = selectBusForBooking(buses, booking);
+        if (selectedBus.isEmpty()) {
+            return formatBookingOptions(route, travelDate, buses, booking.seatNumbers().size())
+                    + "\n\nI could not match that bus. Please use the **bus id** or **bus number** shown above.";
+        }
+
+        BookingFlowDtos.BusSearchResult bus = selectedBus.get();
+        if (bus.availableSeats() < booking.seatNumbers().size()) {
+            return "That bus currently has only **%d** seats available. Please choose fewer seats or another bus.".formatted(bus.availableSeats());
+        }
+
+        List<String> unavailableSeats = unavailableSeats(bus.busId(), travelDate, booking.seatNumbers());
+        if (!unavailableSeats.isEmpty()) {
+            return "These seats are not available on **%s** for **%s**: **%s**. Please choose different seats.".formatted(
+                    bus.busNumber(), travelDate, String.join(", ", unavailableSeats));
+        }
+
+        BigDecimal totalAmount = bus.fee()
+                .multiply(BigDecimal.valueOf(booking.seatNumbers().size()))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+
+        BookingFlowDtos.CreateBookingRequest request = new BookingFlowDtos.CreateBookingRequest(
+                bus.busId(),
+                travelDate,
+                bus.startTime(),
+                booking.seatNumbers(),
+                "Created through TrackNGo AI natural-language booking.",
+                "stripe",
+                totalAmount,
+                context.userId(),
+                route.source(),
+                route.destination(),
+                totalAmount,
+                BigDecimal.ZERO,
+                null,
+                null
+        );
+
+        try {
+            BookingFlowDtos.BookingConfirmationResult created = bookingFlowService.createBooking(request);
+            return """
+                    **Booking confirmed.**
+                    - **Reference:** %s
+                    - **Bus:** %s
+                    - **Route:** %s to %s
+                    - **Date/time:** %s at %s
+                    - **Seats:** %s
+                    - **Total:** LKR %s
+                    """.formatted(
+                    created.bookingReference(),
+                    created.busNumber(),
+                    created.fromLocation(),
+                    created.toLocation(),
+                    created.journeyDate(),
+                    created.journeyTime(),
+                    created.seatNumbers(),
+                    created.totalAmount()).trim();
+        } catch (RuntimeException ex) {
+            return "I could not create the booking yet: %s. Please review the bus, seats, and fare, then try again.".formatted(ex.getMessage());
+        }
     }
 
+    private List<BookingFlowDtos.BusSearchResult> searchBookingOptions(TripPlanningAgent.RouteRequest route, String travelDate) {
+        try {
+            return bookingFlowService.searchBuses(route.source(), route.destination(), travelDate, route.busCategory())
+                    .stream()
+                    .filter(bus -> bus.availableSeats() > 0)
+                    .limit(5)
+                    .toList();
+        } catch (RuntimeException ex) {
+            log.warn("AI booking search failed: {}", ex.getMessage());
+            return List.of();
+        }
+    }
+
+    private String formatBookingOptions(TripPlanningAgent.RouteRequest route, String travelDate, List<BookingFlowDtos.BusSearchResult> buses, Integer requestedSeats) {
+        StringBuilder builder = new StringBuilder("**I found these booking options:**\n");
+        int seatCount = requestedSeats == null || requestedSeats < 1 ? 1 : requestedSeats;
+        for (int i = 0; i < Math.min(3, buses.size()); i++) {
+            BookingFlowDtos.BusSearchResult bus = buses.get(i);
+            BigDecimal estimatedTotal = bus.fee().multiply(BigDecimal.valueOf(seatCount)).setScale(2, java.math.RoundingMode.HALF_UP);
+            builder.append(i + 1)
+                    .append(". **")
+                    .append(bus.busNumber())
+                    .append("** — bus id ")
+                    .append(bus.busId())
+                    .append(", ")
+                    .append(route.source())
+                    .append(" to ")
+                    .append(route.destination())
+                    .append(" on ")
+                    .append(travelDate)
+                    .append(", leaves ")
+                    .append(bus.startTime())
+                    .append(", ")
+                    .append(bus.availableSeats())
+                    .append(" seats available, estimated total **LKR ")
+                    .append(estimatedTotal)
+                    .append("** for ")
+                    .append(seatCount)
+                    .append(seatCount == 1 ? " seat." : " seats.")
+                    .append('\n');
+        }
+        return builder.toString().trim();
+    }
+
+    private Optional<BookingFlowDtos.BusSearchResult> selectBusForBooking(List<BookingFlowDtos.BusSearchResult> buses, ParsedBookingRequest booking) {
+        if (booking.busId() != null) {
+            return buses.stream().filter(bus -> booking.busId().equals(bus.busId())).findFirst();
+        }
+        if (booking.busNumber() != null && !booking.busNumber().isBlank()) {
+            return buses.stream().filter(bus -> booking.busNumber().equalsIgnoreCase(bus.busNumber())).findFirst();
+        }
+        return buses.size() == 1 ? Optional.of(buses.get(0)) : Optional.empty();
+    }
+
+    private List<String> unavailableSeats(Long busId, String travelDate, List<String> requestedSeats) {
+        try {
+            List<String> booked = bookingFlowService.getBookedSeats(busId, travelDate).stream().map(String::toUpperCase).toList();
+            List<String> blocked = bookingFlowService.getBlockedSeats(busId).stream().map(String::toUpperCase).toList();
+            return requestedSeats.stream()
+                    .map(seat -> seat.toUpperCase(Locale.ROOT))
+                    .filter(seat -> booked.contains(seat) || blocked.contains(seat))
+                    .toList();
+        } catch (RuntimeException ex) {
+            log.warn("AI booking seat availability check failed: {}", ex.getMessage());
+            return List.of();
+        }
+    }
+
+    private ParsedBookingRequest parseNaturalLanguageBooking(String userQuery) {
+        String query = userQuery == null ? "" : userQuery;
+        String lower = query.toLowerCase(Locale.ROOT);
+        List<String> seatNumbers = parseSeatNumbers(query);
+        Integer seatCount = seatNumbers.isEmpty() ? parseSeatCount(query) : seatNumbers.size();
+        Long busId = parseSelectedBusId(query).orElse(null);
+        String busNumber = parseBusReference(query).orElse(null);
+        String category = lower.contains("luxury") ? "luxury"
+                : lower.contains("highway") || lower.contains("express") ? "highway"
+                : lower.contains("semi") ? "semi_luxury"
+                : null;
+        return new ParsedBookingRequest(seatNumbers, seatCount, busId, busNumber, category, isExplicitBookingConfirmation(lower));
+    }
+
+    private List<String> parseSeatNumbers(String query) {
+        Matcher matcher = Pattern.compile("(?i)\\b\\d{1,2}[A-F]\\b").matcher(query == null ? "" : query);
+        java.util.ArrayList<String> seats = new java.util.ArrayList<>();
+        while (matcher.find()) {
+            String seat = matcher.group().toUpperCase(Locale.ROOT);
+            if (!seats.contains(seat)) {
+                seats.add(seat);
+            }
+        }
+        return seats;
+    }
+
+    private Integer parseSeatCount(String query) {
+        String lower = query == null ? "" : query.toLowerCase(Locale.ROOT);
+        Matcher matcher = Pattern.compile("\\b(\\d+)\\s+(?:seat|seats|ticket|tickets)\\b").matcher(lower);
+        if (matcher.find()) {
+            return Math.max(1, Integer.parseInt(matcher.group(1)));
+        }
+        if (lower.matches(".*\\b(one|a|an)\\s+(?:seat|ticket)\\b.*")) return 1;
+        if (lower.matches(".*\\btwo\\s+(?:seats|tickets)\\b.*")) return 2;
+        if (lower.matches(".*\\bthree\\s+(?:seats|tickets)\\b.*")) return 3;
+        if (lower.matches(".*\\bfour\\s+(?:seats|tickets)\\b.*")) return 4;
+        return null;
+    }
+
+    private Optional<Long> parseSelectedBusId(String query) {
+        Matcher matcher = Pattern.compile("(?i)\\bbus\\s*(?:id)?\\s*#?\\s*(\\d+)\\b").matcher(query == null ? "" : query);
+        if (matcher.find()) {
+            return Optional.of(Long.parseLong(matcher.group(1)));
+        }
+        return Optional.empty();
+    }
+
+    private boolean isExplicitBookingConfirmation(String lower) {
+        return lower.contains("confirm")
+                || lower.contains("go ahead")
+                || lower.contains("book now")
+                || lower.contains("reserve now")
+                || lower.contains("yes book")
+                || lower.contains("yes reserve");
+    }
+
+    private record ParsedBookingRequest(
+            List<String> seatNumbers,
+            Integer seatCount,
+            Long busId,
+            String busNumber,
+            String busCategory,
+            boolean confirmed) {}
+
+    private String handleAdminOpsIntent(String userQuery) {
+        AgentExecutionContext.Context context = AgentExecutionContext.get();
+        if (context == null || context.role() == null || !context.role().equalsIgnoreCase("admin")) {
+            return "The admin operations co-pilot is only available to signed-in admins. Passenger AI can still help with bookings, ETA, refunds, and complaints.";
+        }
+
+        try {
+            long totalComplaints = countLong("SELECT COUNT(*) FROM complaint");
+            long pendingComplaints = countLong("SELECT COUNT(*) FROM complaint WHERE status = 'pending'");
+            long underReviewComplaints = countLong("SELECT COUNT(*) FROM complaint WHERE status = 'under_review'");
+            long highPriorityComplaints = countLong("SELECT COUNT(*) FROM complaint WHERE priority = 'high' AND status IN ('pending', 'under_review')");
+            long safetyComplaints7Days = countLong("SELECT COUNT(*) FROM complaint WHERE complaint_type = 'safety_concern' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+            long bookingsToday = countLong("SELECT COUNT(*) FROM seat_booking WHERE journey_date = CURDATE() AND status <> 'cancelled'");
+            BigDecimal revenueToday = sumMoney("SELECT COALESCE(SUM(total_amount), 0) FROM seat_booking WHERE journey_date = CURDATE() AND status <> 'cancelled'");
+
+            List<Map<String, Object>> topBuses = jdbcTemplate.queryForList("""
+                    SELECT COALESCE(b.bus_number, '--') AS label, COUNT(*) AS total
+                    FROM complaint c
+                    LEFT JOIN seat_booking sb ON sb.booking_reference = c.booking_reference
+                    LEFT JOIN bus b ON b.bus_id = sb.bus_id
+                    WHERE c.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    GROUP BY COALESCE(b.bus_number, '--')
+                    ORDER BY total DESC
+                    LIMIT 3
+                    """);
+
+            List<Map<String, Object>> topDrivers = jdbcTemplate.queryForList("""
+                    SELECT TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS label, COUNT(*) AS total
+                    FROM complaint c
+                    LEFT JOIN seat_booking sb ON sb.booking_reference = c.booking_reference
+                    LEFT JOIN bus b ON b.bus_id = sb.bus_id
+                    LEFT JOIN driver d ON d.driver_id = b.driver_id
+                    LEFT JOIN `user` u ON u.user_id = d.driver_id
+                    WHERE c.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    GROUP BY TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')))
+                    ORDER BY total DESC
+                    LIMIT 3
+                    """);
+
+            return """
+                    **Admin operations summary**
+                    - **Total complaints:** %d
+                    - **Open complaints:** %d pending, %d under review
+                    - **High priority open issues:** %d
+                    - **Safety complaints in last 7 days:** %d
+                    - **Bookings today:** %d
+                    - **Today revenue:** LKR %s
+
+                    **Watchlist**
+                    %s
+                    %s
+
+                    **Recommended actions**
+                    1. Review high-priority and safety complaints first.
+                    2. Contact operators for buses appearing repeatedly in the watchlist.
+                    3. Close resolved complaints with a clear admin response so passengers can see progress.
+                    """.formatted(
+                    totalComplaints,
+                    pendingComplaints,
+                    underReviewComplaints,
+                    highPriorityComplaints,
+                    safetyComplaints7Days,
+                    bookingsToday,
+                    revenueToday.setScale(2, java.math.RoundingMode.HALF_UP),
+                    formatTopRows("Top complaint buses", topBuses),
+                    formatTopRows("Top complaint drivers", topDrivers)).trim();
+        } catch (RuntimeException ex) {
+            log.warn("Admin operations co-pilot failed: {}", ex.getMessage());
+            return "I could not build the admin operations summary right now. Please check that the complaint and booking tables are available, then try again.";
+        }
+    }
+
+    private long countLong(String sql) {
+        Long value = jdbcTemplate.queryForObject(sql, Long.class);
+        return value == null ? 0L : value;
+    }
+
+    private BigDecimal sumMoney(String sql) {
+        BigDecimal value = jdbcTemplate.queryForObject(sql, BigDecimal.class);
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private String formatTopRows(String title, List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return "- **%s:** No data yet".formatted(title);
+        }
+        StringBuilder builder = new StringBuilder("- **").append(title).append(":** ");
+        for (int i = 0; i < rows.size(); i++) {
+            Map<String, Object> row = rows.get(i);
+            String label = String.valueOf(row.get("label"));
+            if (label == null || label.isBlank() || "null".equalsIgnoreCase(label)) {
+                label = "Unassigned";
+            }
+            Object total = row.get("total");
+            builder.append(label).append(" (").append(total).append(")");
+            if (i < rows.size() - 1) {
+                builder.append(", ");
+            }
+        }
+        return builder.toString();
+    }
     private Optional<String> parseBusReference(String userQuery) {
         Matcher busNumber = Pattern.compile("(?i)\\b[A-Z]{1,3}-\\d{3,5}\\b").matcher(userQuery);
         if (busNumber.find()) {
@@ -217,15 +545,40 @@ public class AgentRouter {
             return "I can submit this complaint for admin review. Please send the booking reference for the past trip, for example BK-20250501-ABCD, and include any extra details you want admin to see.";
         }
 
+        boolean urgentSafetyEscalation = isUrgentSafetyComplaint(userQuery, analysis);
+        String complaintType = urgentSafetyEscalation ? "safety_concern" : toManualComplaintType(analysis.category());
+        String priority = urgentSafetyEscalation ? "high" : toManualPriority(analysis.priority());
+
         ComplaintDto request = new ComplaintDto();
         request.setBookingReference(bookingReference.get());
-        request.setComplaintType(toManualComplaintType(analysis.category()));
-        request.setPriority(toManualPriority(analysis.priority()));
-        request.setDescription(buildComplaintDescription(userQuery, analysis));
+        request.setComplaintType(complaintType);
+        request.setPriority(priority);
+        request.setDescription(buildComplaintDescription(userQuery, analysis, urgentSafetyEscalation));
 
         try {
             ComplaintDto created = complaintSubmissionService.create(context.email(), request);
-            return "I've submitted your complaint to the admin team.\nComplaint ID: COMP-%04d\nStatus: Pending\n\nAdmin can now review it from the complaints dashboard.".formatted(created.getId());
+            if (urgentSafetyEscalation) {
+                created.setStatus("under_review");
+                created = complaintSubmissionService.update(created.getId(), created);
+            }
+            String status = urgentSafetyEscalation ? "Under Review" : "Pending";
+            String escalation = urgentSafetyEscalation
+                    ? "\n**Escalation:** Safety issue flagged for urgent admin review."
+                    : "";
+            return """
+                    **Complaint submitted to admin.**
+                    - **Complaint ID:** COMP-%04d
+                    - **Category:** %s
+                    - **Priority:** %s
+                    - **Status:** %s%s
+
+                    Admin can now review it from the complaints dashboard.
+                    """.formatted(
+                    created.getId(),
+                    readableComplaintType(created.getComplaintType()),
+                    readablePriority(created.getPriority()),
+                    status,
+                    escalation).trim();
         } catch (RuntimeException ex) {
             return "I could not submit the complaint yet: %s. Please check the booking reference and make sure it belongs to a past trip, then send the complaint again.".formatted(ex.getMessage());
         }
@@ -375,7 +728,7 @@ public class AgentRouter {
 
     private Optional<TripPlanningAgent.RouteRequest> parseRouteRequest(String userQuery) {
         String query = userQuery == null ? "" : userQuery.trim();
-        Pattern pattern = Pattern.compile("(?i)\\bfrom\\s+(.+?)\\s+to\\s+(.+?)(?:\\s+(today|tomorrow|\\d{4}-\\d{2}-\\d{2}|morning|afternoon|evening|night)\\b|$)");
+        Pattern pattern = Pattern.compile("(?i)\\bfrom\\s+(.+?)\\s+to\\s+(.+?)(?:\\s+(?:on\\s+)?(today|tomorrow|\\d{4}-\\d{2}-\\d{2}|morning|afternoon|evening|night)\\b|$)");
         Matcher matcher = pattern.matcher(query);
         if (!matcher.find()) {
             return Optional.empty();
@@ -409,9 +762,40 @@ public class AgentRouter {
         if (source.isBlank() || destination.isBlank()) {
             return Optional.empty();
         }
-        return Optional.of(new TripPlanningAgent.RouteRequest(source, destination, date, null, preferredTime));
+        return Optional.of(new TripPlanningAgent.RouteRequest(source, destination, date, parseBusCategory(query), preferredTime));
     }
 
+    private String resolveTravelDate(String date) {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Colombo"));
+        if (date == null || date.isBlank()) {
+            return today.toString();
+        }
+        String normalized = date.trim().toLowerCase(Locale.ROOT);
+        if ("today".equals(normalized)) {
+            return today.toString();
+        }
+        if ("tomorrow".equals(normalized)) {
+            return today.plusDays(1).toString();
+        }
+        return date.trim();
+    }
+
+    private String parseBusCategory(String query) {
+        String lower = query == null ? "" : query.toLowerCase(Locale.ROOT);
+        if (lower.contains("luxury")) {
+            return "luxury";
+        }
+        if (lower.contains("semi")) {
+            return "semi_luxury";
+        }
+        if (lower.contains("highway") || lower.contains("express")) {
+            return "highway";
+        }
+        if (lower.contains("long distance")) {
+            return "long_distance";
+        }
+        return null;
+    }
     private String cleanupPlace(String value) {
         if (value == null) {
             return "";
@@ -461,11 +845,50 @@ public class AgentRouter {
         };
     }
 
-    private String buildComplaintDescription(String userQuery, ComplaintAnalysisResponse analysis) {
-        return "Submitted through TrackNGo AI.\n\nPassenger message: %s\n\nAI triage: %s. Suggested admin action: %s".formatted(
+    private String buildComplaintDescription(String userQuery, ComplaintAnalysisResponse analysis, boolean urgentSafetyEscalation) {
+        return "Submitted through TrackNGo AI.\n\nPassenger message: %s\n\nAI triage:\n- Category: %s\n- Priority: %s\n- Routing target: %s\n- Summary: %s\n- Suggested admin action: %s%s".formatted(
                 userQuery.trim(),
+                analysis.category(),
+                urgentSafetyEscalation ? "HIGH" : analysis.priority(),
+                urgentSafetyEscalation ? "SAFETY_ESCALATION" : analysis.routingTarget(),
                 analysis.summary(),
-                analysis.suggestedAction());
+                analysis.suggestedAction(),
+                urgentSafetyEscalation ? "\n- Escalation note: Passenger message contains safety-critical language and was automatically moved to under review." : "");
+    }
+
+    private boolean isUrgentSafetyComplaint(String userQuery, ComplaintAnalysisResponse analysis) {
+        String lower = userQuery == null ? "" : userQuery.toLowerCase(Locale.ROOT);
+        return "SAFETY_INCIDENT".equalsIgnoreCase(analysis.category())
+                || lower.contains("unsafe")
+                || lower.contains("reckless")
+                || lower.contains("harassment")
+                || lower.contains("assault")
+                || lower.contains("drunk")
+                || lower.contains("brake")
+                || lower.contains("accident")
+                || lower.contains("overcrowded")
+                || lower.contains("over crowded")
+                || lower.contains("fire");
+    }
+
+    private String readableComplaintType(String complaintType) {
+        return switch (complaintType) {
+            case "driver_behavior" -> "Driver Behavior";
+            case "bus_condition" -> "Bus Condition";
+            case "route_issue" -> "Route Issue";
+            case "late_arrival" -> "Late Arrival";
+            case "payment_issue" -> "Payment Issue";
+            case "booking_issue" -> "Booking Issue";
+            case "safety_concern" -> "Safety Concern";
+            default -> "Other";
+        };
+    }
+
+    private String readablePriority(String priority) {
+        if (priority == null || priority.isBlank()) {
+            return "Medium";
+        }
+        return priority.substring(0, 1).toUpperCase(Locale.ROOT) + priority.substring(1).toLowerCase(Locale.ROOT);
     }
 
     private String buildPrompt(String userQuery, String chatId) {
@@ -492,10 +915,10 @@ public class AgentRouter {
                 User request:
                 %s
                 """.formatted(
+                LocalDate.now(ZoneId.of("Asia/Colombo")),
                 userContext,
                 memoryService.recentConversationDigest(chatId, 8),
                 groundingService.buildGroundingDigest(userQuery),
-                LocalDate.now(ZoneId.of("Asia/Colombo")),
                 userQuery);
     }
 
@@ -515,6 +938,9 @@ public class AgentRouter {
 
     private String detectIntent(String query) {
         String lower = query.toLowerCase();
+        if (isAdminOpsIntent(lower)) {
+            return "ADMIN_OPS";
+        }
         if (isComplaintIntent(lower)) {
             return "COMPLAINT";
         }
@@ -534,6 +960,19 @@ public class AgentRouter {
             return "TRIP_PLANNING";
         }
         return "GENERAL";
+    }
+
+    private boolean isAdminOpsIntent(String lower) {
+        return lower.contains("admin summary")
+                || lower.contains("admin dashboard")
+                || lower.contains("operations summary")
+                || lower.contains("ops summary")
+                || lower.contains("operations report")
+                || lower.contains("dashboard summary")
+                || lower.contains("complaints this week")
+                || lower.contains("unresolved complaints")
+                || lower.contains("high priority complaints")
+                || lower.contains("safety complaints");
     }
 
     private boolean isComplaintIntent(String lower) {

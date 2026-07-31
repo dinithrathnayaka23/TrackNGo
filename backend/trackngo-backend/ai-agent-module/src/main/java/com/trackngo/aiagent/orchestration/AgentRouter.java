@@ -2,6 +2,7 @@ package com.trackngo.aiagent.orchestration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.aiagent.context.AgentExecutionContext;
+import com.trackngo.aiagent.agents.NotificationAgent;
 import com.trackngo.aiagent.agents.TripPlanningAgent;
 import com.trackngo.aiagent.agents.TrafficEtaAgent;
 import com.trackngo.aiagent.dto.ComplaintAnalysisRequest;
@@ -12,6 +13,7 @@ import com.trackngo.aiagent.services.AiConversationMemoryService;
 import com.trackngo.aiagent.services.AiGroundingService;
 import com.trackngo.aiagent.services.ComplaintAgentService;
 import com.trackngo.aiagent.services.RecommendationAgentService;
+import com.trackngo.aiagent.services.NotificationAgentService;
 import com.trackngo.aiagent.services.TrafficEtaAgentService;
 import com.trackngo.aiagent.services.TripPlanningAgentService;
 import com.trackngo.booking.api.dto.BookingFlowDtos;
@@ -58,6 +60,7 @@ public class AgentRouter {
     private final ComplaintAgentService complaintAgentService;
     private final ComplaintService complaintSubmissionService;
     private final RecommendationAgentService recommendationAgentService;
+    private final NotificationAgentService notificationAgentService;
     private final BookingFlowService bookingFlowService;
     private final JdbcTemplate jdbcTemplate;
     private final int modelTimeoutSeconds;
@@ -86,6 +89,7 @@ public class AgentRouter {
             ComplaintAgentService complaintAgentService,
             ComplaintService complaintSubmissionService,
             RecommendationAgentService recommendationAgentService,
+            NotificationAgentService notificationAgentService,
             BookingFlowService bookingFlowService,
             JdbcTemplate jdbcTemplate) {
         this.primaryChatClient = chatClient;
@@ -114,6 +118,7 @@ public class AgentRouter {
         this.complaintAgentService = complaintAgentService;
         this.complaintSubmissionService = complaintSubmissionService;
         this.recommendationAgentService = recommendationAgentService;
+        this.notificationAgentService = notificationAgentService;
         this.bookingFlowService = bookingFlowService;
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -183,10 +188,50 @@ public class AgentRouter {
             case "COMPLAINT" -> Optional.of(handleComplaintIntent(userQuery));
             case "RECOMMENDATION" -> Optional.of(formatRecommendationResponse(recommendationAgentService.generateRecommendations(
                     new RecommendationRequest(currentUserId(), userQuery, userQuery, List.of()))));
+            case "NOTIFICATION" -> Optional.of(handleNotificationIntent(userQuery));
             default -> Optional.empty();
         };
     }
 
+    private String handleNotificationIntent(String userQuery) {
+        String lower = userQuery.toLowerCase(Locale.ROOT);
+        String type = lower.contains("alternative") || lower.contains("disruption")
+                ? "alternative_route"
+                : lower.contains("delay") || lower.contains("late") || lower.contains("traffic")
+                    ? "delay_alert"
+                    : "reminder";
+        String busId = parseBusReference(userQuery).orElse(null);
+        Optional<TripPlanningAgent.RouteRequest> route = parseRouteRequest(userQuery);
+        AgentExecutionContext.Context context = AgentExecutionContext.get();
+        Long passengerId = context != null && context.hasUser() && "passenger".equalsIgnoreCase(context.role())
+                ? context.userId()
+                : null;
+        Long driverId = context != null && context.hasUser() && "driver".equalsIgnoreCase(context.role())
+                ? context.userId()
+                : null;
+        Long adminId = context != null && context.hasUser() && "admin".equalsIgnoreCase(context.role())
+                ? context.userId()
+                : null;
+
+        NotificationAgent.NotificationResponse response = notificationAgentService.sendNotification(
+                new NotificationAgent.NotificationRequest(
+                        type,
+                        busId,
+                        userQuery,
+                        route.map(TripPlanningAgent.RouteRequest::source).orElse(null),
+                        route.map(TripPlanningAgent.RouteRequest::destination).orElse(null),
+                        passengerId,
+                        driverId,
+                        adminId));
+        String delivery = response.notificationId() == null
+                ? "The message was prepared, but it was not saved to a notification inbox. Sign in as a passenger, driver, or admin with a configured database connection."
+                : "The message was delivered to the signed-in user's notification inbox (ID: %d).".formatted(response.notificationId());
+        return "**Notification prepared.**\n- **Type:** %s\n- **Message:** %s\n- **Delivery:** %s%s".formatted(
+                response.type(),
+                response.message(),
+                delivery,
+                response.suggestedRoute().isBlank() ? "" : "\n- **Suggested route:** " + response.suggestedRoute());
+    }
     private String handleBookingIntent(String userQuery) {
         ParsedBookingRequest booking = parseNaturalLanguageBooking(userQuery);
         Optional<TripPlanningAgent.RouteRequest> routeRequest = parseRouteRequest(userQuery);
@@ -585,11 +630,14 @@ public class AgentRouter {
     }
 
     private String formatRecommendationResponse(RecommendationResponse response) {
-        return "Recommendations:\n- %s\n\nReasoning: %s".formatted(
+        String notification = response.notificationId() == null
+                ? ""
+                : "\n\nI also sent these recommendations to your TrackNGo notification inbox (ID: %d).".formatted(response.notificationId());
+        return "Recommendations:\n- %s\n\nReasoning: %s%s".formatted(
                 String.join("\n- ", response.recommendations()),
-                response.reasoning());
+                response.reasoning(),
+                notification);
     }
-
     private String currentUserId() {
         AgentExecutionContext.Context context = AgentExecutionContext.get();
         return context != null && context.hasUser() ? String.valueOf(context.userId()) : "anonymous";

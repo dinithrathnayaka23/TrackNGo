@@ -1,5 +1,6 @@
 package com.trackngo.aiagent.services;
 
+import com.trackngo.aiagent.agents.NotificationAgent;
 import com.trackngo.aiagent.context.AgentExecutionContext;
 import com.trackngo.aiagent.dto.RecommendationRequest;
 import com.trackngo.aiagent.dto.RecommendationResponse;
@@ -19,14 +20,24 @@ import java.util.Map;
 public class RecommendationAgentService {
 
     private final JdbcTemplate jdbc;
+    private final NotificationAgentService notificationAgentService;
 
     public RecommendationAgentService() {
         this.jdbc = null;
+        this.notificationAgentService = null;
     }
 
     @Autowired
-    public RecommendationAgentService(ObjectProvider<JdbcTemplate> jdbc) {
+    public RecommendationAgentService(
+            ObjectProvider<JdbcTemplate> jdbc,
+            ObjectProvider<NotificationAgentService> notificationAgentService) {
         this.jdbc = jdbc.getIfAvailable();
+        this.notificationAgentService = notificationAgentService.getIfAvailable();
+    }
+
+    public RecommendationAgentService(JdbcTemplate jdbc, NotificationAgentService notificationAgentService) {
+        this.jdbc = jdbc;
+        this.notificationAgentService = notificationAgentService;
     }
 
     public RecommendationResponse generateRecommendations(RecommendationRequest request) {
@@ -66,8 +77,41 @@ public class RecommendationAgentService {
             confidence = "high";
         }
 
+        Long notificationId = persistRecommendationNotification(recommendations, reasoning, request);
         log.info("Generated {} recommendations for user {}", recommendations.size(), request.userId());
-        return new RecommendationResponse(recommendations, reasoning, confidence);
+        return new RecommendationResponse(recommendations, reasoning, confidence, notificationId);
+    }
+
+    private Long persistRecommendationNotification(
+            List<String> recommendations,
+            String reasoning,
+            RecommendationRequest request) {
+        if (notificationAgentService == null) {
+            return null;
+        }
+
+        Long passengerId = passengerIdForNotification(request);
+        if (passengerId == null) {
+            return null;
+        }
+
+        String message = "\n- " + String.join("\n- ", recommendations)
+                + "\n\nReasoning: " + reasoning;
+        NotificationAgent.NotificationResponse notification = notificationAgentService.sendNotification(
+                new NotificationAgent.NotificationRequest(
+                        "promotion", null, message, null, null, passengerId, null, null));
+        return notification == null ? null : notification.notificationId();
+    }
+
+    private Long passengerIdForNotification(RecommendationRequest request) {
+        AgentExecutionContext.Context context = AgentExecutionContext.get();
+        if (context != null) {
+            if (!context.hasUser() || !"passenger".equalsIgnoreCase(context.role())) {
+                return null;
+            }
+            return context.userId();
+        }
+        return parseUserId(request.userId());
     }
 
     private List<String> recentTripsFromDatabase(RecommendationRequest request) {

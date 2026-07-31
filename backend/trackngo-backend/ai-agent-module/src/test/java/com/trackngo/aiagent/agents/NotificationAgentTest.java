@@ -36,4 +36,15 @@ class NotificationAgentTest {
         assertEquals("alternative_route", routeResponse.type());
         assertFalse(routeResponse.suggestedRoute().isBlank());
     }
-}
+
+    @Test
+    void shouldFormatRecommendationsAsPromotionNotifications() {
+        NotificationAgent notificationAgent = new NotificationAgent(new NotificationAgentService());
+
+        NotificationAgent.NotificationResponse response = notificationAgent.sendNotification().apply(
+                new NotificationAgent.NotificationRequest(
+                        "promotion", null, "Choose the early highway bus and check SAVE15.", null, null));
+
+        assertEquals("promotion", response.type());
+        assertTrue(response.message().contains("Choose the early highway bus"));
+    }}

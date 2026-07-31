@@ -7,6 +7,7 @@ import com.trackngo.aiagent.services.AiConversationMemoryService;
 import com.trackngo.aiagent.services.AiGroundingService;
 import com.trackngo.aiagent.services.ComplaintAgentService;
 import com.trackngo.aiagent.services.RecommendationAgentService;
+import com.trackngo.aiagent.services.NotificationAgentService;
 import com.trackngo.aiagent.services.TrafficEtaAgentService;
 import com.trackngo.aiagent.services.TripPlanningAgentService;
 import com.trackngo.booking.api.dto.BookingFlowDtos;
@@ -174,6 +175,7 @@ class AgentRouterBehaviorTest {
                 complaintAgentService,
                 complaintService,
                 mock(RecommendationAgentService.class),
+                mock(NotificationAgentService.class),
                 bookingFlowService,
                 jdbcTemplate);
     }

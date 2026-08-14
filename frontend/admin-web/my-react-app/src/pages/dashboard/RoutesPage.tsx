@@ -28,10 +28,18 @@ import {
 
 
 //Fetching Google Map API key from Environmental Variables
-const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
+const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim()
+
+function mapQuery(location: string) {
+  const normalizedLocation = location.trim() || 'Colombo'
+  return `${normalizedLocation}, Sri Lanka`
+}
 
 let mapsScriptLoaded = false
 function loadMapsScript(): Promise<void> {
+  if (!GOOGLE_MAPS_KEY) {
+    return Promise.reject(new Error('Google Maps API key is missing'))
+  }
   if (mapsScriptLoaded || window.google?.maps) {
     mapsScriptLoaded = true
     return Promise.resolve()
@@ -46,18 +54,29 @@ function loadMapsScript(): Promise<void> {
   })
 }
 
+function buildEmbedMapUrl(location: string, zoom = 13) {
+  return `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery(location))}&z=${zoom}&output=embed`
+}
+
 function RouteMapEmbed({ location }: { location: string }) {
   const mapRef = useRef<HTMLDivElement>(null)
+  const [useEmbedFallback, setUseEmbedFallback] = useState(!GOOGLE_MAPS_KEY)
 
   useEffect(() => {
     let cancelled = false
+    setUseEmbedFallback(!GOOGLE_MAPS_KEY)
 
     async function init() {
-      await loadMapsScript()
+      try {
+        await loadMapsScript()
+      } catch {
+        if (!cancelled) setUseEmbedFallback(true)
+        return
+      }
       if (cancelled || !mapRef.current) return
 
       const geocoder = new google.maps.Geocoder()
-      geocoder.geocode({ address: `${location}, Sri Lanka` }, (results, status) => {
+      geocoder.geocode({ address: mapQuery(location) }, (results, status) => {
         if (cancelled || !mapRef.current) return
         const center =
           status === 'OK' && results && results[0]
@@ -87,17 +106,87 @@ function RouteMapEmbed({ location }: { location: string }) {
     return () => { cancelled = true }
   }, [location])
 
+  if (useEmbedFallback) {
+    return (
+      <iframe
+        title={`Map preview for ${location}`}
+        src={buildEmbedMapUrl(location, 14)}
+        className="h-[50vh] max-h-[360px] w-full rounded-lg border border-[#d8dfeb]"
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
+    )
+  }
+
   return <div ref={mapRef} className="h-[50vh] max-h-[360px] w-full rounded-lg border border-[#d8dfeb]" />
 }
 
 function buildStaticMapUrl(startLocation: string) {
-  const loc = encodeURIComponent(`${startLocation}, Sri Lanka`)
-  const busIcon = encodeURIComponent('https://maps.google.com/mapfiles/kml/shapes/bus.png')
+  if (!GOOGLE_MAPS_KEY) return null
+  const loc = encodeURIComponent(mapQuery(startLocation))
   return (
     `https://maps.googleapis.com/maps/api/staticmap` +
     `?center=${loc}&zoom=13&size=280x160&scale=2&maptype=roadmap` +
-    `&markers=icon:${busIcon}%7C${loc}` +
     `&key=${GOOGLE_MAPS_KEY}`
+  )
+}
+
+function escapeSvgText(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+function buildMapFallbackImage(location: string, routeName: string) {
+  const safeLocation = escapeSvgText(mapQuery(location))
+  const safeRouteName = escapeSvgText(routeName.trim() || 'Route')
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="280" height="160" viewBox="0 0 280 160">
+      <rect width="280" height="160" fill="#eaf1f8"/>
+      <path d="M-20 118 C50 86 98 158 162 112 C205 82 229 102 300 52" fill="none" stroke="#ffffff" stroke-width="30" stroke-linecap="round"/>
+      <path d="M-20 118 C50 86 98 158 162 112 C205 82 229 102 300 52" fill="none" stroke="#b9c8d8" stroke-width="4" stroke-linecap="round" stroke-dasharray="12 10"/>
+      <path d="M16 38 L94 12 L154 36 L232 16 L264 32 L264 146 L188 130 L126 150 L64 124 L16 142 Z" fill="none" stroke="#c8d5e3" stroke-width="2"/>
+      <text x="16" y="24" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#1f2737">${safeRouteName}</text>
+      <text x="16" y="146" font-family="Arial, sans-serif" font-size="11" fill="#536178">${safeLocation}</text>
+    </svg>
+  `
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
+function RouteMapThumbnail({
+  location,
+  routeName,
+  onOpen,
+}: {
+  location: string
+  routeName: string
+  onOpen: () => void
+}) {
+  const fallbackImage = useMemo(() => buildMapFallbackImage(location, routeName), [location, routeName])
+  const [imageSrc, setImageSrc] = useState(() => buildStaticMapUrl(location) ?? fallbackImage)
+  const staticMapUrl = buildStaticMapUrl(location)
+
+  useEffect(() => {
+    setImageSrc(staticMapUrl ?? fallbackImage)
+  }, [fallbackImage, staticMapUrl])
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="block h-16 w-28 cursor-pointer overflow-hidden rounded-md border border-[#d8dfeb] bg-[#edf1f8] transition duration-200 hover:ring-2 hover:ring-[#2642a6]/40 focus:outline-none focus:ring-2 focus:ring-[#2642a6]/50"
+      aria-label={`Open map preview for ${routeName}`}
+    >
+      <img
+        src={imageSrc}
+        alt={`Map preview for ${routeName}`}
+        className="h-full w-full object-cover"
+        onError={() => setImageSrc(fallbackImage)}
+      />
+    </button>
   )
 }
 
@@ -503,17 +592,11 @@ function Routes() {
                             </p>
                           </td>
                           <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              onClick={() => setMapPreviewRoute(route)}
-                              className="cursor-pointer rounded-md transition duration-200 hover:ring-2 hover:ring-[#2642a6]/40"
-                            >
-                              <img
-                                src={buildStaticMapUrl(route.stops[0] ?? route.name)}
-                                alt={`Map preview for ${route.name}`}
-                                className="h-16 w-28 rounded-md border border-[#d8dfeb] object-cover"
-                              />
-                            </button>
+                            <RouteMapThumbnail
+                              location={route.stops[0] ?? route.name}
+                              routeName={route.name}
+                              onOpen={() => setMapPreviewRoute(route)}
+                            />
                           </td>
                           <td className="px-4 py-3 text-sm text-[#657089]">
                             <p>

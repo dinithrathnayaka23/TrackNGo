@@ -14,7 +14,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getBusDetails, type BusDetailResult } from '../../services/bookingFlowApi';
 import { getBusImage } from '../../utils/busImage';
+import { resolveAssetUrl } from '../../utils/media';
 import { getBusRouteLabel, getBusRouteWithSuffix, getJourneyRouteStops } from '../../utils/routeDisplay';
+import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
 
 //Lookup table for Amneties data
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode; label: string }> = {
@@ -58,17 +60,20 @@ export default function BusDetailsScreen() {
   const busId = Number(params.busId ?? '0');
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const date = params.date ?? todayDateString();
   const price = params.price ?? '0';
   const adults = params.adults ?? '1';
   const children = params.children ?? '0';
 
+  const invalidBookingDate = isPastOrInvalidBookingDate(date);
   const [details, setDetails] = useState<BusDetailResult | null>(null);
+  const [driverPhotoFailed, setDriverPhotoFailed] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      setDriverPhotoFailed(false);
       const data = await getBusDetails(busId, from, to);
       setDetails(data);
     } catch (e: any) {
@@ -77,9 +82,17 @@ export default function BusDetailsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [busId, from, to]);
+  }, [busId, from, to, invalidBookingDate]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (invalidBookingDate) {
+      setLoading(false);
+      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      router.replace({ pathname: '/booking/search-buses' });
+      return;
+    }
+    void load();
+  }, [invalidBookingDate, load, router]);
 
   if (loading) {
     return (
@@ -109,6 +122,9 @@ export default function BusDetailsScreen() {
   const busRouteLabel = getBusRouteWithSuffix(details, { segmentFrom: from, segmentTo: to });
   const busRouteName = getBusRouteLabel(details, { segmentFrom: from, segmentTo: to });
   const driverRating = details.driver?.rating?.toFixed(1) ?? 'N/A';
+  const driverPhotoUri = driverPhotoFailed
+    ? null
+    : resolveAssetUrl(details.driver?.profilePhoto);
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -254,8 +270,12 @@ export default function BusDetailsScreen() {
 
         <View style={styles.driverCard}>
           <View style={styles.driverAvatar}>
-            {details.driver?.profilePhoto ? (
-              <Image source={{ uri: details.driver.profilePhoto }} style={styles.driverImage} />
+            {driverPhotoUri ? (
+              <Image
+                source={{ uri: driverPhotoUri }}
+                style={styles.driverImage}
+                onError={() => setDriverPhotoFailed(true)}
+              />
             ) : (
               <View style={[styles.driverImage, { backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center' }]}>
                 <Ionicons name="person" size={20} color="#94A3B8" />

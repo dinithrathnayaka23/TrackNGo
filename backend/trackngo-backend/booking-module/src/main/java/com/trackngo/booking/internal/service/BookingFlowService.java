@@ -15,8 +15,11 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Time;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -27,6 +30,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class BookingFlowService {
+
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Colombo");
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
@@ -480,9 +485,52 @@ public class BookingFlowService {
                 .collect(Collectors.toList());
     }
 
+    /* ═══════════════════════════════════════════════════════════
+       4a. Booked seats with passenger details for a bus + date
+       ═══════════════════════════════════════════════════════════ */
+    public List<BookedSeatInfo> getBookedSeatsWithDetails(Long busId, String date) {
+        String sql = """
+            SELECT
+                sb.seat_booking_id,
+                sb.booking_reference,
+                sb.journey_date,
+                sb.journey_time,
+                sb.seat_number,
+                CONCAT(u.first_name, ' ', u.last_name) as passenger_name,
+                sb.passenger_id,
+                p.mobile_number as passenger_phone,
+                sb.total_amount,
+                sb.status,
+                sb.from_stop,
+                sb.to_stop,
+                sb.special_request
+            FROM seat_booking sb
+            INNER JOIN passenger p ON p.passenger_id = sb.passenger_id
+            INNER JOIN user u ON u.user_id = sb.passenger_id
+            WHERE sb.bus_id = ? AND sb.journey_date = ? AND sb.status != 'cancelled'
+            ORDER BY sb.seat_number
+            """;
+
+        return jdbc.query(sql, (rs, rowNum) -> new BookedSeatInfo(
+            rs.getLong("seat_booking_id"),
+            rs.getString("booking_reference"),
+            rs.getString("journey_date"),
+            rs.getString("journey_time"),
+            rs.getString("seat_number"),
+            rs.getString("passenger_name"),
+            rs.getLong("passenger_id"),
+            rs.getString("passenger_phone"),
+            rs.getBigDecimal("total_amount"),
+            rs.getString("status"),
+            rs.getString("from_stop"),
+            rs.getString("to_stop"),
+            rs.getString("special_request")
+        ), busId, date);
+    }
+
     /*
        4b. Blocked seats for a bus
-    */
+       ═══════════════════════════════════════════════════════════ */
     public List<String> getBlockedSeats(Long busId) {
         String sql = "SELECT seat_label FROM seat_layout WHERE bus_id = ? AND blocked = true";
         return jdbc.queryForList(sql, String.class, busId);
@@ -498,6 +546,8 @@ public class BookingFlowService {
     */
     @Transactional
     public BookingConfirmationResult createBooking(CreateBookingRequest req) {
+
+        validateBookableJourneyDate(req.journeyDate());
 
         // 0) Ensure a passenger record exists for this user (FK requirement)
         ensurePassengerExists(req.passengerId());
@@ -654,6 +704,31 @@ public class BookingFlowService {
             throw new RuntimeException("Booking not found or already cancelled");
         }
     }
+
+    public void markPassengerBoarded(Long seatBookingId) {
+        int updated = jdbc.update(
+            "UPDATE seat_booking SET status = 'boarded' WHERE seat_booking_id = ? AND status != 'cancelled'",
+            seatBookingId
+        );
+        if (updated == 0) {
+            throw new RuntimeException("Booking not found or already cancelled");
+        }
+    }
+
+    private void validateBookableJourneyDate(String journeyDate) {
+        LocalDate parsedDate;
+        try {
+            parsedDate = LocalDate.parse(journeyDate);
+        } catch (DateTimeParseException | NullPointerException ex) {
+            throw new BusinessException("Journey date is invalid. Please choose today or a future date.");
+        }
+
+        LocalDate today = LocalDate.now(APP_ZONE);
+        if (parsedDate.isBefore(today)) {
+            throw new BusinessException("Bookings can only be made for today or a future date.");
+        }
+    }
+
 
     /*
        HELPERS

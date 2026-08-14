@@ -13,26 +13,37 @@ function getDevHost(): string | null {
       .manifest2?.extra?.expoGo?.debuggerHost;
 
   if (!hostUri) return null;
-  const host = hostUri.split(":")[0];
+  const host = hostUri
+    .replace(/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//, "")
+    .split(":")[0];
   return host || null;
 }
 
 const devHost = getDevHost();
 
+function normalizeBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  return trimmed.endsWith("/api") ? trimmed.slice(0, -4) : trimmed;
+}
+
+function getAPIPort(): string {
+  return env.EXPO_PUBLIC_API_PORT?.trim() || "8080";
+}
+
 // Dynamically determine API URL based on environment
 function getAPIBaseUrl(): string {
   // If explicitly set in env
   if (env.EXPO_PUBLIC_API_BASE_URL) {
-    return env.EXPO_PUBLIC_API_BASE_URL;
+    return normalizeBaseUrl(env.EXPO_PUBLIC_API_BASE_URL);
   }
   
   // If dev host detected (running from Expo Go), use same host
   if (devHost) {
-    return `http://${devHost}:8080`;
+    return `http://${devHost}:${getAPIPort()}`;
   }
   
   // Fallback to localhost for dev/testing
-  return "http://localhost:8080";
+  return `http://localhost:${getAPIPort()}`;
 }
 
 export const API_BASE_URL = getAPIBaseUrl();

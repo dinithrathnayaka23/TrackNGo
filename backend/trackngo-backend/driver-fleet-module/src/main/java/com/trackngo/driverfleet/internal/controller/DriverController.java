@@ -1,6 +1,6 @@
 package com.trackngo.driverfleet.internal.controller;
 
-import com.trackngo.driverfleet.api.DriverService;
+import com.trackngo.driverfleet.api.DriverFleetService;
 import com.trackngo.driverfleet.api.dto.DriverDto;
 import com.trackngo.commons.ApiResponse;
 import jakarta.validation.Valid;
@@ -13,7 +13,7 @@ import java.util.List;
 @RequestMapping("/api/drivers")
 @RequiredArgsConstructor
 public class DriverController {
-    private final DriverService service;
+    private final DriverFleetService service;
 
     @PostMapping
     public ApiResponse<DriverDto> create(@Valid @RequestBody DriverDto dto) {

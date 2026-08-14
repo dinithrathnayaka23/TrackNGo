@@ -25,6 +25,7 @@ import {
   getRecentUpcomingBookings,
   type RecentBookingDto,
 } from "../../services/bookingsApi";
+import { getPassengerNotifications } from "../../services/notificationsApi";
 import { getUserProfile } from "../../services/userProfileApi";
 import { useSession } from "../../store/sessionStore";
 
@@ -248,6 +249,7 @@ export default function HomeScreen() {
   const [loadingRecent, setLoadingRecent] = useState(true);
   const [now, setNow] = useState(() => new Date());
   const [displayName, setDisplayName] = useState("User");
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
   /**
    * Fetches user profile to display proper name on dashboard
@@ -296,13 +298,43 @@ export default function HomeScreen() {
     }
   }, [currentUser]);
 
+  const loadUnreadNotifications = useCallback(async () => {
+    if (!currentUser) {
+      setHasUnreadNotifications(false);
+      return;
+    }
+
+    try {
+      const notifications = await getPassengerNotifications(currentUser.userId);
+      setHasUnreadNotifications(
+        notifications.some((notification) => !notification.read),
+      );
+    } catch (error) {
+      console.error("[HomeScreen] Failed to load notifications", error);
+    }
+  }, [currentUser]);
+
   // Refresh data whenever the screen comes into focus
   useFocusEffect(
     useCallback(() => {
       void loadRecentBookings();
       void loadDisplayName();
-    }, [loadRecentBookings, loadDisplayName]),
+      void loadUnreadNotifications();
+    }, [loadRecentBookings, loadDisplayName, loadUnreadNotifications]),
   );
+
+  useEffect(() => {
+    if (!currentUser) {
+      setHasUnreadNotifications(false);
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      void loadUnreadNotifications();
+    }, 30_000);
+
+    return () => clearInterval(intervalId);
+  }, [currentUser, loadUnreadNotifications]);
 
   /**
    * Automatically refreshes bookings list when a booking's journey time passes
@@ -410,7 +442,9 @@ export default function HomeScreen() {
                   size={20}
                   color="#1F2937"
                 />
-                <View style={styles.notificationDot} />
+                {hasUnreadNotifications ? (
+                  <View style={styles.notificationDot} />
+                ) : null}
               </View>
             </PressScale>
             <PressScale

@@ -2,6 +2,7 @@ package com.trackngo.booking.internal.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.api.dto.BookingFlowDtos.*;
+import com.trackngo.commons.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.sql.Time;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.*;
@@ -429,6 +432,34 @@ class BookingFlowServiceTest {
         assertThat(result.routeStops()).extracting(BusDetailResult.RouteStopInfo::name)
                 .containsExactly("Kadawatha", "Kegalle", "Mawanella");
     }
+    @Test
+    @DisplayName("createBooking: rejects past journey dates before creating payment or seat booking")
+    void createBooking_pastJourneyDate_throwsBusinessExceptionBeforeWriting() {
+        String yesterday = LocalDate.now(ZoneId.of("Asia/Colombo")).minusDays(1).toString();
+        CreateBookingRequest request = new CreateBookingRequest(
+                1L,
+                yesterday,
+                "08:00",
+                List.of("A1"),
+                "",
+                "stripe",
+                new BigDecimal("1200.00"),
+                4L,
+                "Colombo",
+                "Kandy",
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> service.createBooking(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("today or a future date");
+
+        verifyNoInteractions(jdbc, promotionService);
+    }
+
 
     @Test
     @DisplayName("cancelBooking: updates status to cancelled for confirmed booking")

@@ -71,6 +71,15 @@ public class BookingFlowController {
         return ApiResponse.ok("Booked seats", booked);
     }
 
+    @GetMapping("/buses/{busId}/booked-seats-details")
+    public ApiResponse<List<BookedSeatInfo>> getBookedSeatsWithDetails(
+            @PathVariable Long busId,
+            @RequestParam String date
+    ) {
+        List<BookedSeatInfo> booked = service.getBookedSeatsWithDetails(busId, date);
+        return ApiResponse.ok("Booked seats with details", booked);
+    }
+
     /**
      * 5. Identify seats that are permanently blocked (e.g., for conductor or staff).
      */
@@ -109,6 +118,12 @@ public class BookingFlowController {
     public ApiResponse<Void> cancelBooking(@PathVariable String bookingRef) {
         service.cancelBooking(bookingRef);
         return ApiResponse.ok("Booking cancelled", null);
+    }
+
+    @PutMapping("/bookings/{seatBookingId}/boarded")
+    public ApiResponse<Void> markPassengerBoarded(@PathVariable Long seatBookingId) {
+        service.markPassengerBoarded(seatBookingId);
+        return ApiResponse.ok("Passenger marked as boarded", null);
     }
 }
 

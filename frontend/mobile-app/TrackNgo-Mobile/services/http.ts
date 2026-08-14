@@ -4,6 +4,15 @@ const defaultHeaders = {
   Accept: "application/json",
 };
 
+function isAbortError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    String((error as { name?: unknown }).name) === "AbortError"
+  );
+}
+
 function buildUrl(
   path: string,
   query?: Record<string, string | number | undefined>,
@@ -53,9 +62,14 @@ export async function httpPost<T>(
   query?: Record<string, string | number | undefined>,
   body?: unknown,
   headers?: Record<string, string>,
+  timeoutMs?: number,
 ): Promise<T> {
   const url = buildUrl(path, query);
   console.log(`[HTTP POST] ${url}`, body);
+  const controller = timeoutMs ? new AbortController() : undefined;
+  const timeout = controller
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : undefined;
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -65,6 +79,7 @@ export async function httpPost<T>(
         ...(headers ?? {}),
       },
       body: body ? JSON.stringify(body) : undefined,
+      signal: controller?.signal,
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -75,8 +90,19 @@ export async function httpPost<T>(
     console.log(`[HTTP POST] Success:`, data);
     return data;
   } catch (err) {
+    if (timeoutMs && isAbortError(err)) {
+      const timeoutError = new Error(
+        `POST ${path} timed out after ${timeoutMs / 1000} seconds`,
+      );
+      console.error(`[HTTP POST] Exception:`, timeoutError);
+      throw timeoutError;
+    }
     console.error(`[HTTP POST] Exception:`, err);
     throw err;
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
   }
 }
 
@@ -114,13 +140,17 @@ export async function httpPut<T>(
 export async function httpDelete<T>(
   path: string,
   query?: Record<string, string | number | undefined>,
+  headers?: Record<string, string>,
 ): Promise<T> {
   const url = buildUrl(path, query);
   console.log(`[HTTP DELETE] ${url}`);
   try {
     const response = await fetch(url, {
       method: "DELETE",
-      headers: defaultHeaders,
+      headers: {
+        ...defaultHeaders,
+        ...(headers ?? {}),
+      },
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -166,3 +196,4 @@ export async function httpPostForm<T>(
     throw err;
   }
 }
+

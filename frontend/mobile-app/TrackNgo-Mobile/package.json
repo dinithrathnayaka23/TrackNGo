@@ -5,6 +5,8 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
+    "start:expo-go": "expo start --lan --port 8082 --clear",
+    "start:tunnel": "expo start --tunnel --port 8082 --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",

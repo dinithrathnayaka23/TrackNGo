@@ -5,16 +5,16 @@ import {
 } from "../../services/bookingFlowApi";
 
 describe("quotePromotion", () => {
-  const originalFetch = global.fetch;
+  const originalFetch = globalThis.fetch;
 
   /** Replaces the global fetch implementation with a Jest mock for each API test. */
   beforeEach(() => {
-    global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
+    globalThis.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
   });
 
   /** Restores the original fetch implementation after the API tests complete. */
   afterEach(() => {
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
     jest.restoreAllMocks();
   });
 
@@ -27,13 +27,13 @@ describe("quotePromotion", () => {
       data: buildQuote(),
     };
 
-    (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+    (globalThis.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
       ok: true,
       text: jest.fn().mockResolvedValue(JSON.stringify(responseBody)),
     } as never);
 
     await expect(quotePromotion(request)).resolves.toEqual(responseBody.data);
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       "http://localhost:8080/api/booking-flow/promotions/quote",
       {
         method: "POST",
@@ -48,7 +48,7 @@ describe("quotePromotion", () => {
 
   /** Verifies that backend validation failures surface the API message as a thrown error. */
   it("throws the backend message when the promotion quote request fails", async () => {
-    (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+    (globalThis.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
       ok: false,
       text: jest.fn().mockResolvedValue(
         JSON.stringify({

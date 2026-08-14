@@ -77,7 +77,7 @@ export default function CorporateRegistrationScreen() {
     if (!validate()) return;
     if (!currentUser?.userId) {
       Alert.alert("Error", "User session not found. Please log in again.");
-      router.replace("/auth/login");
+      router.replace("/auth/login?userType=corporate");
       return;
     }
 

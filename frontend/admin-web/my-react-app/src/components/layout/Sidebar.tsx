@@ -1,5 +1,4 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { useEffect, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faBook,
@@ -10,95 +9,37 @@ import {
   faGear,
   faLocationDot,
   faPercent,
+  faSignOutAlt,
   faTriangleExclamation,
   faUsers,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
-import adminProfileImage from '../../assets/images/adminDinith.png'
-import authService from '../../services/authService'
-
-const ADMIN_PROFILE_PHOTO_KEY = 'adminProfilePhoto'
-
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: faChartSimple, section: 'Main Menu' },
+  { to: '/dashboard', label: 'Dashboard', icon: faChartSimple },
   {
     to: '/dashboard/users',
     label: 'Users',
     icon: faUsers,
-    section: 'Main Menu',
     activeOn: ['/dashboard/users', '/dashboard/passenger', '/dashboard/driver', '/dashboard/corporate', '/dashboard/users/corporate-users'],
   },
-  { to: '/dashboard/buses', label: 'Buses', icon: faBus, section: 'Main Menu', activeOn: ['/dashboard/buses'] },
-  { to: '/dashboard/routes', label: 'Routes', icon: faLocationDot, section: 'Main Menu' },
-  { to: '/dashboard/booking?view=bookings', label: 'Bookings', icon: faBook, section: 'Main Menu' },
-  { to: '/dashboard/promotions', label: 'Promotions', icon: faPercent, section: 'Main Menu' },
-  { to: '/dashboard/complaints', label: 'Complaints', icon: faTriangleExclamation, section: 'System' },
-  { to: '/dashboard/analytics', label: 'Analytics', icon: faChartColumn, section: 'System' },
-  { to: '/dashboard/chat', label: 'Chat', icon: faComment, section: 'System' },
-  { to: '/dashboard/settings', label: 'Settings', icon: faGear, section: 'System' },
+  { to: '/dashboard/buses', label: 'Buses', icon: faBus, activeOn: ['/dashboard/buses'] },
+  { to: '/dashboard/routes', label: 'Routes', icon: faLocationDot },
+  { to: '/dashboard/booking?view=bookings', label: 'Bookings', icon: faBook },
+  { to: '/dashboard/promotions', label: 'Promotions', icon: faPercent },
+  { to: '/dashboard/complaints', label: 'Complaints', icon: faTriangleExclamation },
+  { to: '/dashboard/analytics', label: 'Analytics', icon: faChartColumn },
+  { to: '/dashboard/chat', label: 'Chat', icon: faComment },
+  { to: '/dashboard/settings', label: 'Settings', icon: faGear },
 ]
 
 type SidebarProps = {
   mobileOpen?: boolean
   onMobileClose?: () => void
+  onLogout: () => void
 }
 
-function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
+function Sidebar({ mobileOpen = false, onMobileClose, onLogout }: SidebarProps) {
   const location = useLocation()
-  const [adminPhotoUrl, setAdminPhotoUrl] = useState(() => localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY) || adminProfileImage)
-  const adminProfile = authService.getAdminProfile()
-  const fallbackEmail = localStorage.getItem('adminEmail') ?? ''
-  const mainMenu = navItems.filter((item) => item.section === 'Main Menu')
-  const systemMenu = navItems.filter((item) => item.section === 'System')
-
-  const adminFullName = [adminProfile?.firstName, adminProfile?.lastName]
-    .filter((value): value is string => Boolean(value && value.trim()))
-    .join(' ')
-    .trim()
-
-  const formatFallbackName = (value: string) =>
-    value
-      .replace(/[._-]+/g, ' ')
-      .split(' ')
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-      .join(' ')
-
-  const fallbackNameFromEmail = adminProfile?.email
-    ? formatFallbackName(adminProfile.email.split('@')[0])
-    : fallbackEmail
-      ? formatFallbackName(fallbackEmail.split('@')[0])
-      : ''
-
-  const adminDisplayName =
-    adminFullName ||
-    fallbackNameFromEmail ||
-    'Admin User'
-
-  const adminEmail = adminProfile?.email || fallbackEmail
-  const adminRoleLabel = adminProfile?.userType?.toLowerCase() === 'admin' ? 'Admin' : 'User'
-
-  useEffect(() => {
-    const onStorageUpdate = () => {
-      setAdminPhotoUrl(localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY) || adminProfileImage)
-    }
-
-    const onCustomUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<string>
-      if (customEvent.detail) {
-        setAdminPhotoUrl(customEvent.detail)
-      } else {
-        onStorageUpdate()
-      }
-    }
-
-    window.addEventListener('storage', onStorageUpdate)
-    window.addEventListener('admin-profile-photo-updated', onCustomUpdate as EventListener)
-    return () => {
-      window.removeEventListener('storage', onStorageUpdate)
-      window.removeEventListener('admin-profile-photo-updated', onCustomUpdate as EventListener)
-    }
-  }, [])
 
   const linkClasses = (isActive: boolean) =>
     `flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition duration-200 ${
@@ -132,54 +73,34 @@ function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         </div>
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-hidden px-3 py-3">
-        <div className="animate-dash-in" style={{ animationDelay: '80ms' }}>
-          <p className="mb-1 px-4 text-xs font-semibold uppercase tracking-wide text-[#9aa5bc]">Main Menu</p>
-          <nav className="space-y-1">
-            {mainMenu.map((item) => (
-              <NavLink
-                key={`${item.to}-${item.label}`}
-                to={item.to}
-                onClick={onMobileClose}
-                className={linkClasses(isItemActive(item.to, item.activeOn))}
-              >
-                <FontAwesomeIcon icon={item.icon} className="text-sm" />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-
-        <div className="animate-dash-in" style={{ animationDelay: '120ms' }}>
-          <p className="mb-1 px-4 text-xs font-semibold uppercase tracking-wide text-[#9aa5bc]">System</p>
-          <nav className="space-y-1">
-            {systemMenu.map((item) => (
-              <NavLink
-                key={`${item.to}-${item.label}`}
-                to={item.to}
-                onClick={onMobileClose}
-                className={linkClasses(isItemActive(item.to, item.activeOn))}
-              >
-                <FontAwesomeIcon icon={item.icon} className="text-sm" />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </div>
+      <div className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="animate-dash-in space-y-1.5" style={{ animationDelay: '80ms' }}>
+          {navItems.map((item) => (
+            <NavLink
+              key={`${item.to}-${item.label}`}
+              to={item.to}
+              onClick={onMobileClose}
+              className={linkClasses(isItemActive(item.to, item.activeOn))}
+            >
+              <FontAwesomeIcon icon={item.icon} className="text-sm" />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
       </div>
 
       <div className="animate-dash-in border-t border-[#2f3f61] p-3" style={{ animationDelay: '150ms' }}>
-        <div className="flex items-center gap-2 rounded-lg bg-[#c8cdd8] px-2 py-1.5">
-          <img
-            src={adminPhotoUrl}
-            alt="Admin profile"
-            className="h-9 w-9 rounded-full object-cover"
-          />
-          <div>
-            <p className="text-xs font-bold text-[#222a3b]">{adminDisplayName}</p>
-            <p className="text-xs text-[#5c6679]">{adminEmail || adminRoleLabel}</p>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            onMobileClose?.()
+            onLogout()
+          }}
+          className="flex w-full items-center gap-3 rounded-lg border border-[#334568] bg-[#243456] px-3 py-2.5 text-sm font-semibold text-[#d6dded] transition duration-200 hover:bg-[#2d4168] hover:text-white"
+        >
+          <FontAwesomeIcon icon={faSignOutAlt} className="text-sm" />
+          <span>Logout</span>
+        </button>
       </div>
     </>
   )

@@ -122,6 +122,21 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     @Query(value = "SELECT user_type FROM user WHERE user_id = :userId", nativeQuery = true)
     Optional<String> findUserTypeByUserId(@Param("userId") Long userId);
 
+    @Query(value = """
+            SELECT
+                COALESCE(
+                    NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''),
+                    NULLIF(cu.company_name, ''),
+                    NULLIF(cu.contact_person_name, ''),
+                    NULLIF(u.email, ''),
+                    CONCAT('User #', :userId)
+                )
+            FROM `user` u
+            LEFT JOIN corporate_user cu ON cu.corporate_user_id = u.user_id
+            WHERE u.user_id = :userId
+            """, nativeQuery = true)
+    Optional<String> findDisplayNameByUserId(@Param("userId") Long userId);
+
     /**
      * Retrieves conversations attached to the shared admin-support user.
      */

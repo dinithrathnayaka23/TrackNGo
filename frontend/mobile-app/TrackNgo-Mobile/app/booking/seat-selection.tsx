@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getSeatLayout, getBookedSeats, getBlockedSeats, type SeatLayoutRow } from '../../services/bookingFlowApi';
+import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
 
 type SeatStatus = 'available' | 'selected' | 'booked' | 'blocked';
 
@@ -46,7 +47,8 @@ export default function SeatSelectionScreen() {
   const busId = Number(params.busId ?? '0');
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const date = params.date ?? todayDateString();
+  const invalidBookingDate = isPastOrInvalidBookingDate(date);
   const busType = params.busType ?? 'Super Luxury';
   const depart = params.depart ?? '08:30';
   const pricePerSeat = Number(params.price ?? '1200') || 1200;
@@ -57,6 +59,7 @@ export default function SeatSelectionScreen() {
 
   const loadSeats = useCallback(async () => {
     try {
+      if (invalidBookingDate) return;
       setLoading(true);
       const [layout, booked, blocked] = await Promise.all([
         getSeatLayout(busId),
@@ -72,9 +75,17 @@ export default function SeatSelectionScreen() {
     } finally {
       setLoading(false);
     }
-  }, [busId, date]);
+  }, [busId, date, invalidBookingDate]);
 
-  useEffect(() => { void loadSeats(); }, [loadSeats]);
+  useEffect(() => {
+    if (invalidBookingDate) {
+      setLoading(false);
+      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      router.replace({ pathname: '/booking/search-buses' });
+      return;
+    }
+    void loadSeats();
+  }, [invalidBookingDate, loadSeats, router]);
 
   const seatStatus = (seatId: string): SeatStatus => {
     if (blockedSeatSet.has(seatId)) return 'blocked';
@@ -283,8 +294,12 @@ export default function SeatSelectionScreen() {
             </View>
           </View>
           <Pressable
-            style={[styles.payButton, selectedSeats.length === 0 && styles.payButtonDisabled]}
+            style={[styles.payButton, (selectedSeats.length === 0 || invalidBookingDate) && styles.payButtonDisabled]}
             onPress={() => {
+              if (invalidBookingDate) {
+                Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+                return;
+              }
               router.push({
                 pathname: '/booking/booking-summary',
                 params: {
@@ -304,7 +319,7 @@ export default function SeatSelectionScreen() {
                 },
               });
             }}
-            disabled={selectedSeats.length === 0}>
+            disabled={selectedSeats.length === 0 || invalidBookingDate}>
             <Text style={styles.payButtonText}>Continue to Payment</Text>
             <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
           </Pressable>

@@ -17,6 +17,7 @@ import { getBusImage } from '../../utils/busImage';
 import { PromotionQuoteResult, quotePromotion } from '../../services/bookingFlowApi';
 import { useSession } from '../../store/sessionStore';
 import { getUserProfile } from '../../services/userProfileApi';
+import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
 
 /**
  * BookingSummaryScreen - The final step before payment where users review their selection,
@@ -51,12 +52,13 @@ export default function BookingSummaryScreen() {
   const busId = params.busId ?? '0';
   const busType = params.busType ?? 'Super Luxury A/C';
   const depart = params.depart ?? '08:30';
-  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const date = params.date ?? todayDateString();
   const seats = params.seats ? params.seats.split(',') : ['3A', '3B'];
   const pricePerSeat = Number(params.pricePerSeat ?? '1500') || 1500;
   const busBrand = params.busBrand ?? '';
   const amenities: string[] = (() => { try { return JSON.parse(params.amenities ?? '[]'); } catch { return []; } })();
   const busImage = getBusImage(busBrand, amenities);
+  const invalidBookingDate = isPastOrInvalidBookingDate(date);
 
   // Form state for passenger contact details
   const [fullName, setFullName] = useState('');
@@ -78,6 +80,13 @@ export default function BookingSummaryScreen() {
       })
       .catch(() => { });
   }, [currentUser]);
+
+  useEffect(() => {
+    if (invalidBookingDate) {
+      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      router.replace({ pathname: '/booking/search-buses' });
+    }
+  }, [invalidBookingDate, router]);
   // Additional state for checkout flow
   const [specialRequest, setSpecialRequest] = useState('');
   const [promoCode, setPromoCode] = useState('');
@@ -398,9 +407,13 @@ export default function BookingSummaryScreen() {
         {/* Bottom CTA */}
         <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Pressable
-            style={[styles.ctaButton, !agreedToTerms && styles.ctaButtonDisabled]}
-            disabled={!agreedToTerms}
+            style={[styles.ctaButton, (!agreedToTerms || invalidBookingDate) && styles.ctaButtonDisabled]}
+            disabled={!agreedToTerms || invalidBookingDate}
             onPress={() => {
+              if (invalidBookingDate) {
+                Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+                return;
+              }
               // Prevents the payment step until the passenger details are complete.
               if (!validateFields()) {
                 Alert.alert('Missing Information', 'Please fix the highlighted fields before proceeding.');

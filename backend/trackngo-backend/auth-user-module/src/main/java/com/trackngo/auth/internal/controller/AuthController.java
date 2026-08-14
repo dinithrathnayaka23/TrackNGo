@@ -7,6 +7,7 @@ import com.trackngo.auth.api.dto.AuthResponse;
 import com.trackngo.commons.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,7 +17,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ApiResponse<AuthResponse> login(@Valid @RequestBody AuthRequest request) {
+    public ApiResponse<AuthResponse> login(@Valid @RequestBody AuthRequest request) { //@Valid @RequestBody means that the request body must be valid
         return ApiResponse.ok("Login successful", authService.login(request));
     }
 
@@ -25,4 +26,5 @@ public class AuthController {
         return ApiResponse.ok("Registration successful", authService.register(request));
     }
 }
+
 

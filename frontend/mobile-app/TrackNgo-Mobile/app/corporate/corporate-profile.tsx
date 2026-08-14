@@ -141,7 +141,7 @@ export default function CorporateProfileScreen() {
         style: "destructive",
         onPress: async () => {
           await clearCurrentUser();
-          router.replace("/auth/login");
+          router.replace("/auth/login?userType=corporate");
         },
       },
     ]);

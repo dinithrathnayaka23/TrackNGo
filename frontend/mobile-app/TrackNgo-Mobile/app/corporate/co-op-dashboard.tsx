@@ -93,7 +93,7 @@ export default function CoOpDashboardScreen() {
         style: "destructive",
         onPress: async () => {
           await clearCurrentUser();
-          router.replace("/auth/login");
+          router.replace("/auth/login?userType=corporate");
         },
       },
     ]);

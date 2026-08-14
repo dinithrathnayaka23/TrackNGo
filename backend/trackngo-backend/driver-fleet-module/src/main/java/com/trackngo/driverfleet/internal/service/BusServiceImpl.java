@@ -3,8 +3,8 @@ package com.trackngo.driverfleet.internal.service;
 import com.trackngo.driverfleet.api.BusService;
 import com.trackngo.driverfleet.api.dto.BusDto;
 import com.trackngo.driverfleet.events.BusCreatedEvent;
-import com.trackngo.driverfleet.internal.entity.Bus;
-import com.trackngo.driverfleet.internal.repository.BusRepository;
+import com.trackngo.driverfleet.internal.entity.FleetBus;
+import com.trackngo.driverfleet.internal.repository.FleetBusRepository;
 import com.trackngo.commons.events.EventPublisher;
 import com.trackngo.commons.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -15,14 +15,14 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class BusServiceImpl implements BusService {
-    private final BusRepository repository;
+    private final FleetBusRepository repository;
     private final EventPublisher eventPublisher;
 
     @Override
     public BusDto create(BusDto dto) {
-        Bus entity = new Bus();
+        FleetBus entity = new FleetBus();
         entity.setName(dto.getName());
-        Bus saved = repository.save(entity);
+        FleetBus saved = repository.save(entity);
         eventPublisher.publish(new BusCreatedEvent(saved.getId()));
         return toDto(saved);
     }
@@ -40,7 +40,7 @@ public class BusServiceImpl implements BusService {
 
     @Override
     public BusDto update(Long id, BusDto dto) {
-        Bus entity = repository.findById(id)
+        FleetBus entity = repository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Bus not found"));
         entity.setName(dto.getName());
         return toDto(repository.save(entity));
@@ -51,7 +51,7 @@ public class BusServiceImpl implements BusService {
         repository.deleteById(id);
     }
 
-    private BusDto toDto(Bus entity) {
+    private BusDto toDto(FleetBus entity) {
         BusDto dto = new BusDto();
         dto.setId(entity.getId());
         dto.setName(entity.getName());

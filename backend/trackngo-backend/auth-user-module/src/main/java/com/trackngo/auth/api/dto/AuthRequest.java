@@ -10,5 +10,6 @@ public class AuthRequest {
     private String identifier;
     @NotBlank
     private String password;
+    private String expectedUserType;
 }
 

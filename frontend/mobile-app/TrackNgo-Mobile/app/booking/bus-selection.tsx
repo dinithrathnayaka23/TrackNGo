@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { searchBuses, type BusSearchResult } from '../../services/bookingFlowApi';
 import { getBusRouteLabel, getBusRouteWithSuffix } from '../../utils/routeDisplay';
+import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
 
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode }> = {
   ac: { icon: <MaterialCommunityIcons name="snowflake" size={16} color="#94A3B8" /> },
@@ -55,7 +56,7 @@ export default function BusSelectionScreen() {
 
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const date = params.date ?? todayDateString();
   const passengers = params.passengers ?? '1';
   const adults = params.adults ?? '1';
   const children = params.children ?? '0';
@@ -68,6 +69,7 @@ export default function BusSelectionScreen() {
       ? busCategoryRaw
       : '';
 
+  const invalidBookingDate = isPastOrInvalidBookingDate(date);
   const [buses, setBuses] = useState<BusSearchResult[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -99,6 +101,7 @@ export default function BusSelectionScreen() {
 
   const loadBuses = useCallback(async () => {
     try {
+      if (invalidBookingDate) return;
       setLoading(true);
       const data = await searchBuses(from, to, date, busCategory || undefined);
       setBuses(data);
@@ -108,9 +111,17 @@ export default function BusSelectionScreen() {
     } finally {
       setLoading(false);
     }
-  }, [from, to, date, busCategory]);
+  }, [from, to, date, busCategory, invalidBookingDate]);
 
-  useEffect(() => { void loadBuses(); }, [loadBuses]);
+  useEffect(() => {
+    if (invalidBookingDate) {
+      setLoading(false);
+      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      router.replace({ pathname: '/booking/search-buses' });
+      return;
+    }
+    void loadBuses();
+  }, [invalidBookingDate, loadBuses, router]);
 
   const dateLabel = (() => {
     const d = new Date(date + 'T00:00:00');

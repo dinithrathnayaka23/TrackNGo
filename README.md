@@ -359,6 +359,13 @@ Optional sample data:
 mysql -u root -p trackngo < trackngo_sample_data.sql
 ```
 
+For an existing production database, run the seat-booking concurrency
+migration in `backend/trackngo-backend/database/migrations` before deploying
+the new backend build. It backfills the seat-level reservation index and adds
+the database unique constraint that prevents two users from owning the same
+seat for the same bus and date. Follow that directory's runbook and take a
+backup first.
+
 The backend is configured with `spring.jpa.hibernate.ddl-auto=update` for local development. The SQL files remain useful for reproducible setup and demo data.
 
 ## Running the project

@@ -533,6 +533,25 @@ CREATE TABLE seat_booking (
     INDEX idx_payment (payment_id)
 );
 
+-- One row per currently-held seat.  The unique key is the database-level
+-- concurrency guarantee for seat booking; seat_booking.seat_number remains
+-- as a backwards-compatible display field.
+CREATE TABLE seat_booking_seat (
+    seat_booking_seat_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    seat_booking_id BIGINT NOT NULL,
+    bus_id BIGINT NOT NULL,
+    journey_date DATE NOT NULL,
+    seat_number VARCHAR(10) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_seat_booking_seat_booking
+        FOREIGN KEY (seat_booking_id) REFERENCES seat_booking(seat_booking_id) ON DELETE CASCADE,
+    CONSTRAINT fk_seat_booking_seat_bus
+        FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,
+    UNIQUE KEY uq_active_bus_date_seat (bus_id, journey_date, seat_number),
+    INDEX idx_seat_booking_seat_booking (seat_booking_id),
+    INDEX idx_seat_booking_seat_date (bus_id, journey_date)
+);
+
 CREATE TABLE promotion_redemption (
     redemption_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     promotion_id BIGINT NOT NULL,

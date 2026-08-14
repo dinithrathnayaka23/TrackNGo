@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { httpPost } from "../../services/http";
@@ -45,6 +45,7 @@ const USER_TYPE_MAP: Record<string, UserType> = {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ userType?: string }>();
   const { setCurrentUser } = useSession();
 
   const [identifier, setIdentifier] = useState("");
@@ -72,17 +73,23 @@ export default function LoginScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
+      const expectedUserType =
+        params.userType?.toLowerCase() === "corporate" ? "corporate" : "passenger";
       const response = await httpPost<ApiResponse<LoginApiData>>(
         "/api/auth/login",
         undefined,
-        { identifier: identifier.trim(), password, expectedUserType: "passenger" }
+        { identifier: identifier.trim(), password, expectedUserType }
       );
       const data = response.data;
       await AsyncStorage.setItem(TOKEN_KEY, data.token);
       const userType: UserType =
         USER_TYPE_MAP[data.userType?.toLowerCase()] ?? "PASSENGER";
       await setCurrentUser({ userId: data.userId, userType });
-      router.replace("/tabs");
+      if (userType === "CORPORATE_USER") {
+        router.replace("/corporate/co-op-dashboard");
+      } else {
+        router.replace("/tabs");
+      }
     } catch (error: unknown) {
       let message = "Login failed. Please check your credentials and try again.";
       if (error instanceof Error) {

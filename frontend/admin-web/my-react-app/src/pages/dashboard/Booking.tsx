@@ -13,7 +13,7 @@ import {
   faSortDown,
   faSliders,
 } from '@fortawesome/free-solid-svg-icons'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 
 type BookingStatus = 'Confirmed' | 'Pending' | 'Cancelled'
 type PaymentStatus = 'Paid' | 'Refunded' | 'App Amount' | 'Unpaid'
@@ -232,20 +232,74 @@ function Booking() {
   const [paymentFilter, setPaymentFilter] = useState<'All' | PaymentStatus>('All')
   const [page, setPage] = useState(1)
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'bookingId', dir: null })
+  const [realBookings, setRealBookings] = useState<BookingRecord[]>([])
+
+  // 🔹 FETCH REAL TRIP BOOKINGS FROM BACKEND
+  useEffect(() => {
+    const fetchTripBookings = async () => {
+      try {
+        console.log("Fetching trip bookings from backend...");
+        const response = await fetch('http://localhost:8080/api/trips/all');
+        if (!response.ok) throw new Error("Backend error: " + response.status);
+        
+        const data = await response.json();
+        console.log("Real Bookings Data:", data);
+
+        const formatted: BookingRecord[] = data.map((b: any) => ({
+          bookingId: `#BK-${b.id}`,
+          passengerIdRaw: b.id, 
+          passengerName: `User #${b.passengerId || "Unknown"}`, 
+          passengerInitials: 'U',
+          route: `${b.startLocation} to ${b.destination}`,
+          bus: 'Trip Booking',
+          busType: 'AC',
+          dateTime: `${b.startDate || "Today"}\nPending`,
+          dateSort: Date.now(), 
+          seats: `${b.passengerCount || 0} Seats`,
+          amount: `Rs.${(b.finalPrice || 0).toLocaleString()}`,
+          amountNum: b.finalPrice || 0,
+          paymentStatus: b.bookingStatus === 'PAID' ? 'Paid' : 'Unpaid',
+          status: b.bookingStatus?.toLowerCase() === 'confirmed' ? 'Confirmed' : (b.bookingStatus?.toLowerCase() === 'pending' ? 'Pending' : 'Pending'),
+          category: 'Trip Bookings',
+        }));
+        setRealBookings(formatted);
+      } catch (error) {
+        console.error("❌ ADMIN FETCH ERROR:", error);
+      }
+    };
+    fetchTripBookings();
+  }, []);
+
+  const approveBooking = async (id: any) => {
+    try {
+      const response = await fetch(`http://localhost:8080/api/trips/update-status/${id}?status=confirmed`, { method: 'POST' });
+      if (!response.ok) throw new Error("Failed to update status");
+      
+      alert("Booking Approved Successfully!");
+      window.location.reload(); 
+    } catch (error) {
+      console.error(error);
+      alert("Failed to approve booking. Check backend logs.");
+    }
+  };
+
+  const ALL_COMBINED_BOOKINGS = useMemo(() => [...realBookings, ...BOOKINGS], [realBookings]);
+
 
   const tabCounts = useMemo(() => ({
-    'All Bookings': BOOKINGS.length,
-    'Highway/Long-distance': BOOKINGS.filter((b) => b.category === 'Highway/Long-distance' || b.category === 'All Bookings').length,
-    'Trip Bookings': BOOKINGS.filter((b) => b.category === 'Trip Bookings').length,
-  }), [])
+    'All Bookings': ALL_COMBINED_BOOKINGS.length,
+    'Highway/Long-distance': ALL_COMBINED_BOOKINGS.filter((b) => b.category === 'Highway/Long-distance' || b.category === 'All Bookings').length,
+    'Trip Bookings': ALL_COMBINED_BOOKINGS.filter((b) => b.category === 'Trip Bookings').length,
+  }), [ALL_COMBINED_BOOKINGS])
 
   const filtered = useMemo(() => {
-    let list = BOOKINGS
+    if (activeTab === 'Trip Bookings') {
+      return ALL_COMBINED_BOOKINGS.filter((b) => b.category === 'Trip Bookings');
+    }
 
+    let list = ALL_COMBINED_BOOKINGS
     if (activeTab === 'Highway/Long-distance') {
       list = list.filter((b) => b.category === 'Highway/Long-distance' || b.category === 'All Bookings')
-    } else if (activeTab === 'Trip Bookings') {
-      list = list.filter((b) => b.category === 'Trip Bookings')
     }
 
     if (search) {
@@ -594,6 +648,20 @@ function Booking() {
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${bookingStatusBadge(booking.status)}`}>
                           {booking.status}
                         </span>
+                        {booking.category === 'Trip Bookings' && (
+                          booking.status === 'Pending' ? (
+                            <button 
+                              onClick={() => approveBooking((booking as any).passengerIdRaw)}
+                              className="ml-2 rounded bg-[#16a34a] px-2 py-1 text-[10px] text-white hover:bg-[#15803d] transition-colors"
+                            >
+                              Approve
+                            </button>
+                          ) : booking.status === 'Confirmed' ? (
+                            <button disabled className="ml-2 rounded bg-[#dcfce7] px-2 py-1 text-[10px] text-[#16a34a] border border-[#16a34a]/20 cursor-default font-bold">
+                              Approved
+                            </button>
+                          ) : null
+                        )}
                       </td>
                     </tr>
                   )

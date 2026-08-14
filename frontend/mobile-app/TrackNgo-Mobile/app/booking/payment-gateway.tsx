@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +15,7 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import { createBooking, createStripeCheckoutSession, getStripeSessionStatus } from '../../services/bookingFlowApi';
 import { useSession } from '../../store/sessionStore';
 import { API_BASE_URL } from '../../config/env';
+import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
 
 /*
  * PaymentGatewayScreen - Orchestrates the Stripe checkout process.
@@ -54,7 +55,7 @@ export default function PaymentGatewayScreen() {
   const busId = params.busId ?? '0';
   const busType = params.busType ?? 'Super Luxury A/C';
   const depart = params.depart ?? '08:30';
-  const date = params.date ?? (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const date = params.date ?? todayDateString();
   const seats = params.seats ?? '';
   const totalPrice = Number(params.totalPrice ?? '2500') || 2500;
   const originalAmount = Number(params.originalAmount ?? params.totalPrice ?? '2500') || totalPrice;
@@ -65,6 +66,7 @@ export default function PaymentGatewayScreen() {
   const mobile = params.mobile ?? '';
   const email = params.email ?? '';
   const specialRequest = params.specialRequest ?? '';
+  const invalidBookingDate = isPastOrInvalidBookingDate(date);
 
   // State for managing the payment WebView and backend processing
   const [loading, setLoading] = useState(false);
@@ -73,10 +75,21 @@ export default function PaymentGatewayScreen() {
   const [sessionId, setSessionId] = useState('');
   const [processingResult, setProcessingResult] = useState(false);
 
+  useEffect(() => {
+    if (invalidBookingDate) {
+      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      router.replace({ pathname: '/booking/search-buses' });
+    }
+  }, [invalidBookingDate, router]);
+
   /**
    * Contacts the backend to generate a Stripe Checkout Session URL.
    */
   const handlePayWithStripe = async () => {
+    if (invalidBookingDate) {
+      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      return;
+    }
     setLoading(true);
     const orderId = `BUS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -107,6 +120,10 @@ export default function PaymentGatewayScreen() {
    * Verifies the payment with the backend and finally creates the bus booking record.
    */
   const completeBooking = useCallback(async () => {
+    if (invalidBookingDate) {
+      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      return;
+    }
     setShowWebView(false);
     setProcessingResult(true);
     try {
@@ -134,6 +151,7 @@ export default function PaymentGatewayScreen() {
         discountAmount,
         promotionId,
         promoCode,
+        paymentProviderReference: status.paymentIntentId,
       });
       router.push({
         pathname: '/booking/booking-confirmation',
@@ -160,7 +178,7 @@ export default function PaymentGatewayScreen() {
     } finally {
       setProcessingResult(false);
     }
-  }, [sessionId, seats, busId, date, depart, specialRequest, totalPrice, currentUser, router, originalAmount, discountAmount, promotionId, promoCode]);
+  }, [sessionId, seats, busId, date, depart, specialRequest, totalPrice, currentUser, router, originalAmount, discountAmount, promotionId, promoCode, invalidBookingDate]);
 
   /*
    * Listens for messages sent from the WebView (e.g. from the success/cancel pages).
@@ -316,8 +334,8 @@ export default function PaymentGatewayScreen() {
         {/* Bottom Buttons */}
         <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Pressable
-            style={[styles.payButton, loading && styles.payButtonDisabled]}
-            disabled={loading}
+            style={[styles.payButton, (loading || invalidBookingDate) && styles.payButtonDisabled]}
+            disabled={loading || invalidBookingDate}
             onPress={handlePayWithStripe}>
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />

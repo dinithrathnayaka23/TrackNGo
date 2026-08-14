@@ -400,21 +400,21 @@ INSERT INTO sos_alert (
 -- =============================================
 
 INSERT INTO notification (notification_id, notification_type, title, message, is_read, passenger_id, driver_id, corporate_user_id, admin_id) VALUES
-(1, 'booking_confirmation', 'Booking Confirmed!',           'Your trip to Sigiriya on Feb 15 has been confirmed. Driver: Roshan Mendis.',          true,  4,    NULL, NULL, NULL),
-(2, 'payment_success',      'Payment Received',             'Rs. 12,500 advance payment received for Sigiriya trip. Booking Ref: TB-001.',          true,  4,    NULL, NULL, NULL),
-(3, 'journey_reminder',     'Trip Tomorrow!',               'Reminder: Your Kandy to Nuwara Eliya trip is tomorrow at 7:00 AM.',                   true,  5,    NULL, NULL, NULL),
-(4, 'rating_request',       'Rate Your Journey',            'How was your Yala trip? Please rate your experience.',                                 false, 6,    NULL, NULL, NULL),
+(1, 'booking', 'Booking Confirmed!',           'Your trip to Sigiriya on Feb 15 has been confirmed. Driver: Roshan Mendis.',          true,  4,    NULL, NULL, NULL),
+(2, 'payment',      'Payment Received',             'Rs. 12,500 advance payment received for Sigiriya trip. Booking Ref: TB-001.',          true,  4,    NULL, NULL, NULL),
+(3, 'journey',     'Trip Tomorrow!',               'Reminder: Your Kandy to Nuwara Eliya trip is tomorrow at 7:00 AM.',                   true,  5,    NULL, NULL, NULL),
+(4, 'rating',       'Rate Your Journey',            'How was your Yala trip? Please rate your experience.',                                 false, 6,    NULL, NULL, NULL),
 (5, 'cancellation',         'Booking Cancelled',            'Your Mirissa trip booking has been cancelled. Refund will be processed in 3-5 days.',  true,  12,   NULL, NULL, NULL),
-(6, 'complaint_update',     'Complaint Update',             'Your complaint #1 regarding driver behavior has been resolved.',                       true,  4,    NULL, NULL, NULL),
+(6, 'complaint',     'Complaint Update',             'Your complaint #1 regarding driver behavior has been resolved.',                       true,  4,    NULL, NULL, NULL),
 (7, 'promotion',            'Special Offer!',               'Book any highway seat this week and get 15% off! Use code: SAVE15.',                   false, 7,    NULL, NULL, NULL),
-(8, 'system_alert',         'License Expiry Alert',         'Your driving license expires on 2025-12-31. Please renew soon.',                       false, NULL, 16,   NULL, NULL),
-(9, 'booking_confirmation', 'New Trip Booking',             'New trip booking from Amara Silva. Sigiriya, Feb 15. Please confirm.',                 true,  NULL, 14,   NULL, NULL),
-(10, 'rating_request',       'You Got a New Rating!',        'Amara Silva gave you 5 stars for the Sigiriya trip. Great work!',                      true,  NULL, 14,   NULL, NULL),
-(11, 'sos_alert',            'SOS Alert Received',           'Passenger Amara Silva triggered SOS near Warakapola. Coordinates shared.',             false, NULL, NULL, NULL, 1),
-(12, 'complaint_update',     'New Complaint Assigned',       'Complaint #5 regarding speeding has been assigned to you for review.',                 false, NULL, NULL, NULL, 2),
-(13, 'booking_confirmation', 'Contract Application Received','Your corporate transport contract application is under review.',                       false, NULL, NULL, 22,   NULL),
+(8, 'system',         'License Expiry Alert',         'Your driving license expires on 2025-12-31. Please renew soon.',                       false, NULL, 16,   NULL, NULL),
+(9, 'booking', 'New Trip Booking',             'New trip booking from Amara Silva. Sigiriya, Feb 15. Please confirm.',                 true,  NULL, 14,   NULL, NULL),
+(10, 'rating',       'You Got a New Rating!',        'Amara Silva gave you 5 stars for the Sigiriya trip. Great work!',                      true,  NULL, 14,   NULL, NULL),
+(11, 'sos',            'SOS Alert Received',           'Passenger Amara Silva triggered SOS near Warakapola. Coordinates shared.',             false, NULL, NULL, NULL, 1),
+(12, 'complaint',     'New Complaint Assigned',       'Complaint #5 regarding speeding has been assigned to you for review.',                 false, NULL, NULL, NULL, 2),
+(13, 'booking', 'Contract Application Received','Your corporate transport contract application is under review.',                       false, NULL, NULL, 22,   NULL),
 (14, 'promotion',            'Contract Renewal Reminder',    'Your employee transport contract expires on 2025-12-31. Renew now for discounts.',      false, NULL, NULL, 23,   NULL),
-(15, 'system_alert',         'Invoice Ready',                'Monthly invoice #3 for Jan 2025 is ready. Amount: Rs. 280,000.',                        true,  NULL, NULL, 22,   NULL);
+(15, 'system',         'Invoice Ready',                'Monthly invoice #3 for Jan 2025 is ready. Amount: Rs. 280,000.',                        true,  NULL, NULL, 22,   NULL);
 
 
 -- =============================================
@@ -460,6 +460,22 @@ INSERT INTO seat_booking (seat_booking_id, booking_reference, journey_date, jour
 (8, 'SB-20250301-001', '2025-03-01', '05:00:00', 'A1',       NULL,                         1800.00,  'confirmed', 7,  3, 3, 10,   'Colombo Fort', 'Jaffna'),
 (9, 'SB-20250315-001', '2025-03-15', '07:00:00', 'B2,B3',    'Elderly passenger, need AC',  700.00,  'confirmed', 10, 4, 4, NULL,  'Kandy', 'Nuwara Eliya'),
 (10, 'SB-20250401-001', '2025-04-01', '05:00:00', 'E5',       NULL,                         1800.00,  'confirmed', 4,  3, 3, NULL,  'Colombo Fort', 'Jaffna');
+
+INSERT INTO seat_booking_seat (seat_booking_id, bus_id, journey_date, seat_number) VALUES
+(1, 1, '2026-04-15', 'A1'),
+(1, 1, '2026-04-15', 'A2'),
+(2, 1, '2025-01-15', 'B3'),
+(3, 2, '2025-01-16', 'A5'),
+(4, 3, '2025-01-20', 'C1'),
+(4, 3, '2025-01-20', 'C2'),
+(4, 3, '2025-01-20', 'C3'),
+(5, 1, '2025-01-25', 'B1'),
+(6, 5, '2025-02-01', 'A3'),
+(6, 5, '2025-02-01', 'A4'),
+(8, 3, '2025-03-01', 'A1'),
+(9, 4, '2025-03-15', 'B2'),
+(9, 4, '2025-03-15', 'B3'),
+(10, 3, '2025-04-01', 'E5');
 
 
 -- =============================================
@@ -512,6 +528,31 @@ INSERT INTO bus_locations (bus_number, latitude, longitude, heading, speed, reco
 ('NB-0090', 6.58556, 79.96139, 175.00, 65.00, DATE_SUB(NOW(), INTERVAL 4 MINUTE)),
 ('NB-0112', 6.96750, 79.88972, 350.00, 45.00, DATE_SUB(NOW(), INTERVAL 1 MINUTE)),
 ('CB-0301', 6.90000, 79.87000, 270.00, 30.00, DATE_SUB(NOW(), INTERVAL 3 MINUTE));
+
+-- =============================================
+-- AI ASSISTANT KNOWLEDGE AND SAMPLE MEMORY
+-- =============================================
+
+INSERT INTO ai_domain_knowledge (title, content, tags, priority, active) VALUES
+('TrackNGo Sri Lankan Route Network',
+ 'TrackNGo route search should prefer active Sri Lankan bus routes and stops saved in the database, including Colombo Fort, Kandy, Galle, Matara, Jaffna, Negombo, Kadawatha, Panadura, Kalutara, Hikkaduwa, Weligama, Kurunegala, Dambulla, Vavuniya, Kilinochchi, Peradeniya, Gampola, and Nuwara Eliya.',
+ 'all,routes,booking', 100, true),
+('Booking Safety Rule',
+ 'The assistant must not invent booking references or payment confirmations. A booking is confirmed only when the booking tool returns a booking reference from the TrackNGo database transaction.',
+ 'all,booking,safety', 100, true),
+('Sri Lankan Payment Language',
+ 'Use LKR for fares and mention PayHere, card, or TrackNGo counter payment only when the booking flow supports or requests it.',
+ 'all,payments,booking', 80, true),
+('Passenger Delay Handling',
+ 'For late buses, combine live GPS ETA with alternative active buses on the same source and destination. Offer cancellation or rebooking only after confirming seat availability.',
+ 'all,eta,support', 90, true);
+
+INSERT INTO ai_chat_message (chat_id, user_id, user_email, role, content, created_at) VALUES
+('seed-ai-amara', 4, 'amara.silva@gmail.com', 'user', 'Find a bus from Colombo Fort to Kandy tomorrow morning', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+('seed-ai-amara', 4, 'amara.silva@gmail.com', 'assistant', 'NB-0012 leaves Colombo Fort at 05:30 and arrives Kandy at 08:15. Fare is LKR 450.00 with live seat availability.', DATE_SUB(NOW(), INTERVAL 2 DAY));
+
+INSERT INTO ai_agent_interaction (chat_id, user_id, user_email, detected_intent, status, latency_ms, model_name, created_at) VALUES
+('seed-ai-amara', 4, 'amara.silva@gmail.com', 'TRIP_PLANNING', 'SUCCESS', 1180, 'gemini-1.5-pro', DATE_SUB(NOW(), INTERVAL 2 DAY));
 
 
 -- =============================================

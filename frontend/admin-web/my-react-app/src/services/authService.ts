@@ -39,6 +39,7 @@ const authService = {
                 body: JSON.stringify({
                     identifier: credentials.email.trim(),
                     password: credentials.password,
+                    expectedUserType: 'admin',
                 }),
             })
 

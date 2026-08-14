@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>trackngo-backend</artifactId>
+        <groupId>com.trackngo</groupId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>ai-agent-module</artifactId>
+    <name>ai-agent-module</name>
+    <description>AI Agent Module using Spring AI and Gemini</description>
+
+    <dependencies>
+        <!-- Spring AI OpenAI Starter (Used for Gemini API Key via OpenAI-compatible endpoint) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Web dependency since this module will expose a chat controller -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Inter-module dependencies -->
+        <dependency>
+            <groupId>com.trackngo</groupId>
+            <artifactId>commons</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        
+        <!-- Booking Module for Booking Agent tools -->
+        <dependency>
+            <groupId>com.trackngo</groupId>
+            <artifactId>booking-module</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Tracking Module for Traffic & ETA Agent tools -->
+        <dependency>
+            <groupId>com.trackngo</groupId>
+            <artifactId>tracking-module</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Complaint Module so AI complaints use the same admin-visible workflow -->
+        <dependency>
+            <groupId>com.trackngo</groupId>
+            <artifactId>complaint-module</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

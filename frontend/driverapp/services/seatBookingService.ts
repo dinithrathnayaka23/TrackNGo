@@ -127,11 +127,52 @@ export const seatBookingService = {
         rows = [];
       }
 
-      console.log('Extracted seat rows:', rows);
-      return rows;
+      const normalizedRows = rows
+        .map((row: Partial<SeatLayoutRow>) => ({
+          rowNum: Number(row.rowNum),
+          left: Array.isArray(row.left) ? row.left : [],
+          right: Array.isArray(row.right) ? row.right : [],
+          lastRow: Array.isArray(row.lastRow) ? row.lastRow : null,
+        }))
+        .filter(
+          (row: SeatLayoutRow) =>
+            Number.isFinite(row.rowNum) &&
+            (row.left.length > 0 || row.right.length > 0 || (row.lastRow?.length ?? 0) > 0)
+        );
+
+      console.log('Extracted seat rows:', normalizedRows);
+      return normalizedRows;
     } catch (error) {
       console.error('Error fetching seat layout:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Get permanently blocked seats from the admin layout.
+   */
+  async getBlockedSeats(busId: number, token: string): Promise<string[]> {
+    try {
+      const url = `${API_URL}/booking-flow/buses/${busId}/blocked-seats`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.warn('Blocked seats endpoint unavailable:', response.status);
+        return [];
+      }
+
+      const data = await response.json();
+      const seats = data.data || data || [];
+      return Array.isArray(seats) ? seats.map((seat) => seat.toString()) : [];
+    } catch (error) {
+      console.warn('Error fetching blocked seats:', error);
+      return [];
     }
   },
 
@@ -269,7 +310,7 @@ export const seatBookingService = {
     token: string
   ): Promise<boolean> {
     try {
-      const url = `${API_URL}/bookings/${seatBookingId}/boarded`;
+      const url = `${API_URL}/booking-flow/bookings/${seatBookingId}/boarded`;
       console.log('Marking passenger as boarded:', url);
       
       const response = await fetch(url, {

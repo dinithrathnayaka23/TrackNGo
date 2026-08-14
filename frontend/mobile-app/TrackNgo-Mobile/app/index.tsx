@@ -13,9 +13,5 @@ export default function Index() {
     );
   }
 
-  if (!currentUser) {
-    return <Redirect href="/auth/welcome" />;
-  }
-
-  return <Redirect href="/tabs" />;
+  return <Redirect href="/auth/welcome" />;
 }

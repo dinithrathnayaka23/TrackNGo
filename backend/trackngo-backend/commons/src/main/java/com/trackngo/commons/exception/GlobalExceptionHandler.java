@@ -30,6 +30,12 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(ex.getMessage()));
     }
 
+    @ExceptionHandler(SeatUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSeatUnavailable(SeatUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.fail(ex.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
         String msg = ex.getBindingResult().getFieldErrors().stream()

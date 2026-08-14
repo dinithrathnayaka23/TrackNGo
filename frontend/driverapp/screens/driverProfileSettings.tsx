@@ -20,6 +20,10 @@ import { Image } from 'react-native'; //why because we need to diplay dp img
 import { apiUrl } from '@/config/env';
 import { useTheme } from '@/context/ThemeContext'; //global theme data
 import { formatDate, isLicenseExpired } from '@/utils/dateFormatter'; // Import utility functions for date formatting and license expiry checking
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { resolveAssetUrl } from '@/utils/media';
+
+const DRIVER_SHARE_LOCATION_KEY = 'driverShareLocation';
 
 interface DriverProfile {  //stricture of driver profile data we get from API
   driverId: number;
@@ -63,7 +67,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const [profileError, setProfileError] = useState<string | null>(null); //state for error handling
 
   const [completionTab, setCompletionTab] = useState('profile'); //state for completion tab
-  const [shareLocation, setShareLocation] = useState(false); //state for share location
+  const [shareLocation, setShareLocation] = useState(true); //state for share location
   const [twoFactor, setTwoFactor] = useState(false);
   const { darkMode, setDarkMode } = useTheme(); //global theme data
   const [systemNotifications, setSystemNotifications] = useState(true);
@@ -72,6 +76,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const [emailUpdates, setEmailUpdates] = useState(true);
   const [bookingUpdates, setBookingUpdates] = useState(true);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
 
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
@@ -82,6 +87,16 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   useEffect(() => { // Fetch driver profile when user data changes
     fetchDriverProfile();
   }, [user?.userId]); // re run everitime user id chnges
+
+  useEffect(() => {
+    AsyncStorage.getItem(DRIVER_SHARE_LOCATION_KEY)
+      .then((value) => {
+        setShareLocation(value !== 'false');
+      })
+      .catch((error) => {
+        console.warn('Failed to load location sharing preference:', error);
+      });
+  }, []);
 
   const fetchDriverProfile = async () => {
     if (!user?.userId || !user?.token) { // Check if user data is available
@@ -113,15 +128,14 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
       console.log("DRIVER PROFILE RESPONSE:", result); // this is in json
       
       if (result.success && result.data) { //if success is true and data is present
-      setProfileData(result.data.profile); 
+      const profile = result.data.profile as DriverProfile;
+      setProfileData(profile); 
       setAssignment(result.data.assignment);
 
-      console.log("PROFILE:", result.data.profile); // this is in js object form
+      console.log("PROFILE:", profile); // this is in js object form
       console.log("ASSIGNMENT:", result.data.assignment);
 
-      if (result.data.profile.profilePhoto) { //if profile photo is present
-        setProfileImage(result.data.profile.profilePhoto);
-      }   
+      setProfileImage(resolveAssetUrl(profile.profilePhoto));
       } else {
         throw new Error(result.message || 'Failed to fetch profile');
       }
@@ -200,7 +214,70 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
     });
 
     if (!result.canceled) {
-      setProfileImage(result.assets[0].uri); // Set the selected image as the profile image, uri is the location of the image
+      await uploadProfileImage(result.assets[0]);
+    }
+  };
+
+  const uploadProfileImage = async (asset: ImagePicker.ImagePickerAsset) => {
+    if (!user?.token) {
+      Alert.alert('Login Required', 'Please log in again before updating your profile photo.');
+      return;
+    }
+
+    const previousImage = profileImage;
+    setProfileImage(asset.uri);
+    setIsUploadingPhoto(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: asset.uri,
+        name: getUploadFileName(asset),
+        type: getUploadMimeType(asset),
+      } as unknown as Blob);
+
+      const response = await fetch(apiUrl('/api/profile/picture'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: formData,
+      });
+
+      const text = await response.text();
+      const result = text ? JSON.parse(text) : null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.message || 'Failed to upload profile picture');
+      }
+
+      const savedPhoto =
+        result.data?.imageUrl ?? result.data?.originalUrl ?? result.data?.thumbnailUrl ?? null;
+      const resolvedPhoto = resolveAssetUrl(savedPhoto) ?? asset.uri;
+
+      setProfileImage(resolvedPhoto);
+      setProfileData((current) =>
+        current ? { ...current, profilePhoto: savedPhoto ?? resolvedPhoto } : current
+      );
+      await AsyncStorage.mergeItem('user', JSON.stringify({ profilePhoto: savedPhoto ?? resolvedPhoto }));
+    } catch (error) {
+      console.error('Profile photo upload failed:', error);
+      setProfileImage(previousImage);
+      Alert.alert(
+        'Upload Failed',
+        error instanceof Error ? error.message : 'Could not upload the selected photo.'
+      );
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleShareLocationChange = async (value: boolean) => {
+    setShareLocation(value);
+    try {
+      await AsyncStorage.setItem(DRIVER_SHARE_LOCATION_KEY, String(value));
+    } catch (error) {
+      console.warn('Failed to save location sharing preference:', error);
     }
   };
 
@@ -261,6 +338,11 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                     color="#0066FF"
                   />
                 )}
+                {isUploadingPhoto ? (
+                  <View style={styles.photoUploadOverlay}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  </View>
+                ) : null}
                 </TouchableOpacity>
                 <View style={styles.verificationBadge}>
                   <MaterialCommunityIcons name="pencil" size={20} color="#0066FF" />
@@ -532,7 +614,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               </View>
               <Switch
                 value={shareLocation}
-                onValueChange={setShareLocation}
+                onValueChange={handleShareLocationChange}
                 trackColor={{ false: '#E0E0E0', true: '#0066FF' }}
                 thumbColor="#FFF" // Thumb color
               />
@@ -1071,6 +1153,12 @@ function createStyles({
       width: '100%',
       height: '100%',
     },
+    photoUploadOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -1120,4 +1208,24 @@ function createStyles({
       height: 20,
     },
   });
+}
+
+function getUploadFileName(asset: ImagePicker.ImagePickerAsset) {
+  if (asset.fileName) {
+    return asset.fileName;
+  }
+
+  const extension = getUploadMimeType(asset).split('/')[1] || 'jpg';
+  return `driver-profile.${extension === 'jpeg' ? 'jpg' : extension}`;
+}
+
+function getUploadMimeType(asset: ImagePicker.ImagePickerAsset) {
+  if (asset.mimeType) {
+    return asset.mimeType;
+  }
+
+  const extension = asset.uri.split('.').pop()?.toLowerCase();
+  if (extension === 'png') return 'image/png';
+  if (extension === 'webp') return 'image/webp';
+  return 'image/jpeg';
 }

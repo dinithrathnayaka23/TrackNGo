@@ -2,6 +2,7 @@ package com.trackngo.booking.internal.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.api.dto.AdminBusDtos.*;
+import com.trackngo.commons.booking.BookingDisruptionHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +29,9 @@ class AdminBusServiceTest {
 
     @Mock
     private ObjectMapper mapper;
+
+    @Mock
+    private BookingDisruptionHandler disruptionHandler;
 
     @InjectMocks
     private AdminBusService service;

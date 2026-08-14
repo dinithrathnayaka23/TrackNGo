@@ -36,6 +36,9 @@ function getAPIBaseUrl(): string {
 }
 
 export const API_BASE_URL = getAPIBaseUrl();
+export const ADMIN_SUPPORT_USER_ID = Number(
+  env.EXPO_PUBLIC_ADMIN_SUPPORT_USER_ID ?? '1'
+);
 
 export function apiUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;

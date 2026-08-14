@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -12,15 +13,26 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { httpPost } from "../../services/http";
+import { useSession } from "../../store/sessionStore";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 165; // 2:45
 
 export default function OtpVerificationScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ phone?: string; email?: string }>();
+  const { setCurrentUser } = useSession();
+  const params = useLocalSearchParams<{
+    phone?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    userType?: string;
+    password?: string;
+  }>();
   const phone = params.phone ?? "+94 77 123 4567";
   const email = params.email ?? "";
+  const [loading, setLoading] = useState(false);
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [timer, setTimer] = useState(RESEND_SECONDS);
@@ -85,16 +97,55 @@ export default function OtpVerificationScreen() {
     Alert.alert("Code Sent", "A new verification code has been sent.");
   }
 
-  function handleVerify() {
+  async function handleVerify() {
     const code = otp.join("");
     if (code.length < OTP_LENGTH) {
       Alert.alert("Incomplete Code", "Please enter the full 6-digit code.");
       return;
     }
-    // Navigate to main menu after successful verification
-    Alert.alert("Verified", "Your account has been verified successfully!", [
-      { text: "OK", onPress: () => router.replace("/tabs") },
-    ]);
+
+    setLoading(true);
+    try {
+      const userTypeParam = params.userType === "Corporate" ? "corporate" : "passenger";
+      const payload = {
+        email: params.email?.trim(),
+        password: params.password,
+        userType: userTypeParam,
+      };
+
+      const response = await httpPost<any>("/api/users", undefined, payload);
+      const savedUser = response.data || response;
+
+      const mappedUserType = userTypeParam === "corporate" ? "CORPORATE_USER" : "PASSENGER";
+      await setCurrentUser({
+        userId: savedUser.id,
+        userType: mappedUserType,
+      });
+
+      Alert.alert("Verified", "Your account has been verified successfully!", [
+        {
+          text: "OK",
+          onPress: () => {
+            if (params.userType === "Corporate") {
+              router.replace("/corporate/corporate-registration");
+            } else {
+              router.replace("/tabs");
+            }
+          },
+        },
+      ]);
+    } catch (err: any) {
+      let errorMsg = err.message;
+      if (err.message && err.message.includes("{")) {
+        try {
+          const parsed = JSON.parse(err.message.substring(err.message.indexOf("{")));
+          if (parsed.message) errorMsg = parsed.message;
+        } catch {}
+      }
+      Alert.alert("Registration Failed", errorMsg || "Failed to create account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -165,11 +216,16 @@ export default function OtpVerificationScreen() {
 
         {/* Verify button */}
         <TouchableOpacity
-          style={styles.verifyBtn}
+          style={[styles.verifyBtn, loading && { opacity: 0.7 }]}
           onPress={handleVerify}
+          disabled={loading}
           activeOpacity={0.85}
         >
-          <Text style={styles.verifyBtnText}>Verify</Text>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={styles.verifyBtnText}>Verify</Text>
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

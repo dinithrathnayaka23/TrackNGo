@@ -3,6 +3,7 @@ package com.trackngo.booking.internal.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.api.dto.AdminBusDtos.*;
+import com.trackngo.commons.booking.BookingDisruptionHandler;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -25,25 +26,32 @@ public class AdminBusService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
 
-    public AdminBusService(JdbcTemplate jdbc, ObjectMapper mapper) {
+    private final BookingDisruptionHandler disruptionHandler;
+
+    public AdminBusService(
+            JdbcTemplate jdbc,
+            ObjectMapper mapper,
+            BookingDisruptionHandler disruptionHandler
+    ) {
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.disruptionHandler = disruptionHandler;
     }
 
     @PostConstruct
     void ensureSeatLayoutTable() {
         jdbc.execute("""
-            CREATE TABLE IF NOT EXISTS seat_layout (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                bus_id BIGINT NOT NULL,
-                seat_label VARCHAR(10) NOT NULL,
-                row_num INT NOT NULL,
-                position_group VARCHAR(10) NOT NULL,
-                position_index INT NOT NULL,
-                UNIQUE KEY uk_bus_seat (bus_id, seat_label),
-                FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE CASCADE
-            )
-            """);
+                CREATE TABLE IF NOT EXISTS seat_layout (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    bus_id BIGINT NOT NULL,
+                    seat_label VARCHAR(10) NOT NULL,
+                    row_num INT NOT NULL,
+                    position_group VARCHAR(10) NOT NULL,
+                    position_index INT NOT NULL,
+                    UNIQUE KEY uk_bus_seat (bus_id, seat_label),
+                    FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE CASCADE
+                )
+                """);
     }
 
     /* ── List all buses ───────────────────────────────────── */
@@ -82,10 +90,9 @@ public class AdminBusService {
                     formatTime(row.get("start_time")),
                     computeEndTime(row.get("start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("end_time")),
                     formatTime(row.get("return_start_time")),
-                    computeStoredOrDerivedEndTime(row.get("return_start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("return_end_time")),
+                    formatTime(row.get("return_end_time")),
                     (String) row.get("registration_number"),
-                    row.get("insurance_exp_date") != null ? row.get("insurance_exp_date").toString() : null
-            ));
+                    row.get("insurance_exp_date") != null ? row.get("insurance_exp_date").toString() : null));
         }
         return results;
     }
@@ -122,7 +129,7 @@ public class AdminBusService {
                 formatTime(row.get("start_time")),
                 computeEndTime(row.get("start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("end_time")),
                 formatTime(row.get("return_start_time")),
-                computeStoredOrDerivedEndTime(row.get("return_start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("return_end_time")),
+                formatTime(row.get("return_end_time")),
                 (String) row.get("registration_number"),
                 row.get("insurance_exp_date") != null ? row.get("insurance_exp_date").toString() : null,
                 toLongNullable(row.get("driver_id")),
@@ -131,8 +138,7 @@ public class AdminBusService {
                 toDouble(row.get("average_rating")),
                 toLongNullable(row.get("route_id")),
                 (String) row.get("route_name"),
-                toBigDecimal(row.get("fee"))
-        );
+                toBigDecimal(row.get("fee")));
     }
 
     /* ── Create bus ───────────────────────────────────────── */
@@ -142,8 +148,8 @@ public class AdminBusService {
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement(
                     "INSERT INTO bus (bus_number, bus_brand, seat_capacity, bus_type, bus_condition, " +
-                    "status, amenities, start_time, end_time, return_start_time, return_end_time, " +
-                    "registration_number, insurance_exp_date, driver_id, route_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "status, amenities, start_time, end_time, registration_number, insurance_exp_date, " +
+                    "driver_id, route_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, req.busNumber());
@@ -167,46 +173,56 @@ public class AdminBusService {
     }
 
     /* ── Update bus ───────────────────────────────────────── */
+    @Transactional
     public void updateBus(Long busId, SaveBusRequest req) {
         String amenitiesJson = toJson(req.amenities());
-        jdbc.update(con -> {
-            PreparedStatement ps = con.prepareStatement(
-                    "UPDATE bus SET bus_number=?, bus_brand=?, seat_capacity=?, bus_type=?, bus_condition=?, " +
-                    "status=?, amenities=?, start_time=?, end_time=?, return_start_time=?, return_end_time=?, " +
-                    "registration_number=?, insurance_exp_date=?, " +
-                    "driver_id=?, route_id=? WHERE bus_id=?"
+        String previousStatus = jdbc.queryForObject(
+                "SELECT status FROM bus WHERE bus_id = ?",
+                String.class,
+                busId
+        );
+        if (isUnavailable(req.status())) {
+            disruptionHandler.cancelFutureBookingsForBus(
+                    busId,
+                    "the bus was placed under " + req.status().toLowerCase(Locale.ROOT)
             );
-            ps.setString(1, req.busNumber());
-            ps.setString(2, req.busBrand());
-            ps.setInt(3, req.seatCapacity());
-            ps.setString(4, req.busType());
-            ps.setString(5, req.busCondition());
-            ps.setString(6, req.status() != null ? req.status() : "active");
-            ps.setString(7, amenitiesJson);
-            setNullableTime(ps, 8, req.startTime());
-            setNullableTime(ps, 9, req.endTime());
-            setNullableTime(ps, 10, req.returnStartTime());
-            setNullableTime(ps, 11, req.returnEndTime());
-            ps.setString(12, req.registrationNumber());
-            ps.setString(13, req.insuranceExpDate());
-            setNullableLong(ps, 14, req.driverId());
-            setNullableLong(ps, 15, req.routeId());
-            ps.setLong(16, busId);
-            return ps;
-        });
+        } else if (isUnavailable(previousStatus) && "active".equalsIgnoreCase(req.status())) {
+            disruptionHandler.notifyFutureBookingPassengersBusRestored(busId);
+        }
+        jdbc.update(
+                "UPDATE bus SET bus_number=?, bus_brand=?, seat_capacity=?, bus_type=?, bus_condition=?, " +
+                "status=?, amenities=?, start_time=?, end_time=?, return_start_time=?, return_end_time=?, " +
+                "registration_number=?, insurance_exp_date=?, driver_id=?, route_id=? WHERE bus_id=?",
+                req.busNumber(), req.busBrand(), req.seatCapacity(), req.busType(), req.busCondition(),
+                req.status(), amenitiesJson,
+                req.startTime() != null && !req.startTime().isEmpty() ? req.startTime() : null,
+                req.endTime() != null && !req.endTime().isEmpty() ? req.endTime() : null,
+                req.returnStartTime() != null && !req.returnStartTime().isEmpty() ? req.returnStartTime() : null,
+                req.returnEndTime() != null && !req.returnEndTime().isEmpty() ? req.returnEndTime() : null,
+                req.registrationNumber(), req.insuranceExpDate(),
+                req.driverId(), req.routeId(), busId
+        );
     }
 
     /* ── Delete bus ───────────────────────────────────────── */
     @Transactional
     public void deleteBus(Long busId) {
+        disruptionHandler.cancelFutureBookingsForBus(busId, "the bus was removed from service");
         jdbc.update("DELETE FROM seat_layout WHERE bus_id = ?", busId);
-        jdbc.update("DELETE FROM bus WHERE bus_id = ?", busId);
+        // Keep the bus row for booking/refund/audit history; deletion becomes a
+        // safe soft-removal because bus_id is referenced by historical bookings.
+        jdbc.update("UPDATE bus SET status = 'inactive' WHERE bus_id = ?", busId);
+    }
+
+    private boolean isUnavailable(String status) {
+        return status != null && ("maintenance".equalsIgnoreCase(status)
+                || "inactive".equalsIgnoreCase(status));
     }
 
     /* ── Get seat layout ──────────────────────────────────── */
     public List<SeatLayoutRow> getSeatLayout(Long busId) {
         String sql = "SELECT seat_label, row_num, position_group, position_index " +
-                     "FROM seat_layout WHERE bus_id = ? ORDER BY row_num, position_index";
+                "FROM seat_layout WHERE bus_id = ? ORDER BY row_num, position_index";
         List<Map<String, Object>> rows = jdbc.queryForList(sql, busId);
 
         if (rows.isEmpty()) {
@@ -241,8 +257,7 @@ public class AdminBusService {
                     rowNum,
                     leftMap.getOrDefault(rowNum, List.of()),
                     rightMap.getOrDefault(rowNum, List.of()),
-                    back
-            ));
+                    back));
         }
         return result;
     }
@@ -252,14 +267,16 @@ public class AdminBusService {
     public void saveSeatLayout(Long busId, SaveSeatLayoutRequest req) {
         jdbc.update("DELETE FROM seat_layout WHERE bus_id = ?", busId);
 
-        if (req.rows() == null || req.rows().isEmpty()) return;
+        if (req.rows() == null || req.rows().isEmpty())
+            return;
 
         Set<String> blockedLabels = req.blockedSeats() != null
                 ? new HashSet<>(req.blockedSeats())
                 : Set.of();
 
-        String insertSql = "INSERT INTO seat_layout (bus_id, seat_label, row_num, position_group, position_index, blocked) " +
-                           "VALUES (?, ?, ?, ?, ?, ?)";
+        String insertSql = "INSERT INTO seat_layout (bus_id, seat_label, row_num, position_group, position_index, blocked) "
+                +
+                "VALUES (?, ?, ?, ?, ?, ?)";
 
         int totalSeats = 0;
         for (SeatLayoutRow row : req.rows()) {
@@ -295,36 +312,37 @@ public class AdminBusService {
     /* ── Dropdown options ─────────────────────────────────── */
     public List<DriverOption> getDriverOptions() {
         String sql = """
-            SELECT d.driver_id, CONCAT(u.first_name, ' ', u.last_name) AS name
-            FROM driver d
-            JOIN `user` u ON d.driver_id = u.user_id
-            ORDER BY name
-            """;
-        return jdbc.query(sql, (rs, rowNum) ->
-                new DriverOption(rs.getLong("driver_id"), rs.getString("name")));
+                SELECT d.driver_id, CONCAT(u.first_name, ' ', u.last_name) AS name
+                FROM driver d
+                JOIN `user` u ON d.driver_id = u.user_id
+                ORDER BY name
+                """;
+        return jdbc.query(sql, (rs, rowNum) -> new DriverOption(rs.getLong("driver_id"), rs.getString("name")));
     }
 
     public List<RouteOption> getRouteOptions() {
         String sql = "SELECT route_id, route_name, estimated_time_duration FROM route WHERE is_active = 1 ORDER BY route_name";
-        return jdbc.query(sql, (rs, rowNum) ->
-                new RouteOption(rs.getLong("route_id"), rs.getString("route_name"),
-                        rs.getObject("estimated_time_duration", Integer.class)));
+        return jdbc.query(sql, (rs, rowNum) -> new RouteOption(rs.getLong("route_id"), rs.getString("route_name"),
+                rs.getObject("estimated_time_duration", Integer.class)));
     }
 
     /* ── Helpers ──────────────────────────────────────────── */
 
     @SuppressWarnings("unchecked")
     private List<String> parseAmenities(Object obj) {
-        if (obj == null) return List.of();
+        if (obj == null)
+            return List.of();
         try {
-            return mapper.readValue(obj.toString(), new TypeReference<List<String>>() {});
+            return mapper.readValue(obj.toString(), new TypeReference<List<String>>() {
+            });
         } catch (Exception e) {
             return List.of();
         }
     }
 
     private String toJson(List<String> list) {
-        if (list == null || list.isEmpty()) return "[]";
+        if (list == null || list.isEmpty())
+            return "[]";
         try {
             return mapper.writeValueAsString(list);
         } catch (Exception e) {
@@ -333,22 +351,34 @@ public class AdminBusService {
     }
 
     private String formatTime(Object timeObj) {
-        if (timeObj == null) return null;
-        if (timeObj instanceof Time t) return t.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"));
-        if (timeObj instanceof LocalTime lt) return lt.format(DateTimeFormatter.ofPattern("HH:mm"));
+        if (timeObj == null)
+            return null;
+        if (timeObj instanceof Time t)
+            return t.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+        if (timeObj instanceof LocalTime lt)
+            return lt.format(DateTimeFormatter.ofPattern("HH:mm"));
         return timeObj.toString();
     }
 
     private LocalTime toLocalTime(Object timeObj) {
-        if (timeObj == null) return null;
-        if (timeObj instanceof Time t) return t.toLocalTime();
-        if (timeObj instanceof LocalTime lt) return lt;
-        try { return LocalTime.parse(timeObj.toString().substring(0, 5)); } catch (Exception e) { return null; }
+        if (timeObj == null)
+            return null;
+        if (timeObj instanceof Time t)
+            return t.toLocalTime();
+        if (timeObj instanceof LocalTime lt)
+            return lt;
+        try {
+            return LocalTime.parse(timeObj.toString().substring(0, 5));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
-     * If the bus has a route assigned, compute end_time = start_time + route.estimated_time_duration.
-     * This ensures that whenever the route duration changes, the displayed end time is always accurate.
+     * If the bus has a route assigned, compute end_time = start_time +
+     * route.estimated_time_duration.
+     * This ensures that whenever the route duration changes, the displayed end time
+     * is always accurate.
      */
     private String computeEndTime(Object startObj, Object routeIdObj, Object durationObj, Object storedEndObj) {
         if (routeIdObj != null && startObj != null && durationObj != null) {
@@ -376,7 +406,8 @@ public class AdminBusService {
     }
 
     /**
-     * When saving a bus, look up the route's duration and compute end_time = start_time + duration.
+     * When saving a bus, look up the route's duration and compute end_time =
+     * start_time + duration.
      * Falls back to the provided endTime when no route is assigned.
      */
     private String resolveEndTime(String startTime, Long routeId, String fallbackEndTime) {
@@ -390,7 +421,8 @@ public class AdminBusService {
                             .plusMinutes(durationMins)
                             .format(DateTimeFormatter.ofPattern("HH:mm"));
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
         return fallbackEndTime;
     }
@@ -408,13 +440,16 @@ public class AdminBusService {
     }
 
     private Double toDouble(Object obj) {
-        if (obj == null) return 0.0;
+        if (obj == null)
+            return 0.0;
         return ((Number) obj).doubleValue();
     }
 
     private BigDecimal toBigDecimal(Object obj) {
-        if (obj == null) return BigDecimal.ZERO;
-        if (obj instanceof BigDecimal bd) return bd;
+        if (obj == null)
+            return BigDecimal.ZERO;
+        if (obj instanceof BigDecimal bd)
+            return bd;
         return new BigDecimal(obj.toString());
     }
 

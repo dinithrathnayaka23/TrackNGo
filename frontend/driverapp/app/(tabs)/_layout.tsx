@@ -1,13 +1,50 @@
 import { Tabs } from 'expo-router'; // Tabs for navigation
-import React from 'react'; //for React library
+import React, { useCallback, useEffect, useState } from 'react'; //for React library
 
 import { HapticTab } from '@/components/haptic-tab'; // HapticTab for haptic feedback
 import { useTheme } from '@/context/ThemeContext'; 
+import { useUser } from '@/context/UserContext';
+import { getUserConversations, type ConversationDto } from '@/services/chatApi';
 import { MaterialCommunityIcons } from '@expo/vector-icons'; 
 import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   const { darkMode } = useTheme();
+  const { user } = useUser();
+  const [unreadTotal, setUnreadTotal] = useState(0);
+
+  const refreshUnreadTotal = useCallback(async () => {
+    if (!user?.userId || !user?.token) {
+      setUnreadTotal(0);
+      return;
+    }
+
+    try {
+      const result = await getUserConversations({
+        token: user.token,
+        userId: user.userId,
+        page: 0,
+        size: 50,
+      });
+      const conversations = Array.isArray(result.content) ? result.content : [];
+      const total = conversations.reduce(
+        (sum, item) => sum + getConversationUnreadCount(item, user.userId),
+        0
+      );
+      setUnreadTotal(total);
+    } catch {
+      setUnreadTotal(0);
+    }
+  }, [user?.token, user?.userId]);
+
+  useEffect(() => {
+    void refreshUnreadTotal();
+    const timer = setInterval(() => {
+      void refreshUnreadTotal();
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [refreshUnreadTotal]);
 
   return (
     <Tabs
@@ -55,6 +92,13 @@ export default function TabLayout() {
         name="chat"
         options={{
           title: "Chat",
+          tabBarBadge: unreadTotal > 0 ? (unreadTotal > 99 ? '99+' : unreadTotal) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#0066FF',
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: '800',
+          },
           tabBarIcon: ({ color }) => (
             <Ionicons size={22} name="chatbubble-ellipses" color={color} />
           ),
@@ -77,4 +121,16 @@ export default function TabLayout() {
       />
     </Tabs>
   );
+}
+
+function getConversationUnreadCount(item: ConversationDto, currentUserId: number) {
+  if (item.participant1Id === currentUserId) {
+    return item.participant1Unread ?? item.unreadCount ?? 0;
+  }
+
+  if (item.participant2Id === currentUserId) {
+    return item.participant2Unread ?? item.unreadCount ?? 0;
+  }
+
+  return item.unreadCount ?? 0;
 }

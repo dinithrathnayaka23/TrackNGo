@@ -1,4 +1,4 @@
-﻿server:
+server:
   port: 8080
 
 spring:
@@ -19,6 +19,14 @@ spring:
       hibernate:
         format_sql: true
     open-in-view: false
+  ai:
+    openai:
+      api-key: ${AI_API_KEY:${GEMINI_API_KEY}}
+      base-url: ${AI_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai/}
+      chat:
+        options:
+          model: ${AI_MODEL:${GEMINI_MODEL:gemini-1.5-pro}}
+          temperature: 0.7
 
 trackngo:
   jwt:
@@ -46,3 +54,12 @@ payhere:
 stripe:
   secret-key: ${STRIPE_SECRET_KEY}
   publishable-key: ${STRIPE_PUBLISHABLE_KEY}
+
+# Custom fallback model configuration
+ai:
+  model:
+    timeout-seconds: ${AI_MODEL_TIMEOUT_SECONDS:12}
+    functions-enabled: ${AI_MODEL_FUNCTIONS_ENABLED:false}
+    direct-http-enabled: ${AI_MODEL_DIRECT_HTTP_ENABLED:true}
+  fallback:
+    model: ${AI_FALLBACK_MODEL:${GEMINI_FALLBACK_MODEL:gemini-1.5-flash}}

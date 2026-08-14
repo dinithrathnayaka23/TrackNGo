@@ -7,6 +7,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: "#2F6BFF",
         tabBarInactiveTintColor: "#9AA4B2",
         tabBarLabelStyle: { fontSize: 12, fontWeight: "600", marginBottom: 2 },
@@ -32,6 +33,15 @@ export default function TabLayout() {
           title: "Chat",
           tabBarIcon: ({ color }) => (
             <Ionicons size={22} name="chatbubble-ellipses" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="assistant"
+        options={{
+          title: "AI",
+          tabBarIcon: ({ color }) => (
+            <Ionicons size={22} name="sparkles-outline" color={color} />
           ),
         }}
       />

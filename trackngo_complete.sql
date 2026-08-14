@@ -243,7 +243,7 @@ CREATE TABLE emergency_contact (
 
 CREATE TABLE notification (
     notification_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    notification_type ENUM('booking_confirmation', 'journey_reminder', 'payment_success', 'cancellation', 'rating_request', 'complaint_update', 'promotion', 'system_alert', 'sos_alert') NOT NULL,
+    notification_type ENUM('booking', 'journey', 'payment', 'cancellation', 'rating', 'complaint', 'promotion', 'system_alert', 'sos') NOT NULL,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
     is_read BOOLEAN DEFAULT false,
@@ -495,12 +495,14 @@ CREATE TABLE payment (
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     payment_status ENUM('pending', 'success', 'failed', 'refunded') DEFAULT 'pending',
     amount DECIMAL(10, 2) NOT NULL,
+    provider_transaction_id VARCHAR(255),
     trip_booking_id BIGINT,
 
     FOREIGN KEY (trip_booking_id) REFERENCES trip_booking(trip_booking_id) ON DELETE CASCADE,
     INDEX idx_trip_booking (trip_booking_id),
     INDEX idx_transaction (transaction_id),
     INDEX idx_status (payment_status),
+    INDEX idx_provider_transaction (provider_transaction_id),
     INDEX idx_date (payment_date DESC)
 );
 
@@ -520,6 +522,8 @@ CREATE TABLE seat_booking (
     payment_id BIGINT,
     from_stop VARCHAR(255) COMMENT 'Passenger boarding stop name',
     to_stop VARCHAR(255) COMMENT 'Passenger alighting stop name',
+    cancellation_reason TEXT,
+    restoration_notified_at TIMESTAMP NULL,
 
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
     FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,
@@ -531,6 +535,25 @@ CREATE TABLE seat_booking (
     INDEX idx_journey (journey_date, journey_time),
     INDEX idx_reference (booking_reference),
     INDEX idx_payment (payment_id)
+);
+
+-- One row per currently-held seat.  The unique key is the database-level
+-- concurrency guarantee for seat booking; seat_booking.seat_number remains
+-- as a backwards-compatible display field.
+CREATE TABLE seat_booking_seat (
+    seat_booking_seat_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    seat_booking_id BIGINT NOT NULL,
+    bus_id BIGINT NOT NULL,
+    journey_date DATE NOT NULL,
+    seat_number VARCHAR(10) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_seat_booking_seat_booking
+        FOREIGN KEY (seat_booking_id) REFERENCES seat_booking(seat_booking_id) ON DELETE CASCADE,
+    CONSTRAINT fk_seat_booking_seat_bus
+        FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,
+    UNIQUE KEY uq_active_bus_date_seat (bus_id, journey_date, seat_number),
+    INDEX idx_seat_booking_seat_booking (seat_booking_id),
+    INDEX idx_seat_booking_seat_date (bus_id, journey_date)
 );
 
 CREATE TABLE promotion_redemption (
@@ -602,11 +625,16 @@ CREATE TABLE refund (
     processed_date TIMESTAMP NULL,
     refund_amount DECIMAL(10, 2) NOT NULL,
     created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    disruption_key VARCHAR(160) UNIQUE,
+    provider_refund_id VARCHAR(255),
+    last_error TEXT,
+    attempt_count INT NOT NULL DEFAULT 0,
     payment_id BIGINT NOT NULL,
 
     FOREIGN KEY (payment_id) REFERENCES payment(payment_id) ON DELETE CASCADE,
     INDEX idx_payment (payment_id),
     INDEX idx_status (refund_status),
+    INDEX idx_provider_refund (provider_refund_id),
     INDEX idx_created (created_date DESC)
 );
 
@@ -688,4 +716,56 @@ CREATE TABLE bus_locations (
 
     INDEX idx_bus_number (bus_number),
     INDEX idx_recorded (recorded_at DESC)
+);
+
+CREATE TABLE ai_chat_message (
+    ai_chat_message_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    chat_id VARCHAR(120) NOT NULL,
+    user_id BIGINT NULL,
+    user_email VARCHAR(255) NULL,
+    role VARCHAR(30) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ai_chat_message_chat (chat_id, created_at),
+    INDEX idx_ai_chat_message_user (user_id, created_at)
+);
+
+CREATE TABLE ai_agent_interaction (
+    ai_agent_interaction_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    chat_id VARCHAR(120) NOT NULL,
+    user_id BIGINT NULL,
+    user_email VARCHAR(255) NULL,
+    detected_intent VARCHAR(80) NULL,
+    status VARCHAR(40) NOT NULL,
+    latency_ms INT NULL,
+    model_name VARCHAR(120) NULL,
+    error_message TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ai_agent_interaction_chat (chat_id, created_at),
+    INDEX idx_ai_agent_interaction_intent (detected_intent, status)
+);
+
+CREATE TABLE ai_feedback (
+    ai_feedback_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    chat_id VARCHAR(120) NOT NULL,
+    ai_chat_message_id BIGINT NULL,
+    user_id BIGINT NULL,
+    rating TINYINT NOT NULL,
+    comment TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ai_feedback_chat (chat_id),
+    INDEX idx_ai_feedback_user (user_id)
+);
+
+CREATE TABLE ai_domain_knowledge (
+    ai_domain_knowledge_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(180) NOT NULL,
+    content TEXT NOT NULL,
+    tags VARCHAR(255) NOT NULL DEFAULT 'all',
+    priority INT NOT NULL DEFAULT 0,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FULLTEXT KEY ft_ai_domain_knowledge (title, content),
+    INDEX idx_ai_domain_knowledge_active (active, priority)
 );

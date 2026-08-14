@@ -1,18 +1,22 @@
-import { ImageSourcePropType } from 'react-native';
-
-const ashokAc = require('../assets/images/ashok_ac.jpeg');
-const ashokNonac = require('../assets/images/ashok_nonac.jpg');
-const tataAc = require('../assets/images/tata_ac.jpg');
-const tataNonac = require('../assets/images/tata_nonac.jpg');
-const rosa = require('../assets/images/rosa.jpg');
-
-export function getBusImage(brand: string, amenities: string[]): ImageSourcePropType | null {
+/**
+ * Returns the exact local images used in the Admin Web.
+ */
+export const getBusImage = (brand: string, amenities: string[]) => {
+  const isAc = amenities.some(a => a.toLowerCase() === 'ac');
   const b = brand.toLowerCase();
-  const isAc = amenities.some((a) => a.toLowerCase() === 'ac');
 
-  if (b.includes('rosa')) return rosa;
-  if (b.includes('ashok')) return isAc ? ashokAc : ashokNonac;
-  if (b.includes('tata')) return isAc ? tataAc : tataNonac;
+  if (b.includes("rosa")) {
+    return require("../assets/buses/rosa.jpg");
+  }
+  
+  if (b.includes("ashok")) {
+    return isAc ? require("../assets/buses/ashok_ac.jpeg") : require("../assets/buses/ashok_nonac.jpg");
+  }
 
-  return null;
-}
+  if (b.includes("tata")) {
+    return isAc ? require("../assets/buses/tata_ac.jpg") : require("../assets/buses/tata_nonac.jpg");
+  }
+
+  // Fallback
+  return require("../assets/buses/rosa.jpg");
+};

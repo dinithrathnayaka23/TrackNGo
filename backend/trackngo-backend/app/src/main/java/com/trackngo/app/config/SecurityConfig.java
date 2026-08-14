@@ -44,6 +44,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/tracking/**").permitAll()
                 .requestMatchers("/api/booking-flow/**").permitAll()
                 .requestMatchers("/api/bookings/**").permitAll()
+                .requestMatchers("/api/v1/ai/**").permitAll()
+                .requestMatchers("/api/notifications/**").permitAll()
                 .requestMatchers("/api/complaints", "/api/complaints/mine").permitAll()
                 .requestMatchers("/api/admin/buses/**").permitAll()
                 .requestMatchers("/api/admin/complaints/**").permitAll()
@@ -51,6 +53,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/emergency-numbers/**").permitAll()
                 .requestMatchers("/api/admin/support/**").permitAll()
                 .requestMatchers("/bus-sharer.html").permitAll()
+                .requestMatchers("/api/locations/**").permitAll()
+                .requestMatchers("/api/trips/**").permitAll()
+                .requestMatchers("/api/corporate/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

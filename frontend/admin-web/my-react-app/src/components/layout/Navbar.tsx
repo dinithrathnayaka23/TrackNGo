@@ -1,14 +1,10 @@
-import { faBell, faMagnifyingGlass, faSignOutAlt } from '@fortawesome/free-solid-svg-icons'
+import { faBell, faSignOutAlt } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import type { ChangeEvent, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 type NavbarProps = {
   breadcrumbs: string[]
   onLogout: () => void
-  showSearch?: boolean
-  searchValue?: string
-  onSearchChange?: (value: string) => void
-  searchPlaceholder?: string
   unreadCount?: number
   onToggleNotifications?: () => void
   notificationPanel?: ReactNode
@@ -18,10 +14,6 @@ type NavbarProps = {
 function Navbar({
   breadcrumbs,
   onLogout,
-  showSearch = true,
-  searchValue = '',
-  onSearchChange,
-  searchPlaceholder = 'Search buses, drivers, or routes...',
   unreadCount = 0,
   onToggleNotifications,
   notificationPanel,
@@ -44,28 +36,6 @@ function Navbar({
           )
         })}
       </div>
-
-      {showSearch ? (
-        <div className="w-full max-w-[560px] px-6">
-          <div className="flex h-12 items-center gap-3 rounded-xl bg-[#eef0f5] px-4 text-[#7d8798]">
-            <FontAwesomeIcon icon={faMagnifyingGlass} />
-            <input
-              type="text"
-              // Allow both controlled and uncontrolled usage to keep page integration simple.
-              {...(onSearchChange
-                ? {
-                    value: searchValue,
-                    onChange: (event: ChangeEvent<HTMLInputElement>) => onSearchChange(event.target.value),
-                  }
-                : { defaultValue: searchValue })}
-              className="w-full bg-transparent text-sm text-[#2f394d] outline-none"
-              placeholder={searchPlaceholder}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="w-full" />
-      )}
 
       <div className="relative flex items-center gap-8">
         {rightSlot}

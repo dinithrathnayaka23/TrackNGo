@@ -18,7 +18,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { seatBookingService } from '@/services/seatBookingService';
 
-type SeatStatus = 'boarded' | 'booked' | 'available'; // Define the possible seat statuses
+type SeatStatus = 'boarded' | 'booked' | 'blocked' | 'available'; // Define the possible seat statuses
 
 interface Seat { //api response structure
   id: string;
@@ -63,6 +63,7 @@ export default function DriverSeatLayoutScreen() { //main component
   const router = useRouter();
   const { darkMode } = useTheme(); //get dark mode state from themecontext
   const { user } = useUser(); //get user data from usercontext to check if user is logged in
+  const { width } = useWindowDimensions();
   const theme = useMemo(() => ({
     background: darkMode ? '#111' : '#F5F5F5',
     card: darkMode ? '#1E1E1E' : '#FFF',
@@ -70,7 +71,7 @@ export default function DriverSeatLayoutScreen() { //main component
     secondaryText: darkMode ? '#AAA' : '#666',
     border: darkMode ? '#333' : '#E0E0E0',
   }), [darkMode]); //until darkmode changes
-  const styles = useMemo(() => createStyles(theme), [theme]); // Create styles using the current theme. 
+  const styles = useMemo(() => createStyles(theme, width), [theme, width]); // Create styles using the current theme. 
 
   // State management
   const [seatData, setSeatData] = useState<Seat[]>([]); // seat layout data (an array)
@@ -145,6 +146,9 @@ export default function DriverSeatLayoutScreen() { //main component
       );
       console.log('Booked seats received:', bookedSeats);
 
+      const blockedSeats = await seatBookingService.getBlockedSeats(assignment.busId, token);
+      console.log('Blocked seats received:', blockedSeats);
+
       // Get route details for start and end locations
       let startLocation = 'N/A';
       let endLocation = 'N/A';
@@ -180,6 +184,7 @@ export default function DriverSeatLayoutScreen() { //main component
       const processedSeats = processSeatData( // give parameters and convert to UI friendly format (booked seat with passenger details for each)
         seatLayout,
         bookedSeats,
+        blockedSeats,
         assignment.seatCapacity
       );
 
@@ -216,7 +221,9 @@ export default function DriverSeatLayoutScreen() { //main component
         journeyDate: today,
         journeyTime: (assignment as any).startTime || '08:00 AM',
         boardedCount: processedSeats.filter((s: Seat) => s.status === 'boarded').length, // Filter and count boarded seats
-        bookedCount: processedSeats.filter((s: Seat) => s.status === 'booked').length, // Filter and count booked seats
+        bookedCount: processedSeats.filter(
+          (s: Seat) => s.status === 'booked' || s.status === 'boarded'
+        ).length, // Filter and count occupied seats
         totalSeats: processedSeats.length,
       };
 
@@ -253,6 +260,7 @@ export default function DriverSeatLayoutScreen() { //main component
   const processSeatData = ( 
     seatLayout: SeatLayoutRow[],
     bookedSeats: any[],
+    blockedSeats: string[],
     totalCapacity: number
   ): Seat[] => {
     if (!Array.isArray(seatLayout) || seatLayout.length === 0) { // if backend send invalid or empty seat layout, stop the func
@@ -278,6 +286,11 @@ export default function DriverSeatLayoutScreen() { //main component
         return seatNumbers; //set{A1,A2,B1}
       })
     );
+    const blockedSeatNumbers = new Set(
+      (Array.isArray(blockedSeats) ? blockedSeats : [])
+        .map((seat) => seat.toString().trim())
+        .filter(Boolean)
+    );
 
     console.log('Booked seat numbers set:', bookedSeatNumbers); // Log the set of booked seat numbers
 
@@ -298,6 +311,14 @@ export default function DriverSeatLayoutScreen() { //main component
     });
 
     return seats.map((seat) => { // Update the status of each seat based on whether it is in the set of booked seat numbers..
+      if (blockedSeatNumbers.has(seat.id)) {
+        return {
+          ...seat,
+          status: 'blocked',
+          passenger: null,
+        };
+      }
+
       if (bookedSeatNumbers.has(seat.id)) { 
         const booking = bookedSeats.find((b: any) => { // Find the booking details
           if (typeof b === 'string' || typeof b === 'number') { //checking whether the booking is a string or number
@@ -312,7 +333,7 @@ export default function DriverSeatLayoutScreen() { //main component
 
         return {
           ...seat, // Copy the original seat object
-          status: 'booked',
+          status: normalizeSeatStatus(booking?.status),
           passenger: {
             name: booking?.passengerName || 'Passenger', //get the name from the booking
             initials: getInitials(booking?.passengerName || 'Passenger'),
@@ -334,6 +355,12 @@ export default function DriverSeatLayoutScreen() { //main component
       .toUpperCase();
   }; // Utility function to get initials from a passenger's name. 
 
+  const normalizeSeatStatus = (status?: string): SeatStatus => {
+    const normalized = status?.toLowerCase();
+    if (normalized === 'boarded') return 'boarded';
+    return 'booked';
+  };
+
 
 
 
@@ -343,6 +370,8 @@ export default function DriverSeatLayoutScreen() { //main component
         return '#22C55E';
       case 'booked':
         return '#EF4444';
+      case 'blocked':
+        return '#64748B';
       case 'available':
         return '#D1D5DB';
       default:
@@ -449,13 +478,19 @@ export default function DriverSeatLayoutScreen() { //main component
   const handleSeatPress = (seatId: string) => {
     setSelectedSeat(seatId); // Set the selected seat ID in state when a seat is pressed. This will allow us to display the passenger details for that seat if it is booked, or clear the passenger details if it is not booked. The UI will update to show the selected seat and its associated information based on this state change.
 
+    const seat = seatData.find((item) => item.id === seatId);
+    if (seat?.status === 'blocked') {
+      setSelectedPassenger(null);
+      Alert.alert('Blocked Seat', 'This seat is blocked in the admin layout.');
+      return;
+    }
+
     // Find and display passenger details if seat is booked
     const passengerData = bookedSeatsMap.get(seatId);
     if (passengerData) {
       setSelectedPassenger(passengerData.passenger); // If the seat is booked and we have passenger data for it, set the selected passenger details in state. This will allow the UI to display the passenger's name, phone number, pickup and dropoff locations, seat number, and any special requests when a booked seat is selected.
     } else {
       setSelectedPassenger(null); // If the seat is not booked, clear the selected passenger details. This will ensure that when an available seat is selected, the UI does not show any passenger information, indicating that the seat is currently unoccupied.
-      alert('Seat is available'); // Show an alert to indicate that the selected seat is available. This provides feedback to the driver that they have selected a seat that is not currently booked, and they can take appropriate action if needed (e.g., directing passengers to sit there).
     }
   };
 
@@ -469,7 +504,11 @@ export default function DriverSeatLayoutScreen() { //main component
       ]}
       onPress={() => handleSeatPress(seat.id)}
     >
-      <MaterialCommunityIcons name="account" size={20} color="#FFF" />
+      <MaterialCommunityIcons
+        name={seat.status === 'blocked' ? 'close' : 'account'}
+        size={20}
+        color="#FFF"
+      />
       <Text style={styles.seatLabel}>{seat.id}</Text>
     </TouchableOpacity>
   );
@@ -571,6 +610,10 @@ export default function DriverSeatLayoutScreen() { //main component
             <View style={[styles.indicatorDot, { backgroundColor: '#D1D5DB' }]} />
             <Text style={styles.indicatorText}>Available</Text>
           </View>
+          <View style={styles.indicator}>
+            <View style={[styles.indicatorDot, { backgroundColor: '#64748B' }]} />
+            <Text style={styles.indicatorText}>Blocked</Text>
+          </View>
         </View>
 
         {/* Seat Layout */}
@@ -587,39 +630,45 @@ export default function DriverSeatLayoutScreen() { //main component
           <View style={styles.seatsContainer}>
             {seatRows.length > 0 ? (
               <>
-                {seatRows.map((row) => (
-                  <View key={row.rowNum} style={styles.rowGroup}>
-                    <View style={styles.seatsRowGroup}>
-                      <View style={styles.sideSeats}>
-                        {row.left.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || { // Find the seat data based on the seatId and use it to render the seat. If the seat is not found, use a default seat data object with an 'available' status and null passenger data.
-                          id: seatId,
-                          status: 'available',
-                          passenger: null,
-                        }))}
-                      </View>
+                {seatRows.map((row) => {
+                  const hasRegularSeats = row.left.length > 0 || row.right.length > 0;
 
-                      <View style={styles.aisle} />
+                  return (
+                    <View key={row.rowNum} style={styles.rowGroup}>
+                      {hasRegularSeats ? (
+                        <View style={styles.seatsRowGroup}>
+                          <View style={styles.sideSeats}>
+                            {row.left.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || { // Find the seat data based on the seatId and use it to render the seat. If the seat is not found, use a default seat data object with an 'available' status and null passenger data.
+                              id: seatId,
+                              status: 'available',
+                              passenger: null,
+                            }))}
+                          </View>
 
-                      <View style={styles.sideSeats}>
-                        {row.right.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || {
-                          id: seatId,
-                          status: 'available',
-                          passenger: null,
-                        }))}
-                      </View>
+                          <View style={styles.aisle} />
+
+                          <View style={styles.sideSeats}>
+                            {row.right.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || {
+                              id: seatId,
+                              status: 'available',
+                              passenger: null,
+                            }))}
+                          </View>
+                        </View>
+                      ) : null}
+
+                      {row.lastRow && row.lastRow.length > 0 && (
+                        <View style={[styles.backRow, hasRegularSeats && styles.backRowSpacing]}>
+                          {row.lastRow.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || {
+                            id: seatId,
+                            status: 'available',
+                            passenger: null,
+                          }))}
+                        </View>
+                      )}
                     </View>
-
-                    {row.lastRow && row.lastRow.length > 0 && (
-                      <View style={styles.backRow}>
-                        {row.lastRow.map((seatId) => renderSeat(seatData.find((s) => s.id === seatId) || {
-                          id: seatId,
-                          status: 'available',
-                          passenger: null,
-                        }))}
-                      </View>
-                    )}
-                  </View>
-                ))}
+                  );
+                })}
               </>
             ) : (
               <Text style={[styles.noSeatsText, { color: theme.secondaryText }]}>
@@ -720,7 +769,11 @@ export default function DriverSeatLayoutScreen() { //main component
     </SafeAreaView>
   );
 }
-function createStyles(theme: any) {
+function createStyles(theme: any, width: number) {
+  const seatSize = width < 360 ? 36 : width < 430 ? 40 : 45;
+  const seatGap = width < 360 ? 6 : 8;
+  const aisleWidth = width < 360 ? 14 : 20;
+
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -806,9 +859,10 @@ function createStyles(theme: any) {
   },
   statusIndicators: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 20,
+    gap: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -853,34 +907,38 @@ function createStyles(theme: any) {
     fontWeight: '600',
   },
   seatsContainer: {
-    gap: 14,
+    gap: 8,
     backgroundColor: theme.card,
     padding: 12,
     borderRadius: 8,
   },
   rowGroup: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   seatsRowGroup: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    gap: seatGap,
   },
   sideSeats: {
     flexDirection: 'row',
-    gap: 10,
-    flexWrap: 'wrap',
+    gap: seatGap,
+    flexWrap: 'nowrap',
     justifyContent: 'center',
+    flex: 1,
   },
   aisle: {
-    width: 20,
+    width: aisleWidth,
   },
   backRow: {
-    marginTop: 12,
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 10,
+    gap: seatGap,
+    flexWrap: 'wrap',
+  },
+  backRowSpacing: {
+    marginTop: 12,
   },
   seatsRow: {
     flexDirection: 'row',
@@ -888,8 +946,8 @@ function createStyles(theme: any) {
     justifyContent: 'center',
   },
   seat: {
-    width: 45,
-    height: 45,
+    width: seatSize,
+    height: seatSize,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',

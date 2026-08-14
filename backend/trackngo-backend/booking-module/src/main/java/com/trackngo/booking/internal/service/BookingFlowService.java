@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.api.dto.BookingFlowDtos.*;
 import com.trackngo.booking.api.dto.PromotionDtos.PromotionQuoteResult;
 import com.trackngo.commons.exception.BusinessException;
+import com.trackngo.commons.exception.SeatUnavailableException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -15,8 +17,11 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Time;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -27,6 +32,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class BookingFlowService {
+
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Colombo");
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
@@ -469,15 +476,12 @@ public class BookingFlowService {
        4. Booked seats for a bus + date
     */
     public List<String> getBookedSeats(Long busId, String date) {
-        String sql = "SELECT seat_number FROM seat_booking " +
-                     "WHERE bus_id = ? AND journey_date = ? AND status != 'cancelled'";
-        List<String> seatStrings = jdbc.queryForList(sql, String.class, busId, date);
-
-        return seatStrings.stream()
-                .flatMap(s -> Arrays.stream(s.split(",")))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toList());
+        return jdbc.queryForList(
+                "SELECT seat_number FROM seat_booking_seat WHERE bus_id = ? AND journey_date = ?",
+                String.class,
+                busId,
+                date
+        );
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -542,8 +546,21 @@ public class BookingFlowService {
     @Transactional
     public BookingConfirmationResult createBooking(CreateBookingRequest req) {
 
+        validateBookableJourneyDate(req.journeyDate());
+        List<String> normalizedSeats = normalizeSeatSelection(req.seatNumbers());
+
         // 0) Ensure a passenger record exists for this user (FK requirement)
         ensurePassengerExists(req.passengerId());
+
+        String busStatus = jdbc.queryForObject(
+                "SELECT status FROM bus WHERE bus_id = ?",
+                String.class,
+                req.busId()
+        );
+        if (!"active".equalsIgnoreCase(busStatus)) {
+            throw new BusinessException("This bus is not available for booking because it is "
+                    + (busStatus == null ? "unavailable" : busStatus.toLowerCase(Locale.ROOT)) + ".");
+        }
 
         BigDecimal payableAmount = req.totalAmount();
         BigDecimal discountAmount = BigDecimal.ZERO;
@@ -584,13 +601,14 @@ public class BookingFlowService {
         BigDecimal finalPayableAmount = payableAmount;
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement(
-                    "INSERT INTO payment (transaction_id, payment_method, payment_status, amount) VALUES (?,?,?,?)",
+                    "INSERT INTO payment (transaction_id, payment_method, payment_status, amount, provider_transaction_id) VALUES (?,?,?,?,?)",
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, txnId);
             ps.setString(2, req.paymentMethod() != null ? req.paymentMethod() : "stripe");
             ps.setString(3, "success");
             ps.setBigDecimal(4, finalPayableAmount);
+            ps.setString(5, req.paymentProviderReference());
             return ps;
         }, paymentKeyHolder);
         Long paymentId = paymentKeyHolder.getKey().longValue();
@@ -599,25 +617,53 @@ public class BookingFlowService {
         Long routeId = jdbc.queryForObject("SELECT route_id FROM bus WHERE bus_id = ?", Long.class, req.busId());
 
         // 3) Insert seat_booking
-        String seatNumbers = String.join(",", req.seatNumbers());
-        jdbc.update(
-                "INSERT INTO seat_booking (booking_reference, journey_date, journey_time, seat_number, " +
-                "special_request, total_amount, status, passenger_id, bus_id, route_id, payment_id, from_stop, to_stop) " +
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                bookingRef,
-                req.journeyDate(),
-                req.journeyTime(),
-                seatNumbers,
-                req.specialRequest(),
-                payableAmount,
-                "confirmed",
-                req.passengerId(),
-                req.busId(),
-                routeId,
-                paymentId,
-                req.fromLocation(),
-                req.toLocation()
-        );
+        String seatNumbers = String.join(",", normalizedSeats);
+        BigDecimal bookingAmount = payableAmount;
+        KeyHolder seatBookingKeyHolder = new GeneratedKeyHolder();
+        jdbc.update(con -> {
+            PreparedStatement ps = con.prepareStatement(
+                    "INSERT INTO seat_booking (booking_reference, journey_date, journey_time, seat_number, " +
+                    "special_request, total_amount, status, passenger_id, bus_id, route_id, payment_id, from_stop, to_stop) " +
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    Statement.RETURN_GENERATED_KEYS
+            );
+            ps.setString(1, bookingRef);
+            ps.setString(2, req.journeyDate());
+            ps.setString(3, req.journeyTime());
+            ps.setString(4, seatNumbers);
+            ps.setString(5, req.specialRequest());
+            ps.setBigDecimal(6, bookingAmount);
+            ps.setString(7, "confirmed");
+            ps.setLong(8, req.passengerId());
+            ps.setLong(9, req.busId());
+            ps.setLong(10, routeId);
+            ps.setLong(11, paymentId);
+            ps.setString(12, req.fromLocation());
+            ps.setString(13, req.toLocation());
+            return ps;
+        }, seatBookingKeyHolder);
+        Long seatBookingId = seatBookingKeyHolder.getKey().longValue();
+
+        // The unique key on seat_booking_seat is the final concurrency guard.
+        // It works across all application instances because the database owns the lock.
+        try {
+            jdbc.batchUpdate(
+                    "INSERT INTO seat_booking_seat (seat_booking_id, bus_id, journey_date, seat_number) VALUES (?,?,?,?)",
+                    normalizedSeats,
+                    normalizedSeats.size(),
+                    (ps, seatNumber) -> {
+                        ps.setLong(1, seatBookingId);
+                        ps.setLong(2, req.busId());
+                        ps.setString(3, req.journeyDate());
+                        ps.setString(4, seatNumber);
+                    }
+            );
+        } catch (DataIntegrityViolationException ex) {
+            throw new SeatUnavailableException(
+                    "One or more selected seats were just booked by another passenger. Please refresh and choose again.",
+                    ex
+            );
+        }
 
         promotionService.redeem(appliedPromotionId, req.passengerId(), bookingRef, discountAmount);
 
@@ -696,7 +742,55 @@ public class BookingFlowService {
         if (updated == 0) {
             throw new RuntimeException("Booking not found or already cancelled");
         }
+        jdbc.update(
+                "DELETE FROM seat_booking_seat WHERE seat_booking_id = " +
+                "(SELECT seat_booking_id FROM seat_booking WHERE booking_reference = ?)",
+                bookingRef
+        );
     }
+
+    public void markPassengerBoarded(Long seatBookingId) {
+        int updated = jdbc.update(
+            "UPDATE seat_booking SET status = 'boarded' WHERE seat_booking_id = ? AND status != 'cancelled'",
+            seatBookingId
+        );
+        if (updated == 0) {
+            throw new RuntimeException("Booking not found or already cancelled");
+        }
+    }
+
+    private void validateBookableJourneyDate(String journeyDate) {
+        LocalDate parsedDate;
+        try {
+            parsedDate = LocalDate.parse(journeyDate);
+        } catch (DateTimeParseException | NullPointerException ex) {
+            throw new BusinessException("Journey date is invalid. Please choose today or a future date.");
+        }
+
+        LocalDate today = LocalDate.now(APP_ZONE);
+        if (parsedDate.isBefore(today)) {
+            throw new BusinessException("Bookings can only be made for today or a future date.");
+        }
+    }
+
+    private List<String> normalizeSeatSelection(List<String> seatNumbers) {
+        if (seatNumbers == null || seatNumbers.isEmpty()) {
+            throw new BusinessException("At least one seat must be selected.");
+        }
+
+        List<String> normalized = seatNumbers.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .map(value -> value.toUpperCase(Locale.ROOT))
+                .toList();
+
+        if (normalized.size() != seatNumbers.size() || new HashSet<>(normalized).size() != normalized.size()) {
+            throw new BusinessException("Seat selection contains an empty or duplicate seat.");
+        }
+        return normalized;
+    }
+
 
     /*
        HELPERS
@@ -877,8 +971,7 @@ public class BookingFlowService {
     }
 
     private int countBookedSeats(Long busId, String date) {
-        String sql = "SELECT COALESCE(SUM(LENGTH(seat_number) - LENGTH(REPLACE(seat_number, ',', '')) + 1), 0) " +
-                     "FROM seat_booking WHERE bus_id = ? AND journey_date = ? AND status != 'cancelled'";
+        String sql = "SELECT COUNT(*) FROM seat_booking_seat WHERE bus_id = ? AND journey_date = ?";
         return jdbc.queryForObject(sql, Integer.class, busId, date);
     }
 

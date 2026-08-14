@@ -16,17 +16,21 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
-## API configuration
+## API and Google Maps configuration
 
-The driver app reads its backend base URL from `EXPO_PUBLIC_API_BASE_URL`.
+The driver app reads its backend base URL from `EXPO_PUBLIC_API_BASE_URL`
+and its native Google Maps SDK key from `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`.
 Copy `.env.example` to `.env` in this folder when you need to override it:
 
 ```bash
 EXPO_PUBLIC_API_BASE_URL=http://YOUR_BACKEND_HOST:8080
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
 If the variable is not set, the app uses the Expo dev host on port `8080`,
 falling back to `http://localhost:8080`.
+The Google Maps key can also be supplied as `GOOGLE_MAPS_API_KEY` in the
+repo root `.env` for local monorepo development.
 
 In the output, you'll find options to open the app in a
 

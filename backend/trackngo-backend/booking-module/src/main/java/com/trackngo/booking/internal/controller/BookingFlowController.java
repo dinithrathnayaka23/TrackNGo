@@ -119,5 +119,11 @@ public class BookingFlowController {
         service.cancelBooking(bookingRef);
         return ApiResponse.ok("Booking cancelled", null);
     }
+
+    @PutMapping("/bookings/{seatBookingId}/boarded")
+    public ApiResponse<Void> markPassengerBoarded(@PathVariable Long seatBookingId) {
+        service.markPassengerBoarded(seatBookingId);
+        return ApiResponse.ok("Passenger marked as boarded", null);
+    }
 }
 

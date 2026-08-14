@@ -4,8 +4,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBars,
   faBell,
-  faMagnifyingGlass,
-  faSignOutAlt,
 } from "@fortawesome/free-solid-svg-icons";
 import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import Sidebar from "./Sidebar";
@@ -14,6 +12,8 @@ import AdminNotificationsPanel from "../AdminNotificationsPanel";
 import AiAssistantPanel from "../AiAssistantPanel";
 import { logoutToLogin } from "../../utils/authSession";
 import { fetchAdminNotifications } from "../../services/adminNotificationService";
+import adminProfileImage from "../../assets/images/adminDinith.png";
+import authService from "../../services/authService";
 
 type DashboardLayoutProps = {
   children: ReactNode;
@@ -23,6 +23,7 @@ const SUPPORT_ADMIN_ID = Number(
   import.meta.env.VITE_ADMIN_SUPPORT_USER_ID ?? "1",
 );
 const ADMIN_FORCE_OFFLINE_EVENT = "trackngo:admin-force-offline";
+const ADMIN_PROFILE_PHOTO_KEY = "adminProfilePhoto";
 const OFFLINE_SOCKET_CLOSE_DELAY_MS = 120;
 
 function getBackendOrigin() {
@@ -96,6 +97,34 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAiAssistant, setShowAiAssistant] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [adminPhotoUrl, setAdminPhotoUrl] = useState(
+    () => localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY) || adminProfileImage,
+  );
+  const adminProfile = authService.getAdminProfile();
+  const fallbackEmail = localStorage.getItem("adminEmail") ?? "";
+  const adminFullName = [adminProfile?.firstName, adminProfile?.lastName]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .join(" ")
+    .trim();
+  const formatFallbackName = (value: string) =>
+    value
+      .replace(/[._-]+/g, " ")
+      .split(" ")
+      .filter(Boolean)
+      .map(
+        (part) =>
+          part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
+      )
+      .join(" ");
+  const fallbackNameFromEmail = adminProfile?.email
+    ? formatFallbackName(adminProfile.email.split("@")[0])
+    : fallbackEmail
+      ? formatFallbackName(fallbackEmail.split("@")[0])
+      : "";
+  const adminDisplayName = adminFullName || fallbackNameFromEmail || "Admin User";
+  const adminEmail = adminProfile?.email || fallbackEmail;
+  const adminRoleLabel =
+    adminProfile?.userType?.toLowerCase() === "admin" ? "Admin" : "User";
   const segment = location.pathname.split("/")[2] || "dashboard";
   const labelBySegment: Record<string, string> = {
     dashboard: "Dashboard",
@@ -134,6 +163,37 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               : [labelBySegment[segment] ?? "Dashboard"];
 
   useEffect(() => {
+    const onStorageUpdate = () => {
+      setAdminPhotoUrl(
+        localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY) || adminProfileImage,
+      );
+    };
+
+    const onCustomUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      if (customEvent.detail) {
+        setAdminPhotoUrl(customEvent.detail);
+      } else {
+        onStorageUpdate();
+      }
+    };
+
+    window.addEventListener("storage", onStorageUpdate);
+    window.addEventListener(
+      "admin-profile-photo-updated",
+      onCustomUpdate as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener("storage", onStorageUpdate);
+      window.removeEventListener(
+        "admin-profile-photo-updated",
+        onCustomUpdate as EventListener,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
     let active = true;
     const loadUnreadCount = async () => {
       try {
@@ -165,6 +225,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
         <Sidebar
           mobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
+          onLogout={handleLogout}
         />
 
         <div className="min-h-screen flex-1 min-w-0">
@@ -202,26 +263,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               })}
             </div>
 
-            <div className="w-full max-w-[560px] px-6">
-              <div className="flex h-12 items-center gap-3 rounded-xl bg-[#eef0f5] px-4 text-[#7d8798]">
-                <FontAwesomeIcon icon={faMagnifyingGlass} />
-                <input
-                  type="text"
-                  placeholder="Search buses, drivers, or routes..."
-                  className="w-full bg-transparent text-sm text-[#2f394d] outline-none"
-                />
-              </div>
-            </div>
-
             <div className="relative flex items-center gap-8">
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-1.5 text-xs font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
-              >
-                <FontAwesomeIcon icon={faSignOutAlt} />
-                Logout
-              </button>
               <button
                 type="button"
                 onClick={() => setShowAiAssistant((current) => !current)}
@@ -254,6 +296,22 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
                   open={showNotifications}
                   onClose={() => setShowNotifications(false)}
                 />
+              </div>
+              <div className="hidden h-9 w-px bg-[#dfe1e8] sm:block" />
+              <div className="flex min-w-0 items-center gap-2.5">
+                <img
+                  src={adminPhotoUrl}
+                  alt="Admin profile"
+                  className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-white"
+                />
+                <div className="hidden min-w-0 leading-tight sm:block">
+                  <p className="max-w-[150px] truncate text-xs font-bold text-[#222a3b]">
+                    {adminDisplayName}
+                  </p>
+                  <p className="max-w-[180px] truncate text-[11px] text-[#6a7284]">
+                    {adminEmail || adminRoleLabel}
+                  </p>
+                </div>
               </div>
             </div>
           </header>

@@ -548,62 +548,109 @@ export default function HomeScreen() {
                   {booking.dateLabel} | {booking.timeLabel}
                 </Text>
                 <View style={styles.cardActions}>
-                  <PressScale
-                    onPress={() =>
-                      router.push({
-                        pathname: "/map/live-map",
-                        params: {
-                          busNumber: booking.busNumber,
-                          startLocation: booking.from,
-                          endLocation: booking.to,
-                        },
-                      })
-                    }
-                  >
-                    <View style={styles.smallButton}>
-                      <Ionicons
-                        name="location"
-                        size={13}
-                        color={booking.base}
-                      />
-                      <Text
-                        style={[
-                          styles.smallButtonText,
-                          { color: booking.base },
-                        ]}
+                  {booking.busType === "trip_booking" && booking.busNumber === "PENDING" ? (
+                    <PressScale
+                      onPress={() => {
+                        const tripId = booking.id.replace("BK-", "");
+                        router.push({
+                          pathname: "/trips/NegotiationScreen",
+                          params: {
+                            tripDetails: JSON.stringify({
+                              bookingId: tripId,
+                              pickup: booking.from,
+                              drop: booking.to,
+                              depart: booking.dateLabel,
+                              busBrand: "Standard",
+                              busNumber: "Pending Assignment",
+                              totalPayment: 0,
+                              advancePayment: 0,
+                              dueAmount: 0
+                            })
+                          }
+                        });
+                      }}
+                    >
+                      <View style={styles.smallButton}>
+                        <Ionicons
+                          name="chatbubbles-outline"
+                          size={13}
+                          color={booking.base}
+                        />
+                        <Text
+                          style={[
+                            styles.smallButtonText,
+                            { color: booking.base },
+                          ]}
+                        >
+                          Negotiate
+                        </Text>
+                      </View>
+                    </PressScale>
+                  ) : (
+                    <>
+                      <PressScale
+                        onPress={() =>
+                          router.push({
+                            pathname: "/map/live-map",
+                            params: {
+                              busNumber: booking.busNumber,
+                              startLocation: booking.from,
+                              endLocation: booking.to,
+                            },
+                          })
+                        }
                       >
-                        Track Live
-                      </Text>
-                    </View>
-                  </PressScale>
-                  <PressScale
-                    onPress={() =>
-                      router.push({
-                        pathname: "/booking/view-ticket",
-                        params: {
-                          bookingRef: booking.id,
-                          from: booking.from,
-                          to: booking.to,
-                          busNumber: booking.busNumber,
-                          date: booking.dateLabel,
-                          depart: booking.timeLabel,
-                          busType: booking.busType,
-                          passengerName: displayName,
-                        },
-                      })
-                    }
-                  >
-                    <View style={styles.smallButton}>
-                      <Text
-                        style={[
-                          styles.smallButtonText,
-                          { color: booking.base },
-                        ]}
+                        <View style={styles.smallButton}>
+                          <Ionicons
+                            name="location"
+                            size={13}
+                            color={booking.base}
+                          />
+                          <Text
+                            style={[
+                              styles.smallButtonText,
+                              { color: booking.base },
+                            ]}
+                          >
+                            Track Live
+                          </Text>
+                        </View>
+                      </PressScale>
+                      <PressScale
+                        onPress={() =>
+                          router.push({
+                            pathname: "/booking/view-ticket",
+                            params: {
+                              bookingRef: booking.id,
+                              from: booking.from,
+                              to: booking.to,
+                              busNumber: booking.busNumber,
+                              date: booking.dateLabel,
+                              depart: booking.timeLabel,
+                              busType: booking.busType,
+                              passengerName: displayName,
+                            },
+                          })
+                        }
                       >
-                        View Ticket
-                      </Text>
-                    </View>
-                  </PressScale>
+                        <View style={styles.smallButton}>
+                          <Text
+                            style={[
+                              styles.smallButtonText,
+                              { color: booking.base },
+                            ]}
+                          >
+                            View Ticket
+                          </Text>
+                          <Ionicons
+                            name="arrow-forward"
+                            size={13}
+                            color={booking.base}
+                          />
+                        </View>
+                      </PressScale>
+                    </>
+                  )}
                 </View>
               </View>
             </View>

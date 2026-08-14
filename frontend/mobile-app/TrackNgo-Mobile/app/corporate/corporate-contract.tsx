@@ -155,6 +155,7 @@ export default function CorporateContractScreen() {
   const { currentUser } = useSession();
 
   const [contracts, setContracts] = useState<CorporateContract[]>([]);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -163,17 +164,21 @@ export default function CorporateContractScreen() {
   const activeAnim = useFadeSlide(140);
   const historyAnim = useFadeSlide(220);
 
-  const loadContracts = useCallback(
+  const loadData = useCallback(
     async (isRefresh = false) => {
       if (!currentUser?.userId) return;
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
       try {
-        const data = await getCorporateContracts(currentUser.userId);
-        setContracts(data);
+        const [contractsData, profileData] = await Promise.all([
+          getCorporateContracts(currentUser.userId),
+          fetch(`${process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.6:8080"}/api/users/${currentUser.userId}/profile`).then((res) => res.json()),
+        ]);
+        setContracts(contractsData);
+        setProfile(profileData);
       } catch (err) {
-        console.error("[CorporateContract] Failed to load contracts:", err);
+        console.error("[CorporateContract] Failed to load data:", err);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -184,9 +189,34 @@ export default function CorporateContractScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void loadContracts();
-    }, [loadContracts]),
+      void loadData();
+    }, [loadData]),
   );
+
+  const handleCreateContract = () => {
+    if (!profile) return;
+    
+    const isProfileComplete = 
+      profile.businessRegistrationNumber && 
+      profile.industry && 
+      profile.address &&
+      profile.contactPersonDesignation &&
+      profile.contactPhone;
+    
+    if (!isProfileComplete) {
+      Alert.alert(
+        "Profile Incomplete",
+        "Please complete your Company Information (Registration Number, Industry, Address) and Contact Person Details (Designation, Phone Number) before creating a contract.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Complete Profile", onPress: () => router.push("/corporate/corporate-profile") }
+        ]
+      );
+      return;
+    }
+
+    router.push("/corporate/new-contract");
+  };
 
   const activeContracts = contracts.filter(
     (c) => c.status === "active" || c.status === "pending",
@@ -217,7 +247,7 @@ export default function CorporateContractScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => loadContracts(true)}
+            onRefresh={() => loadData(true)}
             tintColor="#067BF9"
           />
         }
@@ -229,7 +259,7 @@ export default function CorporateContractScreen() {
           <TouchableOpacity
             style={styles.heroCard}
             activeOpacity={0.88}
-            onPress={() => router.push("/corporate/new-contract")}
+            onPress={handleCreateContract}
           >
             <View style={styles.heroIconBox}>
               <MaterialCommunityIcons name="file-document-edit-outline" size={26} color="#067BF9" />

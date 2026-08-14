@@ -195,6 +195,20 @@ export default function NegotiationScreen() {
               <ActivityIndicator size="small" color="#94A3B8" style={{ marginLeft: 10 }} />
             )}
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingVertical: 14,
+              marginTop: 15,
+            }}
+            onPress={() => router.replace("/tabs")}
+          >
+            <Ionicons name="home-outline" size={20} color="#64748B" />
+            <Text style={{ marginLeft: 8, color: "#64748B", fontWeight: "600", fontSize: 15 }}>Return to Home</Text>
+          </TouchableOpacity>
         </View>
 
       </ScrollView>

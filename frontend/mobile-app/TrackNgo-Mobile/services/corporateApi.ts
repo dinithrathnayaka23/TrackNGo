@@ -99,13 +99,14 @@ export async function getCorporateProfile(
 
 /**
  * Updates the corporate user's full profile.
- * PUT /api/users/{userId}/profile
+ * POST /api/users/{userId}/corporate
  */
 export async function updateCorporateProfile(
   userId: number,
   data: Partial<Omit<CorporateProfileDto, "userId" | "userType">>,
 ): Promise<CorporateProfileDto> {
-  return httpPut<CorporateProfileDto>(`/api/users/${userId}/profile`, data);
+  await httpPost<any>(`/api/users/${userId}/corporate`, data);
+  return getCorporateProfile(userId);
 }
 
 /* ── Contracts ────────────────────────────────────────────────────── */

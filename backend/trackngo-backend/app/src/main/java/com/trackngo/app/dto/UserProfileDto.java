@@ -8,6 +8,11 @@ public record UserProfileDto(
         String profilePhoto,
         String companyName,
         String contactPersonName,
+        String contactPhone,
+        String contactPersonDesignation,
+        String address,
+        String businessRegistrationNumber,
+        String industry,
         String userType
 ) {
 }

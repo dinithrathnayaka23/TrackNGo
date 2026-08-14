@@ -41,7 +41,7 @@ async function authHeaders(): Promise<Record<string, string> | undefined> {
 
 export async function getPassengerNotifications(
   userId: number,
-  type?: "booking" | "payment" | "journey",
+  type?: "booking" | "cancellation" | "payment" | "journey",
 ): Promise<NotificationDto[]> {
   const headers = await authHeaders();
   const res = await httpGet<ApiResponse<NotificationDto[]>>(

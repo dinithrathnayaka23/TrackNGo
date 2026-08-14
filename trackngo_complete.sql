@@ -495,12 +495,14 @@ CREATE TABLE payment (
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     payment_status ENUM('pending', 'success', 'failed', 'refunded') DEFAULT 'pending',
     amount DECIMAL(10, 2) NOT NULL,
+    provider_transaction_id VARCHAR(255),
     trip_booking_id BIGINT,
 
     FOREIGN KEY (trip_booking_id) REFERENCES trip_booking(trip_booking_id) ON DELETE CASCADE,
     INDEX idx_trip_booking (trip_booking_id),
     INDEX idx_transaction (transaction_id),
     INDEX idx_status (payment_status),
+    INDEX idx_provider_transaction (provider_transaction_id),
     INDEX idx_date (payment_date DESC)
 );
 
@@ -520,6 +522,8 @@ CREATE TABLE seat_booking (
     payment_id BIGINT,
     from_stop VARCHAR(255) COMMENT 'Passenger boarding stop name',
     to_stop VARCHAR(255) COMMENT 'Passenger alighting stop name',
+    cancellation_reason TEXT,
+    restoration_notified_at TIMESTAMP NULL,
 
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
     FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,
@@ -621,11 +625,16 @@ CREATE TABLE refund (
     processed_date TIMESTAMP NULL,
     refund_amount DECIMAL(10, 2) NOT NULL,
     created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    disruption_key VARCHAR(160) UNIQUE,
+    provider_refund_id VARCHAR(255),
+    last_error TEXT,
+    attempt_count INT NOT NULL DEFAULT 0,
     payment_id BIGINT NOT NULL,
 
     FOREIGN KEY (payment_id) REFERENCES payment(payment_id) ON DELETE CASCADE,
     INDEX idx_payment (payment_id),
     INDEX idx_status (refund_status),
+    INDEX idx_provider_refund (provider_refund_id),
     INDEX idx_created (created_date DESC)
 );
 

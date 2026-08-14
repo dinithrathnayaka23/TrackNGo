@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import {
   Alert,
+  AppState,
   Animated,
   Dimensions,
   Pressable,
@@ -330,11 +331,24 @@ export default function HomeScreen() {
     }
 
     const intervalId = setInterval(() => {
-      void loadUnreadNotifications();
-    }, 30_000);
+      if (AppState.currentState === "active") {
+        void loadUnreadNotifications();
+        void loadRecentBookings();
+      }
+    }, 5_000);
 
-    return () => clearInterval(intervalId);
-  }, [currentUser, loadUnreadNotifications]);
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void loadUnreadNotifications();
+        void loadRecentBookings();
+      }
+    });
+
+    return () => {
+      clearInterval(intervalId);
+      appStateSubscription.remove();
+    };
+  }, [currentUser, loadRecentBookings, loadUnreadNotifications]);
 
   /**
    * Automatically refreshes bookings list when a booking's journey time passes

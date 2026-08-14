@@ -22,3 +22,24 @@ SHOW CREATE TABLE seat_booking_seat;
 The application keeps `seat_booking.seat_number` for compatibility with
 existing reporting and API responses. `seat_booking_seat` is the source of
 truth for current seat occupancy.
+
+Before enabling route/bus disruption handling, also run
+`V3__booking_disruption_refunds.sql`. It adds the cancellation reason,
+provider-payment reference, and idempotency fields used by refund processing.
+Then run `V4__booking_restoration_notifications.sql` before deploying the
+active-again notification workflow.
+Finally run `V5__bus_disruption_database_guard.sql`. It adds a database trigger
+and repairs any bookings left confirmed while a bus was already unavailable.
+
+Disruption handling behaves as follows:
+
+- Future confirmed bookings are cancelled and their seat reservations released.
+- A notification is written for each affected passenger.
+- A single pending refund request is written for each booking.
+- Stripe refunds are processed automatically when the booking contains a
+  Stripe PaymentIntent ID. Other gateways remain `pending` until their refund
+  adapter is implemented or an operator processes them.
+- When a bus or route is restored to active, each affected passenger receives
+  one service-restored notification. The cancelled booking is not reinstated;
+  the passenger must make a new booking because the original seat may have
+  been released or refunded.

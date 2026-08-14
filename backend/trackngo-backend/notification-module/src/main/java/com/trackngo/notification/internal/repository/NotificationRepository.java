@@ -18,6 +18,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         String notificationType
     );
 
+    List<Notification> findByPassengerIdAndNotificationTypeInOrderByCreatedAtDesc(
+        Long passengerId,
+        List<String> notificationTypes
+    );
+
     List<Notification> findByDriverIdOrderByCreatedAtDesc(Long driverId);
 
     List<Notification> findByDriverIdAndNotificationTypeOrderByCreatedAtDesc(

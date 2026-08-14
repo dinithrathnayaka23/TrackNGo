@@ -52,6 +52,19 @@ public class NotificationServiceImpl implements NotificationService {
                 .toList();
         }
 
+        // Cancellation notices belong in the mobile Bookings category too.
+        // Keep the public filter name as "booking" while returning both the
+        // original booking notices and disruption cancellations.
+        if ("booking".equalsIgnoreCase(notificationType.trim())) {
+            return repository.findByPassengerIdAndNotificationTypeInOrderByCreatedAtDesc(
+                    passengerId,
+                    List.of("booking", "cancellation")
+                )
+                .stream()
+                .map(this::toDto)
+                .toList();
+        }
+
         return repository.findByPassengerIdAndNotificationTypeOrderByCreatedAtDesc(
                 passengerId,
                 notificationType.trim().toLowerCase(Locale.ROOT)

@@ -552,6 +552,16 @@ public class BookingFlowService {
         // 0) Ensure a passenger record exists for this user (FK requirement)
         ensurePassengerExists(req.passengerId());
 
+        String busStatus = jdbc.queryForObject(
+                "SELECT status FROM bus WHERE bus_id = ?",
+                String.class,
+                req.busId()
+        );
+        if (!"active".equalsIgnoreCase(busStatus)) {
+            throw new BusinessException("This bus is not available for booking because it is "
+                    + (busStatus == null ? "unavailable" : busStatus.toLowerCase(Locale.ROOT)) + ".");
+        }
+
         BigDecimal payableAmount = req.totalAmount();
         BigDecimal discountAmount = BigDecimal.ZERO;
         Long appliedPromotionId = null;
@@ -591,13 +601,14 @@ public class BookingFlowService {
         BigDecimal finalPayableAmount = payableAmount;
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement(
-                    "INSERT INTO payment (transaction_id, payment_method, payment_status, amount) VALUES (?,?,?,?)",
+                    "INSERT INTO payment (transaction_id, payment_method, payment_status, amount, provider_transaction_id) VALUES (?,?,?,?,?)",
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, txnId);
             ps.setString(2, req.paymentMethod() != null ? req.paymentMethod() : "stripe");
             ps.setString(3, "success");
             ps.setBigDecimal(4, finalPayableAmount);
+            ps.setString(5, req.paymentProviderReference());
             return ps;
         }, paymentKeyHolder);
         Long paymentId = paymentKeyHolder.getKey().longValue();
@@ -607,6 +618,7 @@ public class BookingFlowService {
 
         // 3) Insert seat_booking
         String seatNumbers = String.join(",", normalizedSeats);
+        BigDecimal bookingAmount = payableAmount;
         KeyHolder seatBookingKeyHolder = new GeneratedKeyHolder();
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement(
@@ -620,7 +632,7 @@ public class BookingFlowService {
             ps.setString(3, req.journeyTime());
             ps.setString(4, seatNumbers);
             ps.setString(5, req.specialRequest());
-            ps.setBigDecimal(6, payableAmount);
+            ps.setBigDecimal(6, bookingAmount);
             ps.setString(7, "confirmed");
             ps.setLong(8, req.passengerId());
             ps.setLong(9, req.busId());

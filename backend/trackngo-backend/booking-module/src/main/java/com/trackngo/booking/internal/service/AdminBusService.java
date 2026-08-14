@@ -3,6 +3,7 @@ package com.trackngo.booking.internal.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.api.dto.AdminBusDtos.*;
+import com.trackngo.commons.booking.BookingDisruptionHandler;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -25,9 +26,16 @@ public class AdminBusService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
 
-    public AdminBusService(JdbcTemplate jdbc, ObjectMapper mapper) {
+    private final BookingDisruptionHandler disruptionHandler;
+
+    public AdminBusService(
+            JdbcTemplate jdbc,
+            ObjectMapper mapper,
+            BookingDisruptionHandler disruptionHandler
+    ) {
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.disruptionHandler = disruptionHandler;
     }
 
     @PostConstruct
@@ -51,7 +59,8 @@ public class AdminBusService {
         String sql = """
             SELECT b.bus_id, b.bus_number, b.bus_brand, b.seat_capacity,
                    b.bus_type, b.bus_condition, b.status, b.amenities,
-                   b.start_time, b.end_time, b.registration_number, b.insurance_exp_date,
+                   b.start_time, b.end_time, b.return_start_time, b.return_end_time,
+                   b.registration_number, b.insurance_exp_date,
                    b.driver_id, b.route_id,
                    CONCAT(u.first_name, ' ', u.last_name) AS driver_name,
                    r.route_name, r.estimated_time_duration
@@ -80,6 +89,8 @@ public class AdminBusService {
                     toLongNullable(row.get("route_id")),
                     formatTime(row.get("start_time")),
                     computeEndTime(row.get("start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("end_time")),
+                    formatTime(row.get("return_start_time")),
+                    formatTime(row.get("return_end_time")),
                     (String) row.get("registration_number"),
                     row.get("insurance_exp_date") != null ? row.get("insurance_exp_date").toString() : null));
         }
@@ -91,7 +102,8 @@ public class AdminBusService {
         String sql = """
             SELECT b.bus_id, b.bus_number, b.bus_brand, b.seat_capacity,
                    b.bus_type, b.bus_condition, b.status, b.amenities,
-                   b.start_time, b.end_time, b.registration_number, b.insurance_exp_date,
+                   b.start_time, b.end_time, b.return_start_time, b.return_end_time,
+                   b.registration_number, b.insurance_exp_date,
                    b.driver_id, b.route_id,
                    CONCAT(u.first_name, ' ', u.last_name) AS driver_name,
                    d.phone_number AS driver_phone, d.average_rating,
@@ -116,6 +128,8 @@ public class AdminBusService {
                 parseAmenities(row.get("amenities")),
                 formatTime(row.get("start_time")),
                 computeEndTime(row.get("start_time"), row.get("route_id"), row.get("estimated_time_duration"), row.get("end_time")),
+                formatTime(row.get("return_start_time")),
+                formatTime(row.get("return_end_time")),
                 (String) row.get("registration_number"),
                 row.get("insurance_exp_date") != null ? row.get("insurance_exp_date").toString() : null,
                 toLongNullable(row.get("driver_id")),
@@ -159,16 +173,32 @@ public class AdminBusService {
     }
 
     /* ── Update bus ───────────────────────────────────────── */
+    @Transactional
     public void updateBus(Long busId, SaveBusRequest req) {
         String amenitiesJson = toJson(req.amenities());
+        String previousStatus = jdbc.queryForObject(
+                "SELECT status FROM bus WHERE bus_id = ?",
+                String.class,
+                busId
+        );
+        if (isUnavailable(req.status())) {
+            disruptionHandler.cancelFutureBookingsForBus(
+                    busId,
+                    "the bus was placed under " + req.status().toLowerCase(Locale.ROOT)
+            );
+        } else if (isUnavailable(previousStatus) && "active".equalsIgnoreCase(req.status())) {
+            disruptionHandler.notifyFutureBookingPassengersBusRestored(busId);
+        }
         jdbc.update(
                 "UPDATE bus SET bus_number=?, bus_brand=?, seat_capacity=?, bus_type=?, bus_condition=?, " +
-                "status=?, amenities=?, start_time=?, end_time=?, registration_number=?, insurance_exp_date=?, " +
-                "driver_id=?, route_id=? WHERE bus_id=?",
+                "status=?, amenities=?, start_time=?, end_time=?, return_start_time=?, return_end_time=?, " +
+                "registration_number=?, insurance_exp_date=?, driver_id=?, route_id=? WHERE bus_id=?",
                 req.busNumber(), req.busBrand(), req.seatCapacity(), req.busType(), req.busCondition(),
                 req.status(), amenitiesJson,
                 req.startTime() != null && !req.startTime().isEmpty() ? req.startTime() : null,
                 req.endTime() != null && !req.endTime().isEmpty() ? req.endTime() : null,
+                req.returnStartTime() != null && !req.returnStartTime().isEmpty() ? req.returnStartTime() : null,
+                req.returnEndTime() != null && !req.returnEndTime().isEmpty() ? req.returnEndTime() : null,
                 req.registrationNumber(), req.insuranceExpDate(),
                 req.driverId(), req.routeId(), busId
         );
@@ -177,8 +207,16 @@ public class AdminBusService {
     /* ── Delete bus ───────────────────────────────────────── */
     @Transactional
     public void deleteBus(Long busId) {
+        disruptionHandler.cancelFutureBookingsForBus(busId, "the bus was removed from service");
         jdbc.update("DELETE FROM seat_layout WHERE bus_id = ?", busId);
-        jdbc.update("DELETE FROM bus WHERE bus_id = ?", busId);
+        // Keep the bus row for booking/refund/audit history; deletion becomes a
+        // safe soft-removal because bus_id is referenced by historical bookings.
+        jdbc.update("UPDATE bus SET status = 'inactive' WHERE bus_id = ?", busId);
+    }
+
+    private boolean isUnavailable(String status) {
+        return status != null && ("maintenance".equalsIgnoreCase(status)
+                || "inactive".equalsIgnoreCase(status));
     }
 
     /* ── Get seat layout ──────────────────────────────────── */

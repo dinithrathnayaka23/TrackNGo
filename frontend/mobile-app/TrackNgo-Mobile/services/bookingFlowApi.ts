@@ -115,6 +115,7 @@ export interface CreateBookingRequest {
   discountAmount?: number;
   promotionId?: number | null;
   promoCode?: string;
+  paymentProviderReference?: string;
 }
 
 export interface PromotionSummary {

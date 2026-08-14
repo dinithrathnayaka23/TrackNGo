@@ -2,6 +2,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AppState,
   ActivityIndicator,
   Alert,
   Pressable,
@@ -208,8 +209,28 @@ export function NotificationScreen({ navigation }: Props) {
     [activeTab, currentUser],
   );
 
+  // This screen is mounted through an Expo Router adapter, so it must not
+  // depend on React Navigation's useFocusEffect context. Load on mount and
+  // refresh whenever the app returns to the foreground instead.
   useEffect(() => {
-    loadNotifications();
+    void loadNotifications();
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void loadNotifications(false);
+      }
+    });
+
+    const intervalId = setInterval(() => {
+      if (AppState.currentState === "active") {
+        void loadNotifications(false);
+      }
+    }, 5_000);
+
+    return () => {
+      subscription.remove();
+      clearInterval(intervalId);
+    };
   }, [loadNotifications]);
 
   const filteredNotices = useMemo(() => {

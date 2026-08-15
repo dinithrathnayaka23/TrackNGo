@@ -11,6 +11,7 @@ import {
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
 import { useCallback, useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   createEmergencyNumber,
   fetchEmergencyNumbers,
@@ -34,6 +35,7 @@ function activeBadge(isActive: boolean) {
 }
 
 function Settings() {
+  const location = useLocation()
   const [modalOpen, setModalOpen] = useState(false)
   const [rows, setRows] = useState<EmergencyNumber[]>([])
   const [loading, setLoading] = useState(false)
@@ -70,6 +72,16 @@ function Settings() {
   useEffect(() => {
     void loadRows()
   }, [loadRows])
+
+  useEffect(() => {
+    if (location.hash !== '#profile-section') return
+    window.requestAnimationFrame(() => {
+      document.getElementById('profile-section')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    })
+  }, [location.hash])
 
   function openModal() {
     setModalOpen(true)
@@ -195,7 +207,9 @@ function Settings() {
             </button>
           </article>
 
-          <ProfilePictureUpload />
+          <div id="profile-section" className="scroll-mt-24">
+            <ProfilePictureUpload />
+          </div>
         </section>
       </div>
 

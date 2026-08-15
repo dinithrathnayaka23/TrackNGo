@@ -4,6 +4,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBars,
   faBell,
+  faChevronRight,
+  faHouse,
 } from "@fortawesome/free-solid-svg-icons";
 import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import Sidebar from "./Sidebar";
@@ -122,9 +124,6 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
       ? formatFallbackName(fallbackEmail.split("@")[0])
       : "";
   const adminDisplayName = adminFullName || fallbackNameFromEmail || "Admin User";
-  const adminEmail = adminProfile?.email || fallbackEmail;
-  const adminRoleLabel =
-    adminProfile?.userType?.toLowerCase() === "admin" ? "Admin" : "User";
   const segment = location.pathname.split("/")[2] || "dashboard";
   const labelBySegment: Record<string, string> = {
     dashboard: "Dashboard",
@@ -230,59 +229,57 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
 
         <div className="min-h-screen flex-1 min-w-0">
           <header
-            className="animate-dash-in z-10 flex h-16 shrink-0 items-center justify-between border-b border-[#dfe1e8] bg-[#f7f7fa] px-6"
+            className="animate-dash-in z-10 flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-[#e2e8f0] bg-white/95 px-4 backdrop-blur sm:px-6"
             style={{ animationDelay: "40ms" }}
           >
-            <div className="flex flex-nowrap items-center gap-3 text-sm text-[#6a7284] whitespace-nowrap">
+            <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 text-sm text-[#94a3b8] whitespace-nowrap">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
-                className="mr-1 grid h-9 w-9 place-items-center rounded-lg text-[#374151] hover:bg-[#eef2ff] lg:hidden"
+                className="mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#475569] transition hover:bg-[#f1f5f9] lg:hidden"
+                aria-label="Open navigation menu"
               >
                 <FontAwesomeIcon icon={faBars} />
               </button>
+              <FontAwesomeIcon icon={faHouse} className="hidden shrink-0 text-xs text-[#94a3b8] sm:block" />
               {["Home", ...breadcrumbTrail].map((crumb, index, arr) => {
                 const isLast = index === arr.length - 1;
                 return (
                   <div
                     key={`${crumb}-${index}`}
-                    className="flex items-center gap-3"
+                    className="flex min-w-0 items-center gap-2"
                   >
                     <span
                       className={
                         isLast
-                          ? "whitespace-nowrap font-bold text-[#2b3448]"
-                          : "whitespace-nowrap"
+                          ? "truncate font-bold text-[#1e293b]"
+                          : "hidden sm:inline"
                       }
                     >
                       {crumb}
                     </span>
-                    {!isLast ? <span>{">"}</span> : null}
+                    {!isLast ? <FontAwesomeIcon icon={faChevronRight} className="hidden text-[10px] text-[#cbd5e1] sm:inline" /> : null}
                   </div>
                 );
               })}
             </div>
 
-            <div className="relative flex items-center gap-8">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setShowAiAssistant((current) => !current)}
-                className="text-sm text-[#3b4253] transition duration-200 hover:scale-105"
+                className={`grid h-10 w-10 place-items-center rounded-xl border text-sm transition duration-200 ${showAiAssistant ? "border-[#c7d2fe] bg-[#eef2ff] text-[#2642a6]" : "border-transparent text-[#64748b] hover:border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#2642a6]"}`}
                 aria-label="AI Assistant"
+                title="AI Assistant"
               >
                 <FontAwesomeIcon icon={faRobot} />
               </button>
-              <div className="relative">
-                <AiAssistantPanel
-                  open={showAiAssistant}
-                  onClose={() => setShowAiAssistant(false)}
-                />
-              </div>
               <button
                 type="button"
                 onClick={() => setShowNotifications((current) => !current)}
-                className="relative text-sm text-[#3b4253] transition duration-200 hover:scale-105"
+                className={`relative grid h-10 w-10 place-items-center rounded-xl border text-sm transition duration-200 ${showNotifications ? "border-[#c7d2fe] bg-[#eef2ff] text-[#2642a6]" : "border-transparent text-[#64748b] hover:border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#2642a6]"}`}
                 aria-label="Notifications"
+                title="Notifications"
               >
                 <FontAwesomeIcon icon={faBell} />
                 {unreadCount > 0 ? (
@@ -291,29 +288,30 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
                   </span>
                 ) : null}
               </button>
-              <div className="relative">
-                <AdminNotificationsPanel
-                  open={showNotifications}
-                  onClose={() => setShowNotifications(false)}
-                />
-              </div>
-              <div className="hidden h-9 w-px bg-[#dfe1e8] sm:block" />
-              <div className="flex min-w-0 items-center gap-2.5">
+              <div className="mx-1 hidden h-8 w-px bg-[#e2e8f0] sm:block" />
+              <button
+                type="button"
+                onClick={() => navigate("/dashboard/settings#profile-section")}
+                className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-[#eef2ff] p-0 shadow-[0_0_0_1px_#dbe4f0] transition hover:scale-105 hover:shadow-[0_0_0_3px_#c7d2fe] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2"
+                aria-label={`Open ${adminDisplayName} profile`}
+                title="Profile settings"
+              >
                 <img
                   src={adminPhotoUrl}
-                  alt="Admin profile"
-                  className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-white"
+                  alt=""
+                  className="block h-full w-full rounded-full object-cover object-center"
                 />
-                <div className="hidden min-w-0 leading-tight sm:block">
-                  <p className="max-w-[150px] truncate text-xs font-bold text-[#222a3b]">
-                    {adminDisplayName}
-                  </p>
-                  <p className="max-w-[180px] truncate text-[11px] text-[#6a7284]">
-                    {adminEmail || adminRoleLabel}
-                  </p>
-                </div>
-              </div>
+              </button>
             </div>
+
+            <AiAssistantPanel
+              open={showAiAssistant}
+              onClose={() => setShowAiAssistant(false)}
+            />
+            <AdminNotificationsPanel
+              open={showNotifications}
+              onClose={() => setShowNotifications(false)}
+            />
           </header>
 
           <main className="p-5">{children}</main>

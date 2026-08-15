@@ -14,7 +14,7 @@ import {
   Text,
   View,
 } from "react-native";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { Circle, Marker, Polyline } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -26,9 +26,30 @@ import {
   type LiveBusLocation,
   type RouteStopGeo,
 } from "../../services/trackingApi";
+import {
+  MARKER_TRANSITION_MS,
+  boardingEligibility,
+  confidencePercent,
+  distanceAlongRoute,
+  distanceKm,
+  formatFixAge,
+  interpolatePosition,
+  shouldApplyFix,
+  snapToRoute,
+  trackingFreshness,
+  type LatLng,
+} from "../../utils/liveTracking";
 
 /* ── Constants ────────────────────────────────────────────── */
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+/**
+ * How far off the drawn route line the bus must be before we call it a
+ * diversion. The line joins the stops we have coordinates for with straight
+ * segments, so on a Colombo-Kandy route with a handful of stops the real road
+ * wanders kilometres away from it. Anything tighter cries wolf constantly.
+ */
+const OFF_ROUTE_ALERT_METERS = 3000;
 
 const DEFAULT_REGION = {
   latitude: 6.927,
@@ -53,8 +74,8 @@ const LIGHT_MAP_STYLE = [
 /* ── Helpers ──────────────────────────────────────────────── */
 
 /**
- * Calculates the great-circle distance between two points on the Earth's surface
- * using the Haversine formula. Returns distance in kilometers.
+ * Great-circle distance in kilometres between two lat/lng pairs.
+ * Thin wrapper over the shared, unit-tested helper in utils/liveTracking.
  */
 //Standard formula even used in Uber,Pickme like apps
 function haversineDistance(
@@ -63,15 +84,10 @@ function haversineDistance(
   lat2: number,
   lon2: number,
 ): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return distanceKm(
+    { latitude: lat1, longitude: lon1 },
+    { latitude: lat2, longitude: lon2 },
+  );
 }
 
 /**
@@ -93,77 +109,6 @@ function formatDistance(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-/* ── Route helpers ────────────────────────────────────────── */
-//These help to increaase the accuracy of the map
-/**
- * Projects a point (p) onto a line segment (a-b).
- * Returns the fraction (0 to 1) along the segment and the closest coordinates.
- */
-//Standard algorithm used in mapping applications to find the closest point on a line segment
-function projectPointOnSegment(
-  a: { latitude: number; longitude: number },
-  b: { latitude: number; longitude: number },
-  p: { latitude: number; longitude: number },
-): { fraction: number; closest: { latitude: number; longitude: number } } {
-  const dx = b.latitude - a.latitude;
-  const dy = b.longitude - a.longitude;
-  const lenSq = dx * dx + dy * dy;
-  if (lenSq === 0) return { fraction: 0, closest: a };
-  const t = Math.max(
-    0,
-    Math.min(
-      1,
-      ((p.latitude - a.latitude) * dx + (p.longitude - a.longitude) * dy) /
-      lenSq,
-    ),
-  );
-  return {
-    fraction: t,
-    closest: {
-      latitude: a.latitude + t * dx,
-      longitude: a.longitude + t * dy,
-    },
-  };
-}
-
-/**
- * Finds the closest point on a complex route (array of coordinates) for a given point.
- * Iterates through all segments to find the global minimum distance.
- */
-function findClosestPointOnRoute(
-  route: { latitude: number; longitude: number }[],
-  point: { latitude: number; longitude: number },
-): {
-  index: number;
-  fraction: number;
-  point: { latitude: number; longitude: number };
-} {
-  let minDist = Infinity;
-  let bestIdx = 0;
-  let bestFrac = 0;
-  let bestPt = route[0];
-  for (let i = 0; i < route.length - 1; i++) {
-    const { fraction, closest } = projectPointOnSegment(
-      route[i],
-      route[i + 1],
-      point,
-    );
-    const d = haversineDistance(
-      closest.latitude,
-      closest.longitude,
-      point.latitude,
-      point.longitude,
-    );
-    if (d < minDist) {
-      minDist = d;
-      bestIdx = i;
-      bestFrac = fraction;
-      bestPt = closest;
-    }
-  }
-  return { index: bestIdx, fraction: bestFrac, point: bestPt };
-}
-
 /* ── Component ────────────────────────────────────────────── */
 
 export default function LiveMapScreen() {
@@ -174,6 +119,10 @@ export default function LiveMapScreen() {
     endLocation?: string;
     busDestination?: string;
     bookingRef?: string;
+    /* Journey date/time of the booking being tracked, so boarding can be
+       limited to the trip the passenger actually holds a seat on. */
+    journeyDate?: string;
+    journeyTime?: string;
   }>();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
@@ -190,6 +139,14 @@ export default function LiveMapScreen() {
   const [showBoardingModal, setShowBoardingModal] = useState(false);
   const [locationError, setLocationError] = useState(false);
   const [wsConnected, setWsConnected] = useState(false); // WebSocket connection status
+
+  /* Where the bus marker is drawn right now. This trails busLocation: each new
+     fix is slid into over about a second rather than jumped to, so the marker
+     reads as a bus driving rather than a dot teleporting every few seconds. */
+  const [displayPosition, setDisplayPosition] = useState<LatLng | null>(null);
+  /* Re-rendered on a timer so the "updated 8s ago" caption and the confidence
+     badge keep counting while no new fix arrives. */
+  const [clockTick, setClockTick] = useState(0);
 
   /* Speed & distance smoothing for accurate ETA */
   // Stores recent bus positions to calculate a more stable "ground speed"
@@ -249,12 +206,100 @@ export default function LiveMapScreen() {
     return routeCoords[passengerDestIndex];
   }, [routeCoords, passengerDestIndex]);
 
+  /* ── Fix quality ──────────────────────────────────────────
+     How old the fix is, and therefore how much of its quality score still
+     stands. clockTick is in the dependency list purely to re-run this every
+     second while no new fix arrives, so the badge counts down rather than
+     freezing at whatever it read when the last packet landed. */
+  const fixAgeMs = useMemo(() => {
+    if (!busLocation?.timestamp) return null;
+    return Math.max(0, Date.now() - busLocation.timestamp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busLocation, clockTick]);
+
+  const busConfidence = useMemo(() => {
+    if (!busLocation || fixAgeMs == null) return null;
+    /* accuracyPercent is scored by the server; 50 is its "device reported no
+       accuracy" default, used here too so old servers stay usable. */
+    return confidencePercent(busLocation.accuracyPercent ?? 50, fixAgeMs);
+  }, [busLocation, fixAgeMs]);
+
+  const freshness = useMemo(
+    () => (fixAgeMs == null ? "lost" : trackingFreshness(fixAgeMs)),
+    [fixAgeMs],
+  );
+  const isStale = busLocation != null && freshness === "lost";
+
+  /* Whether the passenger may mark themselves aboard. Tracking a future
+     booking is fine and useful; boarding one is not, so the button is
+     disabled with the reason shown rather than silently missing. clockTick
+     re-evaluates it so the button unlocks on time without a screen reload. */
+  const boarding = useMemo(
+    () =>
+      boardingEligibility({
+        journeyDate: params.journeyDate,
+        journeyTime: params.journeyTime,
+        busIsLive: busLocation != null && freshness !== "lost",
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [params.journeyDate, params.journeyTime, busLocation, freshness, clockTick],
+  );
+
+  /* Colour and wording for the tracking-quality badge. */
+  const trackingStatus = useMemo(() => {
+    if (!busLocation) {
+      return { label: "WAITING", colour: "#94A3B8", detail: "Waiting for the bus to start sharing" };
+    }
+    if (freshness === "lost") {
+      return {
+        label: "NO SIGNAL",
+        colour: "#EF4444",
+        detail: `Last seen ${formatFixAge(fixAgeMs ?? 0)}`,
+      };
+    }
+    if (freshness === "delayed") {
+      return {
+        label: `${busConfidence ?? 0}%`,
+        colour: "#F59E0B",
+        detail: `Updated ${formatFixAge(fixAgeMs ?? 0)}`,
+      };
+    }
+    return {
+      label: `${busConfidence ?? 0}%`,
+      colour: (busConfidence ?? 0) >= 70 ? "#22C55E" : "#F59E0B",
+      detail:
+        busLocation.accuracy != null
+          ? `Accurate to ~${Math.round(busLocation.accuracy)} m`
+          : `Updated ${formatFixAge(fixAgeMs ?? 0)}`,
+    };
+  }, [busLocation, freshness, busConfidence, fixAgeMs]);
+
+  /* Pull the bus onto the route line when the fix is close enough that the bus
+     must be on it. When it is not, the marker stays where GPS put it - an
+     off-route bus is information the passenger needs, not an error to hide. */
+  const snapped = useMemo(() => {
+    if (!busLocation) return null;
+    return snapToRoute(
+      { latitude: busLocation.latitude, longitude: busLocation.longitude },
+      routeCoords,
+      busLocation.accuracy,
+    );
+  }, [busLocation, routeCoords]);
+
+  /* The position the rest of the screen should treat as the bus. */
+  const busPosition = useMemo<LatLng | null>(
+    () => snapped?.position ?? null,
+    [snapped],
+  );
+
   // Calculate real-time speed by comparing timestamps and distances between 
   // consecutive bus location updates. This is often more accurate than 
   // raw GPS speed reported by low-end tracking devices.
   useEffect(() => {
-    if (!busLocation) return;
-    const now = Date.now();
+    if (!busLocation || !busPosition) return;
+    // Time the fix was taken, not the time it reached us: network delay would
+    // otherwise inflate dt and understate the bus's speed.
+    const now = busLocation.timestamp ?? Date.now();
     const hist = busHistory.current;
 
     // Compute speed from last known position
@@ -262,7 +307,7 @@ export default function LiveMapScreen() {
       const prev = hist[hist.length - 1];
       const dt = (now - prev.time) / 1000; // seconds
       if (dt > 0.5) {
-        const dx = haversineDistance(prev.lat, prev.lng, busLocation.latitude, busLocation.longitude);
+        const dx = haversineDistance(prev.lat, prev.lng, busPosition.latitude, busPosition.longitude);
         const computedSpeed = (dx / dt) * 3600; // km/h
 
         // Reliability check: Use GPS speed if valid, otherwise fallback to computed
@@ -278,8 +323,9 @@ export default function LiveMapScreen() {
       }
     }
 
-    hist.push({ lat: busLocation.latitude, lng: busLocation.longitude, time: now });
+    hist.push({ lat: busPosition.latitude, lng: busPosition.longitude, time: now });
     if (hist.length > HISTORY_MAX) hist.shift();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busLocation]);
 
   // Calculates a rolling average of speed to provide a smooth UI experience
@@ -298,49 +344,19 @@ export default function LiveMapScreen() {
     return weightedSum / weightTotal;
   }, [busLocation]);
 
-  // Simple direct distance between bus and passenger
+  // Simple direct distance between bus and passenger. Uses the snapped
+  // position so the number matches the marker the passenger is looking at.
   const distanceToUser = useMemo(() => {
-    if (!busLocation || !userLocation) return null;
-    return haversineDistance(
-      busLocation.latitude,
-      busLocation.longitude,
-      userLocation.latitude,
-      userLocation.longitude,
-    );
-  }, [busLocation, userLocation]);
+    if (!busPosition || !userLocation) return null;
+    return distanceKm(busPosition, userLocation);
+  }, [busPosition, userLocation]);
 
-  // Complex "distance along route" calculation. This projects the bus onto the 
-  // nearest route segment and sums the remaining segment lengths until the destination.
+  // Distance measured along the route rather than as the crow flies, so a
+  // winding road between the bus and the stop is not understated.
   const distanceToDest = useMemo(() => {
-    if (!busLocation || routeCoords.length < 2 || passengerDestIndex < 0)
-      return null;
-    const busCoord = {
-      latitude: busLocation.latitude,
-      longitude: busLocation.longitude,
-    };
-    const proj = findClosestPointOnRoute(routeCoords, busCoord);
-
-    // If bus has already passed the destination stop
-    if (proj.index >= passengerDestIndex) return 0;
-
-    // Sum remaining distance in current segment
-    let dist = haversineDistance(
-      proj.point.latitude,
-      proj.point.longitude,
-      routeCoords[proj.index + 1].latitude,
-      routeCoords[proj.index + 1].longitude,
-    );
-    // Sum all full segments until destination
-    for (let i = proj.index + 1; i < passengerDestIndex; i++) {
-      dist += haversineDistance(
-        routeCoords[i].latitude,
-        routeCoords[i].longitude,
-        routeCoords[i + 1].latitude,
-        routeCoords[i + 1].longitude,
-      );
-    }
-    return dist;
-  }, [busLocation, routeCoords, passengerDestIndex]);
+    if (!busPosition) return null;
+    return distanceAlongRoute(routeCoords, busPosition, passengerDestIndex);
+  }, [busPosition, routeCoords, passengerDestIndex]);
 
   // Context-aware distance: Distance to "me" if waiting, distance to "destination" if on board
   const activeDistance = useMemo(() => {
@@ -402,7 +418,9 @@ export default function LiveMapScreen() {
       }
       subscription = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
+          // The passenger's own dot anchors every distance and ETA on this
+          // screen, so it is worth the extra battery to fix it precisely.
+          accuracy: Location.Accuracy.BestForNavigation,
           timeInterval: 3000,
           distanceInterval: 5,
         },
@@ -419,12 +437,65 @@ export default function LiveMapScreen() {
     };
   }, []);
 
+  /* Slide the marker from where it is drawn to the newest fix.
+     Fixes arrive every few seconds; without this the marker would sit still
+     and then jump, which reads as a glitch rather than as a moving bus. */
+  useEffect(() => {
+    if (!busPosition) return;
+
+    const from = displayPosition;
+    if (!from) {
+      /* First fix of the session: place the marker, do not fly it in from
+         wherever the map happened to be centred. */
+      setDisplayPosition(busPosition);
+      return;
+    }
+
+    const startedAt = Date.now();
+    let frame: ReturnType<typeof requestAnimationFrame>;
+    let lastPaintedAt = 0;
+
+    /* Repaint about 25 times a second rather than on every frame. Each update
+       re-renders the map with its polylines and stop markers, and at 60 fps
+       that is enough work to stutter on a low-end phone - while 25 fps is
+       already past the point where the slide looks continuous. */
+    const MIN_FRAME_GAP_MS = 40;
+
+    const step = () => {
+      const elapsed = Date.now() - startedAt;
+      const finished = elapsed >= MARKER_TRANSITION_MS;
+
+      if (finished || elapsed - lastPaintedAt >= MIN_FRAME_GAP_MS) {
+        lastPaintedAt = elapsed;
+        setDisplayPosition(
+          interpolatePosition(from, busPosition, elapsed, MARKER_TRANSITION_MS),
+        );
+      }
+      if (!finished) {
+        frame = requestAnimationFrame(step);
+      }
+    };
+    frame = requestAnimationFrame(step);
+
+    return () => cancelAnimationFrame(frame);
+    // displayPosition is deliberately excluded: it is written by this effect,
+    // and including it would restart the animation on every frame.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busPosition]);
+
+  /* Keep the age caption and confidence badge counting while the stream is
+     quiet, so a frozen tracker is visible instead of looking healthy. */
+  useEffect(() => {
+    const id = setInterval(() => setClockTick((tick) => tick + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   // Fit map to show both user and bus
   // Adjusts the map viewport to ensure all critical markers are visible.
   const fitMapToMarkers = useCallback(() => {
     const coords: { latitude: number; longitude: number }[] = [];
     if (userLocation) coords.push(userLocation);
-    if (busLocation) coords.push({ latitude: busLocation.latitude, longitude: busLocation.longitude });
+    if (busPosition) coords.push(busPosition);
     if (routeCoords.length > 0) coords.push(...routeCoords);
 
     if (coords.length >= 2 && mapRef.current) {
@@ -438,7 +509,7 @@ export default function LiveMapScreen() {
         600,
       );
     }
-  }, [userLocation, busLocation, routeCoords]);
+  }, [userLocation, busPosition, routeCoords]);
 
   // Initial map fit when we get data
   const initialFitDone = useRef(false);
@@ -457,14 +528,16 @@ export default function LiveMapScreen() {
     socket.connect();
     setWsConnected(true);
 
-    socket.subscribe(busNumber, (loc) => {
-      setBusLocation(loc);
-    });
+    // Both sources below can deliver an older fix than the one already on
+    // screen - a redelivered push, or a REST response that lost the race with
+    // a push. shouldApplyFix drops those, so the marker never runs backwards.
+    const applyFix = (loc: LiveBusLocation | null) =>
+      setBusLocation((current) => (shouldApplyFix(current, loc) ? loc : current));
+
+    socket.subscribe(busNumber, applyFix);
 
     // Also fetch last known location immediately
-    getLatestBusLocation(busNumber).then((loc) => {
-      if (loc) setBusLocation(loc);
-    }).catch(() => { });
+    getLatestBusLocation(busNumber).then(applyFix).catch(() => { });
 
     return () => {
       setWsConnected(false);
@@ -486,18 +559,17 @@ export default function LiveMapScreen() {
   // Auto-follow logic: If the passenger is on board, the map automatically
   // centers on the bus as it moves.
   useEffect(() => {
-    if (isBoarded && busLocation && mapRef.current) {
+    if (isBoarded && busPosition && mapRef.current) {
       mapRef.current.animateToRegion(
         {
-          latitude: busLocation.latitude,
-          longitude: busLocation.longitude,
+          ...busPosition,
           latitudeDelta: 0.02,
           longitudeDelta: 0.02,
         },
         800,
       );
     }
-  }, [isBoarded, busLocation]);
+  }, [isBoarded, busPosition]);
 
   /* ── Boarding confirmation ──────────────────────────────── */
   const handleBoardingConfirm = () => {
@@ -628,15 +700,27 @@ export default function LiveMapScreen() {
           </Marker>
         ))}
 
+        {/* Accuracy circle: the area the bus is actually somewhere within.
+            Drawing it is more honest than a bare pin, which implies a
+            precision GPS does not have, and it makes a degraded signal
+            visible as a widening circle rather than a marker that drifts. */}
+        {displayPosition && busLocation?.accuracy != null && !isStale && (
+          <Circle
+            center={displayPosition}
+            radius={busLocation.accuracy}
+            strokeColor="rgba(47,107,255,0.35)"
+            fillColor="rgba(47,107,255,0.10)"
+            strokeWidth={1}
+          />
+        )}
+
         {/* Bus marker */}
-        {busLocation && (
+        {displayPosition && (
           <Marker
-            coordinate={{
-              latitude: busLocation.latitude,
-              longitude: busLocation.longitude,
-            }}
+            coordinate={displayPosition}
             anchor={{ x: 0.5, y: 0.9 }}
             tracksViewChanges={true}
+            opacity={isStale ? 0.5 : 1}
           >
             <BusMarkerView />
           </Marker>
@@ -666,15 +750,21 @@ export default function LiveMapScreen() {
             <Text style={styles.topBusText}>{busNumber}</Text>
           </View>
         </View>
+        {/* Tracking quality, not just socket health: a connected socket
+            carrying a 40-second-old fix is not "LIVE" to a waiting rider. */}
         <View style={styles.connectionDot}>
           <View
             style={[
               styles.statusDot,
-              { backgroundColor: wsConnected ? "#22C55E" : "#EF4444" },
+              {
+                backgroundColor: wsConnected
+                  ? trackingStatus.colour
+                  : "#EF4444",
+              },
             ]}
           />
           <Text style={styles.statusText}>
-            {wsConnected ? "LIVE" : "OFFLINE"}
+            {wsConnected ? trackingStatus.label : "OFFLINE"}
           </Text>
         </View>
       </View>
@@ -719,14 +809,13 @@ export default function LiveMapScreen() {
             color="#2F6BFF"
           />
         </Pressable>
-        {busLocation && (
+        {busPosition && (
           <Pressable
             style={styles.fabButton}
             onPress={() => {
               mapRef.current?.animateToRegion(
                 {
-                  latitude: busLocation.latitude,
-                  longitude: busLocation.longitude,
+                  ...busPosition,
                   latitudeDelta: 0.01,
                   longitudeDelta: 0.01,
                 },
@@ -821,6 +910,39 @@ export default function LiveMapScreen() {
           </View>
         </View>
 
+        {/* Tracking quality strip: tells the rider how much to trust the dot,
+            and why, instead of leaving them to guess whether a motionless
+            marker means a parked bus or a dead signal. */}
+        {busLocation && (
+          <View style={styles.accuracyRow}>
+            <MaterialCommunityIcons
+              name={
+                freshness === "lost"
+                  ? "satellite-variant"
+                  : "crosshairs-gps"
+              }
+              size={14}
+              color={trackingStatus.colour}
+            />
+            <Text style={styles.accuracyText}>{trackingStatus.detail}</Text>
+            {snapped?.snapped && (
+              <Text style={styles.accuracyBadge}>ON ROUTE</Text>
+            )}
+            {/* The route line is drawn as straight chords between the stops we
+                hold coordinates for, not the road the bus actually drives. On
+                a long route with few stops the bus is legitimately kilometres
+                from that line, so only flag a deviation big enough to mean a
+                real diversion. */}
+            {snapped &&
+              !snapped.snapped &&
+              snapped.offRouteMeters > OFF_ROUTE_ALERT_METERS && (
+                <Text style={[styles.accuracyBadge, styles.accuracyBadgeWarn]}>
+                  OFF ROUTE
+                </Text>
+              )}
+          </View>
+        )}
+
         {/* Status indicator */}
         {isBoarded ? (
           <Animated.View
@@ -832,6 +954,20 @@ export default function LiveMapScreen() {
             <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
             <Text style={styles.boardedText}>You are on the bus</Text>
           </Animated.View>
+        ) : isStale ? (
+          /* Distance and ETA computed from a fix this old would be fiction.
+             Show the last known position instead of a confident wrong number. */
+          <View style={styles.waitingBanner}>
+            <MaterialCommunityIcons
+              name="signal-off"
+              size={16}
+              color="#94A3B8"
+            />
+            <Text style={styles.waitingText}>
+              Lost contact with the bus • last seen{" "}
+              {formatFixAge(fixAgeMs ?? 0)}
+            </Text>
+          </View>
         ) : busLocation ? (
           <View style={styles.approachingBanner}>
             <Ionicons name="location" size={16} color="#2F6BFF" />
@@ -854,13 +990,23 @@ export default function LiveMapScreen() {
 
         {/* Action buttons */}
         <View style={styles.actionRow}>
-          {!isBoarded && busLocation && (
+          {!isBoarded && (
             <Pressable
-              style={styles.boardBtn}
+              style={[
+                styles.boardBtn,
+                !boarding.allowed && styles.boardBtnDisabled,
+              ]}
+              disabled={!boarding.allowed}
               onPress={() => setShowBoardingModal(true)}
             >
-              <Ionicons name="enter-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.boardBtnText}>I'm on the Bus</Text>
+              <Ionicons
+                name={boarding.allowed ? "enter-outline" : "lock-closed-outline"}
+                size={16}
+                color="#FFFFFF"
+              />
+              <Text style={styles.boardBtnText} numberOfLines={1}>
+                {boarding.allowed ? "I'm on the Bus" : boarding.reason}
+              </Text>
             </Pressable>
           )}
           {isBoarded && (
@@ -1196,6 +1342,33 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FFFFFF",
   },
+  accuracyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  accuracyText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  accuracyBadge: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    color: "#15803D",
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  accuracyBadgeWarn: {
+    color: "#B45309",
+    backgroundColor: "#FEF3C7",
+  },
   approachingBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -1241,7 +1414,11 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: "#2F6BFF",
     paddingVertical: 12,
+    paddingHorizontal: 10,
     borderRadius: 12,
+  },
+  boardBtnDisabled: {
+    backgroundColor: "#94A3B8",
   },
   boardBtnText: {
     fontSize: 13,

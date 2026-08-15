@@ -76,6 +76,10 @@ interface DashboardRecentBooking {
   timeLabel: string;
   base: string;
   journeyAt: Date;
+  /* Raw journey date/time, kept alongside the display labels because the
+     live map gates boarding on when the trip actually departs. */
+  journeyDate: string;
+  journeyTime: string;
 }
 
 /**
@@ -155,6 +159,8 @@ function toDashboardRecentBooking(
     timeLabel,
     base: getCardBaseColor(dto.busType),
     journeyAt,
+    journeyDate: dto.journeyDate,
+    journeyTime: dto.journeyTime,
   };
 }
 
@@ -604,6 +610,10 @@ export default function HomeScreen() {
                           busNumber: booking.busNumber,
                           startLocation: booking.from,
                           endLocation: booking.to,
+                          // Boarding is limited to the trip the seat is
+                          // booked on, so the map needs its departure time.
+                          journeyDate: booking.journeyDate,
+                          journeyTime: booking.journeyTime,
                         },
                       })
                     }

@@ -556,6 +556,56 @@ INSERT INTO ai_agent_interaction (chat_id, user_id, user_email, detected_intent,
 
 
 -- =============================================
+-- TIMESTAMP NORMALISATION
+-- =============================================
+-- The INSERT statements above deliberately omit the audit timestamp columns
+-- (created_at, payment_date, triggered_at). Left alone, MySQL fills them from
+-- DEFAULT CURRENT_TIMESTAMP, which stamps every single row with the moment this
+-- file was imported. Any screen that groups by those columns -- the admin
+-- analytics dashboard above all -- then shows one enormous spike on import day
+-- and zeroes for every other date range.
+--
+-- This block rewrites those timestamps into a believable spread. Rows that have
+-- a natural anchor (a journey or travel date) are dated relative to it; the rest
+-- are fanned out backwards from the import date by primary key, so a freshly
+-- imported database always looks like it has recent activity.
+--
+-- Keep this block last, after every INSERT, and extend it when new sample rows
+-- with timestamp columns are added.
+
+-- Seat bookings: reserved three days before travel, mid-morning.
+UPDATE seat_booking
+SET created_at = TIMESTAMP(journey_date - INTERVAL 3 DAY, '10:15:00');
+
+-- Charter trips are arranged further ahead than a single seat.
+UPDATE trip_booking
+SET created_at = TIMESTAMP(start_date - INTERVAL 7 DAY, '14:30:00');
+
+-- A payment happens when its booking is made; fall back to the trip it belongs
+-- to, and finally to a per-row spread when a payment is linked to neither.
+UPDATE payment p
+LEFT JOIN seat_booking sb ON sb.payment_id = p.payment_id
+LEFT JOIN trip_booking tb ON tb.trip_booking_id = p.trip_booking_id
+SET p.payment_date = COALESCE(
+        sb.created_at,
+        TIMESTAMP(tb.start_date - INTERVAL 7 DAY, '14:35:00'),
+        NOW() - INTERVAL (p.payment_id * 5) DAY
+);
+
+-- Rows with no travel date to anchor to are spread backwards from import day.
+UPDATE complaint
+SET created_at = NOW() - INTERVAL (complaint_id * 4) DAY;
+
+UPDATE notification
+SET created_at = NOW() - INTERVAL (notification_id * 2) DAY;
+
+UPDATE rating
+SET created_at = NOW() - INTERVAL (rating_id * 6) DAY;
+
+UPDATE sos_alert
+SET triggered_at = NOW() - INTERVAL (sos_id * 9) DAY;
+
+-- =============================================
 -- VERIFY
 -- =============================================
 SHOW TABLES;

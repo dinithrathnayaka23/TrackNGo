@@ -32,8 +32,14 @@ import DriverRouteMap from "@/components/DriverRouteMap";
 import {
   getLatestBusLocation,
   publishDriverLocation,
+  LocationRejectedError,
   type LiveBusLocation,
 } from "@/services/trackingApi";
+import {
+  GpsTracker,
+  accuracyLabel,
+  accuracyPercent,
+} from "@/utils/gpsQuality";
 import { resolveAssetUrl } from "@/utils/media";
 import {
   formatStopEta,
@@ -69,7 +75,9 @@ type LocationSharingStatus =
   | "active"
   | "disabled"
   | "permission-denied"
-  | "error";
+  | "error"
+  /* GPS is on but the fixes are too imprecise to send to passengers. */
+  | "poor-signal";
 
 export default function DriverDashboardScreen() {
   const { user } = useUser(); // Accessing user information from the user context
@@ -89,6 +97,11 @@ export default function DriverDashboardScreen() {
   const [shareLocationEnabled, setShareLocationEnabled] = useState(true);
   const [locationSharingStatus, setLocationSharingStatus] =
     useState<LocationSharingStatus>("idle");
+  /* Quality of the last GPS fix, 0-100, shown to the driver so a weak signal
+     is visible to them rather than only to the passengers waiting for the bus. */
+  const [gpsAccuracyPercent, setGpsAccuracyPercent] = useState<number | null>(
+    null,
+  );
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const earningsPulseOpacity = useRef(new Animated.Value(0.45)).current;
   const livePulseOpacity = useRef(new Animated.Value(1)).current;
@@ -295,17 +308,49 @@ export default function DriverDashboardScreen() {
 
     if (!shareLocationEnabled) {
       setLocationSharingStatus("disabled");
+      setGpsAccuracyPercent(null);
       return;
     }
 
+    /*
+      Every raw reading goes through the tracker, which drops impossible or
+      imprecise fixes and smooths the rest. Only what survives is published, so
+      passengers see a steady marker instead of the phone's raw jitter.
+    */
+    const tracker = new GpsTracker();
+
+    /* Serialises publishes: a slow request must not let a newer fix overtake an
+       older one in flight and drag the bus backwards on the passenger's map. */
+    let inFlight: Promise<void> = Promise.resolve();
+
     const publishLocation = async (location: Location.LocationObject) => {
-      const payload: LiveBusLocation = {
-        busNumber,
+      const decision = tracker.accept({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        heading: location.coords.heading,
+        accuracy: location.coords.accuracy,
         speed: location.coords.speed,
-        timestamp: Date.now(),
+        heading: location.coords.heading,
+        timestamp: location.timestamp,
+      });
+
+      /* Show the driver the quality of every fix, published or not. */
+      setGpsAccuracyPercent(accuracyPercent(location.coords.accuracy));
+
+      if (!decision.publish) {
+        if (!isCancelled && decision.reason === "accuracy-too-low") {
+          setLocationSharingStatus("poor-signal");
+        }
+        return;
+      }
+
+      const payload: LiveBusLocation = {
+        busNumber,
+        latitude: decision.fix.latitude,
+        longitude: decision.fix.longitude,
+        heading: decision.fix.heading,
+        speed: decision.fix.speed,
+        accuracy: decision.fix.accuracy,
+        timestamp: decision.fix.timestamp,
       };
 
       setLiveBusLocation(payload);
@@ -321,11 +366,32 @@ export default function DriverDashboardScreen() {
           setLocationSharingStatus("active");
         }
       } catch (error) {
+        if (error instanceof LocationRejectedError) {
+          /* The server applies the same quality rules we do, so this normally
+             only fires when the two disagree at the margins. Fall back to the
+             last position it trusts rather than showing a fix nobody else has. */
+          console.warn("Server rejected live location:", error.message);
+          if (!isCancelled) {
+            setLocationSharingStatus("poor-signal");
+            if (error.lastKnown) setLiveBusLocation(error.lastKnown);
+          }
+          return;
+        }
         console.warn("Failed to publish live driver location:", error);
         if (!isCancelled) {
           setLocationSharingStatus("error");
         }
       }
+    };
+
+    const queuePublish = (location: Location.LocationObject) => {
+      /* The catch is load-bearing: a rejected link would poison the chain and
+         every later fix would be skipped, so sharing would die silently. */
+      inFlight = inFlight
+        .then(() => publishLocation(location))
+        .catch((error) => {
+          console.warn("Live location publish failed:", error);
+        });
     };
 
     const startLocationSharing = async () => {
@@ -345,23 +411,39 @@ export default function DriverDashboardScreen() {
 
         setLocationSharingStatus("active");
 
+        /*
+          BestForNavigation asks the OS for the tightest fix it can manage and
+          keeps the GPS chip warm between readings. It costs more battery than
+          Balanced, which reports coarse network-derived positions that can be
+          hundreds of metres out - not good enough to tell a rider which stop
+          the bus is at.
+        */
         const currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+          accuracy: Location.Accuracy.BestForNavigation,
         });
 
         if (!isCancelled) {
-          await publishLocation(currentLocation);
+          queuePublish(currentLocation);
         }
 
+        /*
+          Sample often and filter locally rather than letting the OS decimate
+          the stream: the extra readings sharpen the smoother's estimate even
+          when they are not worth publishing, and the tracker's own throttle
+          keeps the request rate down.
+
+          distanceInterval must be 0. Android applies the time and distance
+          filters together, so any non-zero distance means a stationary phone
+          receives no callbacks at all - and a bus waiting at a stop would go
+          dark on every passenger's map within half a minute.
+        */
         subscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.High,
-            timeInterval: 5000,
-            distanceInterval: 10,
+            accuracy: Location.Accuracy.BestForNavigation,
+            timeInterval: 2000,
+            distanceInterval: 0,
           },
-          (location) => {
-            void publishLocation(location);
-          },
+          queuePublish,
         );
       } catch (error) {
         console.warn("Unable to start driver location sharing:", error);
@@ -373,9 +455,45 @@ export default function DriverDashboardScreen() {
 
     void startLocationSharing();
 
+    /*
+      Second line of defence. Even with distanceInterval at 0 the OS can go
+      quiet - a doze window, a lost satellite lock, a device that honours the
+      time filter loosely. Resending the last known fix on a timer means a
+      stationary bus stays live on the passenger's map instead of ageing into
+      "no signal" while it is parked at a stop.
+    */
+    const heartbeat = setInterval(() => {
+      const fix = tracker.heartbeat();
+      if (!fix || isCancelled) return;
+
+      inFlight = inFlight
+        .then(() =>
+          publishDriverLocation(user.token, {
+            busNumber,
+            latitude: fix.latitude,
+            longitude: fix.longitude,
+            heading: fix.heading,
+            speed: fix.speed,
+            accuracy: fix.accuracy,
+            timestamp: fix.timestamp,
+          }),
+        )
+        .then((published) => {
+          if (!isCancelled) {
+            setLiveBusLocation(published);
+            setLocationSharingStatus("active");
+          }
+        })
+        .catch((error) => {
+          console.warn("Live location heartbeat failed:", error);
+        });
+    }, 5_000);
+
     return () => {
       isCancelled = true;
+      clearInterval(heartbeat);
       subscription?.remove();
+      tracker.reset();
     };
   }, [assignment?.busNumber, shareLocationEnabled, user?.token]);
 
@@ -414,7 +532,10 @@ export default function DriverDashboardScreen() {
   const trackingStatusText = getTrackingStatusText(
     locationSharingStatus,
     liveBusLocation,
+    gpsAccuracyPercent,
   );
+  const gpsQualityLabel =
+    gpsAccuracyPercent != null ? accuracyLabel(gpsAccuracyPercent) : null;
   const isTripLive = getTripLiveStatus(locationSharingStatus, liveBusLocation);
 
   useEffect(() => {
@@ -667,11 +788,18 @@ export default function DriverDashboardScreen() {
 
               <View style={styles.inTransitBadge}>
                 <MaterialCommunityIcons
-                  name="play"
+                  name={
+                    locationSharingStatus === "poor-signal"
+                      ? "satellite-variant"
+                      : "play"
+                  }
                   size={12}
                   color={theme.text}
                 />
                 <Text style={styles.inTransitText}>{trackingStatusText}</Text>
+                {gpsQualityLabel ? (
+                  <Text style={styles.gpsQualityText}>{gpsQualityLabel}</Text>
+                ) : null}
               </View>
             </View>
 
@@ -1079,6 +1207,14 @@ function createStyles({
       fontWeight: "600",
       marginLeft: 6,
     },
+    gpsQualityText: {
+      color: theme.secondaryText,
+      fontSize: 10,
+      fontWeight: "700",
+      letterSpacing: 0.4,
+      marginLeft: 6,
+      textTransform: "uppercase",
+    },
     tripDetails: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -1289,8 +1425,18 @@ function createStyles({
 function getTrackingStatusText(
   status: LocationSharingStatus,
   liveBusLocation: LiveBusLocation | null,
+  gpsAccuracyPercent?: number | null,
 ) {
-  if (status === "active") return "Live sharing";
+  if (status === "active") {
+    return gpsAccuracyPercent != null
+      ? `Live sharing • GPS ${gpsAccuracyPercent}%`
+      : "Live sharing";
+  }
+  if (status === "poor-signal") {
+    return gpsAccuracyPercent != null
+      ? `Weak GPS signal (${gpsAccuracyPercent}%)`
+      : "Weak GPS signal";
+  }
   if (status === "disabled") return "Sharing off";
   if (status === "permission-denied") return "Location denied";
   if (status === "error") return "Tracking retrying";

@@ -30,8 +30,8 @@ public class CorporateController {
     }
 
     @org.springframework.web.bind.annotation.PostMapping("/contracts")
-    public ApiResponse<String> createContract(@org.springframework.web.bind.annotation.RequestBody CorporateContractDto contractDto) {
-        corporateService.createContract(contractDto);
-        return ApiResponse.ok("Contract created successfully", null);
+    public ApiResponse<CorporateContractDto> createContract(@org.springframework.web.bind.annotation.RequestBody CorporateContractDto contractDto) {
+        CorporateContractDto created = corporateService.createContract(contractDto);
+        return ApiResponse.ok("Contract created successfully", created);
     }
 }

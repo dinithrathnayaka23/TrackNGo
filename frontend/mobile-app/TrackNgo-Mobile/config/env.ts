@@ -54,3 +54,7 @@ export const ADMIN_SUPPORT_USER_ID = Number(
 export const SOCKJS_ENDPOINT = "/chat";
 export const STOMP_APP_PREFIX = "/app";
 export const STOMP_TOPIC_PREFIX = "/topic";
+
+// Google Maps / Places API key
+// Used in the booking screen for location autocomplete suggestions
+export const GOOGLE_MAPS_API_KEY = "AIzaSyBRhufBdrtOBau-epFGsCQvy2xIvOfosPs";

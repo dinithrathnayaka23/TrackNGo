@@ -217,6 +217,27 @@ export default function BookingHistoryScreen() {
                   },
                 })
               }
+              onNegotiate={() => {
+                if (b.busType === "trip_booking") {
+                  const tripId = b.bookingReference.replace("BK-", "");
+                  router.push({
+                    pathname: "/trips/NegotiationScreen",
+                    params: {
+                      tripDetails: JSON.stringify({
+                        bookingId: tripId,
+                        pickup: b.startLocation,
+                        drop: b.endLocation,
+                        depart: b.journeyDate,
+                        busBrand: "Standard",
+                        busNumber: b.busNumber !== "PENDING" ? b.busNumber : "Pending Assignment",
+                        totalPayment: b.totalAmount,
+                        advancePayment: Math.round(Number(b.totalAmount) * 0.15),
+                        dueAmount: Number(b.totalAmount) - Math.round(Number(b.totalAmount) * 0.15)
+                      })
+                    }
+                  });
+                }
+              }}
             />
           ))}
         </ScrollView>
@@ -236,6 +257,7 @@ function BookingCard({
   onComplaint,
   onCancel,
   onTrack,
+  onNegotiate,
 }: {
   booking: BookingHistoryDto;
   isUpcoming: boolean;
@@ -244,12 +266,15 @@ function BookingCard({
   onComplaint: () => void;
   onCancel: () => void;
   onTrack: () => void;
+  onNegotiate: () => void;
 }) {
   const statusColor =
-    b.status === "confirmed"
+    b.status.toLowerCase() === "confirmed"
       ? "#16A34A"
-      : b.status === "cancelled"
+      : b.status.toLowerCase() === "cancelled"
         ? "#DC2626"
+        : b.status.toLowerCase() === "pending"
+        ? "#F59E0B"
         : "#6B7280";
 
   const statusLabel =
@@ -324,7 +349,7 @@ function BookingCard({
       </View>
 
       {/* Actions */}
-      {isUpcoming && b.status === "confirmed" ? (
+      {isUpcoming && b.status.toLowerCase() === "confirmed" ? (
         <View style={styles.actionRow}>
           <Pressable style={styles.primaryBtn} onPress={onTicket}>
             <Ionicons name="ticket-outline" size={15} color="#FFF" />
@@ -338,9 +363,19 @@ function BookingCard({
             <Ionicons name="close-circle-outline" size={15} color="#DC2626" />
           </Pressable>
         </View>
+      ) : isUpcoming && b.status.toLowerCase() === "pending" && b.busType === "trip_booking" ? (
+        <View style={styles.actionRow}>
+          <Pressable style={styles.primaryBtn} onPress={onNegotiate}>
+            <Ionicons name="chatbubbles-outline" size={15} color="#FFF" />
+            <Text style={styles.primaryBtnText}>Negotiate Booking</Text>
+          </Pressable>
+          <Pressable style={styles.cancelBtn} onPress={onCancel}>
+            <Ionicons name="close-circle-outline" size={15} color="#DC2626" />
+          </Pressable>
+        </View>
       ) : null}
 
-      {!isUpcoming && b.status !== "cancelled" ? (
+      {!isUpcoming && b.status.toLowerCase() !== "cancelled" ? (
         <View style={styles.pastActionRow}>
           <Pressable style={styles.secondaryActionBtn} onPress={onRate}>
             <Ionicons name="star" size={15} color="#475569" />

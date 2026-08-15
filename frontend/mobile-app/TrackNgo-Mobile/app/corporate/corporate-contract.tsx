@@ -39,7 +39,7 @@ function useFadeSlide(delay: number) {
 // ─── Status badge colours ─────────────────────────────────────────────────────
 
 function statusBadge(status: CorporateContract["status"]): { bg: string; text: string } {
-  switch (status) {
+  switch (status?.toLowerCase()) {
     case "active":   return { bg: "#D1FAE5", text: "#065F46" };
     case "expired":  return { bg: "#FEE2E2", text: "#991B1B" };
     case "pending":  return { bg: "#FEF3C7", text: "#B45309" };
@@ -50,7 +50,7 @@ function statusBadge(status: CorporateContract["status"]): { bg: string; text: s
 
 // ─── Active Contract Card ─────────────────────────────────────────────────────
 
-function ContractCard({ contract }: { contract: CorporateContract }) {
+function ContractCard({ contract, onPress }: { contract: CorporateContract, onPress?: () => void }) {
   const anim = useFadeSlide(120);
   const badge = statusBadge(contract.status);
   const displayStatus = displayContractStatus(contract.status);
@@ -68,7 +68,7 @@ function ContractCard({ contract }: { contract: CorporateContract }) {
         { opacity: anim.opacity, transform: [{ translateY: anim.translateY }, { scale }] },
       ]}
     >
-      <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Pressable onPressIn={onPressIn} onPressOut={onPressOut} onPress={onPress}>
         {/* Top row */}
         <View style={styles.cardTopRow}>
           <View style={styles.routeBadge}>
@@ -155,6 +155,7 @@ export default function CorporateContractScreen() {
   const { currentUser } = useSession();
 
   const [contracts, setContracts] = useState<CorporateContract[]>([]);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -163,17 +164,21 @@ export default function CorporateContractScreen() {
   const activeAnim = useFadeSlide(140);
   const historyAnim = useFadeSlide(220);
 
-  const loadContracts = useCallback(
+  const loadData = useCallback(
     async (isRefresh = false) => {
       if (!currentUser?.userId) return;
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
       try {
-        const data = await getCorporateContracts(currentUser.userId);
-        setContracts(data);
+        const [contractsData, profileData] = await Promise.all([
+          getCorporateContracts(currentUser.userId),
+          fetch(`${process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.6:8080"}/api/users/${currentUser.userId}/profile`).then((res) => res.json()),
+        ]);
+        setContracts(contractsData);
+        setProfile(profileData);
       } catch (err) {
-        console.error("[CorporateContract] Failed to load contracts:", err);
+        console.error("[CorporateContract] Failed to load data:", err);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -184,16 +189,38 @@ export default function CorporateContractScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void loadContracts();
-    }, [loadContracts]),
+      void loadData();
+    }, [loadData]),
   );
 
-  const activeContracts = contracts.filter(
-    (c) => c.status === "active" || c.status === "pending",
-  );
-  const historyContracts = contracts.filter(
-    (c) => c.status === "expired" || c.status === "cancelled",
-  );
+  const handleCreateContract = () => {
+    if (!profile) return;
+    
+    const isProfileComplete = 
+      profile.businessRegistrationNumber && 
+      profile.industry && 
+      profile.address &&
+      profile.contactPersonDesignation &&
+      profile.contactPhone;
+    
+    if (!isProfileComplete) {
+      Alert.alert(
+        "Profile Incomplete",
+        "Please complete your Company Information (Registration Number, Industry, Address) and Contact Person Details (Designation, Phone Number) before creating a contract.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Complete Profile", onPress: () => router.push("/corporate/corporate-profile") }
+        ]
+      );
+      return;
+    }
+
+    router.push("/corporate/new-contract");
+  };
+
+  const activeContracts = contracts.filter((c) => c.status?.toLowerCase() === "active");
+  const pendingContracts = contracts.filter((c) => c.status?.toLowerCase() === "pending");
+  const historyContracts = contracts.filter((c) => c.status?.toLowerCase() === "expired" || c.status?.toLowerCase() === "cancelled");
 
   return (
     <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
@@ -217,7 +244,7 @@ export default function CorporateContractScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => loadContracts(true)}
+            onRefresh={() => loadData(true)}
             tintColor="#067BF9"
           />
         }
@@ -229,7 +256,7 @@ export default function CorporateContractScreen() {
           <TouchableOpacity
             style={styles.heroCard}
             activeOpacity={0.88}
-            onPress={() => router.push("/corporate/new-contract")}
+            onPress={handleCreateContract}
           >
             <View style={styles.heroIconBox}>
               <MaterialCommunityIcons name="file-document-edit-outline" size={26} color="#067BF9" />
@@ -244,7 +271,44 @@ export default function CorporateContractScreen() {
           <ActivityIndicator size="large" color="#067BF9" style={{ marginTop: 40 }} />
         )}
 
-        {/* Active / Pending Contracts */}
+        {/* Pending Contracts */}
+        {!loading && (
+          <Animated.View
+            style={{ opacity: activeAnim.opacity, transform: [{ translateY: activeAnim.translateY }], marginBottom: 24 }}
+          >
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Pending Contracts</Text>
+              {pendingContracts.length > 0 && (
+                <View style={[styles.runningBadge, { backgroundColor: "#FEF3C7" }]}>
+                  <View style={[styles.runningDot, { backgroundColor: "#D97706" }]} />
+                  <Text style={[styles.runningText, { color: "#92400E" }]}>{pendingContracts.length} IN NEGOTIATION</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.contractList}>
+              {pendingContracts.length > 0 ? (
+                pendingContracts.map((c) => (
+                  <ContractCard
+                    key={c.contractId}
+                    contract={c}
+                    onPress={() => router.push(`/corporate/new-contract?contractId=${c.contractId}&step=3`)}
+                  />
+                ))
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="time-outline" size={36} color="#CBD5E1" />
+                  <Text style={styles.emptyText}>No pending contracts</Text>
+                  <Text style={styles.emptySubText}>
+                    Contracts awaiting admin approval will appear here.
+                  </Text>
+                </View>
+              )}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Active Contracts */}
         {!loading && (
           <Animated.View
             style={{ opacity: activeAnim.opacity, transform: [{ translateY: activeAnim.translateY }] }}
@@ -269,7 +333,9 @@ export default function CorporateContractScreen() {
                   <Ionicons name="document-text-outline" size={36} color="#CBD5E1" />
                   <Text style={styles.emptyText}>No active contracts</Text>
                   <Text style={styles.emptySubText}>
-                    Tap "Create New Contract" above to get started.
+                    {pendingContracts.length > 0
+                      ? "You have contracts waiting for approval."
+                      : "Tap \"Create New Contract\" above to get started."}
                   </Text>
                 </View>
               )}

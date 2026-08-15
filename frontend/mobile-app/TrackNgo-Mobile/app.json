@@ -10,7 +10,12 @@
     "android": {
       "package": "com.trackngo.chat",
       "softwareKeyboardLayoutMode": "resize",
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBRhufBdrtOBau-epFGsCQvy2xIvOfosPs"
+        }
+      }
     },
     "ios": {
       "supportsTablet": true,

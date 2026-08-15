@@ -73,12 +73,10 @@ export default function LoginScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const expectedUserType =
-        params.userType?.toLowerCase() === "corporate" ? "corporate" : "passenger";
       const response = await httpPost<ApiResponse<LoginApiData>>(
         "/api/auth/login",
         undefined,
-        { identifier: identifier.trim(), password, expectedUserType }
+        { identifier: identifier.trim(), password }
       );
       const data = response.data;
       await AsyncStorage.setItem(TOKEN_KEY, data.token);
@@ -87,6 +85,8 @@ export default function LoginScreen() {
       await setCurrentUser({ userId: data.userId, userType });
       if (userType === "CORPORATE_USER") {
         router.replace("/corporate/co-op-dashboard");
+      } else if (userType === "DRIVER") {
+        router.replace("/driver/driver-dashboard");
       } else {
         router.replace("/tabs");
       }

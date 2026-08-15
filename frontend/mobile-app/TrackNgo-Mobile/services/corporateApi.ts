@@ -99,13 +99,25 @@ export async function getCorporateProfile(
 
 /**
  * Updates the corporate user's full profile.
- * PUT /api/users/{userId}/profile
+ * POST /api/users/{userId}/corporate
  */
 export async function updateCorporateProfile(
   userId: number,
   data: Partial<Omit<CorporateProfileDto, "userId" | "userType">>,
 ): Promise<CorporateProfileDto> {
-  return httpPut<CorporateProfileDto>(`/api/users/${userId}/profile`, data);
+  const existing = await getCorporateProfile(userId);
+  const payload = {
+    companyName: data.companyName ?? existing?.companyName ?? "",
+    businessRegistrationNumber: data.businessRegistrationNumber ?? existing?.businessRegistrationNumber ?? "",
+    industry: data.industry ?? existing?.industry ?? "",
+    address: data.address ?? existing?.address ?? "",
+    contactPersonName: data.contactPersonName ?? existing?.contactPersonName ?? "",
+    contactPersonDesignation: data.contactPersonDesignation ?? existing?.contactPersonDesignation ?? "",
+    contactPhone: data.contactPhone ?? existing?.contactPhone ?? "",
+    profilePhoto: data.profilePhoto ?? existing?.profilePhoto ?? "",
+  };
+  await httpPost<any>(`/api/users/${userId}/corporate`, undefined, payload);
+  return getCorporateProfile(userId);
 }
 
 /* ── Contracts ────────────────────────────────────────────────────── */
@@ -224,7 +236,7 @@ export function computeOutstandingBalance(
 export function displayContractStatus(
   status: ContractStatus,
 ): "Active" | "Expiring Soon" | "Expired" | "Pending" | "Cancelled" {
-  switch (status) {
+  switch (status?.toLowerCase()) {
     case "active":
       return "Active";
     case "expired":

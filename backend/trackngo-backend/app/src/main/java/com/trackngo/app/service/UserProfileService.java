@@ -19,6 +19,11 @@ public class UserProfileService {
                 COALESCE(p.profile_photo, d.profile_photo, cu.profile_photo) AS profile_photo,
                 cu.company_name AS company_name,
                 cu.contact_person_name AS contact_person_name,
+                cu.contact_phone AS contact_phone,
+                cu.contact_person_designation AS contact_person_designation,
+                cu.address AS address,
+                cu.business_registration_number AS business_registration_number,
+                cu.industry AS industry,
                 u.user_type AS user_type
             FROM `user` u
             LEFT JOIN passenger p ON p.passenger_id = u.user_id
@@ -44,6 +49,11 @@ public class UserProfileService {
                     clean(rs.getString("profile_photo")),
                     clean(rs.getString("company_name")),
                     clean(rs.getString("contact_person_name")),
+                    clean(rs.getString("contact_phone")),
+                    clean(rs.getString("contact_person_designation")),
+                    clean(rs.getString("address")),
+                    clean(rs.getString("business_registration_number")),
+                    clean(rs.getString("industry")),
                     mapUserType(rs.getString("user_type"))
             );
         }, userId);

@@ -43,7 +43,19 @@ const authService = {
                 }),
             })
 
-            const body: ApiResponse<LoginResponse> = await res.json()
+            const responseText = await res.text()
+            let body: ApiResponse<LoginResponse> | null = null
+            if (responseText.trim()) {
+                try {
+                    body = JSON.parse(responseText) as ApiResponse<LoginResponse>
+                } catch {
+                    throw new Error(`The server returned an invalid response (${res.status}).`)
+                }
+            }
+
+            if (!body) {
+                throw new Error(`The server returned an empty response (${res.status}).`)
+            }
 
             if (!res.ok || !body.success) {
                 throw new Error(body.message || 'Login failed')

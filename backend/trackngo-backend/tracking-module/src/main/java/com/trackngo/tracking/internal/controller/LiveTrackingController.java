@@ -8,6 +8,7 @@ import com.trackngo.tracking.api.dto.RouteStopDto;
 import com.trackngo.tracking.internal.entity.Route;
 import com.trackngo.tracking.internal.entity.RouteStop;
 import com.trackngo.tracking.internal.repository.RouteRepository;
+import com.trackngo.tracking.internal.service.LiveLocationQualityService;
 import com.trackngo.tracking.internal.websocket.TrackingWebSocketHandler;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +19,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.socket.TextMessage;
 
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -32,51 +31,55 @@ public class LiveTrackingController {
     private final TrackingWebSocketHandler trackingWebSocketHandler;
     private final RouteRepository routeRepository;
     private final ObjectMapper objectMapper;
-
-    /*
-      In-memory store of latest bus locations keyed by bus number.
-    */
-    private final Map<String, LiveBusLocationDto> latestLocations = new ConcurrentHashMap<>();
+    private final LiveLocationQualityService liveLocationQualityService;
 
     /*
       POST /api/tracking/live-location
-      Called by another device (e.g. a phone acting as the bus) to publish its current location.
+      Called by a driver device to publish its current GPS fix.
+
+      Fixes that are impossible or too imprecise to be trusted are dropped here
+      rather than forwarded to passengers - see LiveLocationQualityService. A
+      dropped fix is still a successful request from the driver app's point of
+      view (nothing went wrong with the call), so it answers 200 with
+      success=false and the last known good position.
     */
     @PostMapping("/live-location")
     @Transactional
     public ResponseEntity<ApiResponse<LiveBusLocationDto>> publishBusLocation(
             @Valid @RequestBody LiveBusLocationDto dto) {
 
-        if (dto.getTimestamp() == null) {
-            dto.setTimestamp(System.currentTimeMillis());
+        LiveLocationQualityService.Result result =
+                liveLocationQualityService.submit(dto, System.currentTimeMillis());
+
+        if (!result.isAccepted()) {
+            return ResponseEntity.ok(ApiResponse.fail(result.getReason(), result.getLocation()));
         }
 
-        latestLocations.put(dto.getBusNumber(), dto);
+        LiveBusLocationDto accepted = result.getLocation();
 
         // Broadcast via WebSocket to all connected clients
         try {
-            String json = objectMapper.writeValueAsString(dto);
+            String json = objectMapper.writeValueAsString(accepted);
             trackingWebSocketHandler.broadcast(new TextMessage(json));
         } catch (Exception e) {
-            log.error("Failed to broadcast bus location for {}", dto.getBusNumber(), e);
+            log.error("Failed to broadcast bus location for {}", accepted.getBusNumber(), e);
         }
 
-        return ResponseEntity.ok(ApiResponse.ok("Bus location published", dto));
+        return ResponseEntity.ok(ApiResponse.ok(result.getReason(), accepted));
     }
 
     /*
       GET /api/tracking/live-location/{busNumber}
-      Retrieve the last known location of a bus.
+      Retrieve the last known good location of a bus, annotated with how old the
+      fix is so the caller can decide whether to show it as live.
     */
     @GetMapping("/live-location/{busNumber}")
     public ResponseEntity<ApiResponse<LiveBusLocationDto>> getLatestBusLocation(
             @PathVariable String busNumber) {
 
-        LiveBusLocationDto location = latestLocations.get(busNumber);
-        if (location == null) {
-            return ResponseEntity.ok(ApiResponse.ok("No location available", null));
-        }
-        return ResponseEntity.ok(ApiResponse.ok("Latest bus location", location));
+        return liveLocationQualityService.latest(busNumber, System.currentTimeMillis())
+                .map(location -> ResponseEntity.ok(ApiResponse.ok("Latest bus location", location)))
+                .orElseGet(() -> ResponseEntity.ok(ApiResponse.ok("No location available", null)));
     }
 
     /*

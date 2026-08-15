@@ -76,6 +76,30 @@
     box-shadow: 0 12px 24px rgba(34, 47, 80, 0.08);
   }
 
+  .revenue-category-list > div {
+    border: 1px solid #dfe5f1;
+    background: #ffffff;
+    box-shadow: 0 3px 10px rgba(35, 51, 88, 0.06);
+    transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+  }
+
+  .revenue-category-list > div:hover,
+  .revenue-category-list > div:focus-within {
+    border-color: #c7d3ee;
+    box-shadow: 0 7px 16px rgba(35, 51, 88, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .revenue-category-list > div > p:first-child {
+    color: #64718a;
+    font-weight: 700;
+  }
+
+  .revenue-category-list > div > p:last-child {
+    color: #1f2b44;
+    font-weight: 800;
+  }
+
   .animate-status-dot {
     animation: statusPulse 1.8s ease-in-out infinite;
   }

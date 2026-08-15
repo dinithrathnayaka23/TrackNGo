@@ -278,8 +278,16 @@
         <div class="val" id="infoSpeed">—</div>
       </div>
       <div class="info-box">
-        <div class="lbl">Updates Sent</div>
+        <div class="lbl">GPS Accuracy</div>
+        <div class="val" id="infoAccuracy">—</div>
+      </div>
+      <div class="info-box">
+        <div class="lbl">Accepted</div>
         <div class="val" id="infoCount">0</div>
+      </div>
+      <div class="info-box">
+        <div class="lbl">Rejected</div>
+        <div class="val" id="infoRejected">0</div>
       </div>
     </div>
   </div>
@@ -331,7 +339,8 @@
 
 <script>
   let watchId = null;
-  let updateCount = 0;
+  let acceptedCount = 0;
+  let rejectedCount = 0;
 
   function log(msg) {
     const box = document.getElementById('logBox');
@@ -363,7 +372,27 @@
         body: JSON.stringify(data),
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      log(`✅ Sent via REST (${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)})`);
+
+      /* The server screens out fixes that are impossible or too imprecise to
+         show a passenger. It answers 200 either way, with success=false and a
+         reason when the fix was dropped, so check the body and not just the
+         status - a rejected fix is exactly what this tool is here to reveal. */
+      const body = await resp.json();
+      if (body.success === false) {
+        rejectedCount++;
+        document.getElementById('infoRejected').textContent = rejectedCount;
+        log(`⚠️ Rejected: ${body.message}`);
+        setStatus('error', body.message);
+        return;
+      }
+
+      acceptedCount++;
+      document.getElementById('infoCount').textContent = acceptedCount;
+      const quality = body.data && body.data.accuracyPercent != null
+        ? ` — quality ${body.data.accuracyPercent}%`
+        : '';
+      log(`✅ Accepted (${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)})${quality}`);
+      setStatus('active', 'Sharing location');
     } catch (err) {
       log(`❌ REST error: ${err.message}`);
       setStatus('error', 'Send failed — check server');
@@ -393,15 +422,18 @@
           longitude: pos.coords.longitude,
           heading: pos.coords.heading,
           speed: pos.coords.speed,
-          timestamp: Date.now(),
+          /* The horizontal accuracy radius drives the quality score the
+             passenger sees, so it has to travel with the coordinates. */
+          accuracy: pos.coords.accuracy,
+          timestamp: pos.timestamp || Date.now(),
         };
 
-        updateCount++;
         document.getElementById('infoLat').textContent = data.latitude.toFixed(6);
         document.getElementById('infoLng').textContent = data.longitude.toFixed(6);
         document.getElementById('infoSpeed').textContent =
           data.speed != null ? `${(data.speed * 3.6).toFixed(1)} km/h` : '—';
-        document.getElementById('infoCount').textContent = updateCount;
+        document.getElementById('infoAccuracy').textContent =
+          data.accuracy != null ? `±${Math.round(data.accuracy)} m` : '—';
 
         sendViaRest(data);
       },
@@ -411,7 +443,9 @@
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 2000,
+        /* Never reuse a cached fix: a stale position is exactly what the
+           tracking pipeline is built to reject, so do not manufacture one. */
+        maximumAge: 0,
         timeout: 10000,
       }
     );
@@ -422,7 +456,10 @@
       navigator.geolocation.clearWatch(watchId);
       watchId = null;
     }
-    updateCount = 0;
+    acceptedCount = 0;
+    rejectedCount = 0;
+    document.getElementById('infoCount').textContent = '0';
+    document.getElementById('infoRejected').textContent = '0';
     setStatus('idle', 'Stopped');
     document.getElementById('startBtn').style.display = 'flex';
     document.getElementById('stopBtn').style.display = 'none';

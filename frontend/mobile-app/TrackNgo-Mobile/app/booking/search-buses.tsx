@@ -17,13 +17,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSession } from '../../store/sessionStore';
 import { getUserProfile } from '../../services/userProfileApi';
-<<<<<<< HEAD
 // PlacesInput replaces the old TextInput + backend-stops autocomplete
 import PlacesInput from '../../components/PlacesInput';
-=======
 import { httpGet } from '../../services/http';
 import { formatLocalDate, isPastCalendarDate, normalizeBookableDate, PAST_BOOKING_DATE_MESSAGE, startOfToday } from '../../utils/bookingDate';
->>>>>>> 10db3517050b5135f6fca6f698fa043299fa8f99
 
 const MIN_GAP = 0.08;
 
@@ -216,33 +213,18 @@ export default function SearchBusesScreen() {
       return;
     }
 
-<<<<<<< HEAD
-    // NOTE: The old 'allStops' stop-list validation has been removed.
-    // Google Places API guarantees that any suggestion the user taps is a real
-    // location, so we no longer need to cross-check against a local list.
-    // We still normalise for the duplicate-location check below.
-    const resolvedFrom = trimmedFrom;
-    const resolvedTo = trimmedTo;
-=======
     if (isPastCalendarDate(selectedDate)) {
       Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
       setSelectedDate(startOfToday());
       return;
     }
 
-    // Advanced Validation: Ensure locations exist in the 'allStops' master list
-    const stopMap = new Map(allStops.map((stop) => [normalizeStopKey(stop), stop]));
-    const resolvedFrom = stopMap.get(normalizeStopKey(trimmedFrom));
-    const resolvedTo = stopMap.get(normalizeStopKey(trimmedTo));
-
-    if (!resolvedFrom || !resolvedTo) {
-      Alert.alert(
-        'Select valid stops',
-        'Please choose start and end locations from the route stop suggestions.',
-      );
-      return;
-    }
->>>>>>> 10db3517050b5135f6fca6f698fa043299fa8f99
+    // NOTE: The old 'allStops' stop-list validation has been removed.
+    // Google Places API guarantees that any suggestion the user taps is a real
+    // location, so we no longer need to cross-check against a local list.
+    // We still normalise for the duplicate-location check below.
+    const resolvedFrom = trimmedFrom;
+    const resolvedTo = trimmedTo;
 
     if (normalizeStopKey(resolvedFrom) === normalizeStopKey(resolvedTo)) {
       Alert.alert('Invalid route', 'From and To cannot be the same location.');

@@ -1,10 +1,11 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -16,10 +17,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSession } from "../../store/sessionStore";
-import { createCorporateContract } from "../../services/corporateApi";
+import { createCorporateContract, getCorporateContracts } from "../../services/corporateApi";
 import { API_BASE_URL as ENV_API_BASE_URL } from "../../config/env";
 
 const API_BASE_URL = `${ENV_API_BASE_URL}/api`;
@@ -75,9 +76,13 @@ const LUXURY_BUSES = [
 
 export default function NewContractScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { currentUser } = useSession();
 
-  const [step, setStep] = useState(1);
+  const initContractId = params.contractId ? parseInt(params.contractId as string, 10) : null;
+  const initStep = params.step ? parseInt(params.step as string, 10) : 1;
+
+  const [step, setStep] = useState(initStep);
   const [submitting, setSubmitting] = useState(false);
 
   // 🔹 Location State (Mirrors BookATrip.tsx)
@@ -104,17 +109,70 @@ export default function NewContractScreen() {
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
   const [selectedBusId, setSelectedBusId] = useState<number | null>(null);
-  const [services, setServices] = useState({
-    billing: true,
-    tracking: false,
-    manager: false,
-  });
+
+  // 🔹 Negotiation / Contract Submission State
+  const [contractId, setContractId] = useState<number | null>(initContractId);
+  const [contractStatus, setContractStatus] = useState<string>("pending");
+  const [submittingContract, setSubmittingContract] = useState(false);
+
+  // Load existing contract details if jumping into negotiation
+  useEffect(() => {
+    if (initContractId && currentUser) {
+      getCorporateContracts(currentUser.userId).then((contracts) => {
+        const current = contracts.find(c => c.contractId === initContractId);
+        if (current) {
+          setStartLocationObj({ name: current.startingLocation });
+          setDestinationObj({ name: current.destination });
+          setStartTimeObj(new Date(`1970-01-01T${current.startShiftTime}`));
+          setEndTimeObj(new Date(`1970-01-01T${current.endShiftTime}`));
+          setSelectedBusId(current.busId || null);
+          setContractStatus(current.status);
+          setEmployees("N/A"); // Default fallback, as it's not saved in DB
+          setStartDateObj(new Date(current.startDate));
+          setEndDateObj(new Date(current.endDate));
+        }
+      });
+    }
+  }, [initContractId, currentUser]);
+
+  // Admin contact info (mock — replace with actual data if available)
+  const ADMIN_INFO = {
+    name: "Dinith Rathnayaka",
+    role: "Main Admin",
+    phone: "+94701803826",
+    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+  };
 
   const anim = useFadeSlide(0, step);
 
   // Derived
   const selectedBus = LUXURY_BUSES.find((b) => b.id === selectedBusId);
   const monthlyAmount = selectedBus ? selectedBus.fee / 12 : 120000;
+
+  // Per-step validation — button turns blue only when all required fields are filled
+  const isStepValid =
+    step === 1
+      ? !!(startLocationObj && destinationObj && employees && startTimeObj && endTimeObj && startDateObj && endDateObj)
+      : step === 2
+      ? !!selectedBusId
+      : true; // Step 3 (negotiation) always shows footer; Accept Offer has its own logic
+
+  // ─── Polling: check contract approval status while on step 3 ───
+  useEffect(() => {
+    if (step !== 3 || !contractId || !currentUser) return;
+    const poll = async () => {
+      try {
+        const contracts = await getCorporateContracts(currentUser.userId);
+        const current = contracts.find((c) => c.contractId === contractId);
+        if (current) setContractStatus(current.status);
+      } catch (e) {
+        console.warn("[Negotiation] Poll failed:", e);
+      }
+    };
+    poll(); // immediate first check
+    const interval = setInterval(poll, 10000); // every 10s
+    return () => clearInterval(interval);
+  }, [step, contractId, currentUser]);
 
   // ─── Location Search Logic ───
   useEffect(() => {
@@ -170,7 +228,7 @@ export default function NewContractScreen() {
   }, [destinationQuery, destinationObj]);
 
   // ─── Step Management ───
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 1) {
       if (!startLocationObj || !destinationObj || !employees || !startTimeObj || !endTimeObj || !startDateObj || !endDateObj) {
         Alert.alert("Missing Fields", "Please fill in all details, making sure to select locations from the dropdown list.");
@@ -186,9 +244,47 @@ export default function NewContractScreen() {
         Alert.alert("Selection Required", "Please choose a bus.");
         return;
       }
-      setStep(3);
-    } else if (step === 3) {
-      setStep(4);
+      // Submit contract to backend when entering negotiation
+      if (!currentUser || !startLocationObj || !destinationObj || !startTimeObj || !endTimeObj || !startDateObj || !endDateObj) return;
+      setSubmittingContract(true);
+      try {
+        const formatApiDate = (dt: Date) => dt.toISOString().split('T')[0];
+        const formatApiTime = (dt: Date) => dt.toTimeString().split(' ')[0];
+        const created = await createCorporateContract({
+          contractName: `${startLocationObj.name} to ${destinationObj.name} Contract`,
+          startingLocation: startLocationObj.name,
+          destination: destinationObj.name,
+          startShiftTime: formatApiTime(startTimeObj),
+          endShiftTime: formatApiTime(endTimeObj),
+          billingAmount: monthlyAmount,
+          startDate: formatApiDate(startDateObj),
+          endDate: formatApiDate(endDateObj),
+          corporateUserId: currentUser.userId,
+        });
+
+        // Backend returns the created contract. If null (older backend), fetch the latest one.
+        let resolvedId: number | null = created?.contractId ?? null;
+        let resolvedStatus: string = created?.status ?? "pending";
+
+        if (!resolvedId) {
+          // Fallback: fetch the latest contract for this user
+          const allContracts = await getCorporateContracts(currentUser.userId);
+          if (allContracts.length > 0) {
+            const latest = allContracts[0]; // ordered by created_at DESC
+            resolvedId = latest.contractId;
+            resolvedStatus = latest.status;
+          }
+        }
+
+        setContractId(resolvedId);
+        setContractStatus(resolvedStatus);
+        setStep(3);
+      } catch (err) {
+        Alert.alert("Submission Error", "Failed to submit contract request. Please try again.");
+        console.error(err);
+      } finally {
+        setSubmittingContract(false);
+      }
     }
   };
 
@@ -200,34 +296,18 @@ export default function NewContractScreen() {
     }
   };
 
-  const handleAccept = async () => {
-    if (!currentUser || !startLocationObj || !destinationObj || !startTimeObj || !endTimeObj || !startDateObj || !endDateObj) return;
-    setSubmitting(true);
-    try {
-      const formatApiDate = (dt: Date) => dt.toISOString().split('T')[0];
-      const formatApiTime = (dt: Date) => dt.toTimeString().split(' ')[0]; // HH:MM:SS
-
-      await createCorporateContract({
-        contractName: `${startLocationObj.name} to ${destinationObj.name} Contract`,
-        startingLocation: startLocationObj.name,
-        destination: destinationObj.name,
-        startShiftTime: formatApiTime(startTimeObj),
-        endShiftTime: formatApiTime(endTimeObj),
-        billingAmount: monthlyAmount,
-        startDate: formatApiDate(startDateObj),
-        endDate: formatApiDate(endDateObj),
-        corporateUserId: currentUser.userId,
-      });
-
-      Alert.alert("Success", "Contract proposal submitted for review.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
-    } catch (err) {
-      Alert.alert("Error", "Failed to submit contract.");
-      console.error(err);
-      setSubmitting(false);
-    }
+  const handleAccept = () => {
+    // Step 4 final acceptance — navigate back to contract list
+    Alert.alert("Success", "Contract has been accepted!", [
+      { text: "OK", onPress: () => router.back() },
+    ]);
   };
+
+  const handleAcceptOffer = () => {
+    // Move from Negotiation → Contract Proposal
+    setStep(4);
+  };
+
 
   // ─── UI Helpers ───
   const renderCityDropdown = (query: string, setQuery: (t: string) => void, results: any[], setResults: (data: any[]) => void, setSelected: (item: any) => void, selectedItem: any, icon: keyof typeof Ionicons.glyphMap, placeholder: string) => (
@@ -412,29 +492,143 @@ export default function NewContractScreen() {
     </View>
   );
 
-  const renderStep3 = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Service Inclusions</Text>
-      <Text style={styles.stepSubtitle}>Step 3 of 4: Add extra services for your contract.</Text>
+  const renderStep3 = () => {
+    const isApproved = contractStatus === "active";
+    const submittedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-      <View style={styles.servicesCard}>
-        <TouchableOpacity style={styles.serviceItem} onPress={() => setServices(s => ({ ...s, billing: !s.billing }))}>
-          <Ionicons name={services.billing ? "checkmark-circle" : "ellipse-outline"} size={24} color={services.billing ? "#10B981" : "#CBD5E1"} />
-          <Text style={styles.serviceText}>Automated Monthly Billing Reports</Text>
-        </TouchableOpacity>
+    return (
+      <View style={styles.stepContainer}>
+        {/* Request Sent Hero */}
+        <View style={styles.negoHeroCard}>
+          <View style={styles.negoCheckCircle}>
+            <Ionicons name="checkmark" size={28} color="#FFFFFF" />
+          </View>
+          <Text style={styles.negoHeroTitle}>Request Sent!</Text>
+          <View style={styles.negoPendingBadge}>
+            <View style={[styles.negoDot, { backgroundColor: isApproved ? "#10B981" : "#F59E0B" }]} />
+            <Text style={[styles.negoPendingText, { color: isApproved ? "#065F46" : "#B45309" }]}>
+              {isApproved ? "Approved" : "Pending Approval"}
+            </Text>
+          </View>
+          <Text style={styles.negoHeroSubtitle}>
+            Your contract request for the corporate fleet has been sent to our fleet managers. Admin will contact you shortly to finalize details.
+          </Text>
+        </View>
 
-        <TouchableOpacity style={styles.serviceItem} onPress={() => setServices(s => ({ ...s, tracking: !s.tracking }))}>
-          <Ionicons name={services.tracking ? "checkmark-circle" : "ellipse-outline"} size={24} color={services.tracking ? "#10B981" : "#CBD5E1"} />
-          <Text style={styles.serviceText}>Live GPS Tracking Access</Text>
-        </TouchableOpacity>
+        {/* Admin Contact Card */}
+        <Text style={styles.negoSectionLabel}>Admin</Text>
+        <View style={styles.negoAdminCard}>
+          <Image source={{ uri: ADMIN_INFO.avatar }} style={styles.negoAdminAvatar} />
+          <View style={styles.negoAdminInfo}>
+            <Text style={styles.negoAdminName}>{ADMIN_INFO.name}</Text>
+            <Text style={styles.negoAdminRole}>{ADMIN_INFO.role}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+              <Ionicons name="call" size={13} color="#10B981" />
+              <Text style={styles.negoAdminPhone}>{ADMIN_INFO.phone}</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.negoActionRow}>
+          <TouchableOpacity style={styles.negoCallBtn} onPress={() => Linking.openURL(`tel:${ADMIN_INFO.phone}`)}>
+            <Ionicons name="call" size={18} color="#FFFFFF" />
+            <Text style={styles.negoCallText}>Call</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.negoChatBtn} onPress={() => Alert.alert("Chat", "Chat feature coming soon!") }>
+            <Ionicons name="chatbubble-ellipses" size={18} color="#FFFFFF" />
+            <Text style={styles.negoChatText}>Chat</Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity style={[styles.serviceItem, { borderBottomWidth: 0 }]} onPress={() => setServices(s => ({ ...s, manager: !s.manager }))}>
-          <Ionicons name={services.manager ? "checkmark-circle" : "ellipse-outline"} size={24} color={services.manager ? "#10B981" : "#CBD5E1"} />
-          <Text style={styles.serviceText}>Dedicated Account Manager</Text>
-        </TouchableOpacity>
+        {/* Contract Summary */}
+        <Text style={styles.negoSectionLabel}>Contract Summary</Text>
+        <View style={styles.negoSummaryCard}>
+          <View style={styles.negoSummaryRow}>
+            <View style={styles.negoSummaryIcon}>
+              <Ionicons name="swap-horizontal" size={18} color="#64748B" />
+            </View>
+            <View>
+              <Text style={styles.negoSummaryRowLabel}>Route & Schedule</Text>
+              <Text style={styles.negoSummaryRowValue}>
+                {startLocationObj?.name} ↔ {destinationObj?.name}
+              </Text>
+              <Text style={styles.negoSummaryRowMeta}>
+                {startTimeObj?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {endTimeObj?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Shift
+              </Text>
+            </View>
+          </View>
+          <View style={styles.negoSummaryDivider} />
+          <View style={styles.negoSummaryRow}>
+            <View style={styles.negoSummaryIcon}>
+              <Ionicons name="bus" size={18} color="#64748B" />
+            </View>
+            <View>
+              <Text style={styles.negoSummaryRowLabel}>Selected Bus</Text>
+              <Text style={styles.negoSummaryRowValue}>{selectedBus?.name} ({selectedBus?.capacity} Pax)</Text>
+            </View>
+          </View>
+          <View style={styles.negoSummaryDivider} />
+          <View style={styles.negoSummaryRow}>
+            <View style={styles.negoSummaryIcon}>
+              <Ionicons name="people" size={18} color="#64748B" />
+            </View>
+            <View>
+              <Text style={styles.negoSummaryRowLabel}>Employees</Text>
+              <Text style={styles.negoSummaryRowValue}>{employees}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Progress Timeline */}
+        <Text style={styles.negoSectionLabel}>Progress Timeline</Text>
+        <View style={styles.negoTimeline}>
+          {/* Step 1 */}
+          <View style={styles.negoTimelineRow}>
+            <View style={[styles.negoTimelineDot, { backgroundColor: "#067BF9" }]}>
+              <Ionicons name="checkmark" size={12} color="#FFF" />
+            </View>
+            <View style={styles.negoTimelineContent}>
+              <Text style={styles.negoTimelineTitle}>Request Submitted</Text>
+              <Text style={styles.negoTimelineSub}>Today, {submittedTime}</Text>
+            </View>
+          </View>
+          <View style={styles.negoTimelineConnector} />
+          {/* Step 2 */}
+          <View style={styles.negoTimelineRow}>
+            <View style={[styles.negoTimelineDot, { backgroundColor: isApproved ? "#067BF9" : "#94A3B8" }]}>
+              {isApproved
+                ? <Ionicons name="checkmark" size={12} color="#FFF" />
+                : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#FFF" }} />}
+            </View>
+            <View style={styles.negoTimelineContent}>
+              <Text style={styles.negoTimelineTitle}>Negotiation in Progress</Text>
+              <Text style={[styles.negoTimelineSub, { color: "#067BF9" }]}>
+                {isApproved ? "Admin has approved your request" : `${ADMIN_INFO.name.split(" ")[0]} is reviewing your request`}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.negoTimelineConnector} />
+          {/* Step 3 */}
+          <View style={styles.negoTimelineRow}>
+            <View style={[styles.negoTimelineDot, { backgroundColor: isApproved ? "#10B981" : "#CBD5E1" }]}>
+              {isApproved
+                ? <Ionicons name="checkmark" size={12} color="#FFF" />
+                : null}
+            </View>
+            <View style={styles.negoTimelineContent}>
+              <Text style={[styles.negoTimelineTitle, { color: isApproved ? "#0F172A" : "#94A3B8" }]}>Final Contract Generation</Text>
+              <Text style={styles.negoTimelineSub}>{isApproved ? "Ready to review" : "Expected in 1-2 hours"}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={{ height: 16 }} />
+        {!isApproved && (
+          <Text style={styles.negoWaitingText}>Waiting for admin's offer...</Text>
+        )}
+        <View style={{ height: 60 }} />
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderStep4 = () => (
     <View style={styles.stepContainer}>
@@ -480,26 +674,12 @@ export default function NewContractScreen() {
       </View>
 
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Service Inclusions</Text>
+        <Text style={styles.summaryTitle}>Standard Inclusions</Text>
         <View style={{ height: 12 }} />
-        {services.billing && (
-          <View style={styles.inclusionRow}>
-            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-            <Text style={styles.inclusionText}>Automated Monthly Billing Reports</Text>
-          </View>
-        )}
-        {services.tracking && (
-          <View style={styles.inclusionRow}>
-            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-            <Text style={styles.inclusionText}>Live GPS Tracking Access</Text>
-          </View>
-        )}
-        {services.manager && (
-          <View style={styles.inclusionRow}>
-            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-            <Text style={styles.inclusionText}>Dedicated Account Manager</Text>
-          </View>
-        )}
+        <View style={styles.inclusionRow}>
+          <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+          <Text style={styles.inclusionText}>Automated Monthly Billing Reports</Text>
+        </View>
       </View>
 
       <View style={{ height: 20 }} />
@@ -533,7 +713,7 @@ export default function NewContractScreen() {
           <Ionicons name="chevron-back" size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {step === 4 ? "Contract Proposal" : "New Contract"}
+          {step === 3 ? "Negotiation" : step === 4 ? "Contract Proposal" : "New Contract"}
         </Text>
         <TouchableOpacity style={styles.downloadBtn}>
           <Ionicons name="download-outline" size={22} color="#067BF9" />
@@ -570,10 +750,34 @@ export default function NewContractScreen() {
       {/* Footer Buttons */}
       {step < 4 && (
         <View style={styles.footer}>
-          <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>
-            <Text style={styles.nextBtnText}>Next Step</Text>
-            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
-          </TouchableOpacity>
+          {step === 3 ? (
+            // Negotiation step: Accept Final Offer button
+            <TouchableOpacity
+              style={styles.nextBtn}
+              onPress={handleAcceptOffer}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.nextBtnText}>Accept Final Offer</Text>
+            </TouchableOpacity>
+          ) : (
+            // Normal Next Step button
+            <TouchableOpacity
+              style={[styles.nextBtn, !isStepValid && styles.nextBtnDisabled]}
+              onPress={handleNext}
+              activeOpacity={isStepValid ? 0.8 : 1}
+              disabled={submittingContract}
+            >
+              {submittingContract ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Text style={styles.nextBtnText}>Next Step</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -822,5 +1026,186 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
   },
+  nextBtnDisabled: {
+    backgroundColor: "#CBD5E1",
+  },
   nextBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+
+  // ─── Negotiation Screen Styles ────────────────────────────────────────────
+  negoHeroCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  negoCheckCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#067BF9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  negoHeroTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 8,
+  },
+  negoPendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 6,
+    marginBottom: 12,
+  },
+  negoDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  negoPendingText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  negoHeroSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  negoSectionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#94A3B8",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+  negoAdminCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 16,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 12,
+  },
+  negoAdminAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#E2E8F0",
+  },
+  negoAdminInfo: { flex: 1 },
+  negoAdminName: { fontSize: 15, fontWeight: "700", color: "#0F172A" },
+  negoAdminRole: { fontSize: 12, color: "#64748B", marginTop: 2 },
+  negoAdminPhone: { fontSize: 13, fontWeight: "600", color: "#10B981" },
+  negoActionRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24,
+  },
+  negoCallBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#10B981",
+    paddingVertical: 13,
+    borderRadius: 12,
+    gap: 8,
+  },
+  negoCallText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
+  negoChatBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#067BF9",
+    paddingVertical: 13,
+    borderRadius: 12,
+    gap: 8,
+  },
+  negoChatText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
+  negoSummaryCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 24,
+  },
+  negoSummaryRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 14,
+    gap: 14,
+  },
+  negoSummaryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  negoSummaryDivider: { height: 1, backgroundColor: "#F1F5F9", marginHorizontal: 14 },
+  negoSummaryRowLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8", marginBottom: 3 },
+  negoSummaryRowValue: { fontSize: 14, fontWeight: "700", color: "#0F172A" },
+  negoSummaryRowMeta: { fontSize: 12, color: "#64748B", marginTop: 2 },
+  negoTimeline: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 16,
+  },
+  negoTimelineRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 14,
+  },
+  negoTimelineDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  negoTimelineConnector: {
+    width: 2,
+    height: 24,
+    backgroundColor: "#E2E8F0",
+    marginLeft: 13,
+    marginVertical: 4,
+  },
+  negoTimelineContent: { flex: 1, paddingBottom: 4 },
+  negoTimelineTitle: { fontSize: 14, fontWeight: "700", color: "#0F172A" },
+  negoTimelineSub: { fontSize: 12, color: "#64748B", marginTop: 2 },
+  negoWaitingText: {
+    fontSize: 13,
+    color: "#94A3B8",
+    textAlign: "center",
+    fontStyle: "italic",
+    marginBottom: 8,
+  },
 });
+

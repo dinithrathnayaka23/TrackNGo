@@ -4,8 +4,12 @@ import com.trackngo.app.dto.CorporateContractDto;
 import com.trackngo.app.dto.CorporateInvoiceDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.util.List;
 
 @Service
@@ -64,24 +68,51 @@ public class CorporateService {
         ), userId);
     }
 
-    public void createContract(CorporateContractDto dto) {
+    public CorporateContractDto createContract(CorporateContractDto dto) {
         String insertSql = """
                 INSERT INTO corporate_contract (
                     contract_name, starting_location, destination,
                     start_shift_time, end_shift_time, billing_amount,
                     start_date, end_date, corporate_user_id, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
                 """;
-        jdbcTemplate.update(insertSql,
-                dto.contractName(),
-                dto.startingLocation(),
-                dto.destination(),
-                dto.startShiftTime(),
-                dto.endShiftTime(),
-                dto.billingAmount(),
-                dto.startDate(),
-                dto.endDate(),
-                dto.corporateUserId()
-        );
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(con -> {
+            PreparedStatement ps = con.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS);
+            ps.setString(1, dto.contractName());
+            ps.setString(2, dto.startingLocation());
+            ps.setString(3, dto.destination());
+            ps.setObject(4, dto.startShiftTime());
+            ps.setObject(5, dto.endShiftTime());
+            ps.setBigDecimal(6, dto.billingAmount());
+            ps.setObject(7, dto.startDate());
+            ps.setObject(8, dto.endDate());
+            ps.setLong(9, dto.corporateUserId());
+            return ps;
+        }, keyHolder);
+
+        long newId = keyHolder.getKey().longValue();
+        // Fetch and return the newly created contract
+        String fetchSql = """
+                SELECT contract_id, contract_name, starting_location, destination,
+                       start_shift_time, end_shift_time, status, billing_amount,
+                       start_date, end_date, created_at, corporate_user_id, bus_id
+                FROM corporate_contract WHERE contract_id = ?
+                """;
+        return jdbcTemplate.queryForObject(fetchSql, (rs, rowNum) -> new CorporateContractDto(
+                rs.getLong("contract_id"),
+                rs.getString("contract_name"),
+                rs.getString("starting_location"),
+                rs.getString("destination"),
+                rs.getTime("start_shift_time") != null ? rs.getTime("start_shift_time").toLocalTime() : null,
+                rs.getTime("end_shift_time") != null ? rs.getTime("end_shift_time").toLocalTime() : null,
+                rs.getString("status"),
+                rs.getBigDecimal("billing_amount"),
+                rs.getDate("start_date") != null ? rs.getDate("start_date").toLocalDate() : null,
+                rs.getDate("end_date") != null ? rs.getDate("end_date").toLocalDate() : null,
+                rs.getString("created_at"),
+                rs.getLong("corporate_user_id"),
+                rs.getLong("bus_id") == 0 ? null : rs.getLong("bus_id")
+        ), newId);
     }
 }

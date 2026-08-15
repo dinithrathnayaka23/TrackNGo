@@ -6,13 +6,33 @@ export interface LiveBusLocation {
   longitude: number;
   heading?: number | null;
   speed?: number | null;
+  /** Horizontal accuracy radius in metres reported by the device. */
+  accuracy?: number | null;
+  /** Quality of the fix, 0-100, scored by the server from `accuracy`. */
+  accuracyPercent?: number | null;
+  /** Fix quality folded together with how old the fix is, 0-100. */
+  confidencePercent?: number | null;
   timestamp?: number | null;
+  serverTimestamp?: number | null;
+  ageSeconds?: number | null;
+  stale?: boolean | null;
 }
 
 interface ApiResponse<T> {
   success?: boolean;
   message?: string;
   data?: T | null;
+}
+
+/** Thrown when the server accepted the request but rejected the GPS fix. */
+export class LocationRejectedError extends Error {
+  readonly lastKnown: LiveBusLocation | null;
+
+  constructor(message: string, lastKnown: LiveBusLocation | null) {
+    super(message);
+    this.name = "LocationRejectedError";
+    this.lastKnown = lastKnown;
+  }
 }
 
 export async function publishDriverLocation(
@@ -33,6 +53,19 @@ export async function publishDriverLocation(
   }
 
   const result: ApiResponse<LiveBusLocation> = await response.json();
+
+  /*
+    The server drops fixes it judges impossible or too imprecise to show a
+    passenger. That is a healthy outcome, not a transport failure, so it comes
+    back as a 200 with success=false and the last position it did trust.
+  */
+  if (result.success === false) {
+    throw new LocationRejectedError(
+      result.message ?? "Location rejected by server",
+      result.data ?? null,
+    );
+  }
+
   return result.data ?? location;
 }
 

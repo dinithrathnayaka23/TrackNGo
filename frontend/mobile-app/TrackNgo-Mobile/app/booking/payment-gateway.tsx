@@ -151,6 +151,7 @@ export default function PaymentGatewayScreen() {
         discountAmount,
         promotionId,
         promoCode,
+        paymentProviderReference: status.paymentIntentId,
       });
       router.push({
         pathname: '/booking/booking-confirmation',

@@ -4,6 +4,7 @@ import com.trackngo.booking.api.BookingService;
 import com.trackngo.booking.api.dto.BookingDto;
 import com.trackngo.booking.api.dto.BookingHistoryDto;
 import com.trackngo.booking.api.dto.RecentBookingDto;
+import com.trackngo.booking.api.dto.AdminBookingDto;
 import com.trackngo.booking.events.BookingCreatedEvent;
 import com.trackngo.booking.internal.entity.Booking;
 import com.trackngo.booking.internal.repository.BookingHistoryProjection;
@@ -12,6 +13,7 @@ import com.trackngo.commons.events.EventPublisher;
 import com.trackngo.commons.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 
@@ -35,6 +37,7 @@ import java.util.List;
 public class BookingServiceImpl implements BookingService {
     private final BookingRepository repository;
     private final EventPublisher eventPublisher;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * Creates a new booking record
@@ -75,6 +78,68 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public List<BookingDto> getAll() {
         return repository.findAll().stream().map(this::toDto).toList();
+    }
+
+    @Override
+    public List<AdminBookingDto> getAllForAdmin() {
+        return jdbcTemplate.query("""
+                SELECT
+                    sb.booking_reference AS booking_id,
+                    COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.email, CONCAT('User #', u.user_id)) AS passenger_name,
+                    CONCAT(COALESCE(NULLIF(sb.from_stop, ''), r.start_location), ' - ', COALESCE(NULLIF(sb.to_stop, ''), r.end_location)) AS route,
+                    b.bus_number AS bus,
+                    b.bus_type AS bus_type,
+                    sb.journey_date,
+                    sb.journey_time,
+                    sb.seat_number AS seats,
+                    sb.total_amount AS amount,
+                    COALESCE(p.payment_status, 'unpaid') AS payment_status,
+                    sb.status,
+                    CASE WHEN LOWER(b.bus_type) IN ('highway', 'long_distance')
+                         THEN 'Highway/Long-distance' ELSE 'All Bookings' END AS category
+                FROM seat_booking sb
+                JOIN passenger pa ON pa.passenger_id = sb.passenger_id
+                JOIN `user` u ON u.user_id = pa.passenger_id
+                JOIN route r ON r.route_id = sb.route_id
+                LEFT JOIN bus b ON b.bus_id = sb.bus_id
+                LEFT JOIN payment p ON p.payment_id = sb.payment_id
+
+                UNION ALL
+
+                SELECT
+                    CONCAT('BK-', tb.trip_booking_id) AS booking_id,
+                    COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.email, CONCAT('User #', u.user_id)) AS passenger_name,
+                    CONCAT(tb.start_location, ' - ', tb.destination) AS route,
+                    COALESCE(b.bus_number, 'Pending assignment') AS bus,
+                    COALESCE(b.bus_type, 'trip_booking') AS bus_type,
+                    tb.start_date AS journey_date,
+                    CAST('08:00:00' AS TIME) AS journey_time,
+                    CONCAT(COALESCE(tb.passenger_count, 0), ' seats') AS seats,
+                    COALESCE(tb.final_price, 0) AS amount,
+                    COALESCE(p.payment_status, 'unpaid') AS payment_status,
+                    tb.booking_status AS status,
+                    'Trip Bookings' AS category
+                FROM trip_booking tb
+                JOIN passenger pa ON pa.passenger_id = tb.passenger_id
+                JOIN `user` u ON u.user_id = pa.passenger_id
+                LEFT JOIN bus b ON b.bus_id = tb.bus_id
+                LEFT JOIN payment p ON p.trip_booking_id = tb.trip_booking_id
+
+                ORDER BY journey_date DESC, journey_time DESC, booking_id DESC
+                """, (rs, rowNum) -> new AdminBookingDto(
+                rs.getString("booking_id"),
+                rs.getString("passenger_name"),
+                rs.getString("route"),
+                rs.getString("bus"),
+                rs.getString("bus_type"),
+                rs.getDate("journey_date") != null ? rs.getDate("journey_date").toLocalDate() : null,
+                rs.getTime("journey_time") != null ? rs.getTime("journey_time").toLocalTime() : null,
+                rs.getString("seats"),
+                rs.getBigDecimal("amount"),
+                rs.getString("payment_status"),
+                rs.getString("status"),
+                rs.getString("category")
+        ));
     }
 
     /**

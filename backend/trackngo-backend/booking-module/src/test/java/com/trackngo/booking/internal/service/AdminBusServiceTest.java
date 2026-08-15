@@ -2,6 +2,7 @@ package com.trackngo.booking.internal.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.api.dto.AdminBusDtos.*;
+import com.trackngo.commons.booking.BookingDisruptionHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,7 +10,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.KeyHolder;
 
@@ -29,6 +29,9 @@ class AdminBusServiceTest {
 
     @Mock
     private ObjectMapper mapper;
+
+    @Mock
+    private BookingDisruptionHandler disruptionHandler;
 
     @InjectMocks
     private AdminBusService service;
@@ -97,11 +100,11 @@ class AdminBusServiceTest {
                 "active", List.of("ac"), "08:00", "12:00", "14:00", "18:00",
                 "REG-001", "2026-12-31", 1L, 2L
         );
-        when(jdbc.update(any(PreparedStatementCreator.class))).thenReturn(1);
+        when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
         when(mapper.writeValueAsString(any())).thenReturn("[\"ac\"]");
 
         assertThatNoException().isThrownBy(() -> service.updateBus(1L, req));
-        verify(jdbc).update(any(PreparedStatementCreator.class));
+        verify(jdbc).update(anyString(), any(Object[].class));
     }
 
     // ─── deleteBus ────────────────────────────────────────────────────────────

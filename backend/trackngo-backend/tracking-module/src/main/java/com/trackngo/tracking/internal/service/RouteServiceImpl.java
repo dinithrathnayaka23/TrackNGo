@@ -3,6 +3,7 @@ package com.trackngo.tracking.internal.service;
 
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import com.trackngo.commons.booking.BookingDisruptionHandler;
 import com.trackngo.tracking.api.RouteService;
 import com.trackngo.tracking.api.dto.RouteDto;
 import com.trackngo.tracking.internal.entity.Route;
@@ -30,6 +31,8 @@ import java.util.regex.Pattern;
 public class RouteServiceImpl implements RouteService {
     private final RouteRepository repository;
     private final EntityManager entityManager;
+
+    private final BookingDisruptionHandler disruptionHandler;
 
     /*
       Creates a new bus route.
@@ -92,6 +95,12 @@ public class RouteServiceImpl implements RouteService {
             throw new BusinessException("Route code already exists: " + dto.getCode());
         }
 
+        if ("Inactive".equalsIgnoreCase(dto.getStatus())) {
+            disruptionHandler.cancelFutureBookingsForRoute(id, "the route was made inactive");
+        } else if (!Boolean.TRUE.equals(entity.getIsActive()) && "Active".equalsIgnoreCase(dto.getStatus())) {
+            disruptionHandler.notifyFutureBookingPassengersRouteRestored(id);
+        }
+
         applyDtoToEntity(dto, entity);
         return toDto(repository.save(entity));
     }
@@ -104,10 +113,13 @@ public class RouteServiceImpl implements RouteService {
     @Override
     @Transactional
     public void delete(Long id) {
-        if (!repository.existsById(id)) {
-            throw new ResourceNotFoundException("Route not found");
-        }
-        repository.deleteById(id);
+        Route entity = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Route not found"));
+        disruptionHandler.cancelFutureBookingsForRoute(id, "the route was removed from service");
+        // Preserve route/bus/booking history. A route with historical bookings
+        // must not be physically deleted because its foreign keys are audited.
+        entity.setIsActive(false);
+        repository.save(entity);
     }
 
     /*
@@ -120,6 +132,12 @@ public class RouteServiceImpl implements RouteService {
     public RouteDto toggleStatus(Long id) {
         Route entity = repository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Route not found"));
+        boolean becomingInactive = Boolean.TRUE.equals(entity.getIsActive());
+        if (becomingInactive) {
+            disruptionHandler.cancelFutureBookingsForRoute(id, "the route was made inactive");
+        } else {
+            disruptionHandler.notifyFutureBookingPassengersRouteRestored(id);
+        }
         entity.setIsActive(!Boolean.TRUE.equals(entity.getIsActive()));
         return toDto(repository.save(entity));
     }

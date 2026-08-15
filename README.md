@@ -359,6 +359,26 @@ Optional sample data:
 mysql -u root -p trackngo < trackngo_sample_data.sql
 ```
 
+For an existing production database, run the seat-booking concurrency
+migration in `backend/trackngo-backend/database/migrations` before deploying
+the new backend build. It backfills the seat-level reservation index and adds
+the database unique constraint that prevents two users from owning the same
+seat for the same bus and date. Follow that directory's runbook and take a
+backup first.
+
+Run `V3__booking_disruption_refunds.sql` as well before enabling route or bus
+removal/maintenance workflows. Those workflows preserve route and bus rows,
+cancel future confirmed bookings, notify passengers, and create idempotent
+refund requests. Stripe refunds are processed automatically when the Stripe
+PaymentIntent ID is available; other payment providers remain pending until
+their provider refund adapter is configured.
+
+Run `V4__booking_restoration_notifications.sql` before deploying the workflow
+that notifies passengers when a repaired bus or route becomes active again.
+Run `V5__bus_disruption_database_guard.sql` as the final migration. It provides
+a database-level guard for bus maintenance changes made by any admin client and
+repairs previously missed cancellations.
+
 The backend is configured with `spring.jpa.hibernate.ddl-auto=update` for local development. The SQL files remain useful for reproducible setup and demo data.
 
 ## Running the project

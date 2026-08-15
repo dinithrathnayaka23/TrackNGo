@@ -9,7 +9,19 @@ export interface LiveBusLocation {
   longitude: number;
   heading: number | null;
   speed: number | null;
+  /** Horizontal accuracy radius of the fix in metres, as the bus device saw it. */
+  accuracy?: number | null;
+  /** Quality of the fix, 0-100, scored by the server from `accuracy`. */
+  accuracyPercent?: number | null;
+  /** Fix quality folded together with how old the fix is, 0-100. */
+  confidencePercent?: number | null;
   timestamp: number;
+  /** Server clock time the fix was accepted, epoch milliseconds. */
+  serverTimestamp?: number | null;
+  /** Age of the fix when the server answered, in seconds. */
+  ageSeconds?: number | null;
+  /** True once the fix is too old to describe where the bus is now. */
+  stale?: boolean | null;
 }
 
 export interface RouteStopGeo {
@@ -77,6 +89,9 @@ export class BusTrackingSocket {
   private listeners = new Map<string, LocationUpdateCallback[]>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = true;
+  /* Newest timestamp seen per bus, so a redelivered or delayed message cannot
+     drag the marker back to a position the bus has already left. */
+  private lastSeenTimestamp = new Map<string, number>();
 
   connect() {
     if (this.ws?.readyState === WebSocket.OPEN) return;
@@ -99,6 +114,14 @@ export class BusTrackingSocket {
       try {
         const data: LiveBusLocation = JSON.parse(event.data);
         if (!data.busNumber || data.latitude == null || data.longitude == null) return;
+
+        const previous = this.lastSeenTimestamp.get(data.busNumber);
+        if (previous != null && data.timestamp != null && data.timestamp < previous) {
+          return;
+        }
+        if (data.timestamp != null) {
+          this.lastSeenTimestamp.set(data.busNumber, data.timestamp);
+        }
 
         // Notify listeners for this specific bus
         const busListeners = this.listeners.get(data.busNumber) ?? [];
@@ -147,6 +170,7 @@ export class BusTrackingSocket {
     this.ws?.close();
     this.ws = null;
     this.listeners.clear();
+    this.lastSeenTimestamp.clear();
   }
 
   sendLocation(location: LiveBusLocation) {

@@ -3,6 +3,7 @@ package com.trackngo.auth.internal.controller;
 
 import com.trackngo.auth.api.UserService;
 import com.trackngo.auth.api.dto.UserDto;
+import com.trackngo.auth.api.dto.AdminUserDto;
 import com.trackngo.commons.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,8 +30,8 @@ public class UserController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ApiResponse<List<UserDto>> getAll() {
-        return ApiResponse.ok("Users fetched", userService.getAll());
+    public ApiResponse<List<AdminUserDto>> getAll() {
+        return ApiResponse.ok("Users fetched", userService.getAllForAdmin());
     }
 
     @PutMapping("/{id}")

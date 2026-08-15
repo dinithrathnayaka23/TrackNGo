@@ -210,6 +210,10 @@ export default function BookingHistoryScreen() {
                     busNumber: b.busNumber,
                     startLocation: b.startLocation,
                     endLocation: b.endLocation,
+                    // Boarding is limited to the trip the seat is booked on,
+                    // so the map needs to know when that trip departs.
+                    journeyDate: b.journeyDate,
+                    journeyTime: b.journeyTime,
                   },
                 })
               }

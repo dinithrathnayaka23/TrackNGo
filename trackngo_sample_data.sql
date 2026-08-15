@@ -461,6 +461,22 @@ INSERT INTO seat_booking (seat_booking_id, booking_reference, journey_date, jour
 (9, 'SB-20250315-001', '2025-03-15', '07:00:00', 'B2,B3',    'Elderly passenger, need AC',  700.00,  'confirmed', 10, 4, 4, NULL,  'Kandy', 'Nuwara Eliya'),
 (10, 'SB-20250401-001', '2025-04-01', '05:00:00', 'E5',       NULL,                         1800.00,  'confirmed', 4,  3, 3, NULL,  'Colombo Fort', 'Jaffna');
 
+INSERT INTO seat_booking_seat (seat_booking_id, bus_id, journey_date, seat_number) VALUES
+(1, 1, '2026-04-15', 'A1'),
+(1, 1, '2026-04-15', 'A2'),
+(2, 1, '2025-01-15', 'B3'),
+(3, 2, '2025-01-16', 'A5'),
+(4, 3, '2025-01-20', 'C1'),
+(4, 3, '2025-01-20', 'C2'),
+(4, 3, '2025-01-20', 'C3'),
+(5, 1, '2025-01-25', 'B1'),
+(6, 5, '2025-02-01', 'A3'),
+(6, 5, '2025-02-01', 'A4'),
+(8, 3, '2025-03-01', 'A1'),
+(9, 4, '2025-03-15', 'B2'),
+(9, 4, '2025-03-15', 'B3'),
+(10, 3, '2025-04-01', 'E5');
+
 
 -- =============================================
 -- RATINGS (5 records)

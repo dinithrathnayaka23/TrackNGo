@@ -288,7 +288,7 @@ class BookingFlowServiceTest {
     @DisplayName("getBookedSeats: returns flat list of seat labels")
     void getBookedSeats_returnsSeatList() {
         when(jdbc.queryForList(anyString(), eq(String.class), any(Object[].class)))
-                .thenReturn(List.of("A1,A2", "B1"));
+                .thenReturn(List.of("A1", "A2", "B1"));
 
         List<String> booked = service.getBookedSeats(1L, "2025-05-01");
 
@@ -460,6 +460,38 @@ class BookingFlowServiceTest {
         verifyNoInteractions(jdbc, promotionService);
     }
 
+    @Test
+    @DisplayName("createBooking: rejects a bus that is under maintenance before payment is recorded")
+    void createBooking_maintenanceBus_throwsBusinessExceptionBeforePayment() {
+        String tomorrow = LocalDate.now(ZoneId.of("Asia/Colombo")).plusDays(1).toString();
+        CreateBookingRequest request = new CreateBookingRequest(
+                1L,
+                tomorrow,
+                "08:00",
+                List.of("A1"),
+                "",
+                "stripe",
+                new BigDecimal("1200.00"),
+                4L,
+                "Colombo",
+                "Kandy",
+                null,
+                null,
+                null,
+                null
+        );
+
+        when(jdbc.queryForObject(contains("FROM passenger"), eq(Integer.class), any(Object[].class)))
+                .thenReturn(1);
+        when(jdbc.queryForObject(contains("SELECT status FROM bus"), eq(String.class), any(Object[].class)))
+                .thenReturn("maintenance");
+
+        assertThatThrownBy(() -> service.createBooking(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("maintenance");
+        verify(jdbc, never()).update(contains("INSERT INTO payment"), any(Object[].class));
+    }
+
 
     @Test
     @DisplayName("cancelBooking: updates status to cancelled for confirmed booking")
@@ -467,7 +499,7 @@ class BookingFlowServiceTest {
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
 
         assertThatNoException().isThrownBy(() -> service.cancelBooking("BK-20250501-ABCD"));
-        verify(jdbc).update(anyString(), any(Object[].class));
+        verify(jdbc, times(2)).update(anyString(), any(Object[].class));
     }
 
     @Test

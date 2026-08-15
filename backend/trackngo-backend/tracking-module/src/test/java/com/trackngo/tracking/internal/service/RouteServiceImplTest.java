@@ -2,6 +2,7 @@ package com.trackngo.tracking.internal.service;
 
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import com.trackngo.commons.booking.BookingDisruptionHandler;
 import com.trackngo.tracking.api.dto.RouteDto;
 import com.trackngo.tracking.internal.entity.Route;
 import com.trackngo.tracking.internal.entity.RouteStop;
@@ -33,6 +34,9 @@ class RouteServiceImplTest {
 
     @Mock
     private EntityManager entityManager;
+
+    @Mock
+    private BookingDisruptionHandler disruptionHandler;
 
     @InjectMocks
     private RouteServiceImpl service;
@@ -197,21 +201,23 @@ class RouteServiceImplTest {
     @Test
     @DisplayName("delete: deletes existing route")
     void delete_existingId_deletesRoute() {
-        when(repository.existsById(1L)).thenReturn(true);
+        Route route = buildRoute(1L, "Colombo - Kandy Express", "CKE-001", true);
+        when(repository.findById(1L)).thenReturn(Optional.of(route));
 
         assertThatNoException().isThrownBy(() -> service.delete(1L));
-        verify(repository).deleteById(1L);
+        assertThat(route.getIsActive()).isFalse();
+        verify(repository).save(route);
     }
 
     @Test
     @DisplayName("delete: throws ResourceNotFoundException when route not found")
     void delete_nonExistentId_throwsNotFoundException() {
-        when(repository.existsById(99L)).thenReturn(false);
+        when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.delete(99L))
                 .isInstanceOf(ResourceNotFoundException.class);
 
-        verify(repository, never()).deleteById(any());
+        verify(repository, never()).save(any());
     }
 
     // ─── toggleStatus ─────────────────────────────────────────────────────────

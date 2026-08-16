@@ -2,6 +2,7 @@ package com.trackngo.app.service;
 
 import com.trackngo.app.dto.UpdateUserSettingsRequest;
 import com.trackngo.app.dto.UserSettingsDto;
+import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,17 @@ public class UserSettingsService {
                         REFERENCES `user`(user_id) ON DELETE CASCADE
                 )
                 """);
+        addTwoFactorColumn("two_factor_secret VARCHAR(64) NULL");
+        addTwoFactorColumn("two_factor_pending_secret VARCHAR(64) NULL");
+        addTwoFactorColumn("two_factor_enabled_at TIMESTAMP NULL");
+    }
+
+    private void addTwoFactorColumn(String definition) {
+        try {
+            jdbcTemplate.execute("ALTER TABLE user_settings ADD COLUMN " + definition);
+        } catch (Exception ignored) {
+            // The column already exists on upgraded installations.
+        }
     }
 
     @Transactional
@@ -61,6 +73,10 @@ public class UserSettingsService {
     @Transactional
     public UserSettingsDto updateSettings(Long userId, UpdateUserSettingsRequest request) {
         UserSettingsDto current = getSettings(userId);
+        if (request.twoFactorAuthentication() != null
+                && request.twoFactorAuthentication() != current.twoFactorAuthentication()) {
+            throw new BusinessException("Use the two-factor setup flow to change authenticator protection.");
+        }
         String language = normalizeLanguage(request.language() == null ? current.language() : request.language());
 
         jdbcTemplate.update("""
@@ -80,7 +96,7 @@ public class UserSettingsService {
                 userId,
                 language,
                 valueOr(request.shareLocation(), current.shareLocation()),
-                valueOr(request.twoFactorAuthentication(), current.twoFactorAuthentication()),
+                current.twoFactorAuthentication(),
                 valueOr(request.pushNotifications(), current.pushNotifications()),
                 valueOr(request.smsAlerts(), current.smsAlerts()),
                 valueOr(request.emailUpdates(), current.emailUpdates()),

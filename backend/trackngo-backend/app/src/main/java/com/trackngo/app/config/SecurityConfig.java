@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/users/*/profile").authenticated()
                 .requestMatchers("/api/users/*/settings").authenticated()
                 .requestMatchers("/api/users/*/password").authenticated()
+                .requestMatchers("/api/users/*/two-factor/**").authenticated()
                 .requestMatchers("/api/users/*/corporate").permitAll()
                 .requestMatchers("/api/conversations/**").permitAll()
                 .requestMatchers("/api/chat/presence").permitAll()

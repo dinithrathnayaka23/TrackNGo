@@ -36,6 +36,7 @@ function RootLayoutNav() {
       <Stack.Screen name="auth/login" />
       <Stack.Screen name="auth/registration" />
       <Stack.Screen name="auth/otp-verification" />
+      <Stack.Screen name="auth/two-factor" />
       <Stack.Screen name="tabs" />
     </Stack>
   );

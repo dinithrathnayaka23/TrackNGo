@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { httpPost } from "../../services/http";
+import { getTrustedDeviceToken, saveTrustedDeviceToken } from "../../services/trustedDeviceStorage";
 import { useSession } from "../../store/sessionStore";
 import type { UserType } from "../../types/chat";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
@@ -27,6 +28,9 @@ interface LoginApiData {
   email: string;
   firstName: string | null;
   lastName: string | null;
+  twoFactorRequired?: boolean;
+  twoFactorToken?: string | null;
+  trustedDeviceToken?: string | null;
 }
 
 interface ApiResponse<T> {
@@ -75,9 +79,26 @@ export default function LoginScreen() {
       const response = await httpPost<ApiResponse<LoginApiData>>(
         "/api/auth/login",
         undefined,
-        { identifier: identifier.trim(), password }
+        {
+          identifier: identifier.trim(),
+          password,
+          trustedDeviceToken: await getTrustedDeviceToken(),
+        }
       );
       const data = response.data;
+      if (data.twoFactorRequired) {
+        if (!data.twoFactorToken) {
+          throw new Error("Two-factor challenge was not created. Please try again.");
+        }
+        router.replace({
+          pathname: "/auth/two-factor",
+          params: { challengeToken: data.twoFactorToken, email: data.email ?? identifier.trim() },
+        });
+        return;
+      }
+      if (data.trustedDeviceToken) {
+        await saveTrustedDeviceToken(data.trustedDeviceToken);
+      }
       await AsyncStorage.setItem(TOKEN_KEY, data.token);
       const userType: UserType =
         USER_TYPE_MAP[data.userType?.toLowerCase()] ?? "PASSENGER";

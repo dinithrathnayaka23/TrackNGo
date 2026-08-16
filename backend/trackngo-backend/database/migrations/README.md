@@ -36,6 +36,14 @@ Before deploying the private-trip negotiation flow, run
 administrator note, and negotiation timestamp used by the passenger review
 screen and admin approval panel.
 
+Before deploying trip-bus assignment changes, run
+`V10__trip_bus_date_reservations.sql`. It creates one reservation row per bus
+per calendar day and backfills pending, confirmed, and in-progress trip
+assignments. The unique `(bus_id, reserved_date)` key is the database-level
+concurrency guard: only one trip booking can hold a bus on any day. The
+application locks the bus row, checks the full date range, and releases the
+reservation when a trip is cancelled or completed.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

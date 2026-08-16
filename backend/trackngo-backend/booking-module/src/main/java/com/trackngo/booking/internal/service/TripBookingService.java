@@ -9,6 +9,7 @@ import com.trackngo.booking.api.dto.TripBookingReviewRequest;
 import com.trackngo.booking.api.dto.TripBusResponse;
 import com.trackngo.booking.internal.entity.TripBooking;
 import com.trackngo.booking.internal.repository.TripBookingRepository;
+import org.springframework.dao.DuplicateKeyException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,9 @@ public class TripBookingService {
     private static final BigDecimal SMALL_BUS_RATE_PER_KM = new BigDecimal("250");
     private static final BigDecimal LARGE_BUS_RATE_PER_KM = new BigDecimal("400");
     private static final BigDecimal ADVANCE_RATE = new BigDecimal("0.15");
+    private static final List<String> BUS_RESERVING_STATUSES = List.of(
+            "pending", "approved", "confirmed", "in_progress"
+    );
 
     private final TripBookingRepository tripBookingRepository;
     private final JdbcTemplate jdbc;
@@ -86,17 +90,29 @@ public class TripBookingService {
     @Transactional
     public TripBooking assignBus(Long bookingId, Long busId, Long passengerId) {
         TripBooking booking = getOwnedBooking(bookingId, passengerId);
-        if (!"pending".equalsIgnoreCase(booking.getBookingStatus())) {
+        Map<String, Object> lockedBooking = lockBookingRow(bookingId);
+        String currentStatus = String.valueOf(lockedBooking.get("booking_status"));
+        if (!passengerId.equals(((Number) lockedBooking.get("passenger_id")).longValue())) {
+            throw new SecurityException("You cannot access this booking.");
+        }
+        if (!"pending".equalsIgnoreCase(currentStatus)) {
             throw new IllegalStateException("This booking is no longer awaiting bus selection.");
         }
 
-        Integer capacity = jdbc.queryForObject(
-                "SELECT seat_capacity FROM bus WHERE bus_id = ? AND bus_type = 'trip_booking' AND status = 'active'",
-                Integer.class, busId);
-        if (capacity == null || capacity < booking.getPassengerCount()) {
+        Map<String, Object> bus = lockAvailableTripBus(busId);
+        int capacity = ((Number) bus.get("seat_capacity")).intValue();
+        int passengerCount = ((Number) lockedBooking.get("passenger_count")).intValue();
+        if (capacity < passengerCount) {
             throw new IllegalStateException("The selected bus is not available for this passenger count.");
         }
 
+        LocalDate startDate = toLocalDate(lockedBooking.get("start_date"));
+        LocalDate returnDate = toLocalDate(lockedBooking.get("return_date"));
+        Long conflictId = findConflictingTripBooking(busId, bookingId, startDate, returnDate);
+        if (conflictId != null) {
+            throw new IllegalStateException("This bus is already booked for overlapping dates.");
+        }
+        reserveBusDates(bookingId, busId, startDate, returnDate);
         jdbc.update("UPDATE trip_booking SET bus_id = ?, booking_status = 'pending' WHERE trip_booking_id = ?", busId, bookingId);
         booking.setBusId(busId);
         booking.setBookingStatus("pending");
@@ -110,16 +126,19 @@ public class TripBookingService {
         }
         TripBooking booking = getBookingById(bookingId);
         if (booking == null) throw new IllegalArgumentException("Trip booking was not found.");
+        lockBookingRow(bookingId);
         boolean reviewable = "pending".equalsIgnoreCase(booking.getBookingStatus())
-                || ("confirmed".equalsIgnoreCase(booking.getBookingStatus()) && booking.getNegotiatedAt() == null);
+                || (("confirmed".equalsIgnoreCase(booking.getBookingStatus())
+                || "approved".equalsIgnoreCase(booking.getBookingStatus())) && booking.getNegotiatedAt() == null);
         if (!reviewable) {
             throw new IllegalStateException("Only pending trip requests can be reviewed.");
         }
         String decision = request.decision().trim().toLowerCase();
         if ("rejected".equals(decision) || "reject".equals(decision)) {
-            int updated = jdbc.update("UPDATE trip_booking SET booking_status = 'cancelled', admin_note = ?, negotiated_at = NOW() WHERE trip_booking_id = ? AND booking_status IN ('pending', 'confirmed') AND negotiated_at IS NULL",
+            int updated = jdbc.update("UPDATE trip_booking SET booking_status = 'cancelled', admin_note = ?, negotiated_at = NOW() WHERE trip_booking_id = ? AND booking_status IN ('pending', 'approved', 'confirmed') AND negotiated_at IS NULL",
                     cleanNote(request.adminNote()), bookingId);
             if (updated == 0) throw new IllegalStateException("This trip request has already been reviewed.");
+            releaseBusDates(bookingId);
             booking.setBookingStatus("cancelled");
             booking.setAdminNote(cleanNote(request.adminNote()));
             return enrich(booking);
@@ -137,10 +156,11 @@ public class TripBookingService {
         if (discount.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Discount cannot be negative.");
         }
+        reserveBusDates(bookingId, booking.getBusId(), booking.getStartDate(), booking.getReturnDate());
         BigDecimal finalPrice = request.finalPrice().setScale(2, RoundingMode.HALF_UP);
         BigDecimal advance = finalPrice.multiply(ADVANCE_RATE).setScale(2, RoundingMode.HALF_UP);
         String note = cleanNote(request.adminNote());
-        int updated = jdbc.update("UPDATE trip_booking SET final_price = ?, advance_payment = ?, discount_amount = ?, admin_note = ?, negotiated_at = NOW(), booking_status = 'confirmed' WHERE trip_booking_id = ? AND booking_status IN ('pending', 'confirmed') AND negotiated_at IS NULL",
+        int updated = jdbc.update("UPDATE trip_booking SET final_price = ?, advance_payment = ?, discount_amount = ?, admin_note = ?, negotiated_at = NOW(), booking_status = 'confirmed' WHERE trip_booking_id = ? AND booking_status IN ('pending', 'approved', 'confirmed') AND negotiated_at IS NULL",
                 finalPrice, advance, discount.setScale(2, RoundingMode.HALF_UP), note, bookingId);
         if (updated == 0) throw new IllegalStateException("This trip request has already been reviewed.");
         booking.setFinalPrice(finalPrice);
@@ -151,13 +171,32 @@ public class TripBookingService {
         return enrich(booking);
     }
 
+    @Transactional
     public void updateBookingStatus(Long id, String status) {
         String normalized = status == null ? "" : status.trim().toLowerCase();
-        if (!List.of("pending", "confirmed", "in_progress", "completed", "cancelled").contains(normalized)) {
+        if (!List.of("pending", "approved", "confirmed", "in_progress", "completed", "cancelled").contains(normalized)) {
             throw new IllegalArgumentException("Unsupported trip booking status.");
         }
-        if (jdbc.update("UPDATE trip_booking SET booking_status = ? WHERE trip_booking_id = ?", normalized, id) == 0) {
+        Map<String, Object> booking = lockBookingRow(id);
+        if (BUS_RESERVING_STATUSES.contains(normalized)) {
+            Long busId = toLong(booking.get("bus_id"));
+            if (busId != null) {
+                reserveBusDates(
+                        id,
+                        busId,
+                        toLocalDate(booking.get("start_date")),
+                        toLocalDate(booking.get("return_date"))
+                );
+            }
+        }
+        String updateSql = List.of("approved", "confirmed").contains(normalized)
+                ? "UPDATE trip_booking SET booking_status = ?, negotiated_at = COALESCE(negotiated_at, NOW()) WHERE trip_booking_id = ?"
+                : "UPDATE trip_booking SET booking_status = ? WHERE trip_booking_id = ?";
+        if (jdbc.update(updateSql, normalized, id) == 0) {
             throw new IllegalArgumentException("Trip booking was not found.");
+        }
+        if (!BUS_RESERVING_STATUSES.contains(normalized)) {
+            releaseBusDates(id);
         }
     }
 
@@ -210,8 +249,20 @@ public class TripBookingService {
         if (sessionId == null || sessionId.isBlank()) throw new IllegalArgumentException("Stripe session is required.");
         TripBooking booking = getOwnedBooking(bookingId, passengerId);
         if (booking.getBusId() == null) throw new IllegalStateException("Select a bus before paying.");
-        if (!"confirmed".equalsIgnoreCase(booking.getBookingStatus()) || booking.getNegotiatedAt() == null) {
+        String bookingStatus = booking.getBookingStatus() == null
+                ? ""
+                : booking.getBookingStatus().trim().toLowerCase();
+        boolean approvedForPayment = "confirmed".equals(bookingStatus)
+                || "approved".equals(bookingStatus)
+                // Older approval records can retain pending status while the
+                // negotiated timestamp and approved prices are already saved.
+                || ("pending".equals(bookingStatus) && booking.getNegotiatedAt() != null);
+        if (!approvedForPayment) {
             throw new IllegalStateException("This booking is waiting for admin approval.");
+        }
+        if (booking.getFinalPrice() == null || booking.getFinalPrice().compareTo(BigDecimal.ZERO) <= 0
+                || booking.getAdvancePayment() == null || booking.getAdvancePayment().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("The approved payment amount is not available for this booking.");
         }
 
         try {
@@ -234,6 +285,7 @@ public class TripBookingService {
                 jdbc.update("INSERT INTO payment (transaction_id, payment_method, payment_status, amount, provider_transaction_id, trip_booking_id) VALUES (?, 'stripe', 'success', ?, ?, ?)",
                         transactionId, booking.getAdvancePayment(), session.getPaymentIntent(), bookingId);
             }
+            jdbc.update("UPDATE trip_booking SET booking_status = 'confirmed' WHERE trip_booking_id = ?", bookingId);
             return enrich(booking);
         } catch (StripeException e) {
             throw new IllegalStateException("Stripe payment verification failed.", e);
@@ -309,6 +361,93 @@ public class TripBookingService {
         if (note == null) return null;
         String trimmed = note.trim();
         return trimmed.isEmpty() ? null : trimmed.substring(0, Math.min(500, trimmed.length()));
+    }
+
+    private Map<String, Object> lockBookingRow(Long bookingId) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT trip_booking_id, passenger_id, passenger_count, start_date, return_date,
+                       booking_status, bus_id
+                FROM trip_booking
+                WHERE trip_booking_id = ?
+                FOR UPDATE
+                """, bookingId);
+        if (rows.isEmpty()) throw new IllegalArgumentException("Trip booking was not found.");
+        return rows.get(0);
+    }
+
+    private Map<String, Object> lockAvailableTripBus(Long busId) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT bus_id, seat_capacity
+                FROM bus
+                WHERE bus_id = ?
+                  AND bus_type = 'trip_booking'
+                  AND status = 'active'
+                FOR UPDATE
+                """, busId);
+        if (rows.isEmpty()) {
+            throw new IllegalStateException("The selected bus is no longer available.");
+        }
+        return rows.get(0);
+    }
+
+    private Long findConflictingTripBooking(Long busId, Long bookingId, LocalDate startDate, LocalDate returnDate) {
+        LocalDate endDate = returnDate == null ? startDate : returnDate;
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT r.trip_booking_id
+                FROM trip_bus_reservation r
+                INNER JOIN trip_booking b ON b.trip_booking_id = r.trip_booking_id
+                WHERE r.bus_id = ?
+                  AND r.reserved_date BETWEEN ? AND ?
+                  AND r.trip_booking_id <> ?
+                  AND b.booking_status IN ('pending', 'approved', 'confirmed', 'in_progress')
+                ORDER BY r.reserved_date, r.trip_booking_id
+                LIMIT 1
+                """, busId, startDate, endDate, bookingId);
+        return rows.isEmpty() ? null : ((Number) rows.get(0).get("trip_booking_id")).longValue();
+    }
+
+    private void reserveBusDates(Long bookingId, Long busId, LocalDate startDate, LocalDate returnDate) {
+        if (busId == null || startDate == null) return;
+        LocalDate endDate = returnDate == null ? startDate : returnDate;
+        if (endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("Return date cannot be before departure.");
+        }
+
+        lockAvailableTripBus(busId);
+        Long conflictId = findConflictingTripBooking(busId, bookingId, startDate, endDate);
+        if (conflictId != null) {
+            throw new IllegalStateException("This bus is already booked for overlapping dates.");
+        }
+
+        // Reassignment is safe because the booking row and the bus row are both
+        // locked in this transaction. The unique key is the final cross-instance
+        // concurrency guard when two users select the same bus simultaneously.
+        releaseBusDates(bookingId);
+        try {
+            for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+                jdbc.update(
+                        "INSERT INTO trip_bus_reservation (trip_booking_id, bus_id, reserved_date) VALUES (?, ?, ?)",
+                        bookingId, busId, date
+                );
+            }
+        } catch (DuplicateKeyException ex) {
+            throw new IllegalStateException("This bus was just booked for overlapping dates. Please choose another bus.", ex);
+        }
+    }
+
+    private void releaseBusDates(Long bookingId) {
+        jdbc.update("DELETE FROM trip_bus_reservation WHERE trip_booking_id = ?", bookingId);
+    }
+
+    private LocalDate toLocalDate(Object value) {
+        if (value == null) return null;
+        if (value instanceof LocalDate date) return date;
+        if (value instanceof java.sql.Date date) return date.toLocalDate();
+        return LocalDate.parse(value.toString());
+    }
+
+    private Long toLong(Object value) {
+        return value == null ? null : ((Number) value).longValue();
     }
 
     private record Fare(BigDecimal finalPrice, BigDecimal advancePayment) {}

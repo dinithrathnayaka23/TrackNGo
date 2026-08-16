@@ -14,14 +14,13 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
 import { useSession } from "../../store/sessionStore";
-import { API_BASE_URL as ENV_API_BASE_URL, GOOGLE_MAPS_API_KEY } from "../../config/env";
+import { GOOGLE_MAPS_API_KEY } from "../../config/env";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
+import { createTripBooking } from "../../services/tripBookingsApi";
 
 // ─────────────────────────────────────────────────────────────
 // API CONFIG
 // ─────────────────────────────────────────────────────────────
-const API_BASE_URL = `${ENV_API_BASE_URL}/api`;
-
 // ─────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────
@@ -155,7 +154,9 @@ function LocationInput({ placeholder, value, onChangeText, onSelect, error }: Lo
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [focused, setFocused] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
 
   // Cancel any pending debounce timer when the component unmounts.
   // Without this, the timer fires after unmount and tries to call
@@ -166,13 +167,12 @@ function LocationInput({ placeholder, value, onChangeText, onSelect, error }: Lo
     };
   }, []);
 
-  // Temporarily simplified to bypass Google Places API billing issue
   const handleChange = useCallback(
     (text: string) => {
       onChangeText(text);
-      onSelect({ name: text }); // Immediately accept the typed text
-
-      /* Google Places search temporarily disabled
+      // Text edits invalidate the previous coordinates. A location becomes
+      // resolved again only after the user chooses a Google suggestion.
+      onSelect({ name: text });
       setSuggestions([]);
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -183,12 +183,13 @@ function LocationInput({ placeholder, value, onChangeText, onSelect, error }: Lo
       }
 
       setSearching(true);
+      const requestId = ++requestIdRef.current;
       debounceRef.current = setTimeout(async () => {
         const results = await searchPlaces(text);
+        if (requestId !== requestIdRef.current) return;
         setSuggestions(results);
         setSearching(false);
       }, 300);
-      */
     },
     [onChangeText, onSelect]
   );
@@ -211,6 +212,10 @@ function LocationInput({ placeholder, value, onChangeText, onSelect, error }: Lo
           longitude: coords.lng,
           place_id: suggestion.place_id,
         });
+      } else {
+        // Keep the selected name usable even if the Places Details request
+        // temporarily fails; the map will remain in its clear empty state.
+        onSelect({ name: suggestion.main_text, place_id: suggestion.place_id });
       }
     },
     [onChangeText, onSelect]
@@ -219,38 +224,44 @@ function LocationInput({ placeholder, value, onChangeText, onSelect, error }: Lo
   return (
     // overflow: 'visible' is required so the absolute-positioned dropdown
     // floats outside the bounds of this wrapper View
-    <View style={{ marginTop: 4, marginBottom: error ? 4 : 14, zIndex: 10, overflow: 'visible' }}>
+    <View style={{ marginTop: 6, marginBottom: error ? 4 : 14, zIndex: focused ? 30 : 10, overflow: 'visible' }}>
       {/* ── Text input ────────────────────────────── */}
       <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          borderWidth: 1,
-          borderColor: error ? "red" : "#D1D5DB",
-          borderRadius: 8,
-          backgroundColor: "#F3F4F6",
-          paddingHorizontal: 10,
-        }}
-      >
-        <Ionicons name="location-outline" size={16} color="#6B7280" style={{ marginRight: 6 }} />
-        <TextInput
-          placeholder={placeholder}
-          value={value}
-          onChangeText={handleChange}
-          onBlur={() => {
-            // If the user typed something but never tapped a Google suggestion
-            // (e.g. because billing isn't set up), accept the typed text as-is.
-            // No coordinates will be set so map preview stays hidden,
-            // but the form becomes valid and Next Step button turns blue.
-            if ((value || "").trim().length >= 3 && !resolving) {
-              onSelect({ name: value.trim() });
-            }
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            minHeight: 68,
+            borderWidth: 1.5,
+            borderColor: error ? "#DC2626" : focused ? "#2563EB" : "#E2E8F0",
+            borderRadius: 16,
+            backgroundColor: "#FFFFFF",
+            paddingHorizontal: 14,
+            shadowColor: focused ? "#2563EB" : "#000000",
+            shadowOpacity: focused ? 0.12 : 0.04,
+            shadowRadius: focused ? 8 : 4,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: focused ? 3 : 1,
           }}
-          style={{ flex: 1, paddingVertical: 10, fontSize: 14, color: "#111827" }}
-          placeholderTextColor="#9CA3AF"
-          autoCorrect={false}
-          autoCapitalize="words"
-        />
+      >
+        <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+          <Ionicons name="location" size={19} color="#2563EB" />
+        </View>
+        <View style={{ flex: 1, justifyContent: "center" }}>
+          <Text style={{ fontSize: 10, color: focused ? "#2563EB" : "#64748B", fontWeight: "700", letterSpacing: 0.7, textTransform: "uppercase", marginBottom: 4 }}>
+            {placeholder}
+          </Text>
+          <TextInput
+            placeholder="Search with Google Maps"
+            value={value}
+            onChangeText={handleChange}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            style={{ padding: 0, fontSize: 15, color: "#111827", fontWeight: "600" }}
+            placeholderTextColor="#A0AEC0"
+            autoCorrect={false}
+            autoCapitalize="words"
+          />
+        </View>
         {/* Show spinner while searching Google or resolving coordinates */}
         {(searching || resolving) && (
           <ActivityIndicator size="small" color="#2563EB" style={{ marginLeft: 6 }} />
@@ -276,13 +287,13 @@ function LocationInput({ placeholder, value, onChangeText, onSelect, error }: Lo
             position: "absolute",
             // 48 = height of the TextInput row (paddingVertical:10 top+bottom + ~28px font line)
             // 4 = marginTop of this wrapper = total offset from top of wrapper to bottom of input
-            top: 48,
+            top: 74,
             left: 0,
             right: 0,
             backgroundColor: "#FFFFFF",
-            borderRadius: 8,
+            borderRadius: 14,
             borderWidth: 1,
-            borderColor: "#2563EB",
+            borderColor: "#D7E3FF",
             zIndex: 9999,
             elevation: 12,
             shadowColor: "#000",
@@ -356,29 +367,35 @@ export default function BookATrip() {
   const [distance, setDistance] = useState<number>(0);
   const [estimatedPrice, setEstimatedPrice] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [directionsError, setDirectionsError] = useState(false);
 
   // ── Zoom map to fit both markers when both locations are set ──
   useEffect(() => {
-    if (
-      pickup?.latitude && pickup?.longitude &&
-      drop?.latitude && drop?.longitude &&
-      mapRef.current
-    ) {
-      const dist = haversineKm(pickup.latitude, pickup.longitude, drop.latitude, drop.longitude);
-      setDistance(Math.round(dist));
+    const hasCoordinates = [pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude]
+      .every((coordinate) => typeof coordinate === "number" && Number.isFinite(coordinate));
+
+    if (!hasCoordinates) {
+      setDistance(0);
+      setDirectionsError(false);
+      return;
+    }
+
+    const dist = haversineKm(pickup!.latitude!, pickup!.longitude!, drop!.latitude!, drop!.longitude!);
+    setDistance(Math.round(dist));
+    setDirectionsError(false);
+    if (mapReady) {
       setTimeout(() => {
         mapRef.current?.fitToCoordinates(
           [
-            { latitude: pickup.latitude!, longitude: pickup.longitude! },
-            { latitude: drop.latitude!, longitude: drop.longitude! },
+            { latitude: pickup!.latitude!, longitude: pickup!.longitude! },
+            { latitude: drop!.latitude!, longitude: drop!.longitude! },
           ],
           { edgePadding: { top: 60, right: 60, bottom: 60, left: 60 }, animated: true }
         );
-      }, 500);
-    } else {
-      setDistance(0);
+      }, 250);
     }
-  }, [pickup, drop]);
+  }, [pickup, drop, mapReady]);
 
   // ── Duration = diff between depart and return dates ───────
   useEffect(() => {
@@ -447,44 +464,42 @@ export default function BookATrip() {
     setLoading(true);
 
     try {
-      const totalPayment = estimatedPrice || 0;
-      const advancePayment = Math.round(totalPayment * 0.15);
-      const dueAmount = totalPayment - advancePayment;
+      if (!currentUser?.userId) {
+        throw new Error("Please sign in before booking a trip.");
+      }
 
       // Use typed/selected values, fallback to empty strings if not filled
       const pickupName = pickup?.name || pickupText || "TBD";
       const dropName = drop?.name || dropText || "TBD";
 
-      const bookingData = {
+      const savedBooking = await createTripBooking({
         startLocation: pickupName,
         destination: dropName,
-        startDate: depart?.toISOString().split("T")[0] || new Date().toISOString().split("T")[0],
-        returnDate: returnDate?.toISOString().split("T")[0] || new Date().toISOString().split("T")[0],
+        startDate: depart!.toISOString().split("T")[0],
+        returnDate: returnDate!.toISOString().split("T")[0],
         passengerCount: passengers,
-        advancePayment,
-        finalPrice: totalPayment,
-        bookingStatus: "PENDING",
-        passengerId: currentUser?.userId || 4,
-      };
-
-      const response = await fetch(`${API_BASE_URL}/trips/book`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bookingData),
+        requirement: selectedRequirement!,
+        distanceKm: distance,
+        startLatitude: pickup?.latitude,
+        startLongitude: pickup?.longitude,
+        destinationLatitude: drop?.latitude,
+        destinationLongitude: drop?.longitude,
       });
 
-      const savedBooking = await response.json();
+      const totalPayment = Number(savedBooking.finalPrice);
+      const advancePayment = Number(savedBooking.advancePayment);
+      const dueAmount = totalPayment - advancePayment;
 
       const tripDetails = {
         tripTitle: `Bus Trip from ${pickupName} to ${dropName}`,
         bookingId: savedBooking.id,
         pickup: pickupName,
         drop: dropName,
-        depart: depart?.toDateString() || "",
-        returnDate: returnDate?.toDateString() || "",
+        depart: savedBooking.startDate,
+        returnDate: savedBooking.returnDate || returnDate!.toISOString().split("T")[0],
         duration,
         passengers,
-        selectedRequirement,
+        selectedRequirement: selectedRequirement!,
         distance,
         totalPayment,
         advancePayment,
@@ -538,8 +553,8 @@ export default function BookATrip() {
         <View
           style={{
             backgroundColor: "white",
-            padding: 14,
-            borderRadius: 12,
+            padding: 16,
+            borderRadius: 18,
             marginTop: 14,
             // overflow visible so dropdown floats over the card below
             overflow: "visible",
@@ -598,114 +613,59 @@ export default function BookATrip() {
             />
           </View>
 
-          {/* Date pickers */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
-            {/* Departure */}
-            <View style={{ width: "48%" }}>
-              <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 10 }}>Departure</Text>
+          {/* Dates */}
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+            <View style={{ flex: 1 }}>
               <TouchableOpacity
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  backgroundColor: "#F3F4F6",
-                  padding: 10,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: errors.depart ? "red" : "#D1D5DB",
-                }}
+                activeOpacity={0.85}
+                style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14, borderWidth: 1.5, borderColor: errors.depart ? "#DC2626" : depart ? "#BFD2FF" : "#E2E8F0", minHeight: 104 }}
                 onPress={() => setShowDepartPicker(true)}
               >
-                <Text style={{ flex: 1, color: depart ? "#111827" : "#9CA3AF", fontSize: 13 }}>
-                  {depart ? depart.toDateString() : "Select Date"}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <Text style={{ fontSize: 10, color: "#64748B", fontWeight: "800", letterSpacing: 0.8 }}>DEPARTURE</Text>
+                  <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="calendar" size={16} color="#2563EB" /></View>
+                </View>
+                <Text style={{ color: depart ? "#111827" : "#94A3B8", fontSize: 15, fontWeight: "700", marginTop: 13 }}>
+                  {depart ? depart.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "Choose date"}
                 </Text>
-                <Ionicons name="calendar-outline" size={16} color="#9CA3AF" />
+                <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>Tap to select</Text>
               </TouchableOpacity>
-              {showDepartPicker && (
-                <DateTimePicker
-                  value={depart || new Date()}
-                  mode="date"
-                  minimumDate={new Date()}
-                  display="default"
-                  onChange={(_, d) => { setShowDepartPicker(false); if (d) setDepart(d); }}
-                />
-              )}
-              {errors.depart && (
-                <Text style={{ color: "red", fontSize: 11, marginTop: 2 }}>{errors.depart}</Text>
-              )}
+              {showDepartPicker && <DateTimePicker value={depart || new Date()} mode="date" minimumDate={new Date()} display="default" onChange={(_, date) => { setShowDepartPicker(false); if (date) { setDepart(date); if (returnDate && returnDate < date) setReturnDate(date); } }} />}
+              {errors.depart && <Text style={{ color: "#DC2626", fontSize: 11, marginTop: 4 }}>{errors.depart}</Text>}
             </View>
 
-            {/* Return */}
-            <View style={{ width: "48%" }}>
-              <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 10 }}>Return</Text>
+            <View style={{ flex: 1 }}>
               <TouchableOpacity
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  backgroundColor: "#F3F4F6",
-                  padding: 10,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: errors.returnDate ? "red" : "#D1D5DB",
-                }}
+                activeOpacity={0.85}
+                style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14, borderWidth: 1.5, borderColor: errors.returnDate ? "#DC2626" : returnDate ? "#BFD2FF" : "#E2E8F0", minHeight: 104 }}
                 onPress={() => setShowReturnPicker(true)}
               >
-                <Text style={{ flex: 1, color: returnDate ? "#111827" : "#9CA3AF", fontSize: 13 }}>
-                  {returnDate ? returnDate.toDateString() : "Select Date"}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <Text style={{ fontSize: 10, color: "#64748B", fontWeight: "800", letterSpacing: 0.8 }}>RETURN</Text>
+                  <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="calendar-outline" size={16} color="#2563EB" /></View>
+                </View>
+                <Text style={{ color: returnDate ? "#111827" : "#94A3B8", fontSize: 15, fontWeight: "700", marginTop: 13 }}>
+                  {returnDate ? returnDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "Choose date"}
                 </Text>
-                <Ionicons name="calendar-outline" size={16} color="#9CA3AF" />
+                <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>Tap to select</Text>
               </TouchableOpacity>
-              {showReturnPicker && (
-                <DateTimePicker
-                  value={returnDate || new Date()}
-                  mode="date"
-                  minimumDate={depart || new Date()}
-                  display="default"
-                  onChange={(_, d) => { setShowReturnPicker(false); if (d) setReturnDate(d); }}
-                />
-              )}
-              {errors.returnDate && (
-                <Text style={{ color: "red", fontSize: 11, marginTop: 2 }}>{errors.returnDate}</Text>
-              )}
+              {showReturnPicker && <DateTimePicker value={returnDate || depart || new Date()} mode="date" minimumDate={depart || new Date()} display="default" onChange={(_, date) => { setShowReturnPicker(false); if (date) setReturnDate(date); }} />}
+              {errors.returnDate && <Text style={{ color: "#DC2626", fontSize: 11, marginTop: 4 }}>{errors.returnDate}</Text>}
             </View>
           </View>
 
-          {/* Duration & passengers */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
-            <View style={{ width: "48%" }}>
-              <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 10 }}>Duration (Days)</Text>
-              <TextInput
-                value={duration.toString()}
-                editable={false}
-                style={{
-                  backgroundColor: "#F3F4F6",
-                  padding: 10,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: "#D1D5DB",
-                  color: "#111827",
-                }}
-              />
+          {/* Duration & passenger stepper */}
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+            <View style={{ flex: 1, backgroundColor: "#F8FAFF", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#E2E8F0", minHeight: 92 }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}><Ionicons name="time-outline" size={16} color="#64748B" /><Text style={{ color: "#64748B", fontSize: 10, fontWeight: "800", letterSpacing: 0.8, marginLeft: 6 }}>DURATION</Text></View>
+              <Text style={{ color: "#111827", fontSize: 22, fontWeight: "800", marginTop: 12 }}>{duration} <Text style={{ color: "#64748B", fontSize: 13, fontWeight: "600" }}>days</Text></Text>
             </View>
-            <View style={{ width: "48%" }}>
-              <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 10 }}>Passengers</Text>
-              <TextInput
-                value={passengers.toString()}
-                keyboardType="numeric"
-                onChangeText={(t) => setPassengers(Number(t) || 0)}
-                style={{
-                  backgroundColor: "#F3F4F6",
-                  padding: 10,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: errors.passengers ? "red" : "#D1D5DB",
-                  color: "#111827",
-                }}
-              />
-              {errors.passengers && (
-                <Text style={{ color: "red", fontSize: 11, marginTop: 2 }}>{errors.passengers}</Text>
-              )}
+            <View style={{ flex: 1, minWidth: 0, overflow: "hidden", backgroundColor: "#F8FAFF", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: errors.passengers ? "#DC2626" : "#E2E8F0", minHeight: 92 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", minWidth: 0 }}><View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center" }}><Ionicons name="people-outline" size={16} color="#64748B" /><Text numberOfLines={1} style={{ flexShrink: 1, color: "#64748B", fontSize: 10, fontWeight: "800", letterSpacing: 0.7, marginLeft: 6 }}>PASSENGERS</Text></View><Text style={{ flexShrink: 0, color: "#94A3B8", fontSize: 9, fontWeight: "700", marginLeft: 4 }}>100 max</Text></View>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 9 }}><TouchableOpacity style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 10, backgroundColor: passengers > 1 ? "#E7EEFF" : "#F1F5F9", alignItems: "center", justifyContent: "center" }} onPress={() => setPassengers((count) => Math.max(1, count - 1))}><Ionicons name="remove" size={16} color={passengers > 1 ? "#2563EB" : "#CBD5E1"} /></TouchableOpacity><Text style={{ width: 44, flexShrink: 0, textAlign: "center", includeFontPadding: false, color: "#111827", fontSize: 22, fontWeight: "800" }}>{passengers}</Text><TouchableOpacity style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 10, backgroundColor: passengers < 100 ? "#E7EEFF" : "#F1F5F9", alignItems: "center", justifyContent: "center" }} onPress={() => setPassengers((count) => Math.min(100, count + 1))}><Ionicons name="add" size={16} color={passengers < 100 ? "#2563EB" : "#CBD5E1"} /></TouchableOpacity></View>
             </View>
           </View>
+          {errors.passengers && <Text style={{ color: "#DC2626", fontSize: 11, marginTop: 4 }}>{errors.passengers}</Text>}
         </View>
 
         {/* ── Route Preview Map ──────────────────────────── */}
@@ -719,9 +679,9 @@ export default function BookATrip() {
             zIndex: 1,
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-            <Ionicons name="navigate-circle-outline" size={18} color="#2563EB" />
-            <Text style={{ fontWeight: "bold", marginLeft: 6 }}>Route Preview</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+            <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="navigate-circle-outline" size={19} color="#2563EB" /></View>
+            <View style={{ marginLeft: 10 }}><Text style={{ fontWeight: "800", color: "#111827", fontSize: 15 }}>Route preview</Text><Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 2 }}>Your selected journey</Text></View>
             {pickup?.latitude && drop?.latitude && distance > 0 && (
               <View
                 style={{
@@ -739,10 +699,11 @@ export default function BookATrip() {
             )}
           </View>
 
-          <View style={{ height: 200, borderRadius: 10, overflow: "hidden", backgroundColor: "#F3F4F6" }}>
+          <View style={{ height: 220, borderRadius: 16, overflow: "hidden", backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E2E8F0" }}>
             <MapView
               ref={mapRef}
               style={{ flex: 1 }}
+              onMapReady={() => setMapReady(true)}
               initialRegion={{
                 latitude: 7.8731,
                 longitude: 80.7718,
@@ -751,7 +712,7 @@ export default function BookATrip() {
               }}
             >
               {/* Pickup marker — green */}
-              {pickup?.latitude && pickup?.longitude && (
+              {typeof pickup?.latitude === "number" && typeof pickup?.longitude === "number" && (
                 <Marker
                   coordinate={{ latitude: pickup.latitude, longitude: pickup.longitude }}
                   title="Pickup"
@@ -761,7 +722,7 @@ export default function BookATrip() {
               )}
 
               {/* Drop-off marker — red */}
-              {drop?.latitude && drop?.longitude && (
+              {typeof drop?.latitude === "number" && typeof drop?.longitude === "number" && (
                 <Marker
                   coordinate={{ latitude: drop.latitude, longitude: drop.longitude }}
                   title="Drop-off"
@@ -783,10 +744,27 @@ export default function BookATrip() {
                     origin={{ latitude: pickup.latitude, longitude: pickup.longitude }}
                     destination={{ latitude: drop.latitude, longitude: drop.longitude }}
                     apikey={GOOGLE_MAPS_API_KEY}
+                    mode="DRIVING"
+                    precision="high"
                     strokeWidth={4}
                     strokeColor="#2563EB"
-                    optimizeWaypoints={true}
-                    onError={(e) => console.warn("[MapViewDirections] route error:", e)}
+                    resetOnChange={false}
+                    onReady={(result) => {
+                      setDirectionsError(false);
+                      if (typeof result.distance === "number" && result.distance > 0) {
+                        setDistance(Math.round(result.distance));
+                      }
+                      if (result.coordinates?.length > 1) {
+                        mapRef.current?.fitToCoordinates(result.coordinates, {
+                          edgePadding: { top: 45, right: 45, bottom: 45, left: 45 },
+                          animated: true,
+                        });
+                      }
+                    }}
+                    onError={(error) => {
+                      console.warn("[MapViewDirections] route error:", error);
+                      setDirectionsError(true);
+                    }}
                   />
                   {/* Faint dashed straight line shown while road route loads */}
                   <Polyline
@@ -803,25 +781,31 @@ export default function BookATrip() {
             </MapView>
 
             {/* Overlay shown before locations are selected or if coordinates are missing */}
-            {(!pickup?.latitude || !drop?.latitude) && (
+            {!(typeof pickup?.latitude === "number" && typeof pickup?.longitude === "number" && typeof drop?.latitude === "number" && typeof drop?.longitude === "number") && (
               <View
                 style={{
                   position: "absolute",
                   top: 0, left: 0, right: 0, bottom: 0,
                   justifyContent: "center",
                   alignItems: "center",
-                  backgroundColor: "rgba(243,244,246,0.85)",
+                 backgroundColor: "rgba(248,250,252,0.9)",
                 }}
               >
                 <Ionicons name="map-outline" size={32} color="#9CA3AF" />
                 <Text style={{ color: "#6B7280", fontSize: 12, marginTop: 8, textAlign: "center", paddingHorizontal: 20 }}>
                   {(!pickup || !drop) 
                     ? "Search locations to see the route preview" 
-                    : "Route preview will show once Google Maps is fully activated"}
+                    : "Choose a Google Maps suggestion to show the route"}
                 </Text>
               </View>
             )}
           </View>
+
+          {directionsError && pickup?.latitude != null && drop?.latitude != null && (
+            <Text style={{ color: "#B45309", fontSize: 11, marginTop: 8, textAlign: "center" }}>
+              Google road directions are unavailable right now. Showing the direct route between your selected places.
+            </Text>
+          )}
 
           {/* Estimated price badge */}
           {estimatedPrice > 0 && (
@@ -829,15 +813,17 @@ export default function BookATrip() {
               style={{
                 marginTop: 10,
                 backgroundColor: "#F0FDF4",
-                borderRadius: 8,
-                padding: 10,
+                borderRadius: 14,
+                padding: 13,
+                borderWidth: 1,
+                borderColor: "#DCFCE7",
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
             >
-              <Text style={{ fontSize: 12, color: "#166534" }}>Estimated Price</Text>
-              <Text style={{ fontSize: 16, fontWeight: "bold", color: "#166534" }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}><Ionicons name="pricetag-outline" size={16} color="#16A34A" /><Text style={{ fontSize: 12, color: "#166534", fontWeight: "600", marginLeft: 6 }}>Estimated price</Text></View>
+              <Text style={{ flexShrink: 1, maxWidth: "48%", fontSize: 17, fontWeight: "800", color: "#166534", textAlign: "right" }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                 LKR {estimatedPrice.toLocaleString()}
               </Text>
             </View>
@@ -845,9 +831,9 @@ export default function BookATrip() {
         </View>
 
         {/* ── Requirements ──────────────────────────────── */}
-        <View style={{ backgroundColor: "white", padding: 14, borderRadius: 12, marginTop: 14, zIndex: 1 }}>
-          <Text style={{ fontWeight: "bold" }}>Requirements</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 10, gap: 8 }}>
+        <View style={{ backgroundColor: "white", padding: 16, borderRadius: 18, marginTop: 14, zIndex: 1, borderWidth: 1, borderColor: "#EEF2F7" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><View style={{ flexDirection: "row", alignItems: "center" }}><View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="options-outline" size={18} color="#2563EB" /></View><View style={{ marginLeft: 10 }}><Text style={{ fontWeight: "800", color: "#111827", fontSize: 15 }}>Vehicle preference</Text><Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 2 }}>Choose what suits your group</Text></View></View><Ionicons name="chevron-down" size={18} color="#CBD5E1" /></View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 14, gap: 8 }}>
             {["Standard", "AC", "Mini Bus"].map((req) => (
               <TouchableOpacity
                 key={req}
@@ -855,23 +841,25 @@ export default function BookATrip() {
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  backgroundColor: selectedRequirement === req ? "#EEF2FF" : "#F3F4F6",
-                  padding: 8,
-                  borderRadius: 8,
+                  backgroundColor: selectedRequirement === req ? "#2563EB" : "#F8FAFC",
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: selectedRequirement === req ? "#2563EB" : "transparent",
+                  borderColor: selectedRequirement === req ? "#2563EB" : "#E2E8F0",
                 }}
               >
                 <Ionicons
-                  name={selectedRequirement === req ? "radio-button-on" : "radio-button-off"}
+                  name={req === "AC" ? "snow-outline" : req === "Mini Bus" ? "bus-outline" : "speedometer-outline"}
                   size={16}
-                  color={selectedRequirement === req ? "#2563EB" : "#9CA3AF"}
+                  color={selectedRequirement === req ? "#FFFFFF" : "#64748B"}
                 />
                 <Text
                   style={{
-                    marginLeft: 6,
-                    color: selectedRequirement === req ? "#2563EB" : "#4B5563",
+                    marginLeft: 7,
+                    color: selectedRequirement === req ? "#FFFFFF" : "#475569",
                     fontSize: 12,
+                    fontWeight: "700",
                   }}
                 >
                   {req}
@@ -882,9 +870,7 @@ export default function BookATrip() {
           {errors.requirements && (
             <Text style={{ color: "red", fontSize: 11, marginTop: 4 }}>{errors.requirements}</Text>
           )}
-          <Text style={{ fontSize: 11, color: "#9CA3AF", marginTop: 10 }}>
-            Progress saved automatically
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#F1F5F9" }}><Ionicons name="information-circle-outline" size={14} color="#94A3B8" /><Text style={{ fontSize: 11, color: "#94A3B8", marginLeft: 5 }}>The final vehicle is selected from our active fleet.</Text></View>
         </View>
 
         {/* ── Next Step button ───────────────────────────── */}
@@ -892,12 +878,17 @@ export default function BookATrip() {
           style={{
             flexDirection: "row",
             padding: 16,
-            borderRadius: 10,
+            borderRadius: 16,
             justifyContent: "center",
             alignItems: "center",
-            marginTop: 16,
+            marginTop: 18,
             marginBottom: 10,
-            backgroundColor: formValid && !loading ? "#2563EB" : "#9CA3AF",
+            backgroundColor: formValid && !loading ? "#2563EB" : "#CBD5E1",
+            shadowColor: "#2563EB",
+            shadowOpacity: formValid && !loading ? 0.2 : 0,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: formValid && !loading ? 3 : 0,
           }}
           onPress={handleNext}
           disabled={!formValid || loading}

@@ -17,6 +17,7 @@ export interface RecentBookingDto {
   endLocation: string;
   journeyDate: string;
   journeyTime: string;
+  paymentStatus?: string | null;
 }
 
 export interface BookingHistoryDto {

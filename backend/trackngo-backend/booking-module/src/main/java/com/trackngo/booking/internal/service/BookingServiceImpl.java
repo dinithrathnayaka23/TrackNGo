@@ -123,9 +123,55 @@ public class BookingServiceImpl implements BookingService {
                 JOIN passenger pa ON pa.passenger_id = tb.passenger_id
                 JOIN `user` u ON u.user_id = pa.passenger_id
                 LEFT JOIN bus b ON b.bus_id = tb.bus_id
-                LEFT JOIN payment p ON p.trip_booking_id = tb.trip_booking_id
+                INNER JOIN payment p ON p.trip_booking_id = tb.trip_booking_id
+                    AND p.payment_status = 'success'
 
                 ORDER BY journey_date DESC, journey_time DESC, booking_id DESC
+                """, (rs, rowNum) -> new AdminBookingDto(
+                rs.getString("booking_id"),
+                rs.getString("passenger_name"),
+                rs.getString("route"),
+                rs.getString("bus"),
+                rs.getString("bus_type"),
+                rs.getDate("journey_date") != null ? rs.getDate("journey_date").toLocalDate() : null,
+                rs.getTime("journey_time") != null ? rs.getTime("journey_time").toLocalTime() : null,
+                rs.getString("seats"),
+                rs.getBigDecimal("amount"),
+                rs.getString("payment_status"),
+                rs.getString("status"),
+                rs.getString("category")
+        ));
+    }
+
+    @Override
+    public List<AdminBookingDto> getTripBookingRequestsForAdmin() {
+        return jdbcTemplate.query("""
+                SELECT
+                    CONCAT('BK-', tb.trip_booking_id) AS booking_id,
+                    COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), u.email, CONCAT('User #', u.user_id)) AS passenger_name,
+                    CONCAT(tb.start_location, ' - ', tb.destination) AS route,
+                    COALESCE(b.bus_number, 'Pending assignment') AS bus,
+                    COALESCE(b.bus_type, 'trip_booking') AS bus_type,
+                    tb.start_date AS journey_date,
+                    CAST('08:00:00' AS TIME) AS journey_time,
+                    CONCAT(COALESCE(tb.passenger_count, 0), ' seats') AS seats,
+                    COALESCE(tb.final_price, 0) AS amount,
+                    'unpaid' AS payment_status,
+                    tb.booking_status AS status,
+                    'Trip Bookings' AS category
+                FROM trip_booking tb
+                JOIN passenger pa ON pa.passenger_id = tb.passenger_id
+                JOIN `user` u ON u.user_id = pa.passenger_id
+                LEFT JOIN bus b ON b.bus_id = tb.bus_id
+                WHERE tb.booking_status IN ('pending', 'confirmed')
+                  AND tb.bus_id IS NOT NULL
+                  AND tb.negotiated_at IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM payment paid
+                      WHERE paid.trip_booking_id = tb.trip_booking_id
+                        AND paid.payment_status = 'success'
+                  )
+                ORDER BY tb.created_at ASC, tb.trip_booking_id ASC
                 """, (rs, rowNum) -> new AdminBookingDto(
                 rs.getString("booking_id"),
                 rs.getString("passenger_name"),
@@ -190,6 +236,7 @@ public class BookingServiceImpl implements BookingService {
                 dto.setEndLocation(item.getEndLocation());
                 dto.setJourneyDate(item.getJourneyDate());
                 dto.setJourneyTime(item.getJourneyTime());
+                dto.setPaymentStatus(item.getPaymentStatus());
                 return dto;
             })
             .toList();

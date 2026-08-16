@@ -14,4 +14,5 @@ public class RecentBookingDto {
     private String endLocation;
     private LocalDate journeyDate;
     private LocalTime journeyTime;
+    private String paymentStatus;
 }

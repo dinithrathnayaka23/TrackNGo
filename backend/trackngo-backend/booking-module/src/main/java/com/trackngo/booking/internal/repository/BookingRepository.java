@@ -15,12 +15,14 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			sb.booking_reference AS bookingReference,
 			COALESCE(sb.from_stop, r.start_location) AS startLocation,
 			COALESCE(sb.to_stop, r.end_location) AS endLocation,
-			sb.journey_date AS journeyDate,
-			sb.journey_time AS journeyTime
+			 sb.journey_date AS journeyDate,
+			sb.journey_time AS journeyTime,
+			COALESCE(recent_payment.payment_status, 'unpaid') AS paymentStatus
 		FROM seat_booking sb
 		INNER JOIN route r ON r.route_id = sb.route_id
 		INNER JOIN bus b ON b.bus_id = sb.bus_id
 		INNER JOIN `user` u ON u.user_id = sb.passenger_id
+		LEFT JOIN payment recent_payment ON recent_payment.payment_id = sb.payment_id
 		WHERE u.email = :email
 		  AND sb.status <> 'cancelled'
 		  AND sb.journey_date >= CURDATE()
@@ -35,9 +37,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			tb.start_location AS startLocation,
 			tb.destination AS endLocation,
 			tb.start_date AS journeyDate,
-			CAST('08:00:00' AS TIME) AS journeyTime
+			CAST('08:00:00' AS TIME) AS journeyTime,
+			trip_payment.payment_status AS paymentStatus
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
+		INNER JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
+			AND trip_payment.payment_status = 'success'
 		INNER JOIN `user` u ON u.user_id = tb.passenger_id
 		WHERE u.email = :email
 		  AND tb.booking_status <> 'cancelled'
@@ -87,6 +92,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			'N/A' AS transactionId
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
+		INNER JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
+			AND trip_payment.payment_status = 'success'
 		INNER JOIN `user` u ON u.user_id = tb.passenger_id
 		WHERE u.email = :email
 		  AND tb.booking_status <> 'cancelled'
@@ -134,6 +141,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			'N/A' AS transactionId
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
+		INNER JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
+			AND trip_payment.payment_status = 'success'
 		INNER JOIN `user` u ON u.user_id = tb.passenger_id
 		WHERE u.email = :email
 		  AND (tb.start_date < CURDATE()

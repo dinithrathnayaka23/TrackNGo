@@ -21,7 +21,10 @@ spring:
     open-in-view: false
   ai:
     openai:
-      api-key: ${AI_API_KEY:${GEMINI_API_KEY}}
+      # Placeholder default keeps the app bootable without an AI key configured.
+      # AI calls then fail at call time and hit the deterministic fallback response,
+      # instead of preventing the whole application context from starting.
+      api-key: ${AI_API_KEY:${GEMINI_API_KEY:ai-not-configured}}
       base-url: ${AI_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai/}
       chat:
         options:

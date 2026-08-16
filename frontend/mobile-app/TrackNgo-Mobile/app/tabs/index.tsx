@@ -14,12 +14,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LocalizedText as Text } from "../../utils/i18n";
 
 // API Services and Session management imports
 import {
@@ -576,17 +576,17 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.tripRow}>
-                <View>
+                <View style={styles.tripEndpoint}>
                   <Text style={styles.tripLabel}>From</Text>
-                  <Text style={styles.tripValue}>{booking.from}</Text>
+                  <Text style={styles.tripValue} numberOfLines={2}>{booking.from}</Text>
                 </View>
                 <View style={styles.tripLineWrap}>
                   <View style={styles.tripLine} />
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                 </View>
-                <View>
+                <View style={styles.tripEndpoint}>
                   <Text style={styles.tripLabel}>To</Text>
-                  <Text style={styles.tripValue}>{booking.to}</Text>
+                  <Text style={styles.tripValue} numberOfLines={2}>{booking.to}</Text>
                 </View>
               </View>
 
@@ -842,12 +842,16 @@ const styles = StyleSheet.create({
   },
   cardTopRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 8,
     marginBottom: 12,
   },
   badgeRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    flexShrink: 1,
     gap: 8,
   },
   badge: {
@@ -868,12 +872,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255,255,255,0.85)",
     fontWeight: "600",
+    flexShrink: 1,
+    textAlign: "right",
   },
   tripRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 10,
     marginBottom: 12,
+  },
+  tripEndpoint: {
+    flex: 1,
+    minWidth: 0,
   },
   tripLabel: {
     fontSize: 10.5,
@@ -883,22 +894,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#FFFFFF",
+    flexShrink: 1,
   },
   tripLineWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "center",
+    width: 64,
+    flexShrink: 0,
   },
   tripLine: {
-    width: 72,
+    flex: 1,
     borderTopWidth: 1,
     borderColor: "rgba(255,255,255,0.55)",
     borderStyle: "dashed",
   },
   cardBottomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    alignItems: "stretch",
     gap: 12,
   },
   timeText: {
@@ -909,8 +922,9 @@ const styles = StyleSheet.create({
   },
   cardActions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
     alignItems: "center",
   },
   smallButton: {

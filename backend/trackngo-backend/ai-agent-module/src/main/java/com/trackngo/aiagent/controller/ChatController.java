@@ -42,7 +42,7 @@ public class ChatController {
         this.chatExecutor = Executors.newFixedThreadPool(4, new AiChatThreadFactory());
     }
 
-    public record ChatRequest(String message, String chatId, Long userId) {}
+    public record ChatRequest(String message, String chatId, Long userId, String language) {}
     public record ChatResponse(String reply, String chatId) {}
     public record FeedbackRequest(String chatId, Long messageId, Long userId, int rating, String comment) {}
 
@@ -54,7 +54,7 @@ public class ChatController {
         CompletableFuture<ChatResponse> responseFuture = CompletableFuture.supplyAsync(() -> {
             AgentExecutionContext.set(resolveContext(chatId, request.userId(), authentication));
             try {
-                String reply = agentRouter.processUserQuery(request.message(), chatId);
+                String reply = agentRouter.processUserQuery(request.message(), chatId, request.language());
                 return new ChatResponse(reply, chatId);
             } finally {
                 AgentExecutionContext.clear();
@@ -65,13 +65,13 @@ public class ChatController {
             return ResponseEntity.ok(responseFuture.get(chatTimeoutSeconds, TimeUnit.SECONDS));
         } catch (TimeoutException ex) {
             responseFuture.cancel(true);
-            return ResponseEntity.ok(new ChatResponse(agentRouter.fallbackReply(request.message()), chatId));
+            return ResponseEntity.ok(new ChatResponse(agentRouter.fallbackReply(request.message(), request.language()), chatId));
         } catch (InterruptedException ex) {
             responseFuture.cancel(true);
             Thread.currentThread().interrupt();
-            return ResponseEntity.ok(new ChatResponse(agentRouter.fallbackReply(request.message()), chatId));
+            return ResponseEntity.ok(new ChatResponse(agentRouter.fallbackReply(request.message(), request.language()), chatId));
         } catch (ExecutionException ex) {
-            return ResponseEntity.ok(new ChatResponse(agentRouter.fallbackReply(request.message()), chatId));
+            return ResponseEntity.ok(new ChatResponse(agentRouter.fallbackReply(request.message(), request.language()), chatId));
         }
     }
 

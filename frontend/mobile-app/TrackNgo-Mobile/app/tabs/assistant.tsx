@@ -7,14 +7,14 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
+  Text as NativeText,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { sendAiAssistantMessage } from "../../services/aiAssistantApi";
 import { useSession } from "../../store/sessionStore";
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useLanguage } from "../../utils/i18n";
 
 interface AssistantMessage {
   id: string;
@@ -23,10 +23,22 @@ interface AssistantMessage {
 }
 
 const quickPrompts = [
-  "Find buses from Colombo Fort to Kandy tomorrow morning",
-  "ETA for NB-0012",
-  "Book one seat from Colombo Fort to Galle",
-  "What should I do if my bus is late?",
+  {
+    en: "Find buses from Colombo Fort to Kandy tomorrow morning",
+    si: "හෙට උදෑසන කොළඹ කොටුවේ සිට මහනුවරට බස් සොයන්න",
+  },
+  {
+    en: "ETA for NB-0012",
+    si: "NB-0012 බසය පැමිණීමට ගතවන වේලාව",
+  },
+  {
+    en: "Book one seat from Colombo Fort to Galle",
+    si: "කොළඹ කොටුවේ සිට ගාල්ලට එක් ආසනයක් වෙන්කරන්න",
+  },
+  {
+    en: "What should I do if my bus is late?",
+    si: "මගේ බසය ප්‍රමාද වුවහොත් මා කළ යුත්තේ කුමක්ද?",
+  },
 ];
 
 type InlineSegment = {
@@ -59,9 +71,9 @@ function InlineMarkdown({ text }: { text: string }) {
   return (
     <>
       {parseInlineMarkdown(text).map((segment, index) => (
-        <Text key={`${segment.text}-${index}`} style={segment.bold && styles.markdownBold}>
+        <NativeText key={`${segment.text}-${index}`} style={segment.bold && styles.markdownBold}>
           {segment.text}
-        </Text>
+        </NativeText>
       ))}
     </>
   );
@@ -84,23 +96,23 @@ function AssistantMarkdownMessage({ content }: { content: string }) {
         if (bullet || numbered) {
           return (
             <View key={`${line}-${index}`} style={styles.markdownRow}>
-              <Text style={styles.markdownMarker}>
+              <NativeText style={styles.markdownMarker}>
                 {bullet ? "•" : `${numbered?.[1]}.`}
-              </Text>
-              <Text style={[styles.messageText, styles.assistantText, styles.markdownLine]}>
+              </NativeText>
+              <NativeText style={[styles.messageText, styles.assistantText, styles.markdownLine]}>
                 <InlineMarkdown text={bullet?.[1] ?? numbered?.[2] ?? line} />
-              </Text>
+              </NativeText>
             </View>
           );
         }
 
         return (
-          <Text
+          <NativeText
             key={`${line}-${index}`}
             style={[styles.messageText, styles.assistantText, styles.markdownParagraph]}
           >
             <InlineMarkdown text={line} />
-          </Text>
+          </NativeText>
         );
       })}
     </View>
@@ -109,6 +121,7 @@ function AssistantMarkdownMessage({ content }: { content: string }) {
 
 export default function AssistantScreen() {
   const { currentUser } = useSession();
+  const { language } = useLanguage();
   const insets = useSafeAreaInsets();
   const chatId = useRef(`mobile-${Date.now()}`);
   const listRef = useRef<FlatList<AssistantMessage>>(null);
@@ -121,9 +134,20 @@ export default function AssistantScreen() {
       id: "welcome",
       role: "assistant",
       content:
-        "Ayubowan. I can search Sri Lankan buses, check live ETA, help with bookings, reminders, refunds, and complaints. I use TrackNGo live route and booking data where available.",
+        language === "si"
+          ? "ආයුබෝවන්. මට ශ්‍රී ලංකාවේ බස් සෙවීමට, සජීවී පැමිණීමේ වේලාව පරීක්ෂා කිරීමට, වෙන්කිරීම්, මතක් කිරීම්, මුදල් ආපසු ගෙවීම් සහ පැමිණිලි සම්බන්ධයෙන් ඔබට සහාය වීමට හැකිය. ලබාගත හැකි විට මම TrackNGo හි සජීවී මාර්ග සහ වෙන්කිරීම් දත්ත භාවිත කරමි."
+          : "Ayubowan. I can search Sri Lankan buses, check live ETA, help with bookings, reminders, refunds, and complaints. I use TrackNGo live route and booking data where available.",
     },
   ]);
+
+  React.useEffect(() => {
+    setMessages((previous) => {
+      if (previous.length !== 1 || previous[0]?.id !== "welcome") return previous;
+      return [{ ...previous[0], content: language === "si"
+        ? "ආයුබෝවන්. මට ශ්‍රී ලංකාවේ බස් සෙවීමට, සජීවී පැමිණීමේ වේලාව පරීක්ෂා කිරීමට, වෙන්කිරීම්, මතක් කිරීම්, මුදල් ආපසු ගෙවීම් සහ පැමිණිලි සම්බන්ධයෙන් ඔබට සහාය වීමට හැකිය."
+        : "Ayubowan. I can search Sri Lankan buses, check live ETA, help with bookings, reminders, refunds, and complaints." }];
+    });
+  }, [language]);
 
   const canSend = input.trim().length > 0 && !loading;
   const bottomInset = keyboardVisible ? 0 : insets.bottom;
@@ -134,10 +158,14 @@ export default function AssistantScreen() {
 
   const helperText = useMemo(() => {
     if (!currentUser) {
-      return "Sign in for personalized bookings and recommendations.";
+      return language === "si"
+        ? "ඔබට ගැලපෙන වෙන්කිරීම් සහ නිර්දේශ සඳහා ඇතුළු වන්න."
+        : "Sign in for personalized bookings and recommendations.";
     }
-    return "Personalized with your TrackNGo passenger context.";
-  }, [currentUser]);
+    return language === "si"
+      ? "ඔබගේ TrackNGo මගී තොරතුරු අනුව පුද්ගලීකරණය කර ඇත."
+      : "Personalized with your TrackNGo passenger context.";
+  }, [currentUser, language]);
 
   React.useEffect(() => {
     const showEvent =
@@ -180,6 +208,7 @@ export default function AssistantScreen() {
         trimmed,
         chatId.current,
         currentUser?.userId,
+        language,
       );
       chatId.current = response.chatId || chatId.current;
       setMessages((prev) => [
@@ -198,8 +227,12 @@ export default function AssistantScreen() {
           role: "assistant",
           content:
             error instanceof Error
-              ? `I could not reach TrackNGo AI: ${error.message}`
-              : "I could not reach TrackNGo AI. Please try again.",
+              ? language === "si"
+                ? `TrackNGo කෘත්‍රිම බුද්ධි සහායකයා සම්බන්ධ කරගත නොහැක: ${error.message}`
+                : `I could not reach TrackNGo AI: ${error.message}`
+              : language === "si"
+                ? "TrackNGo කෘත්‍රිම බුද්ධි සහායකයා සම්බන්ධ කරගත නොහැක. කරුණාකර නැවත උත්සාහ කරන්න."
+                : "I could not reach TrackNGo AI. Please try again.",
         },
       ]);
     } finally {
@@ -221,22 +254,25 @@ export default function AssistantScreen() {
             <MaterialCommunityIcons name="robot-outline" size={22} color="#FFFFFF" />
           </View>
           <View style={styles.headerText}>
-            <Text style={styles.title}>TrackNGo AI</Text>
+            <Text style={styles.title}>{language === "si" ? "TrackNGo කෘත්‍රිම බුද්ධි සහායකයා" : "TrackNGo AI"}</Text>
             <Text style={styles.subtitle}>{helperText}</Text>
           </View>
         </View>
 
         <View style={styles.quickWrap}>
-          {quickPrompts.map((prompt) => (
+          {quickPrompts.map((prompt) => {
+            const label = language === "si" ? prompt.si : prompt.en;
+            return (
             <Pressable
-              key={prompt}
+              key={prompt.en}
               disabled={loading}
-              onPress={() => sendMessage(prompt)}
+              onPress={() => sendMessage(prompt.en)}
               style={styles.quickChip}
             >
-              <Text style={styles.quickText}>{prompt}</Text>
+              <Text style={styles.quickText}>{label}</Text>
             </Pressable>
-          ))}
+            );
+          })}
         </View>
 
         <FlatList
@@ -262,9 +298,9 @@ export default function AssistantScreen() {
               {item.role === "assistant" ? (
                 <AssistantMarkdownMessage content={item.content} />
               ) : (
-                <Text style={[styles.messageText, styles.userText]}>
+                <NativeText style={[styles.messageText, styles.userText]}>
                   {item.content}
-                </Text>
+                </NativeText>
               )}
             </View>
           )}

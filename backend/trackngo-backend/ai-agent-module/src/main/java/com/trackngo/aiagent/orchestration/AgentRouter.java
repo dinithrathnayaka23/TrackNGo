@@ -124,8 +124,15 @@ public class AgentRouter {
     }
 
     public String processUserQuery(String userQuery, String chatId) {
+        return processUserQuery(userQuery, chatId, "en");
+    }
+
+    public String processUserQuery(String userQuery, String chatId, String language) {
+        String responseLanguage = normalizeLanguage(language);
         if (userQuery == null || userQuery.isBlank()) {
-            return "Please tell me what you need help with, for example: find a bus from Colombo Fort to Kandy tomorrow morning.";
+            return "si".equals(responseLanguage)
+                    ? "කරුණාකර ඔබට අවශ්‍ය සහාය කියන්න. උදාහරණයක් ලෙස: හෙට උදෑසන කොළඹ කොටුවේ සිට මහනුවරට බසයක් සොයන්න."
+                    : "Please tell me what you need help with, for example: find a bus from Colombo Fort to Kandy tomorrow morning.";
         }
 
         long startedAt = System.nanoTime();
@@ -142,7 +149,7 @@ public class AgentRouter {
 
         try {
             log.info("Processing query with primary model. ChatId: {}", chatId);
-            String enrichedPrompt = buildPrompt(userQuery, chatId);
+            String enrichedPrompt = buildPrompt(userQuery, chatId, responseLanguage);
             String reply = callModelWithTimeout(() -> callPrimaryModel(enrichedPrompt, chatId));
             memoryService.recordMessage(chatId, "assistant", reply);
             memoryService.recordInteraction(chatId, detectedIntent, "SUCCESS", elapsedMs(startedAt), primaryModelName, null);
@@ -150,20 +157,20 @@ public class AgentRouter {
         } catch (Exception e) {
             log.warn("Primary model failed: {}. Falling back to model: {}", e.getMessage(), fallbackModelName);
             if (sameModelName(primaryModelName, fallbackModelName)) {
-                String reply = deterministicFallback(userQuery);
+                String reply = deterministicFallback(userQuery, responseLanguage);
                 memoryService.recordMessage(chatId, "assistant", reply);
                 memoryService.recordInteraction(chatId, detectedIntent, "FAILED_FALLBACK_USED", elapsedMs(startedAt), primaryModelName, e.getMessage());
                 return reply;
             }
             try {
-                String enrichedPrompt = buildPrompt(userQuery, chatId);
+                String enrichedPrompt = buildPrompt(userQuery, chatId, responseLanguage);
                 String reply = callModelWithTimeout(() -> callFallbackModel(enrichedPrompt, chatId));
                 memoryService.recordMessage(chatId, "assistant", reply);
                 memoryService.recordInteraction(chatId, detectedIntent, "FALLBACK_SUCCESS", elapsedMs(startedAt), fallbackModelName, e.getMessage());
                 return reply;
             } catch (Exception ex) {
                 log.error("Fallback model also failed: {}", ex.getMessage());
-                String reply = deterministicFallback(userQuery);
+                String reply = deterministicFallback(userQuery, responseLanguage);
                 memoryService.recordMessage(chatId, "assistant", reply);
                 memoryService.recordInteraction(chatId, detectedIntent, "FAILED_FALLBACK_USED", elapsedMs(startedAt), fallbackModelName, ex.getMessage());
                 return reply;
@@ -172,7 +179,11 @@ public class AgentRouter {
     }
 
     public String fallbackReply(String userQuery) {
-        return deterministicFallback(userQuery == null ? "" : userQuery);
+        return fallbackReply(userQuery, "en");
+    }
+
+    public String fallbackReply(String userQuery, String language) {
+        return deterministicFallback(userQuery == null ? "" : userQuery, normalizeLanguage(language));
     }
 
     private Optional<String> tryDeterministicToolPath(String userQuery, String chatId, String detectedIntent) {
@@ -939,7 +950,7 @@ public class AgentRouter {
         return priority.substring(0, 1).toUpperCase(Locale.ROOT) + priority.substring(1).toLowerCase(Locale.ROOT);
     }
 
-    private String buildPrompt(String userQuery, String chatId) {
+    private String buildPrompt(String userQuery, String chatId, String language) {
         AgentExecutionContext.Context context = AgentExecutionContext.get();
         String userContext = context == null || !context.hasUser()
                 ? "No authenticated passenger context is available. Ask for passenger id before creating paid bookings."
@@ -948,6 +959,7 @@ public class AgentRouter {
 
         return """
                 You are TrackNGo AI, a production travel assistant for a Sri Lankan bus booking platform.
+                Respond entirely in %s. When the requested language is Sinhala, use natural Sinhala words and Sinhala script; keep TrackNGo, route names, bus numbers, booking references, currency codes, and technical identifiers unchanged.
                 Use Sri Lankan places, LKR fares, local operators, and practical transport wording.
                 Prefer tool results and database facts over general model knowledge. If details are missing, ask the passenger for the exact missing information.
                 For bookings, never invent a confirmation number; use reserveSeat and report its exact result.
@@ -963,6 +975,7 @@ public class AgentRouter {
                 User request:
                 %s
                 """.formatted(
+                "si".equals(language) ? "Sinhala" : "English",
                 LocalDate.now(ZoneId.of("Asia/Colombo")),
                 userContext,
                 memoryService.recentConversationDigest(chatId, 8),
@@ -970,7 +983,10 @@ public class AgentRouter {
                 userQuery);
     }
 
-    private String deterministicFallback(String userQuery) {
+    private String deterministicFallback(String userQuery, String language) {
+        if ("si".equals(language)) {
+            return "AI සේවාවට මේ මොහොතේ සම්බන්ධ විය නොහැක. එහෙත් ඔබට ශ්‍රී ලංකාවේ මාර්ග සෙවීම, වෙන්කිරීම්, සජීවී පැමිණීමේ වේලාව, පැමිණිලි හෝ දැනුම්දීම් සම්බන්ධයෙන් සහාය ලබාගත හැකිය. කරුණාකර නැවත උත්සාහ කරන්න.";
+        }
         String lower = userQuery.toLowerCase();
         if (isComplaintIntent(lower)) {
             return "I can help submit this complaint for admin review. Please include your past booking reference, for example BK-20250501-ABCD, and describe what happened.";
@@ -982,6 +998,10 @@ public class AgentRouter {
             return "I could not reach the AI model, but TrackNGo currently supports Sri Lankan route discovery such as Colombo Fort to Kandy, Galle, Matara, Jaffna, Negombo, and Kandy to Nuwara Eliya. Share your source, destination, date, and preferred time so I can retry the live search.";
         }
         return "I am having trouble reaching the AI model right now. I can still help with Sri Lankan route search, booking, live ETA, complaints, or notifications once the model connection recovers.";
+    }
+
+    private String normalizeLanguage(String language) {
+        return "si".equalsIgnoreCase(language) ? "si" : "en";
     }
 
     private String detectIntent(String query) {

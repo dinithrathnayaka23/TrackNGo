@@ -54,7 +54,7 @@ export default function BookingHistoryScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentUser]);
 
   // Automatically refresh data whenever the screen comes into focus
   useFocusEffect(
@@ -349,7 +349,8 @@ function BookingCard({
       </View>
 
       {/* Actions */}
-      {isUpcoming && b.status.toLowerCase() === "confirmed" ? (
+      {isUpcoming && b.status.toLowerCase() === "confirmed" &&
+      !(b.busType === "trip_booking" && !["success", "paid"].includes(String(b.paymentStatus ?? "").toLowerCase())) ? (
         <View style={styles.actionRow}>
           <Pressable style={styles.primaryBtn} onPress={onTicket}>
             <Ionicons name="ticket-outline" size={15} color="#FFF" />
@@ -363,11 +364,14 @@ function BookingCard({
             <Ionicons name="close-circle-outline" size={15} color="#DC2626" />
           </Pressable>
         </View>
-      ) : isUpcoming && b.status.toLowerCase() === "pending" && b.busType === "trip_booking" ? (
+      ) : isUpcoming &&
+        b.busType === "trip_booking" &&
+        ["pending", "confirmed"].includes(b.status.toLowerCase()) &&
+        !["success", "paid"].includes(String(b.paymentStatus ?? "").toLowerCase()) ? (
         <View style={styles.actionRow}>
           <Pressable style={styles.primaryBtn} onPress={onNegotiate}>
             <Ionicons name="chatbubbles-outline" size={15} color="#FFF" />
-            <Text style={styles.primaryBtnText}>Negotiate Booking</Text>
+            <Text style={styles.primaryBtnText}>{b.status.toLowerCase() === "confirmed" ? "Review Booking" : "Negotiate Booking"}</Text>
           </Pressable>
           <Pressable style={styles.cancelBtn} onPress={onCancel}>
             <Ionicons name="close-circle-outline" size={15} color="#DC2626" />

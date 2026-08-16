@@ -32,6 +32,7 @@ export interface BookingHistoryDto {
   totalAmount: number;
   status: string;
   transactionId: string;
+  paymentStatus?: string | null;
 }
 
 async function authHeaders(): Promise<Record<string, string> | undefined> {

@@ -7,7 +7,6 @@ import {
   Linking,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
@@ -17,6 +16,7 @@ import {
 } from "react-native-safe-area-context";
 import type { RootStackParamList } from "../../navigation/types";
 import { useSession } from "../../store/sessionStore";
+import { LocalizedText as Text } from "../../utils/i18n";
 import {
   EmergencyNumberDto,
   getActiveEmergencyNumbers,

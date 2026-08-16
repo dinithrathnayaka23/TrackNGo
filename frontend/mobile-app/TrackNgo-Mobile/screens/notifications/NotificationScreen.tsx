@@ -9,7 +9,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import {
@@ -17,6 +16,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import type { RootStackParamList } from "../../navigation/types";
+import { LocalizedText as Text } from "../../utils/i18n";
 import {
   getPassengerNotifications,
   markAllPassengerNotificationsRead,

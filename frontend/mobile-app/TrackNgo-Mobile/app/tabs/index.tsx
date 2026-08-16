@@ -296,7 +296,13 @@ export default function HomeScreen() {
       setLoadingRecent(true);
       const data = await getRecentUpcomingBookings(currentUser.userId);
       setNow(new Date());
-      setRecentBookings(data.map(toDashboardRecentBooking));
+      const eligibleBookings = data.filter((booking) => {
+        if (booking.busType?.toLowerCase() !== "trip_booking") return true;
+        return ["success", "paid"].includes(
+          String(booking.paymentStatus ?? "").toLowerCase(),
+        );
+      });
+      setRecentBookings(eligibleBookings.map(toDashboardRecentBooking));
     } catch (error) {
       console.error("[HomeScreen] Failed to load recent bookings", error);
       setRecentBookings([]);

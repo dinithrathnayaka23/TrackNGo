@@ -1,8 +1,11 @@
 import { Tabs } from "expo-router";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { useLanguage } from "../../utils/i18n";
 
 export default function TabLayout() {
+  const { t } = useLanguage();
+
   return (
     <Tabs
       screenOptions={{
@@ -23,14 +26,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: t("Home"),
           tabBarIcon: ({ color }) => <Ionicons size={22} name="home" color={color} />,
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
-          title: "Chat",
+          title: t("Chat"),
           tabBarIcon: ({ color }) => (
             <Ionicons size={22} name="chatbubble-ellipses" color={color} />
           ),
@@ -39,7 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="assistant"
         options={{
-          title: "AI",
+          title: t("AI"),
           tabBarIcon: ({ color }) => (
             <Ionicons size={22} name="sparkles-outline" color={color} />
           ),
@@ -48,7 +51,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: t("Profile"),
           tabBarIcon: ({ color }) => <Ionicons size={22} name="person" color={color} />,
         }}
       />

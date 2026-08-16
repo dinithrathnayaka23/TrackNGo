@@ -31,6 +31,11 @@ active-again notification workflow.
 Finally run `V5__bus_disruption_database_guard.sql`. It adds a database trigger
 and repairs any bookings left confirmed while a bus was already unavailable.
 
+Before deploying the private-trip negotiation flow, run
+`V9__trip_booking_negotiation.sql`. It adds the estimate, negotiated discount,
+administrator note, and negotiation timestamp used by the passenger review
+screen and admin approval panel.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

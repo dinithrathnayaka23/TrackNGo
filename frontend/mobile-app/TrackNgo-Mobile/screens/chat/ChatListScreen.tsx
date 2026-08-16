@@ -5,8 +5,6 @@ import {
   Image,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -17,6 +15,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { ADMIN_SUPPORT_USER_ID } from "../../config/env";
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 import type { RootStackParamList } from "../../navigation/types";
 import {
   createConversation,

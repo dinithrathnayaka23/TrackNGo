@@ -8,8 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +20,7 @@ import { getUserProfile } from '../../services/userProfileApi';
 import PlacesInput from '../../components/PlacesInput';
 import { httpGet } from '../../services/http';
 import { formatLocalDate, isPastCalendarDate, normalizeBookableDate, PAST_BOOKING_DATE_MESSAGE, startOfToday } from '../../utils/bookingDate';
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from '../../utils/i18n';
 
 const MIN_GAP = 0.08;
 

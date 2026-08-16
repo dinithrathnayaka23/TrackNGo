@@ -5,13 +5,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 
 type UserType = "Passenger" | "Corporate";
 

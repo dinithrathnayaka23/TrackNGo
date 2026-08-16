@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   SafeAreaView,
   TouchableOpacity,
@@ -13,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import ViewShot from "react-native-view-shot";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { LocalizedText as Text } from "../../utils/i18n";
 
 const { width } = Dimensions.get('window');
 

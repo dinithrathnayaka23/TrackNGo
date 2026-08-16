@@ -11,8 +11,6 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   ToastAndroid,
   View,
 } from "react-native";
@@ -20,6 +18,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 import { Audio } from "expo-av";
 import {
   SafeAreaView,

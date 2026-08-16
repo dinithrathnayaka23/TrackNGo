@@ -4,7 +4,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { getMyComplaints, type ComplaintDto } from "../../services/complaintsApi";
 import { useSession } from "../../store/sessionStore";
+import { LocalizedText as Text } from "../../utils/i18n";
 
 type ComplaintItem = {
   id: string;

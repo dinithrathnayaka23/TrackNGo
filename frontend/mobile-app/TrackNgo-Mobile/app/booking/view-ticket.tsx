@@ -4,7 +4,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,6 +19,7 @@ import {
 } from "../../services/bookingsApi";
 import { getUserProfile } from "../../services/userProfileApi";
 import { useSession } from "../../store/sessionStore";
+import { LocalizedText as Text } from "../../utils/i18n";
 
 type TicketQueryParams = {
   bookingRef?: string;

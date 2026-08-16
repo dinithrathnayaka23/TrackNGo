@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
+import { LocalizedText as Text } from "../utils/i18n";
 import type { ConversationDto, SessionUser, UserProfile } from "../types/chat";
 import {
   formatConversationPreview,

@@ -5,7 +5,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +17,7 @@ import {
   type BookingHistoryDto,
 } from "../../services/bookingsApi";
 import { useSession } from "../../store/sessionStore";
+import { LocalizedText as Text } from "../../utils/i18n";
 
 /**
  * BookingHistoryScreen - Manages and displays the user's trip history.

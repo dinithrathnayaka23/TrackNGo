@@ -6,11 +6,11 @@ import {
   Linking,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import type { ChatMessage } from "../types/chat";
 import { resolveAssetUrl } from "../utils/media";
+import { LocalizedText as Text } from "../utils/i18n";
 import { formatTime, statusTick } from "../utils/chat";
 
 /* ── waveform data ─────────────────────────────────────────────── */

@@ -20,6 +20,7 @@ import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSession } from "../../store/sessionStore";
+import { useLanguage } from "../../utils/i18n";
 import {
   getUserProfile,
   resolveProfilePhoto,
@@ -42,7 +43,7 @@ const profileCopy = {
   en: {
     header: "Profile & Settings",
     completion: "Profile Completion",
-    bankHint: "Complete your bank details to reach 100%",
+    bankHint: "Complete your profile details to reach 100%",
     professional: "Professional Details",
     fullName: "Full Name",
     email: "E - mail Address",
@@ -51,7 +52,9 @@ const profileCopy = {
     notProvided: "Not provided",
     settings: "Settings",
     language: "Language",
+    english: "English",
     sinhala: "Sinhala",
+    userId: "ID",
     privacy: "Privacy",
     shareLocation: "Share Location",
     shareLocationHint: "Required for tracking features",
@@ -104,68 +107,70 @@ const profileCopy = {
     tryAgain: "Please try again.",
   },
   si: {
-    header: "Profile saha Settings",
-    completion: "Profile Completion",
-    bankHint: "100% walata bank details complete karanna",
-    professional: "Professional Details",
-    fullName: "Full Name",
-    email: "E - mail Address",
-    changePassword: "Password Change",
-    mobile: "Mobile Number",
-    notProvided: "Provided naha",
-    settings: "Settings",
-    language: "Bhashawa / Language",
-    sinhala: "Sinhala",
-    privacy: "Privacy",
-    shareLocation: "Location Share",
-    shareLocationHint: "Tracking features walata awashyai",
-    twoFactor: "Two-Factor Authentication",
-    supportLegal: "Support saha Legal",
-    terms: "Terms & Conditions",
-    termsHint: "Terms & Conditions balanna",
-    notifications: "Notifications",
-    push: "Push Notifications",
-    sms: "SMS Alerts",
-    emailUpdates: "Email Updates",
-    bookingUpdates: "Booking Updates",
-    logout: "Log Out",
-    loggingOut: "Logging out...",
-    unavailable: "Profile information hoyaganna baha.",
-    retry: "Aye try karanna",
-    editProfile: "Profile edit karanna",
-    namePlaceholder: "Full name",
-    emailPlaceholder: "Email address",
-    mobilePlaceholder: "Mobile number",
-    cancel: "Cancel",
-    save: "Save",
-    saving: "Saving...",
-    selectLanguage: "Bhashawa select karanna",
-    passwordTitle: "Password change karanna",
-    currentPassword: "Current password",
-    newPassword: "Aluth password",
-    confirmPassword: "Aluth password confirm karanna",
-    update: "Update",
-    updating: "Updating...",
-    passenger: "Passenger",
-    unableLoad: "Profile load karanna bari una",
-    missingDetails: "Details adui",
-    nameEmailRequired: "Name saha email required.",
-    saveProfileError: "Profile save karanna bari una",
-    permissionRequired: "Permission required",
-    photoPermission: "Profile picture change karanna photo access allow karanna.",
-    updatePhotoError: "Photo update karanna bari una",
-    saveSettingError: "Setting save karanna bari una",
-    saveLanguageError: "Language save karanna bari una",
-    completePassword: "Password fields okkoma fill karanna.",
-    passwordUpdated: "Password update una",
-    passwordSuccess: "Oyage password eka successfully change una.",
-    changePasswordError: "Password change karanna bari una",
-    logoutTitle: "Logout",
-    logoutConfirm: "Logout wenna sure da?",
-    logoutAccount: "Logout",
-    termsTitle: "Terms & Conditions",
-    termsMessage: "TrackNGo terms saha conditions me thanata enawa.",
-    tryAgain: "Aye try karanna.",
+    header: "පැතිකඩ සහ සැකසුම්",
+    completion: "පැතිකඩ සම්පූර්ණත්වය",
+    bankHint: "පැතිකඩ 100%ක් සම්පූර්ණ කිරීමට ඔබගේ සියලු විස්තර එක් කරන්න",
+    professional: "පෞද්ගලික විස්තර",
+    fullName: "සම්පූර්ණ නම",
+    email: "විද්‍යුත් තැපැල් ලිපිනය",
+    changePassword: "මුරපදය වෙනස් කරන්න",
+    mobile: "ජංගම දුරකථන අංකය",
+    notProvided: "සපයා නැත",
+    settings: "සැකසුම්",
+    language: "භාෂාව",
+    english: "ඉංග්‍රීසි",
+    sinhala: "සිංහල",
+    userId: "හඳුනාගැනීමේ අංකය",
+    privacy: "පෞද්ගලිකත්වය",
+    shareLocation: "ස්ථානය බෙදාගැනීම",
+    shareLocationHint: "ගමන් නිරීක්ෂණ පහසුකම් සඳහා අවශ්‍ය වේ",
+    twoFactor: "ද්වි-සාධක සත්‍යාපනය",
+    supportLegal: "සහාය සහ නීතිමය තොරතුරු",
+    terms: "නියමයන් සහ කොන්දේසි",
+    termsHint: "අපගේ නියමයන් සහ කොන්දේසි බලන්න",
+    notifications: "දැනුම්දීම්",
+    push: "යෙදුම් දැනුම්දීම්",
+    sms: "SMS දැනුම්දීම්",
+    emailUpdates: "විද්‍යුත් තැපැල් යාවත්කාලීන",
+    bookingUpdates: "වෙන්කිරීම් යාවත්කාලීන",
+    logout: "ඉවත් වන්න",
+    loggingOut: "ඉවත් වෙමින්...",
+    unavailable: "පැතිකඩ තොරතුරු ලබාගත නොහැක.",
+    retry: "නැවත උත්සාහ කරන්න",
+    editProfile: "පැතිකඩ සංස්කරණය",
+    namePlaceholder: "සම්පූර්ණ නම",
+    emailPlaceholder: "විද්‍යුත් තැපැල් ලිපිනය",
+    mobilePlaceholder: "ජංගම දුරකථන අංකය",
+    cancel: "අවලංගු කරන්න",
+    save: "සුරකින්න",
+    saving: "සුරකිමින්...",
+    selectLanguage: "භාෂාව තෝරන්න",
+    passwordTitle: "මුරපදය වෙනස් කරන්න",
+    currentPassword: "වත්මන් මුරපදය",
+    newPassword: "නව මුරපදය",
+    confirmPassword: "නව මුරපදය තහවුරු කරන්න",
+    update: "යාවත්කාලීන කරන්න",
+    updating: "යාවත්කාලීන කරමින්...",
+    passenger: "මගියා",
+    unableLoad: "පැතිකඩ පූරණය කළ නොහැක",
+    missingDetails: "අවශ්‍ය තොරතුරු නොමැත",
+    nameEmailRequired: "නම සහ විද්‍යුත් තැපැල් ලිපිනය අවශ්‍ය වේ.",
+    saveProfileError: "පැතිකඩ සුරැකිය නොහැක",
+    permissionRequired: "අවසර අවශ්‍යයි",
+    photoPermission: "ඔබගේ පැතිකඩ ඡායාරූපය වෙනස් කිරීමට ඡායාරූප වෙත ප්‍රවේශ වීමට අවසර දෙන්න.",
+    updatePhotoError: "ඡායාරූපය යාවත්කාලීන කළ නොහැක",
+    saveSettingError: "සැකසුම සුරැකිය නොහැක",
+    saveLanguageError: "භාෂාව සුරැකිය නොහැක",
+    completePassword: "මුරපද ක්ෂේත්‍ර සියල්ල පුරවන්න.",
+    passwordUpdated: "මුරපදය යාවත්කාලීන කරන ලදී",
+    passwordSuccess: "ඔබගේ මුරපදය සාර්ථකව වෙනස් කරන ලදී.",
+    changePasswordError: "මුරපදය වෙනස් කළ නොහැක",
+    logoutTitle: "ඉවත් වීම",
+    logoutConfirm: "ඔබට ඉවත් වීමට අවශ්‍ය බව විශ්වාසද?",
+    logoutAccount: "ඉවත් වන්න",
+    termsTitle: "නියමයන් සහ කොන්දේසි",
+    termsMessage: "TrackNGo නියමයන් සහ කොන්දේසි මෙහි ලබා ගත හැක.",
+    tryAgain: "කරුණාකර නැවත උත්සාහ කරන්න.",
   },
 } as const;
 
@@ -227,6 +232,7 @@ function ToggleRow({
 export default function PassengerProfileScreen() {
   const router = useRouter();
   const { currentUser, clearCurrentUser } = useSession();
+  const { setLanguage: setAppLanguage } = useLanguage();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -351,11 +357,13 @@ export default function PassengerProfileScreen() {
     const selectedSettings: UserSettings = { ...settings, language };
     setSettings(selectedSettings);
     setLanguageVisible(false);
+    await setAppLanguage(language);
     try {
       const updated = await updateUserSettings(userId, { language });
       setSettings({ ...selectedSettings, ...updated, language });
     } catch (error) {
       setSettings(previousSettings);
+      await setAppLanguage(previousSettings.language);
       setLanguageVisible(true);
       Alert.alert(copy.saveLanguageError, error instanceof Error ? error.message : copy.tryAgain);
     }
@@ -431,7 +439,7 @@ export default function PassengerProfileScreen() {
             <Pressable style={styles.photoButton} onPress={() => void pickPhoto()} disabled={saving}><Ionicons name="pencil" size={17} color="#FFFFFF" /></Pressable>
           </View>
           <Text style={styles.name}>{profile.fullName || copy.passenger}</Text>
-          <Text style={styles.userId}>ID: PSG-{String(profile.userId).padStart(3, "0")}</Text>
+          <Text style={styles.userId}>{copy.userId}: PSG-{String(profile.userId).padStart(3, "0")}</Text>
         </View>
         <View style={styles.completionCard}>
           <View style={styles.completionTop}><Text style={styles.cardTitle}>{copy.completion}</Text><Text style={styles.completionValue}>{completion}%</Text></View>
@@ -448,7 +456,7 @@ export default function PassengerProfileScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>{copy.settings}</Text>
-        <View style={styles.card}><DetailRow icon="language" label={copy.language} value={settings.language === "si" ? copy.sinhala : "English"} onPress={() => setLanguageVisible(true)} /></View>
+        <View style={styles.card}><DetailRow icon="language" label={copy.language} value={settings.language === "si" ? copy.sinhala : copy.english} onPress={() => setLanguageVisible(true)} /></View>
 
         <Text style={styles.sectionTitle}>{copy.privacy}</Text>
         <View style={styles.card}>
@@ -494,7 +502,7 @@ export default function PassengerProfileScreen() {
       <Modal visible={languageVisible} transparent animationType="fade" onRequestClose={() => setLanguageVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setLanguageVisible(false)}>
           <View style={styles.modalCard}><Text style={styles.modalTitle}>{copy.selectLanguage}</Text>
-            <Pressable style={styles.languageOption} onPress={() => void selectLanguage("en")}><Text style={styles.languageText}>English</Text>{settings.language === "en" ? <Ionicons name="checkmark" size={21} color={BLUE} /> : null}</Pressable>
+            <Pressable style={styles.languageOption} onPress={() => void selectLanguage("en")}><Text style={styles.languageText}>{copy.english}</Text>{settings.language === "en" ? <Ionicons name="checkmark" size={21} color={BLUE} /> : null}</Pressable>
             <Pressable style={styles.languageOption} onPress={() => void selectLanguage("si")}><Text style={styles.languageText}>{copy.sinhala}</Text>{settings.language === "si" ? <Ionicons name="checkmark" size={21} color={BLUE} /> : null}</Pressable>
           </View>
         </Pressable>

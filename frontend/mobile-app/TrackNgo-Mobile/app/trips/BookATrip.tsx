@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   Keyboard,
@@ -17,6 +15,7 @@ import MapView, { Marker, Polyline } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
 import { useSession } from "../../store/sessionStore";
 import { API_BASE_URL as ENV_API_BASE_URL, GOOGLE_MAPS_API_KEY } from "../../config/env";
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 
 // ─────────────────────────────────────────────────────────────
 // API CONFIG

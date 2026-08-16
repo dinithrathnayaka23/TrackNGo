@@ -80,6 +80,7 @@ interface DashboardRecentBooking {
      live map gates boarding on when the trip actually departs. */
   journeyDate: string;
   journeyTime: string;
+  paymentStatus?: string | null;
 }
 
 /**
@@ -161,6 +162,7 @@ function toDashboardRecentBooking(
     journeyAt,
     journeyDate: dto.journeyDate,
     journeyTime: dto.journeyTime,
+    paymentStatus: dto.paymentStatus,
   };
 }
 
@@ -578,7 +580,7 @@ export default function HomeScreen() {
               <View style={styles.tripRow}>
                 <View style={styles.tripEndpoint}>
                   <Text style={styles.tripLabel}>From</Text>
-                  <Text style={styles.tripValue} numberOfLines={2}>{booking.from}</Text>
+                  <Text style={styles.tripValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{booking.from}</Text>
                 </View>
                 <View style={styles.tripLineWrap}>
                   <View style={styles.tripLine} />
@@ -586,7 +588,7 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.tripEndpoint}>
                   <Text style={styles.tripLabel}>To</Text>
-                  <Text style={styles.tripValue} numberOfLines={2}>{booking.to}</Text>
+                  <Text style={styles.tripValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{booking.to}</Text>
                 </View>
               </View>
 
@@ -595,7 +597,8 @@ export default function HomeScreen() {
                   {booking.dateLabel} | {booking.timeLabel}
                 </Text>
                 <View style={styles.cardActions}>
-                  {booking.busType === "trip_booking" && booking.busNumber === "PENDING" ? (
+                  {booking.busType === "trip_booking" &&
+                  !["success", "paid"].includes(String(booking.paymentStatus ?? "").toLowerCase()) ? (
                     <PressScale
                       onPress={() => {
                         const tripId = booking.id.replace("BK-", "");
@@ -629,7 +632,7 @@ export default function HomeScreen() {
                             { color: booking.base },
                           ]}
                         >
-                          Negotiate
+                          {booking.busNumber === "PENDING" ? "Review Booking" : "Open Booking Review"}
                         </Text>
                       </View>
                     </PressScale>
@@ -891,9 +894,10 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.75)",
   },
   tripValue: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
     color: "#FFFFFF",
+    minWidth: 0,
     flexShrink: 1,
   },
   tripLineWrap: {

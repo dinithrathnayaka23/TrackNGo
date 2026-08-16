@@ -16,4 +16,5 @@ public interface BookingHistoryProjection {
     BigDecimal getTotalAmount();
     String getStatus();
     String getTransactionId();
+    String getPaymentStatus();
 }

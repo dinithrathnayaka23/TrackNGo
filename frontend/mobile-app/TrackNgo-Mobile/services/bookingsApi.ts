@@ -17,6 +17,7 @@ export interface RecentBookingDto {
   endLocation: string;
   journeyDate: string;
   journeyTime: string;
+  paymentStatus?: string | null;
 }
 
 export interface BookingHistoryDto {
@@ -31,6 +32,7 @@ export interface BookingHistoryDto {
   totalAmount: number;
   status: string;
   transactionId: string;
+  paymentStatus?: string | null;
 }
 
 async function authHeaders(): Promise<Record<string, string> | undefined> {

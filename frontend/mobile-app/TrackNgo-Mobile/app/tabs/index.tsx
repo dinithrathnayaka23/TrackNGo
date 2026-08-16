@@ -467,13 +467,6 @@ export default function HomeScreen() {
                 ) : null}
               </View>
             </PressScale>
-            <PressScale
-              onPress={() => Alert.alert("Menu", "Menu button tapped.")}
-            >
-              <View style={styles.iconButton}>
-                <Ionicons name="menu" size={22} color="#1F2937" />
-              </View>
-            </PressScale>
           </View>
         </Animated.View>
 

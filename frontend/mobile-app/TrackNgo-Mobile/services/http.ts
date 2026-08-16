@@ -172,6 +172,7 @@ export async function httpPostForm<T>(
   path: string,
   form: FormData,
   query?: Record<string, string | boolean | undefined>,
+  headers?: Record<string, string>,
 ): Promise<T> {
   const url = buildUrl(
     path,
@@ -181,6 +182,10 @@ export async function httpPostForm<T>(
   try {
     const response = await fetch(url, {
       method: "POST",
+      headers: {
+        ...defaultHeaders,
+        ...(headers ?? {}),
+      },
       body: form,
     });
     if (!response.ok) {

@@ -7,7 +7,8 @@
  * - Emergency SOS and Driver Chat integration
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 import MapView, { Marker } from "react-native-maps";
 import {
   SafeAreaView,

@@ -11,13 +11,13 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LocalizedText as Text } from "../../utils/i18n";
 import * as Location from "expo-location";
 import {
   BusTrackingSocket,

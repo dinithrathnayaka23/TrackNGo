@@ -3,9 +3,9 @@ import {
   Animated,
   Easing,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
+import { LocalizedText as Text } from "../../utils/i18n";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 

@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getSeatLayout, getBookedSeats, getBlockedSeats, type SeatLayoutRow } from '../../services/bookingFlowApi';
 import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { LocalizedText as Text } from '../../utils/i18n';
 
 type SeatStatus = 'available' | 'selected' | 'booked' | 'blocked';
 

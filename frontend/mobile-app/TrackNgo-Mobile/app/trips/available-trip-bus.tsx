@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -13,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { getBusImage } from "../../utils/busImage";
 import { API_BASE_URL as ENV_API_BASE_URL } from "../../config/env";
+import { LocalizedText as Text } from "../../utils/i18n";
 
 // 🔹 CONFIG
 const API_BASE_URL = `${ENV_API_BASE_URL}/api`; // Same as your BookATrip.tsx

@@ -1,15 +1,14 @@
 import React, { useState } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
-  TextInput,
   ActivityIndicator
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 
 export default function PaymentScreen() {
   const router = useRouter();

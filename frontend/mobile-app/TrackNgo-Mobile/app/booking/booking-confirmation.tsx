@@ -4,7 +4,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { LocalizedText as Text } from '../../utils/i18n';
 
 /*
  * BookingConfirmationScreen - Displays the digital bus ticket after a successful booking.

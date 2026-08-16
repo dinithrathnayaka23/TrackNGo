@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
+import { LocalizedText as Text } from "../../utils/i18n";
 
 export default function PlaceholderScreen() {
   return (

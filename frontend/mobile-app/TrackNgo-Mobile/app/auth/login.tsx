@@ -7,8 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -18,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { httpPost } from "../../services/http";
 import { useSession } from "../../store/sessionStore";
 import type { UserType } from "../../types/chat";
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 
 const TOKEN_KEY = "trackngo.auth.token";
 

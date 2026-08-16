@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
@@ -15,6 +14,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { getBusImage } from "../../utils/busImage";
 import { API_BASE_URL as ENV_API_BASE_URL } from "../../config/env";
+import { LocalizedText as Text } from "../../utils/i18n";
 
 // 🔹 CONFIG
 const API_BASE_URL = `${ENV_API_BASE_URL}/api`;

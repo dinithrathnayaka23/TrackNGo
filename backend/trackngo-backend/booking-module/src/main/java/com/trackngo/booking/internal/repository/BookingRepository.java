@@ -38,10 +38,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			tb.destination AS endLocation,
 			tb.start_date AS journeyDate,
 			CAST('08:00:00' AS TIME) AS journeyTime,
-			trip_payment.payment_status AS paymentStatus
+			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
-		INNER JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
+		LEFT JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
 			AND trip_payment.payment_status = 'success'
 		INNER JOIN `user` u ON u.user_id = tb.passenger_id
 		WHERE u.email = :email
@@ -66,7 +66,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			sb.seat_number AS seatNumber,
 			sb.total_amount AS totalAmount,
 			sb.status AS status,
-			p.transaction_id AS transactionId
+			p.transaction_id AS transactionId,
+			COALESCE(p.payment_status, 'unpaid') AS paymentStatus
 		FROM seat_booking sb
 		INNER JOIN bus b ON b.bus_id = sb.bus_id
 		INNER JOIN route r ON r.route_id = sb.route_id
@@ -89,10 +90,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			'N/A' AS seatNumber,
 			tb.final_price AS totalAmount,
 			tb.booking_status AS status,
-			'N/A' AS transactionId
+			COALESCE(trip_payment.transaction_id, 'N/A') AS transactionId,
+			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
-		INNER JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
+		LEFT JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
 			AND trip_payment.payment_status = 'success'
 		INNER JOIN `user` u ON u.user_id = tb.passenger_id
 		WHERE u.email = :email
@@ -115,7 +117,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			sb.seat_number AS seatNumber,
 			sb.total_amount AS totalAmount,
 			sb.status AS status,
-			p.transaction_id AS transactionId
+			p.transaction_id AS transactionId,
+			COALESCE(p.payment_status, 'unpaid') AS paymentStatus
 		FROM seat_booking sb
 		INNER JOIN bus b ON b.bus_id = sb.bus_id
 		INNER JOIN route r ON r.route_id = sb.route_id
@@ -138,10 +141,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			'N/A' AS seatNumber,
 			tb.final_price AS totalAmount,
 			tb.booking_status AS status,
-			'N/A' AS transactionId
+			COALESCE(trip_payment.transaction_id, 'N/A') AS transactionId,
+			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
-		INNER JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
+		LEFT JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
 			AND trip_payment.payment_status = 'success'
 		INNER JOIN `user` u ON u.user_id = tb.passenger_id
 		WHERE u.email = :email

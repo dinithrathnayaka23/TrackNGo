@@ -49,3 +49,8 @@ pnpm-debug.log*
 # OS
 Thumbs.db
 .DS_Store
+
+# Local AI assistant notes - never commit
+CLAUDE.md
+**/CLAUDE.md
+.claude/

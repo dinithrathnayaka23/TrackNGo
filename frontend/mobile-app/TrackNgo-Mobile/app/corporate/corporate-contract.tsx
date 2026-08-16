@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  Alert,
   TouchableOpacity,
   View,
 } from "react-native";

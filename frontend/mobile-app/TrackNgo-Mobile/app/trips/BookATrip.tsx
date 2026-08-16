@@ -37,9 +37,9 @@ type PlaceSuggestion = {
 /** A fully resolved location with coordinates — used to pin on the map */
 type ResolvedLocation = {
   name: string;
-  latitude: number;
-  longitude: number;
-  place_id: string;
+  latitude?: number;
+  longitude?: number;
+  place_id?: string;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -772,7 +772,8 @@ export default function BookATrip() {
               )}
 
               {/* Road route via Google Directions API */}
-              {pickup?.latitude && drop?.latitude && (
+              {pickup?.latitude != null && pickup?.longitude != null &&
+                drop?.latitude != null && drop?.longitude != null && (
                 <>
                   {/*
                       MapViewDirections draws the actual road route.

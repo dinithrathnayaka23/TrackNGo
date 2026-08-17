@@ -93,21 +93,17 @@ public class LiveTrackingController {
 
         List<Route> routes = routeRepository.findAll();
 
-        // Try to find a matching route by start/end locations
+        // Prefer route endpoints, then support any two saved bus stops in the
+        // correct direction. Trip booking locations are often intermediate
+        // stops, not only the route's start and end locations.
         Route matched = routes.stream()
-                .filter(r -> r.getStartLocation().equalsIgnoreCase(start.trim())
-                        && r.getEndLocation().equalsIgnoreCase(end.trim()))
+                .filter(r -> sameLocation(r.getStartLocation(), start)
+                        && sameLocation(r.getEndLocation(), end))
                 .findFirst()
-                .orElse(null);
-
-        if (matched == null) {
-            // Try partial match
-            matched = routes.stream()
-                    .filter(r -> r.getStartLocation().toLowerCase().contains(start.trim().toLowerCase())
-                            || r.getEndLocation().toLowerCase().contains(end.trim().toLowerCase()))
-                    .findFirst()
-                    .orElse(null);
-        }
+                .orElseGet(() -> routes.stream()
+                        .filter(r -> containsOrderedStops(r, start, end))
+                        .findFirst()
+                        .orElse(null));
 
         if (matched == null) {
             return ResponseEntity.ok(ApiResponse.ok("No route found", null));
@@ -137,6 +133,28 @@ public class LiveTrackingController {
         }
 
         return ResponseEntity.ok(ApiResponse.ok("Route geometry", geometry));
+    }
+
+    private boolean containsOrderedStops(Route route, String start, String end) {
+        if (route.getStops() == null || route.getStops().isEmpty()) return false;
+
+        int startIndex = -1;
+        int endIndex = -1;
+        for (int index = 0; index < route.getStops().size(); index++) {
+            String stopName = route.getStops().get(index).getName();
+            if (startIndex < 0 && sameLocation(stopName, start)) startIndex = index;
+            if (endIndex < 0 && sameLocation(stopName, end)) endIndex = index;
+        }
+        return startIndex >= 0 && endIndex > startIndex;
+    }
+
+    private boolean sameLocation(String left, String right) {
+        if (left == null || right == null) return false;
+        return normalizeLocation(left).equals(normalizeLocation(right));
+    }
+
+    private String normalizeLocation(String value) {
+        return value.trim().toLowerCase().replaceAll("[^a-z0-9]", "");
     }
 
     /**

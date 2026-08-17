@@ -16,11 +16,7 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
       ],
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyBRhufBdrtOBau-epFGsCQvy2xIvOfosPs"
-        }
-      }
+      "config": {}
     },
     "ios": {
       "supportsTablet": true,

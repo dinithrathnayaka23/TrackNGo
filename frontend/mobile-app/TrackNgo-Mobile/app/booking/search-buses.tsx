@@ -6,7 +6,6 @@ import {
   PanResponder,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -16,7 +15,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSession } from '../../store/sessionStore';
 import { getUserProfile } from '../../services/userProfileApi';
-// PlacesInput replaces the old TextInput + backend-stops autocomplete
+// PlacesInput uses Google Places with route-stop fallback suggestions.
 import PlacesInput from '../../components/PlacesInput';
 import { httpGet } from '../../services/http';
 import { formatLocalDate, isPastCalendarDate, normalizeBookableDate, PAST_BOOKING_DATE_MESSAGE, startOfToday } from '../../utils/bookingDate';
@@ -72,12 +71,11 @@ export default function SearchBusesScreen() {
   const sliderLeft = useRef(0);
   const sliderRef = useRef<View>(null);
   const [displayName, setDisplayName] = useState('User');
+  const [routeStops, setRouteStops] = useState<string[]>([]);
 
   /* ── Autocomplete State ────────────────────────────────── */
-  // NOTE: allStops, fromSuggestions, toSuggestions, showFromSuggestions,
-  // and showToSuggestions have been removed.
-  // The PlacesInput component now manages its own suggestion state internally
-  // using Google Maps Places API — no local stop list is needed anymore.
+  // Route stops are loaded once so matching bus terminals can appear instantly
+  // while the debounced Google Places request is still in flight.
 
   /* ── Lifecycle Effects ────────────────────────────────── */
 
@@ -96,8 +94,33 @@ export default function SearchBusesScreen() {
       .catch(() => setDisplayName('User'));
   }, [currentUser]);
 
-  // NOTE: The useEffect that called httpGet('/api/routes') to build the stop
-  // master list has been removed. Google Places API handles location search now.
+  // Keep the route stop master list available for instant local suggestions and
+  // as a fallback when Google Places is unavailable.
+  useEffect(() => {
+    let active = true;
+
+    httpGet<{ success: boolean; data: Array<{ stops?: string[] }> }>('/api/routes')
+      .then((response) => {
+        if (!active) return;
+
+        const stops = new Set<string>();
+        response.data?.forEach((route) => {
+          route.stops?.forEach((stop) => {
+            const normalized = stop.trim();
+            if (normalized) stops.add(normalized);
+          });
+        });
+
+        setRouteStops(Array.from(stops).sort((a, b) => a.localeCompare(b)));
+      })
+      .catch(() => {
+        if (active) setRouteStops([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // NOTE: filterSuggestions, handleFromChange, and handleToChange have been removed.
   // PlacesInput handles text changes and filtering internally via Google Places API.
@@ -279,11 +302,11 @@ export default function SearchBusesScreen() {
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
-        scrollEnabled={!dragging}>
+      <FlatList
+        data={[{ key: 'search-form' }]}
+        keyExtractor={(item) => item.key}
+        renderItem={() => (
+          <>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={22} color="#111827" />
         </Pressable>
@@ -323,7 +346,7 @@ export default function SearchBusesScreen() {
               <MaterialCommunityIcons name="target" size={18} color="#94A3B8" />
             </View>
             {/*
-              PlacesInput replaces the old TextInput + manual dropdown.
+              PlacesInput uses Google suggestions and route stops as a fallback.
               onSelect is called when the user taps a Google suggestion —
               it sets the 'from' state in this screen, same as before.
             */}
@@ -333,6 +356,7 @@ export default function SearchBusesScreen() {
                 placeholder="Search pickup location..."
                 onSelect={(name) => setFrom(name)}
                 initialValue={from}
+                fallbackSuggestions={routeStops}
               />
             </View>
           </View>
@@ -351,6 +375,7 @@ export default function SearchBusesScreen() {
                 placeholder="Search drop-off location..."
                 onSelect={(name) => setTo(name)}
                 initialValue={to}
+                fallbackSuggestions={routeStops}
               />
             </View>
           </View>
@@ -556,7 +581,13 @@ export default function SearchBusesScreen() {
         <Pressable onPress={handleSearch} style={styles.searchButton}>
           <Text style={styles.searchButtonText}>Search Buses</Text>
         </Pressable>
-      </ScrollView>
+          </>
+        )}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        scrollEnabled={!dragging}
+      />
 
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal transparent animationType="fade">

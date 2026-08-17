@@ -20,6 +20,9 @@ function getDevHost(): string | null {
 }
 
 const devHost = getDevHost();
+const expoExtra = (Constants.expoConfig?.extra ?? {}) as {
+  googleMapsApiKey?: string;
+};
 
 function normalizeBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/+$/, "");
@@ -55,6 +58,10 @@ export const SOCKJS_ENDPOINT = "/chat";
 export const STOMP_APP_PREFIX = "/app";
 export const STOMP_TOPIC_PREFIX = "/topic";
 
-// Google Maps / Places API key
-// Used in the booking screen for location autocomplete suggestions
-export const GOOGLE_MAPS_API_KEY = "AIzaSyBRhufBdrtOBau-epFGsCQvy2xIvOfosPs";
+// Google Maps / Places API key. app.config.js injects the root .env value so
+// native maps and REST Places calls use the same key.
+export const GOOGLE_MAPS_API_KEY =
+  env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ||
+  env.GOOGLE_MAPS_API_KEY?.trim() ||
+  expoExtra.googleMapsApiKey?.trim() ||
+  "";

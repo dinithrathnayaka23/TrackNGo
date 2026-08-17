@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   TouchableOpacity,
-  ScrollView,
   Keyboard,
   ActivityIndicator,
   FlatList,
@@ -12,11 +11,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import MapView, { Marker, Polyline } from "react-native-maps";
-import MapViewDirections from "react-native-maps-directions";
 import { useSession } from "../../store/sessionStore";
 import { GOOGLE_MAPS_API_KEY } from "../../config/env";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 import { createTripBooking } from "../../services/tripBookingsApi";
+import { getRouteGeometry, type RouteGeometry } from "../../services/trackingApi";
+import { httpGet } from "../../services/http";
 
 // ─────────────────────────────────────────────────────────────
 // API CONFIG
@@ -30,6 +30,9 @@ type PlaceSuggestion = {
   place_id: string;
   description: string;          // Full text e.g. "Colombo, Sri Lanka"
   main_text: string;            // Short name e.g. "Colombo"
+  latitude?: number;
+  longitude?: number;
+  source?: "google" | "route";
 };
 
 /** A fully resolved location with coordinates — used to pin on the map */
@@ -40,6 +43,11 @@ type ResolvedLocation = {
   place_id?: string;
 };
 
+type RouteCoordinate = {
+  latitude: number;
+  longitude: number;
+};
+
 // ─────────────────────────────────────────────────────────────
 // GOOGLE PLACES HELPERS
 // ─────────────────────────────────────────────────────────────
@@ -47,9 +55,8 @@ type ResolvedLocation = {
 /**
  * Calls the Google Places Autocomplete API.
  *
- * WHY: We replaced the broken backend call (/api/locations/search)
- * with a direct call to Google so we get real, worldwide location
- * suggestions — exactly like the Google Maps app does.
+ * Google remains the primary source for real place suggestions. The bus
+ * network search runs alongside it so configured terminals appear faster.
  *
  * Restricts to Sri Lanka (components=country:lk).
  * Remove that param if you need worldwide results.
@@ -85,11 +92,57 @@ async function searchPlaces(query: string): Promise<PlaceSuggestion[]> {
 }
 
 /**
+ * Search the bus network in parallel with Google. This makes configured bus
+ * terminals appear as soon as the backend responds, even while Google is
+ * still resolving broader place suggestions.
+ */
+async function searchRouteLocations(query: string): Promise<PlaceSuggestion[]> {
+  if (query.trim().length < 3) return [];
+
+  try {
+    const locations = await httpGet<{
+      id: number;
+      name: string;
+      latitude: number;
+      longitude: number;
+    }[]>("/api/locations/search", { query });
+
+    return locations
+      .filter((location) => location.name?.trim())
+      .map((location) => ({
+        place_id: `route-location-${location.id}`,
+        description: `${location.name.trim()}, Sri Lanka`,
+        main_text: location.name.trim(),
+        latitude: Number(location.latitude),
+        longitude: Number(location.longitude),
+        source: "route" as const,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function mergeSuggestions(
+  first: PlaceSuggestion[],
+  second: PlaceSuggestion[],
+): PlaceSuggestion[] {
+  const seen = new Set<string>();
+  return [...first, ...second]
+    .filter((suggestion) => {
+      const key = suggestion.main_text.trim().toLowerCase().replace(/[-\s]+/g, " ");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 8);
+}
+
+/**
  * Calls the Google Places Details API to get lat/lng for a chosen place.
  *
  * WHY: The Autocomplete API only returns names and place_ids, not
  * coordinates. We need coordinates to drop the map marker and draw
- * the MapViewDirections route line. So after the user taps a suggestion,
+ * the road route line. So after the user taps a suggestion,
  * we make a second call to get the exact lat/lng.
  */
 async function getPlaceDetails(placeId: string): Promise<{ lat: number; lng: number } | null> {
@@ -116,6 +169,38 @@ async function getPlaceDetails(placeId: string): Promise<{ lat: number; lng: num
   }
 }
 
+/**
+ * Build a road route without requiring Google's Directions API billing.
+ * The resulting coordinates are rendered on the Google-backed MapView, so
+ * any two selected places in Sri Lanka still get a real road preview.
+ */
+async function getRoadRoute(
+  start: RouteCoordinate,
+  end: RouteCoordinate,
+): Promise<{ coordinates: RouteCoordinate[]; distanceKm: number }> {
+  const url =
+    `https://router.project-osrm.org/route/v1/driving/` +
+    `${start.longitude},${start.latitude};${end.longitude},${end.latitude}` +
+    "?overview=full&geometries=geojson&steps=false";
+
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Road routing failed: ${response.status}`);
+
+  const payload = await response.json();
+  const route = payload.routes?.[0];
+  const points = route?.geometry?.coordinates;
+  if (payload.code !== "Ok" || !Array.isArray(points) || points.length < 2) {
+    throw new Error("No road route was returned");
+  }
+
+  return {
+    coordinates: points
+      .filter((point: unknown) => Array.isArray(point) && point.length >= 2)
+      .map((point: number[]) => ({ latitude: point[1], longitude: point[0] })),
+    distanceKm: Number(route.distance) > 0 ? Math.round(Number(route.distance) / 1000) : 0,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────
 // HAVERSINE DISTANCE (used for price estimate)
 // ─────────────────────────────────────────────────────────────
@@ -137,8 +222,8 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 
 /**
  * A self-contained location search input.
- * Shows a TextInput. As the user types, it debounces 300ms then
- * calls Google Places Autocomplete and shows a dropdown.
+ * Shows a TextInput. As the user types, it debounces briefly then calls
+ * Google Places and the bus-network location endpoint in parallel.
  * When the user taps a suggestion, it calls Google Places Details
  * to get lat/lng, then fires onSelect with a ResolvedLocation.
  */
@@ -151,6 +236,7 @@ type LocationInputProps = {
 };
 
 function LocationInput({ placeholder, value, onChangeText, onSelect, error }: LocationInputProps) {
+  const SEARCH_DEBOUNCE_MS = 180;
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [resolving, setResolving] = useState(false);
@@ -184,12 +270,20 @@ function LocationInput({ placeholder, value, onChangeText, onSelect, error }: Lo
 
       setSearching(true);
       const requestId = ++requestIdRef.current;
-      debounceRef.current = setTimeout(async () => {
-        const results = await searchPlaces(text);
-        if (requestId !== requestIdRef.current) return;
-        setSuggestions(results);
-        setSearching(false);
-      }, 300);
+      debounceRef.current = setTimeout(() => {
+        // Bus-network matches are shown independently of Google so a known
+        // terminal never waits for the Google network request.
+        searchRouteLocations(text).then((routeResults) => {
+          if (requestId !== requestIdRef.current || routeResults.length === 0) return;
+          setSuggestions((current) => mergeSuggestions(routeResults, current));
+        });
+
+        searchPlaces(text).then((googleResults) => {
+          if (requestId !== requestIdRef.current) return;
+          setSuggestions((current) => mergeSuggestions(current, googleResults));
+          setSearching(false);
+        });
+      }, SEARCH_DEBOUNCE_MS);
     },
     [onChangeText, onSelect]
   );
@@ -202,7 +296,9 @@ function LocationInput({ placeholder, value, onChangeText, onSelect, error }: Lo
       setResolving(true);
       Keyboard.dismiss();
 
-      const coords = await getPlaceDetails(suggestion.place_id);
+      const coords = suggestion.latitude != null && suggestion.longitude != null
+        ? { lat: suggestion.latitude, lng: suggestion.longitude }
+        : await getPlaceDetails(suggestion.place_id);
       setResolving(false);
 
       if (coords) {
@@ -368,7 +464,59 @@ export default function BookATrip() {
   const [estimatedPrice, setEstimatedPrice] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [mapReady, setMapReady] = useState(false);
-  const [directionsError, setDirectionsError] = useState(false);
+  const [roadRouteError, setRoadRouteError] = useState(false);
+  const [roadRouteCoordinates, setRoadRouteCoordinates] = useState<RouteCoordinate[]>([]);
+  const [roadRouteLoading, setRoadRouteLoading] = useState(false);
+  const roadRouteRequestRef = useRef(0);
+  const [busRoute, setBusRoute] = useState<RouteGeometry | null>(null);
+  const [busRouteLoading, setBusRouteLoading] = useState(false);
+  const busRouteRequestRef = useRef(0);
+
+  const busRouteCoordinates = useMemo(
+    () =>
+      [...(busRoute?.stops ?? [])]
+        .filter(
+          (stop) =>
+            typeof stop.latitude === "number" &&
+            typeof stop.longitude === "number" &&
+            Number.isFinite(stop.latitude) &&
+            Number.isFinite(stop.longitude),
+        )
+        .sort((a, b) => a.priority - b.priority)
+        .map((stop) => ({ latitude: stop.latitude!, longitude: stop.longitude! })),
+    [busRoute],
+  );
+
+  // Load the configured bus route after both Google places are resolved. The
+  // Google road route and this stop-to-stop bus route are drawn separately.
+  useEffect(() => {
+    const hasCoordinates =
+      typeof pickup?.latitude === "number" &&
+      typeof pickup?.longitude === "number" &&
+      typeof drop?.latitude === "number" &&
+      typeof drop?.longitude === "number";
+
+    if (!hasCoordinates || !pickup?.name || !drop?.name) {
+      busRouteRequestRef.current += 1;
+      setBusRoute(null);
+      setBusRouteLoading(false);
+      return;
+    }
+
+    const requestId = ++busRouteRequestRef.current;
+    setBusRouteLoading(true);
+
+    getRouteGeometry(pickup.name, drop.name)
+      .then((route) => {
+        if (requestId === busRouteRequestRef.current) setBusRoute(route);
+      })
+      .catch(() => {
+        if (requestId === busRouteRequestRef.current) setBusRoute(null);
+      })
+      .finally(() => {
+        if (requestId === busRouteRequestRef.current) setBusRouteLoading(false);
+      });
+  }, [pickup, drop]);
 
   // ── Zoom map to fit both markers when both locations are set ──
   useEffect(() => {
@@ -377,13 +525,13 @@ export default function BookATrip() {
 
     if (!hasCoordinates) {
       setDistance(0);
-      setDirectionsError(false);
+      setRoadRouteError(false);
       return;
     }
 
     const dist = haversineKm(pickup!.latitude!, pickup!.longitude!, drop!.latitude!, drop!.longitude!);
     setDistance(Math.round(dist));
-    setDirectionsError(false);
+    setRoadRouteError(false);
     if (mapReady) {
       setTimeout(() => {
         mapRef.current?.fitToCoordinates(
@@ -396,6 +544,64 @@ export default function BookATrip() {
       }, 250);
     }
   }, [pickup, drop, mapReady]);
+
+  // Fetch a real road polyline for any two selected places. This is independent
+  // of the configured bus-route lookup, so arbitrary Sri Lankan destinations
+  // still receive a usable route preview.
+  useEffect(() => {
+    const coordinates = [pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude];
+    const hasCoordinates = coordinates.every(
+      (coordinate) => typeof coordinate === "number" && Number.isFinite(coordinate),
+    );
+
+    const requestId = ++roadRouteRequestRef.current;
+    if (!hasCoordinates) {
+      setRoadRouteCoordinates([]);
+      setRoadRouteLoading(false);
+      setRoadRouteError(false);
+      return;
+    }
+
+    const start = { latitude: pickup!.latitude!, longitude: pickup!.longitude! };
+    const end = { latitude: drop!.latitude!, longitude: drop!.longitude! };
+    setRoadRouteLoading(true);
+    setRoadRouteCoordinates([]);
+    setRoadRouteError(false);
+
+    getRoadRoute(start, end)
+      .then((result) => {
+        if (requestId !== roadRouteRequestRef.current) return;
+        setRoadRouteCoordinates(result.coordinates);
+        if (result.distanceKm > 0) setDistance(result.distanceKm);
+      })
+      .catch(() => {
+        if (requestId === roadRouteRequestRef.current) {
+          setRoadRouteCoordinates([]);
+          setRoadRouteError(true);
+        }
+      })
+      .finally(() => {
+        if (requestId === roadRouteRequestRef.current) setRoadRouteLoading(false);
+      });
+  }, [pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude]);
+
+  useEffect(() => {
+    if (!mapReady || busRouteCoordinates.length < 2) return;
+
+    mapRef.current?.fitToCoordinates(busRouteCoordinates, {
+      edgePadding: { top: 45, right: 45, bottom: 45, left: 45 },
+      animated: true,
+    });
+  }, [busRouteCoordinates, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || roadRouteCoordinates.length < 2) return;
+
+    mapRef.current?.fitToCoordinates(roadRouteCoordinates, {
+      edgePadding: { top: 45, right: 45, bottom: 45, left: 45 },
+      animated: true,
+    });
+  }, [roadRouteCoordinates, mapReady]);
 
   // ── Duration = diff between depart and return dates ───────
   useEffect(() => {
@@ -523,16 +729,14 @@ export default function BookATrip() {
   // RENDER
   // ─────────────────────────────────────────────────────────
   return (
-    // NOTE: TouchableWithoutFeedback is intentionally NOT used here.
-    // It conflicts with keyboardShouldPersistTaps="always" on the ScrollView
-    // and swallows taps on the suggestions dropdown.
-    // Keyboard dismissal is handled by the ScrollView's own tap behaviour.
+    // The form is rendered through a virtualized container because each
+    // location dropdown uses a FlatList for its suggestions.
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F6F7FB" }}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
-        contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 40 }}
-      >
+      <FlatList
+        data={[{ key: "trip-booking-form" }]}
+        keyExtractor={(item) => item.key}
+        renderItem={() => (
+          <>
         {/* ── Header ───────────────────────────────────── */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Ionicons name="chevron-back" size={22} onPress={() => router.back()} />
@@ -731,52 +935,42 @@ export default function BookATrip() {
                 />
               )}
 
-              {/* Road route via Google Directions API */}
-              {pickup?.latitude != null && pickup?.longitude != null &&
-                drop?.latitude != null && drop?.longitude != null && (
-                <>
-                  {/*
-                      MapViewDirections draws the actual road route.
-                      It uses GOOGLE_MAPS_API_KEY (now real) and the
-                      real lat/lng we got from Places Details API.
-                    */}
-                  <MapViewDirections
-                    origin={{ latitude: pickup.latitude, longitude: pickup.longitude }}
-                    destination={{ latitude: drop.latitude, longitude: drop.longitude }}
-                    apikey={GOOGLE_MAPS_API_KEY}
-                    mode="DRIVING"
-                    precision="high"
-                    strokeWidth={4}
-                    strokeColor="#2563EB"
-                    resetOnChange={false}
-                    onReady={(result) => {
-                      setDirectionsError(false);
-                      if (typeof result.distance === "number" && result.distance > 0) {
-                        setDistance(Math.round(result.distance));
-                      }
-                      if (result.coordinates?.length > 1) {
-                        mapRef.current?.fitToCoordinates(result.coordinates, {
-                          edgePadding: { top: 45, right: 45, bottom: 45, left: 45 },
-                          animated: true,
-                        });
-                      }
-                    }}
-                    onError={(error) => {
-                      console.warn("[MapViewDirections] route error:", error);
-                      setDirectionsError(true);
-                    }}
+              {/* Configured bus route through its saved route stops */}
+              {busRouteCoordinates.length > 1 && (
+                <Polyline
+                  coordinates={busRouteCoordinates}
+                  strokeColor="#F59E0B"
+                  strokeWidth={5}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+              )}
+              {busRoute?.stops
+                ?.filter(
+                  (stop) =>
+                    typeof stop.latitude === "number" &&
+                    typeof stop.longitude === "number",
+                )
+                .sort((a, b) => a.priority - b.priority)
+                .map((stop) => (
+                  <Marker
+                    key={`${busRoute.routeId}-${stop.priority}-${stop.name}`}
+                    coordinate={{ latitude: stop.latitude!, longitude: stop.longitude! }}
+                    title={stop.name}
+                    pinColor="#F59E0B"
+                    tracksViewChanges={false}
                   />
-                  {/* Faint dashed straight line shown while road route loads */}
-                  <Polyline
-                    coordinates={[
-                      { latitude: pickup.latitude, longitude: pickup.longitude },
-                      { latitude: drop.latitude, longitude: drop.longitude },
-                    ]}
-                    strokeColor="rgba(37,99,235,0.25)"
-                    strokeWidth={2}
-                    lineDashPattern={[6, 6]}
-                  />
-                </>
+                ))}
+
+              {/* Real road route for any two selected places in Sri Lanka */}
+              {roadRouteCoordinates.length > 1 && (
+                <Polyline
+                  coordinates={roadRouteCoordinates}
+                  strokeColor="#2563EB"
+                  strokeWidth={4}
+                  lineCap="round"
+                  lineJoin="round"
+                />
               )}
             </MapView>
 
@@ -801,9 +995,30 @@ export default function BookATrip() {
             )}
           </View>
 
-          {directionsError && pickup?.latitude != null && drop?.latitude != null && (
+          {(busRouteLoading || busRoute) && (
+            <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
+              {busRouteLoading && <ActivityIndicator size="small" color="#F59E0B" />}
+              <View style={{ width: 18, height: 4, borderRadius: 2, backgroundColor: "#F59E0B", marginLeft: busRouteLoading ? 8 : 0, marginRight: 6 }} />
+              <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "600" }}>
+                {busRouteLoading
+                  ? "Loading the configured bus route..."
+                  : `${busRoute!.routeName} · ${busRouteCoordinates.length} stops`}
+              </Text>
+            </View>
+          )}
+
+          {roadRouteLoading && (
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 8 }}>
+              <ActivityIndicator size="small" color="#2563EB" />
+              <Text style={{ color: "#475569", fontSize: 11, marginLeft: 6 }}>
+                Building the road route preview...
+              </Text>
+            </View>
+          )}
+
+          {roadRouteError && pickup?.latitude != null && drop?.latitude != null && (
             <Text style={{ color: "#B45309", fontSize: 11, marginTop: 8, textAlign: "center" }}>
-              Google road directions are unavailable right now. Showing the direct route between your selected places.
+              Road routing is temporarily unavailable for these locations. Please try again.
             </Text>
           )}
 
@@ -902,7 +1117,12 @@ export default function BookATrip() {
             </>
           )}
         </TouchableOpacity>
-      </ScrollView>
+          </>
+        )}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        contentContainerStyle={{ padding: 16, paddingTop: 20, paddingBottom: 40 }}
+      />
     </SafeAreaView>
   );
 }

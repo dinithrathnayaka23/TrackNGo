@@ -1,5 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import imageCompression from 'browser-image-compression'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCamera, faUser } from '@fortawesome/free-solid-svg-icons'
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const TARGET_DIMENSION = 800
@@ -116,6 +118,12 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
 
   const effectivePreview = useMemo(() => previewUrl || currentImageUrl, [previewUrl, currentImageUrl])
 
+  useEffect(() => {
+    if (currentImageUrl && !localStorage.getItem(STORAGE_KEY)) {
+      setPreviewUrl(currentImageUrl)
+    }
+  }, [currentImageUrl])
+
   async function handleFileChange(event) {
     const selected = event.target.files?.[0]
     event.target.value = ''
@@ -176,19 +184,34 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
   }
 
   return (
-    <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
-      <div className="flex items-center gap-4">
-        <div className="h-16 w-16 overflow-hidden rounded-full border border-[#dbe2ea] bg-[#f1f5f9]">
+    <div className="dashboard-card flex h-full flex-col rounded-xl border border-[#e5e7eb] bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[#eef2ff] text-[#2642a6]">
+            <FontAwesomeIcon icon={faUser} />
+          </div>
+          <div>
+            <h3 className="text-lg font-extrabold text-[#111827]">Profile Picture</h3>
+            <p className="mt-0.5 text-xs font-medium text-[#64748b]">Keep your admin profile up to date</p>
+          </div>
+        </div>
+        <span className="rounded-full bg-[#f1f5f9] px-2.5 py-1 text-xs font-bold text-[#64748b]">Admin</span>
+      </div>
+
+      <div className="mt-5 flex flex-1 items-center gap-5 rounded-xl border border-[#edf0f5] bg-[#f8fafc] p-4">
+        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-white bg-[#eef2ff] object-cover shadow-[0_0_0_1px_#cfd8f5,0_6px_14px_rgba(38,66,166,0.12)]">
           {effectivePreview ? (
-            <img src={effectivePreview} alt="Admin profile" className="h-full w-full object-cover" />
+            <img src={effectivePreview} alt="Admin profile" className="h-full w-full rounded-full object-cover" />
           ) : (
-            <div className="grid h-full w-full place-items-center text-xs font-semibold text-[#64748b]">No Photo</div>
+            <div className="grid h-full w-full place-items-center text-[#64748b]">
+              <FontAwesomeIcon icon={faUser} className="text-xl" />
+            </div>
           )}
         </div>
 
-        <div className="space-y-2">
-          <h3 className="text-sm font-bold text-[#111827]">Profile Picture</h3>
-          <p className="text-xs text-[#64748b]">JPEG, PNG, or WebP. Processed to high-quality WebP before upload.</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-[#111827]">Your profile photo</p>
+          <p className="mt-1 text-xs leading-5 text-[#64748b]">JPEG, PNG, or WebP. Images are optimized automatically.</p>
 
           <input
             ref={fileInputRef}
@@ -202,15 +225,16 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
             type="button"
             disabled={isUploading}
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center rounded-lg bg-[#2642a6] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-3.5 py-2 text-xs font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60"
           >
+            <FontAwesomeIcon icon={faCamera} className="text-[10px]" />
             {isUploading ? 'Processing...' : 'Upload New Photo'}
           </button>
         </div>
       </div>
 
-      {sizeInfo ? <p className="mt-3 text-xs font-medium text-[#0f766e]">{sizeInfo}</p> : null}
-      {error ? <p className="mt-3 text-xs font-medium text-[#dc2626]">{error}</p> : null}
+      {sizeInfo ? <p className="mt-3 rounded-lg bg-[#ecfdf5] px-3 py-2 text-xs font-semibold text-[#0f766e]">{sizeInfo}</p> : null}
+      {error ? <p className="mt-3 rounded-lg bg-[#fef2f2] px-3 py-2 text-xs font-semibold text-[#dc2626]">{error}</p> : null}
     </div>
   )
 }

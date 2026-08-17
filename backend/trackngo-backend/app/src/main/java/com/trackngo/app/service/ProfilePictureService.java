@@ -165,8 +165,12 @@ public class ProfilePictureService {
                     profilePhotoUrl,
                     userId
             );
+            case "admin" -> jdbcTemplate.update(
+                    "UPDATE admin SET profile_photo = ? WHERE admin_id = ?",
+                    profilePhotoUrl,
+                    userId
+            );
             default -> {
-                // Admin profile photos are currently client-persisted in admin web local storage.
             }
         }
     }

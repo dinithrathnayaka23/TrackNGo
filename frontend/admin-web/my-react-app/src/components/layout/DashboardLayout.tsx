@@ -102,7 +102,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
   const [adminPhotoUrl, setAdminPhotoUrl] = useState(
     () => localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY) || adminProfileImage,
   );
-  const adminProfile = authService.getAdminProfile();
+  const [adminProfile, setAdminProfile] = useState(() => authService.getAdminProfile());
   const fallbackEmail = localStorage.getItem("adminEmail") ?? "";
   const adminFullName = [adminProfile?.firstName, adminProfile?.lastName]
     .filter((value): value is string => Boolean(value && value.trim()))
@@ -182,6 +182,8 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
       "admin-profile-photo-updated",
       onCustomUpdate as EventListener,
     );
+    const onProfileUpdate = () => setAdminProfile(authService.getAdminProfile());
+    window.addEventListener("admin-profile-updated", onProfileUpdate);
 
     return () => {
       window.removeEventListener("storage", onStorageUpdate);
@@ -189,6 +191,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
         "admin-profile-photo-updated",
         onCustomUpdate as EventListener,
       );
+      window.removeEventListener("admin-profile-updated", onProfileUpdate);
     };
   }, []);
 
@@ -291,7 +294,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="mx-1 hidden h-8 w-px bg-[#e2e8f0] sm:block" />
               <button
                 type="button"
-                onClick={() => navigate("/dashboard/settings#profile-section")}
+                onClick={() => navigate("/dashboard/settings/profile")}
                 className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-[#eef2ff] p-0 shadow-[0_0_0_1px_#dbe4f0] transition hover:scale-105 hover:shadow-[0_0_0_3px_#c7d2fe] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2"
                 aria-label={`Open ${adminDisplayName} profile`}
                 title="Profile settings"

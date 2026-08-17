@@ -558,25 +558,37 @@ function Complaints() {
         </div>
 
         <div className="animate-dash-in overflow-hidden rounded-xl border border-[#e5e7eb] bg-white" style={{ animationDelay: '140ms' }}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto overscroll-x-contain">
+            <table className="min-w-[1680px] w-full table-fixed text-sm">
+              <colgroup>
+                <col className="w-[190px]" />
+                <col className="w-[110px]" />
+                <col className="w-[150px]" />
+                <col className="w-[190px]" />
+                <col className="w-[280px]" />
+                <col className="w-[180px]" />
+                <col className="w-[180px]" />
+                <col className="w-[80px]" />
+                <col className="w-[150px]" />
+                <col className="w-[170px]" />
+              </colgroup>
               <thead>
-                <tr className="border-b border-[#e5e7eb] text-left text-xs font-semibold text-[#64748b]">
-                  <th className="py-3 pl-5 pr-2">
+                <tr className="h-12 border-b border-[#e5e7eb] bg-[#f8fafc] text-left text-xs font-bold uppercase tracking-wide text-[#64748b]">
+                  <th className="whitespace-nowrap py-3 pl-5 pr-3">
                     <button type="button" onClick={toggleSort} className="inline-flex items-center gap-1 hover:text-[#334155]">
                       ID
                       <FontAwesomeIcon icon={!sortDir ? faSort : sortDir === 'asc' ? faSortUp : faSortDown} className="text-[10px]" />
                     </button>
                   </th>
-                  <th className="px-2 py-3">Priority</th>
-                  <th className="px-2 py-3">Type</th>
-                  <th className="px-2 py-3">Passenger</th>
-                  <th className="px-2 py-3">Description</th>
-                  <th className="px-2 py-3">Booking ID</th>
-                  <th className="px-2 py-3">Bus/Driver</th>
-                  <th className="px-2 py-3">Images</th>
-                  <th className="px-2 py-3">Status</th>
-                  <th className="px-2 py-3">Created</th>
+                  <th className="whitespace-nowrap px-3 py-3">Priority</th>
+                  <th className="whitespace-nowrap px-3 py-3">Type</th>
+                  <th className="whitespace-nowrap px-3 py-3">Passenger</th>
+                  <th className="whitespace-nowrap px-3 py-3">Description</th>
+                  <th className="whitespace-nowrap px-3 py-3">Booking ID</th>
+                  <th className="whitespace-nowrap px-3 py-3">Bus/Driver</th>
+                  <th className="whitespace-nowrap px-3 py-3 text-center">Images</th>
+                  <th className="whitespace-nowrap px-3 py-3">Status</th>
+                  <th className="whitespace-nowrap px-3 py-3">Created</th>
                 </tr>
               </thead>
               <tbody>
@@ -596,30 +608,30 @@ function Complaints() {
                     className="cursor-pointer border-b border-[#f1f5f9] transition hover:bg-[#f8fafc]"
                     onClick={() => void openComplaintDetail(complaint.id)}
                   >
-                    <td className="py-3.5 pl-5 pr-2 font-bold text-[#2642a6]">{complaint.id}</td>
-                    <td className="px-2 py-3.5">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${priorityBadge(complaint.priority)}`}>
+                    <td className="whitespace-nowrap py-3.5 pl-5 pr-3 align-middle font-mono text-xs font-bold tracking-tight text-[#2642a6]">{complaint.id}</td>
+                    <td className="whitespace-nowrap px-3 py-3.5 align-middle">
+                      <span className={`inline-flex whitespace-nowrap items-center rounded-full px-2.5 py-1 text-xs font-bold ${priorityBadge(complaint.priority)}`}>
                         {complaint.priority}
                       </span>
                     </td>
-                    <td className="px-2 py-3.5">
-                      <span className="rounded-md bg-[#f1f5f9] px-2 py-0.5 text-xs font-medium text-[#475569]">{complaint.type}</span>
+                    <td className="whitespace-nowrap px-3 py-3.5 align-middle">
+                      <span className="inline-flex whitespace-nowrap rounded-md bg-[#f1f5f9] px-2.5 py-1 text-xs font-medium text-[#475569]">{complaint.type}</span>
                     </td>
-                    <td className="px-2 py-3.5">
+                    <td className="whitespace-nowrap px-3 py-3.5 align-middle">
                       <div className="flex items-center gap-2">
                         <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#e0e7ff] text-[10px] font-bold text-[#3b5998]">
                           {complaint.passengerInitials}
                         </div>
-                        <span className="font-medium text-[#111827]">{complaint.passengerName}</span>
+                        <span className="whitespace-nowrap font-medium text-[#111827]">{complaint.passengerName}</span>
                       </div>
                     </td>
-                    <td className="max-w-[180px] truncate px-2 py-3.5 text-[#475569]">{complaint.description}</td>
-                    <td className="px-2 py-3.5 font-semibold text-[#2642a6]">{complaint.bookingId}</td>
-                    <td className="px-2 py-3.5">
-                      <p className="font-medium text-[#111827]">{complaint.busId}</p>
-                      {complaint.driverName && <p className="text-xs text-[#94a3b8]">{complaint.driverName}</p>}
+                    <td className="truncate px-3 py-3.5 align-middle text-[#475569]" title={complaint.description}>{complaint.description}</td>
+                    <td className="whitespace-nowrap px-3 py-3.5 align-middle font-mono text-xs font-semibold text-[#2642a6]">{complaint.bookingId}</td>
+                    <td className="whitespace-nowrap px-3 py-3.5 align-middle">
+                      <p className="whitespace-nowrap font-medium text-[#111827]">{complaint.busId}</p>
+                      {complaint.driverName && <p className="truncate text-xs text-[#94a3b8]" title={complaint.driverName}>{complaint.driverName}</p>}
                     </td>
-                    <td className="px-2 py-3.5 text-center">
+                    <td className="px-3 py-3.5 text-center align-middle">
                       {complaint.hasImages ? (
                         <FontAwesomeIcon
                           icon={complaint.imageType === 'camera' ? faCamera : faImage}
@@ -629,12 +641,12 @@ function Complaints() {
                         <span className="text-xs text-[#cbd5e1]">--</span>
                       )}
                     </td>
-                    <td className="px-2 py-3.5">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge(complaint.status)}`}>
+                    <td className="whitespace-nowrap px-3 py-3.5 align-middle">
+                      <span className={`inline-flex whitespace-nowrap items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(complaint.status)}`}>
                         {complaint.status}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-2 py-3.5 text-[#475569]">{complaint.created}</td>
+                    <td className="whitespace-nowrap px-3 py-3.5 align-middle text-[#475569]">{complaint.created}</td>
                   </tr>
                 ))}
                 {!loading && !error && paginated.length === 0 && (

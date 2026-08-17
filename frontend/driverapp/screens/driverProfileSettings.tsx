@@ -19,6 +19,8 @@ import * as ImagePicker from 'expo-image-picker'; // opening gallery to pick
 import { Image } from 'react-native'; //why because we need to diplay dp img
 import { apiUrl } from '@/config/env';
 import { useTheme } from '@/context/ThemeContext'; //global theme data
+import { useLanguage } from '@/context/LanguageContext'; //global language/translation data
+import { LANGUAGE_CODES, LANGUAGE_NAMES } from '@/locales';
 import { formatDate, isLicenseExpired } from '@/utils/dateFormatter'; // Import utility functions for date formatting and license expiry checking
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { resolveAssetUrl } from '@/utils/media';
@@ -70,6 +72,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const [shareLocation, setShareLocation] = useState(true); //state for share location
   const [twoFactor, setTwoFactor] = useState(false);
   const { darkMode, setDarkMode } = useTheme(); //global theme data
+  const { language, setLanguage, t } = useLanguage(); //global language/translation data
   const [systemNotifications, setSystemNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [smsAlerts, setSmsAlerts] = useState(false);
@@ -80,7 +83,6 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
 
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
 
   console.log("USER:", user); // Log the user from UserContext when logged in.
   
@@ -186,10 +188,10 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   );
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', onPress: () => {} }, //if cancel do nothing
+    Alert.alert(t('settings.logoutConfirmTitle'), t('settings.logoutConfirmMessage'), [
+      { text: t('common.cancel'), onPress: () => {} }, //if cancel do nothing
       {
-        text: 'Logout',
+        text: t('settings.logoutConfirmTitle'),
         onPress: () => {
           logout();
           router.replace('/login');
@@ -202,7 +204,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync(); //asks fo device permission to access
 
     if (!permission.granted) {
-      Alert.alert('Permission Required', 'Please allow gallery access.');
+      Alert.alert(t('settings.permissionRequiredTitle'), t('settings.permissionRequiredMessage'));
       return;
     }
 
@@ -220,7 +222,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
   const uploadProfileImage = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!user?.token) {
-      Alert.alert('Login Required', 'Please log in again before updating your profile photo.');
+      Alert.alert(t('settings.loginRequiredTitle'), t('settings.loginRequiredMessage'));
       return;
     }
 
@@ -264,8 +266,8 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
       console.error('Profile photo upload failed:', error);
       setProfileImage(previousImage);
       Alert.alert(
-        'Upload Failed',
-        error instanceof Error ? error.message : 'Could not upload the selected photo.'
+        t('settings.uploadFailedTitle'),
+        error instanceof Error ? error.message : t('settings.uploadFailedMessage')
       );
     } finally {
       setIsUploadingPhoto(false);
@@ -287,7 +289,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
       {isLoadingProfile && ( 
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
           <ActivityIndicator size="large" color="#0066FF" />
-          <Text style={{ marginTop: 10, color: theme.text }}>Loading profile...</Text>
+          <Text style={{ marginTop: 10, color: theme.text }}>{t('settings.loadingProfile')}</Text>
         </View>
       )}
 
@@ -301,7 +303,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
             style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#0066FF', borderRadius: 8 }}
             onPress={fetchDriverProfile}
           >
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>Retry</Text>
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -319,7 +321,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
             </TouchableOpacity>
 
             <Text style={styles.headerTitle} numberOfLines={1}>
-              Profile & Settings
+              {t('settings.headerTitle')}
             </Text>
 
             <View style={styles.headerSide} />
@@ -352,13 +354,13 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               <Text style={styles.profileName} numberOfLines={1}>
                 {driverName}
               </Text>
-              <Text style={styles.profileId}>ID: DRV-{driverId}</Text>
+              <Text style={styles.profileId}>{t('settings.idPrefix', { id: String(driverId ?? '') })}</Text>
             </View>
           </View>
 
           <View style={styles.card}>
             <View style={styles.completionHeader}>
-              <Text style={styles.sectionTitle}>Profile Completion</Text>
+              <Text style={styles.sectionTitle}>{t('settings.profileCompletion')}</Text>
               <Text style={styles.completionPercent}>{profileCompletion}%</Text>
             </View>
 
@@ -378,7 +380,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                     styles.completionTabText,
                   ]}
                 >
-                  License
+                  {t('settings.tabLicense')}
                 </Text>
               </View>
 
@@ -397,7 +399,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                     styles.completionTabText,
                   ]}
                 >
-                  Background
+                  {t('settings.tabBackground')}
                 </Text>
               </View>
 
@@ -415,21 +417,21 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                     styles.completionTabText,
                   ]}
                 >
-                  Profile
+                  {t('settings.tabProfile')}
                 </Text>
               </View>
             </View>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Professional Details</Text>
+            <Text style={styles.sectionTitle}>{t('settings.professionalDetails')}</Text>
 
             <View style={styles.detailItem}>
               <View style={styles.detailIcon}>
                 <MaterialCommunityIcons name="pencil" size={16} color="#0066FF" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Full Name</Text>
+                <Text style={styles.detailLabel}>{t('settings.fullName')}</Text>
                 <Text style={styles.detailValue} numberOfLines={1}>
                   {driverName}
                 </Text>
@@ -441,7 +443,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                 <MaterialCommunityIcons name="email" size={16} color="#0066FF" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>E-mail Address</Text>
+                <Text style={styles.detailLabel}>{t('settings.emailAddress')}</Text>
                 <Text style={styles.detailValue} numberOfLines={1}>
                   {driverEmail}
                 </Text>
@@ -451,14 +453,14 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
             <TouchableOpacity
               style={styles.detailItem}
               onPress={() =>
-                Alert.alert('Change Password', 'Password change screen loading...')
+                Alert.alert(t('settings.changePassword'), t('settings.changePasswordAlertMessage'))
               }
             >
               <View style={styles.detailIcon}>
                 <MaterialCommunityIcons name="lock" size={16} color="#0066FF" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Change Password</Text>
+                <Text style={styles.detailLabel}>{t('settings.changePassword')}</Text>
                 <Text style={styles.detailValue}>••••••••••</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999"/>
@@ -469,7 +471,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                 <MaterialCommunityIcons name="phone" size={16} color="#0066FF" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Mobile Number</Text>
+                <Text style={styles.detailLabel}>{t('settings.mobileNumber')}</Text>
                 <Text style={styles.detailValue}>{phoneNumber}</Text>
               </View>
             </View>
@@ -479,7 +481,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                 <MaterialCommunityIcons name="card-account-details" size={16} color="#0066FF" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>License Number</Text>
+                <Text style={styles.detailLabel}>{t('settings.licenseNumber')}</Text>
                 <Text style={styles.detailValue}>{licenseNumber}</Text>
               </View>
             </View>
@@ -489,12 +491,12 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                 <MaterialCommunityIcons name="calendar" size={16} color="#0066FF" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>License Expiry</Text>
+                <Text style={styles.detailLabel}>{t('settings.licenseExpiry')}</Text>
                 <View style={styles.expiryContainer}>
                   <Text style={styles.detailValue}>{licenceExpiry}</Text>
                   <View style={[styles.validBadge, isLicenseExpired(profileData?.licenceExpiry) ? styles.expiredBadge : styles.validBadgeStyle]}>
                     <Text style={[styles.validText, isLicenseExpired(profileData?.licenceExpiry) ? styles.expiredText : {}]}>
-                      {isLicenseExpired(profileData?.licenceExpiry) ? 'Expired' : 'Valid'}
+                      {isLicenseExpired(profileData?.licenceExpiry) ? t('settings.expired') : t('settings.valid')}
                     </Text>
                   </View>
                 </View>
@@ -506,8 +508,8 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                 <MaterialCommunityIcons name="calendar" size={16} color="#0066FF" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Joined Date</Text>
-                <Text style={styles.detailValue}>{profileData?.joinedDate || 'N/A'}</Text>
+                <Text style={styles.detailLabel}>{t('settings.joinedDate')}</Text>
+                <Text style={styles.detailValue}>{profileData?.joinedDate || t('common.notAvailable')}</Text>
               </View>
             </View>
 
@@ -516,21 +518,21 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                 <MaterialCommunityIcons name="briefcase" size={16} color="#0066FF" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Experience</Text>
-                <Text style={styles.detailValue}>{profileData?.yearsOfExperience || 0} Years</Text>
+                <Text style={styles.detailLabel}>{t('settings.experience')}</Text>
+                <Text style={styles.detailValue}>{t('settings.experienceYears', { count: profileData?.yearsOfExperience || 0 })}</Text>
               </View>
             </View>
           </View>
           
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Bank Details</Text>
+            <Text style={styles.sectionTitle}>{t('settings.bankDetails')}</Text>
             <View style={styles.detailItem}>
               <View style={styles.detailIcon}>
                 <MaterialCommunityIcons name="card-account-details" size={16} color="#0066FF" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Bank Account Number</Text>
-                <Text style={styles.detailValue}>{profileData?.accountNumber || 'N/A'}</Text>
+                <Text style={styles.detailLabel}>{t('settings.bankAccountNumber')}</Text>
+                <Text style={styles.detailValue}>{profileData?.accountNumber || t('common.notAvailable')}</Text>
               </View>
             </View>
 
@@ -539,54 +541,54 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                 <MaterialCommunityIcons name="bank" size={16} color="#0066FF" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Bank Name</Text>
-                <Text style={styles.detailValue}>{profileData?.bankName || 'N/A'}</Text>
+                <Text style={styles.detailLabel}>{t('settings.bankName')}</Text>
+                <Text style={styles.detailValue}>{profileData?.bankName || t('common.notAvailable')}</Text>
               </View>
             </View>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Current Assignment</Text>
+            <Text style={styles.sectionTitle}>{t('settings.currentAssignment')}</Text>
             <View style={styles.assignmentItem}>
               <MaterialCommunityIcons name="bus" size={20} color="#0066FF" />
               <View style={styles.assignmentContent}>
-                <Text style={styles.detailLabel}>Bus Information</Text>
+                <Text style={styles.detailLabel}>{t('settings.busInformation')}</Text>
                 <Text style={styles.assignmentValue}>
                   {assignment
                     ? `${assignment.busNumber} (${assignment.busBrand})` //$ combines the two variables to be displayed
-                    : 'No active assignment'}
+                    : t('settings.noActiveAssignment')}
                 </Text>
                 <Text style={styles.assignmentValue}>
-                  {assignment?.registrationNumber ?? 'N/A'}
-                </Text>       
+                  {assignment?.registrationNumber ?? t('common.notAvailable')}
+                </Text>
               </View>
             </View>
 
             <View style={[styles.assignmentItem, styles.lastItem]}>
               <MaterialCommunityIcons name="map-marker" size={20} color="#0066FF" />
               <View style={styles.assignmentContent}>
-                <Text style={styles.detailLabel}>Route</Text>
+                <Text style={styles.detailLabel}>{t('settings.route')}</Text>
                 <Text style={styles.assignmentValue}>
-                  {assignment?.routeName ?? 'No route assigned'}
+                  {assignment?.routeName ?? t('settings.noRouteAssigned')}
                   </Text>
                   <Text style={styles.assignmentValue}>
-                  Route ID: {assignment?.routeId ?? 'N/A'}
+                  {t('settings.routeIdPrefix', { id: assignment?.routeId ?? t('common.notAvailable') })}
                   </Text>
               </View>
             </View>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Ratings</Text>
-            <TouchableOpacity style={styles.rowButton} onPress={() => Alert.alert('Your reviews and feedback will appear here...')}>
+            <Text style={styles.sectionTitle}>{t('settings.feedback')}</Text>
+            <TouchableOpacity style={styles.rowButton} onPress={() => router.push('/reviews-and-ratings')}>
               <MaterialCommunityIcons name="star-half" size={20} color="#0066FF" />
-              <Text style={styles.rowButtonText}>Reviews and Feedback</Text>
+              <Text style={styles.rowButtonText}>{t('settings.ratingsAndComplaints')}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Settings</Text>
+            <Text style={styles.sectionTitle}>{t('settings.settingsTitle')}</Text>
             <TouchableOpacity
               style={styles.rowButton}
               onPress={() =>
@@ -595,21 +597,21 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
             >
               <MaterialCommunityIcons name="translate" size={20} color="#0066FF" />
               <View style={styles.settingContent}>
-                <Text style={styles.settingLabel}>Language</Text>
-                <Text style={styles.settingValue}>{selectedLanguage}</Text>
+                <Text style={styles.settingLabel}>{t('settings.language')}</Text>
+                <Text style={styles.settingValue}>{LANGUAGE_NAMES[language]}</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Privacy</Text>
+            <Text style={styles.sectionTitle}>{t('settings.privacy')}</Text>
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons name="map-marker" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>Share Location</Text>
-                  <Text style={styles.switchDescription}>Required for tracking</Text>
+                  <Text style={styles.switchLabel}>{t('settings.shareLocation')}</Text>
+                  <Text style={styles.switchDescription}>{t('settings.requiredForTracking')}</Text>
                 </View>
               </View>
               <Switch
@@ -624,7 +626,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons name="shield-account" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>Two-Factor Authentication</Text>
+                  <Text style={styles.switchLabel}>{t('settings.twoFactorAuth')}</Text>
                 </View>
               </View>
               <Switch
@@ -637,35 +639,35 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Support & Legal</Text>
+            <Text style={styles.sectionTitle}>{t('settings.supportAndLegal')}</Text>
 
-            <TouchableOpacity style={styles.supportItem} onPress={() => Alert.alert('Help & Support', 'Loading help and support information...')}>
+            <TouchableOpacity style={styles.supportItem} onPress={() => Alert.alert(t('settings.helpAndSupport'), t('settings.helpAndSupportLoading'))}>
               <MaterialCommunityIcons name="help-circle" size={20} color="#0066FF" />
-              <Text style={styles.rowButtonText}>Help & Support</Text>
+              <Text style={styles.rowButtonText}>{t('settings.helpAndSupport')}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.supportItem}  onPress={() => Alert.alert('Privacy Policy', 'Loading privacy policy...')}>
+            <TouchableOpacity style={styles.supportItem}  onPress={() => Alert.alert(t('settings.privacyPolicy'), t('settings.privacyPolicyLoading'))}>
               <MaterialCommunityIcons name="lock" size={20} color="#0066FF" />
-              <Text style={styles.rowButtonText}>Privacy Policy</Text>
+              <Text style={styles.rowButtonText}>{t('settings.privacyPolicy')}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.supportItem} onPress={() => Alert.alert('Terms & Conditions', 'Loading terms...')}>
+            <TouchableOpacity style={styles.supportItem} onPress={() => Alert.alert(t('settings.termsAndConditions'), t('settings.termsLoading'))}>
               <MaterialCommunityIcons name="file-document" size={20} color="#0066FF" />
-              <Text style={styles.rowButtonText}>Terms & Conditions</Text>
+              <Text style={styles.rowButtonText}>{t('settings.termsAndConditions')}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.supportItem, styles.lastItem]} onPress={() => Alert.alert('About Us', 'Loading company info...')}>
+            <TouchableOpacity style={[styles.supportItem, styles.lastItem]} onPress={() => Alert.alert(t('settings.aboutUs'), t('settings.aboutUsLoading'))}>
               <MaterialCommunityIcons name="information" size={20} color="#0066FF" />
-              <Text style={styles.rowButtonText}>About Us</Text>
+              <Text style={styles.rowButtonText}>{t('settings.aboutUs')}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Preferences</Text>
+            <Text style={styles.sectionTitle}>{t('settings.preferences')}</Text>
             <View style={[styles.switchRow, styles.lastItem]}>
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons
@@ -674,7 +676,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                   color="#0066FF"
                 />
                 <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>Light/Dark Mode</Text>
+                  <Text style={styles.switchLabel}>{t('settings.lightDarkMode')}</Text>
                 </View>
               </View>
               <Switch
@@ -687,13 +689,13 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Notifications</Text>
+            <Text style={styles.sectionTitle}>{t('settings.notifications')}</Text>
 
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons name="bell" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>System Notifications</Text>
+                  <Text style={styles.switchLabel}>{t('settings.systemNotifications')}</Text>
                 </View>
               </View>
               <Switch
@@ -708,7 +710,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons name="message-alert" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>Push Notifications</Text>
+                  <Text style={styles.switchLabel}>{t('settings.pushNotifications')}</Text>
                 </View>
               </View>
               <Switch
@@ -723,7 +725,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons name="message-text" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>SMS Alerts</Text>
+                  <Text style={styles.switchLabel}>{t('settings.smsAlerts')}</Text>
                 </View>
               </View>
               <Switch
@@ -738,7 +740,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons name="email" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>Email Updates</Text>
+                  <Text style={styles.switchLabel}>{t('settings.emailUpdates')}</Text>
                 </View>
               </View>
               <Switch
@@ -753,7 +755,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons name="calendar" size={20} color="#0066FF" />
                 <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>Booking Updates</Text>
+                  <Text style={styles.switchLabel}>{t('settings.bookingUpdates')}</Text>
                 </View>
               </View>
               <Switch
@@ -767,7 +769,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={20} color= '#FFF' />
-            <Text style={styles.logoutText}>Log Out</Text>
+            <Text style={styles.logoutText}>{t('settings.logOut')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -780,20 +782,20 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}> 
             <Text style={styles.modalTitle}>
-              Choose Language
+              {t('settings.chooseLanguage')}
             </Text>
-            {['English', 'Sinhala', 'Tamil'].map((language) => (
+            {LANGUAGE_CODES.map((code) => (
               <TouchableOpacity
-                key={language}
+                key={code}
                 style={styles.languageOption}
                 onPress={() => {
-                  setSelectedLanguage(language);
+                  setLanguage(code);
                   //setLanguageModalVisible(false);
                 }}
               >
                 <Text style={styles.languageText}>
-                  {language}
-                  {selectedLanguage === language && (
+                  {LANGUAGE_NAMES[code]}
+                  {language === code && (
                 <MaterialCommunityIcons
                   name="check"
                   size={20}
@@ -808,7 +810,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               <TouchableOpacity
                 onPress={() => setLanguageModalVisible(false)}
               >
-                <Text style={styles.okText}>OK</Text>
+                <Text style={styles.okText}>{t('common.ok')}</Text>
               </TouchableOpacity>
             </View>
           </View>

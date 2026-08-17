@@ -98,6 +98,15 @@ public class ComplaintServiceImpl implements ComplaintService {
             .toList();
     }
 
+    /** Returns the complaints filed against the given driver, newest first. */
+    @Override
+    public List<ComplaintDto> getForDriver(Long driverId) {
+        return repository.findByDriverId(driverId)
+            .stream()
+            .map(this::toDto)
+            .toList();
+    }
+
     /** Updates complaint fields and keeps the resolved timestamp consistent with the status. */
     @Override
     public ComplaintDto update(Long id, ComplaintDto dto) {
@@ -391,6 +400,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setResolvedAt(entity.getResolvedAt());
         dto.setPassengerId(entity.getPassengerId());
+        dto.setDriverId(entity.getDriverId());
         return dto;
     }
 }

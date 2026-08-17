@@ -58,6 +58,13 @@ public class ComplaintController {
         return ApiResponse.ok("Fetched", service.getMine(email));
     }
 
+    /** Returns the complaints filed against the given driver. */
+    @GetMapping("/driver/{driverId:\\d+}")
+    @PreAuthorize("hasRole('DRIVER')")
+    public ApiResponse<List<ComplaintDto>> getForDriver(@PathVariable Long driverId) {
+        return ApiResponse.ok("Fetched", service.getForDriver(driverId));
+    }
+
     /** Returns a single complaint for admin users. */
     @GetMapping("/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")

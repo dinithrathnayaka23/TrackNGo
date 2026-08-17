@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faArrowRight,
@@ -180,9 +180,9 @@ function Login() {
               />
               <span className="font-semibold">Remember Device</span>
             </label>
-            <a href="#" className="font-semibold text-[#129a8f]">
+            <Link to="/forgot-password" className="font-semibold text-[#129a8f]">
               Recovery Password?
-            </a>
+            </Link>
           </div>
 
           <button

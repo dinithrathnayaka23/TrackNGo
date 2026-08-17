@@ -12,6 +12,7 @@ import type { ChatMessage } from "../types/chat";
 import { resolveAssetUrl } from "../utils/media";
 import { LocalizedText as Text } from "../utils/i18n";
 import { formatTime, statusTick } from "../utils/chat";
+import { GOOGLE_MAPS_API_KEY } from "../config/env";
 
 /* ── waveform data ─────────────────────────────────────────────── */
 const WAVE_HEIGHTS = [
@@ -129,7 +130,7 @@ export function MessageBubble({
   const renderLocation = () => {
     const lat = message.latitude!;
     const lng = message.longitude!;
-    const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=400x200&markers=color:red%7C${lat},${lng}&key=`;
+    const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=400x200&markers=color:red%7C${lat},${lng}&key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}`;
     const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
 
     return (

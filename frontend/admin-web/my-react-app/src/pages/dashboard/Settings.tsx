@@ -19,7 +19,7 @@ import {
   type EmergencyNumber,
   type SaveEmergencyNumberRequest,
 } from '../../services/emergencyNumberService'
-import ProfilePictureUpload from '../../components/ProfilePictureUpload.jsx'
+import AdminProfileCard from '../../components/AdminProfileCard'
 
 const emptyForm: SaveEmergencyNumberRequest = {
   label: '',
@@ -180,7 +180,7 @@ function Settings() {
         </div>
 
         <section className="animate-dash-in grid gap-4 sm:grid-cols-2 xl:grid-cols-3" style={{ animationDelay: '100ms' }}>
-          <article className="dashboard-card rounded-xl border border-[#e5e7eb] bg-white p-5">
+          <article className="dashboard-card h-full rounded-xl border border-[#e5e7eb] bg-white p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[#eef2ff] text-[#2642a6]">
                 <FontAwesomeIcon icon={faPhoneVolume} />
@@ -207,8 +207,8 @@ function Settings() {
             </button>
           </article>
 
-          <div id="profile-section" className="scroll-mt-24">
-            <ProfilePictureUpload />
+          <div id="profile-section" className="h-full scroll-mt-24">
+            <AdminProfileCard />
           </div>
         </section>
       </div>

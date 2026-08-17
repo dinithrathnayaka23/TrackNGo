@@ -199,14 +199,14 @@ function Login() {
         <div className="animate-auth-fade-up mt-8 border-t border-[#dde0e7] pt-8 text-center" style={{ animationDelay: '420ms' }}>
           <p className="text-sm font-semibold text-[#4d5564]">
             New administrator profile required?{' '}
-            <a href="#" className="text-[#129a8f]">
+            <Link to="/signup" className="text-[#129a8f]">
               Sign Up
-            </a>
+            </Link>
           </p>
 
           <div className="mt-8 flex justify-center gap-16 text-sm font-semibold text-[#a3a9b5]">
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms of Service</a>
+            <Link to="/privacy-policy">Privacy Policy</Link>
+            <Link to="/terms-of-service">Terms of Service</Link>
           </div>
         </div>
       </div>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TrackNGo bus icon">
+  <rect width="64" height="64" rx="16" fill="#2642a6"/>
+  <path fill="#fff" d="M16 17.5C16 13.91 18.91 11 22.5 11h19C45.09 11 48 13.91 48 17.5v25c0 2.76-2.24 5-5 5h-1.5v3a3.5 3.5 0 0 1-7 0v-3h-6v3a3.5 3.5 0 0 1-7 0v-3H21c-2.76 0-5-2.24-5-5v-25Z"/>
+  <rect x="20" y="16" width="24" height="15" rx="2.5" fill="#c7d2fe"/>
+  <path fill="#2642a6" d="M22 18h8v11h-8zM34 18h8v11h-8z"/>
+  <rect x="19" y="34" width="26" height="3" rx="1.5" fill="#2642a6"/>
+  <circle cx="25" cy="43" r="3" fill="#2642a6"/>
+  <circle cx="39" cy="43" r="3" fill="#2642a6"/>
+</svg>

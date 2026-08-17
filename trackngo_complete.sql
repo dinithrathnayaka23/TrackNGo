@@ -44,6 +44,7 @@ CREATE TABLE roles (
 CREATE TABLE admin (
     admin_id BIGINT PRIMARY KEY,
     phone_number VARCHAR(20) UNIQUE NOT NULL,
+    profile_photo TEXT,
     `role` ENUM('super_admin', 'moderator') DEFAULT 'moderator',
     status ENUM('active', 'inactive') DEFAULT 'active',
 

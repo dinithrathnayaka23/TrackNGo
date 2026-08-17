@@ -3,6 +3,7 @@ package com.trackngo.app.service;
 import com.trackngo.app.dto.UserProfileDto;
 import com.trackngo.app.dto.ChangePasswordRequest;
 import com.trackngo.app.dto.UpdateUserProfileRequest;
+import com.trackngo.auth.internal.repository.UserRepository;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,7 @@ public class UserProfileService {
                 TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS full_name,
                 COALESCE(p.mobile_number, d.phone_number, cu.contact_phone, a.phone_number) AS phone_number,
                 u.email AS email,
-                COALESCE(p.profile_photo, d.profile_photo, cu.profile_photo) AS profile_photo,
+                COALESCE(p.profile_photo, d.profile_photo, cu.profile_photo, a.profile_photo) AS profile_photo,
                 cu.company_name AS company_name,
                 cu.contact_person_name AS contact_person_name,
                 cu.contact_phone AS contact_phone,
@@ -45,6 +46,16 @@ public class UserProfileService {
 
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
+
+    public UserProfileDto getCurrentProfile() {
+        return getProfile(getAuthenticatedUserId());
+    }
+
+    @Transactional
+    public UserProfileDto updateCurrentProfile(UpdateUserProfileRequest request) {
+        return updateProfile(getAuthenticatedUserId(), request);
+    }
 
     public UserProfileDto getProfile(Long userId) {
         return jdbcTemplate.query(PROFILE_SQL, rs -> {
@@ -120,9 +131,12 @@ public class UserProfileService {
                         phone,
                         userId
                 );
-                default -> {
-                    // Admin phone numbers are maintained by the admin module.
-                }
+                case "admin" -> jdbcTemplate.update(
+                        "UPDATE admin SET phone_number = ? WHERE admin_id = ?",
+                        phone,
+                        userId
+                );
+                default -> { }
             }
         }
 
@@ -140,9 +154,11 @@ public class UserProfileService {
                         "UPDATE corporate_user SET profile_photo = ? WHERE corporate_user_id = ?",
                         clean(request.profilePhoto()), userId
                 );
-                default -> {
-                    // Admin profile photos are not stored in the shared profile tables.
-                }
+                case "admin" -> jdbcTemplate.update(
+                        "UPDATE admin SET profile_photo = ? WHERE admin_id = ?",
+                        clean(request.profilePhoto()), userId
+                );
+                default -> { }
             }
         }
 
@@ -222,5 +238,18 @@ public class UserProfileService {
             case "admin" -> "ADMIN";
             default -> userType.trim().toUpperCase();
         };
+    }
+
+    private Long getAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication.getName() == null
+                || "anonymousUser".equals(authentication.getName())) {
+            throw new BusinessException("You must be logged in to view your profile.");
+        }
+
+        return userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."))
+                .getId();
     }
 }

@@ -2,6 +2,7 @@
 package com.trackngo.auth.internal.controller;
 
 import com.trackngo.auth.api.AuthService;
+import com.trackngo.auth.api.dto.AdminRegisterRequest;
 import com.trackngo.auth.api.dto.AuthRequest;
 import com.trackngo.auth.api.dto.AuthResponse;
 import com.trackngo.commons.ApiResponse;
@@ -24,6 +25,12 @@ public class AuthController {
     @PostMapping("/register")
     public ApiResponse<AuthResponse> register(@Valid @RequestBody AuthRequest request) {
         return ApiResponse.ok("Registration successful", authService.register(request));
+    }
+
+    @PostMapping("/register-admin")
+    public ApiResponse<Void> registerAdmin(@Valid @RequestBody AdminRegisterRequest request) {
+        authService.registerAdmin(request);
+        return ApiResponse.ok("Admin registration successful. You can now log in.");
     }
 }
 

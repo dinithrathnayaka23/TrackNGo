@@ -2,10 +2,13 @@
 package com.trackngo.auth.internal.service;
 
 import com.trackngo.auth.api.AuthService;
+import com.trackngo.auth.api.dto.AdminRegisterRequest;
 import com.trackngo.auth.api.dto.AuthRequest;
 import com.trackngo.auth.api.dto.AuthResponse;
 import com.trackngo.auth.events.UserRegisteredEvent;
+import com.trackngo.auth.internal.entity.Admin;
 import com.trackngo.auth.internal.entity.User;
+import com.trackngo.auth.internal.repository.AdminRepository;
 import com.trackngo.auth.internal.repository.UserRepository;
 import com.trackngo.commons.events.EventPublisher;
 import com.trackngo.commons.exception.BusinessException;
@@ -20,6 +23,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
+    private final AdminRepository adminRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EventPublisher eventPublisher;
@@ -65,6 +69,52 @@ public class AuthServiceImpl implements AuthService {
         eventPublisher.publish(new UserRegisteredEvent(saved.getId()));
         String token = jwtUtil.generateToken(saved.getEmail(), Map.of("role", saved.getUserType(), "userType", saved.getUserType()));
         return new AuthResponse(token, saved.getId(), saved.getUserType(), saved.getEmail(), saved.getFirstName(), saved.getLastName());
+    }
+
+    @Override
+    public void registerAdmin(AdminRegisterRequest request) {
+        String email = request.getEmail().trim();
+        String phone = request.getPhone().trim();
+        String employeeId = request.getEmployeeId().trim();
+
+        userRepository.findByEmail(email).ifPresent(existing -> {
+            if ("admin".equalsIgnoreCase(existing.getUserType())) {
+                throw new BusinessException("This email is already registered as an admin. Please log in instead.");
+            }
+            throw new BusinessException("This email is already associated with another account.");
+        });
+
+        if (adminRepository.existsByPhoneNumber(phone)) {
+            throw new BusinessException("This phone number is already registered to an admin account.");
+        }
+
+        if (adminRepository.existsByEmployeeId(employeeId)) {
+            throw new BusinessException("This Employee ID is already registered.");
+        }
+
+        String[] nameParts = request.getFullName().trim().split("\\s+", 2);
+        String firstName = nameParts[0];
+        String lastName = nameParts.length > 1 ? nameParts[1] : null;
+
+        User user = new User();
+        user.setFirstName(firstName);
+        user.setLastName(lastName);
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setUserType("admin");
+        user.setIsActive(true);
+        user.setIsEmailVerified(false);
+        User savedUser = userRepository.save(user);
+
+        Admin admin = new Admin();
+        admin.setAdminId(savedUser.getId());
+        admin.setPhoneNumber(phone);
+        admin.setEmployeeId(employeeId);
+        admin.setRole("moderator");
+        admin.setStatus("active");
+        adminRepository.save(admin);
+
+        eventPublisher.publish(new UserRegisteredEvent(savedUser.getId()));
     }
 
     private String normalizeUserType(String userType) {

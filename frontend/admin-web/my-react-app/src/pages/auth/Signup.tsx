@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faArrowRight,
@@ -11,6 +11,7 @@ import {
   faUser,
 } from '@fortawesome/free-solid-svg-icons'
 import AuthLayout from '../../components/layout/AuthLayout'
+import authService from '../../services/authService'
 
 type SignupForm = {
   fullName: string
@@ -142,6 +143,7 @@ function validateSignup(form: SignupForm, agreePolicy: boolean): SignupErrors {
 }
 
 function Signup() {
+  const navigate = useNavigate()
   const [showPasswords, setShowPasswords] = useState(false)
   const [agreePolicy, setAgreePolicy] = useState(true)
   const [form, setForm] = useState<SignupForm>({
@@ -153,6 +155,9 @@ function Signup() {
     confirmPassword: '',
   })
   const [errors, setErrors] = useState<SignupErrors>({})
+  const [loading, setLoading] = useState(false)
+  const [apiError, setApiError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
   const passwordStrength = getPasswordStrength(form.password)
   const securityLabel =
@@ -168,6 +173,33 @@ function Signup() {
     setErrors((current) => ({ ...current, [field]: fieldErrors[field] }))
   }
 
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setApiError('')
+    setSuccessMessage('')
+
+    const validationErrors = validateSignup(form, agreePolicy)
+    setErrors(validationErrors)
+    if (Object.keys(validationErrors).length > 0) return
+
+    setLoading(true)
+    try {
+      await authService.registerAdmin({
+        fullName: form.fullName,
+        employeeId: form.employeeId,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+      })
+      setSuccessMessage('Registration successful. Redirecting to login...')
+      setTimeout(() => navigate('/login'), 1500)
+    } catch (error: any) {
+      setApiError(error.message || 'Registration failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <AuthLayout>
       <div className="w-full max-w-[680px]">
@@ -176,14 +208,21 @@ function Signup() {
           Access your centralized transport control panel.
         </p>
 
+        {apiError && (
+          <div className="animate-auth-fade-up mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+            {apiError}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="animate-auth-fade-up mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-600">
+            {successMessage}
+          </div>
+        )}
+
         <form
           className="mt-8 space-y-6"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const validationErrors = validateSignup(form, agreePolicy)
-            setErrors(validationErrors)
-            if (Object.keys(validationErrors).length > 0) return
-          }}
+          onSubmit={handleSubmit}
           noValidate
         >
           <div className="animate-auth-fade-up grid grid-cols-1 gap-5 sm:grid-cols-2" style={{ animationDelay: '160ms' }}>
@@ -350,11 +389,12 @@ function Signup() {
 
           <button
             type="submit"
-            className="animate-auth-fade-up flex h-10 w-full items-center justify-center gap-4 rounded-xl bg-[#2342a6] text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#1f3a93] hover:shadow-[0_12px_26px_rgba(35,66,166,0.34)]"
+            disabled={loading}
+            className="animate-auth-fade-up flex h-10 w-full items-center justify-center gap-4 rounded-xl bg-[#2342a6] text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#1f3a93] hover:shadow-[0_12px_26px_rgba(35,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ animationDelay: '380ms' }}
           >
-            Submit Registration
-            <FontAwesomeIcon icon={faArrowRight} />
+            {loading ? 'Submitting...' : 'Submit Registration'}
+            {!loading && <FontAwesomeIcon icon={faArrowRight} />}
           </button>
 
           <p className="animate-auth-fade-up text-center text-sm font-medium text-[#666f80]" style={{ animationDelay: '440ms' }}>

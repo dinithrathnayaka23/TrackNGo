@@ -28,6 +28,7 @@ interface DriverRouteMapProps {
   liveBusLocation: DriverLiveBusLocation | null;
   loading: boolean;
   darkMode: boolean;
+  showStopMarkers?: boolean;
 }
 
 const DEFAULT_REGION: Region = {
@@ -55,6 +56,7 @@ export default function DriverRouteMap({
   liveBusLocation,
   loading,
   darkMode,
+  showStopMarkers = true,
 }: DriverRouteMapProps) {
   const mapRef = useRef<MapView>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -139,11 +141,12 @@ export default function DriverRouteMap({
           coordinates={routeCoordinates}
           strokeColor="#2563EB"
           strokeWidth={5}
+          zIndex={1}
           geodesic
         />
       ) : null}
 
-      {routeStops.map((stop, index) => {
+      {showStopMarkers && routeStops.map((stop, index) => {
         const isStart = index === 0;
         const isEnd = index === routeStops.length - 1;
 
@@ -152,16 +155,28 @@ export default function DriverRouteMap({
             key={`${stop.name}-${index}`}
             coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
             title={stop.name}
-            anchor={{ x: 0.5, y: 0.5 }}
+            anchor={{ x: 0.5, y: 1 }}
+            zIndex={10 + routeStops.length - index}
           >
             <View
               collapsable={false}
-              style={[
-                styles.stopMarker,
-                isStart && styles.startMarker,
-                isEnd && styles.endMarker,
-              ]}
-            />
+              style={styles.stopPin}
+            >
+              <View
+                style={[
+                  styles.stopMarker,
+                  isStart && styles.startMarker,
+                  isEnd && styles.endMarker,
+                ]}
+              />
+              <View
+                style={[
+                  styles.stopPointer,
+                  isStart && styles.startPointer,
+                  isEnd && styles.endPointer,
+                ]}
+              />
+            </View>
           </Marker>
         );
       })}
@@ -232,21 +247,49 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '700',
   },
+  stopPin: {
+    width: 28,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
   stopMarker: {
-    width: 13,
-    height: 13,
-    borderRadius: 7,
-    backgroundColor: '#FFFFFF',
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    backgroundColor: '#2563EB',
     borderWidth: 3,
-    borderColor: '#2563EB',
+    borderColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.35,
+    shadowRadius: 2,
+    elevation: 5,
+  },
+  stopPointer: {
+    width: 0,
+    height: 0,
+    marginTop: -1,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#2563EB',
   },
   startMarker: {
     backgroundColor: '#22C55E',
     borderColor: '#FFFFFF',
   },
+  startPointer: {
+    borderTopColor: '#22C55E',
+  },
   endMarker: {
     backgroundColor: '#EF4444',
     borderColor: '#FFFFFF',
+  },
+  endPointer: {
+    borderTopColor: '#EF4444',
   },
   busMarker: {
     width: 34,

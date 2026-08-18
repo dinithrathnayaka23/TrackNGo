@@ -21,6 +21,7 @@ interface DriverRouteMapProps {
   liveBusLocation: DriverLiveBusLocation | null;
   loading: boolean;
   darkMode: boolean;
+  showStopMarkers?: boolean;
 }
 
 export default function DriverRouteMap({

@@ -41,8 +41,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
-		LEFT JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
-			AND trip_payment.payment_status = 'success'
+		LEFT JOIN payment trip_payment ON trip_payment.payment_id = (
+			SELECT MAX(latest.payment_id) FROM payment latest
+			WHERE latest.trip_booking_id = tb.trip_booking_id
+			  AND latest.payment_status = 'success'
+		)
 		INNER JOIN `user` u ON u.user_id = tb.passenger_id
 		WHERE u.email = :email
 		  AND tb.booking_status <> 'cancelled'
@@ -94,8 +97,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
-		LEFT JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
-			AND trip_payment.payment_status = 'success'
+		LEFT JOIN payment trip_payment ON trip_payment.payment_id = (
+			SELECT MAX(latest.payment_id) FROM payment latest
+			WHERE latest.trip_booking_id = tb.trip_booking_id
+			  AND latest.payment_status = 'success'
+		)
 		INNER JOIN `user` u ON u.user_id = tb.passenger_id
 		WHERE u.email = :email
 		  AND tb.booking_status <> 'cancelled'
@@ -145,8 +151,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
-		LEFT JOIN payment trip_payment ON trip_payment.trip_booking_id = tb.trip_booking_id
-			AND trip_payment.payment_status = 'success'
+		LEFT JOIN payment trip_payment ON trip_payment.payment_id = (
+			SELECT MAX(latest.payment_id) FROM payment latest
+			WHERE latest.trip_booking_id = tb.trip_booking_id
+			  AND latest.payment_status = 'success'
+		)
 		INNER JOIN `user` u ON u.user_id = tb.passenger_id
 		WHERE u.email = :email
 		  AND (tb.start_date < CURDATE()

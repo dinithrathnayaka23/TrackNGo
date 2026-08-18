@@ -74,7 +74,7 @@ export default function ReviewsAndRatingsScreen() {
 
   const loadData = useCallback(
     async (showLoader = true) => {
-      if (!user?.userId) {
+      if (!user?.userId || !user.token) {
         setRatings([]);
         setComplaints([]);
         setLoading(false);
@@ -86,8 +86,8 @@ export default function ReviewsAndRatingsScreen() {
       setComplaintsError(null);
 
       const [ratingsResult, complaintsResult] = await Promise.allSettled([
-        getDriverRatings(user.userId),
-        getDriverComplaints(user.userId),
+        getDriverRatings(user.userId, user.token),
+        getDriverComplaints(user.userId, user.token),
       ]);
 
       if (ratingsResult.status === "fulfilled") {
@@ -106,7 +106,7 @@ export default function ReviewsAndRatingsScreen() {
 
       setLoading(false);
     },
-    [user?.userId],
+    [user?.token, user?.userId],
   );
 
   useEffect(() => {

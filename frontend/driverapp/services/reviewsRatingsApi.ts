@@ -34,49 +34,81 @@ export interface DriverComplaintDto {
   driverId: number | null;
 }
 
-async function authHeaders(): Promise<Record<string, string>> {
-  const stored = await AsyncStorage.getItem("user");
-  if (!stored) {
-    return {};
+async function authHeaders(token?: string): Promise<Record<string, string>> {
+  let resolvedToken = token?.trim();
+
+  if (!resolvedToken) {
+    const storedUser = await AsyncStorage.getItem("user");
+    if (storedUser) {
+      try {
+        resolvedToken = JSON.parse(storedUser)?.token?.trim();
+      } catch {
+        // Fall through to the legacy token storage key.
+      }
+    }
   }
 
-  const user = JSON.parse(stored);
+  if (!resolvedToken) {
+    resolvedToken = (await AsyncStorage.getItem("token"))?.trim();
+  }
+
   return {
-    Authorization: `Bearer ${user?.token ?? ""}`,
+    ...(resolvedToken ? { Authorization: `Bearer ${resolvedToken}` } : {}),
     "Content-Type": "application/json",
   };
 }
 
+async function readApiResponse<T>(
+  response: Response,
+  message: string,
+): Promise<T> {
+  const body = await response.text();
+  let result: Partial<ApiResponse<T>> = {};
+
+  try {
+    result = body ? (JSON.parse(body) as Partial<ApiResponse<T>>) : {};
+  } catch {
+    // Keep the HTTP status as the useful error when the server returned non-JSON.
+  }
+
+  if (!response.ok || result.success === false) {
+    const detail = result.message?.trim() || body.trim();
+    throw new Error(
+      `${message} (${response.status})${detail ? `: ${detail}` : ""}`,
+    );
+  }
+
+  return result.data as T;
+}
+
 export async function getDriverRatings(
   driverId: number,
+  token?: string,
 ): Promise<DriverTripRatingDto[]> {
-  const headers = await authHeaders();
+  const headers = await authHeaders(token);
   const response = await fetch(apiUrl(`/api/ratings/driver/${driverId}`), {
     method: "GET",
     headers,
   });
 
-  if (!response.ok) {
-    throw new Error("Failed to load driver ratings");
-  }
-
-  const result: ApiResponse<DriverTripRatingDto[]> = await response.json();
-  return result.data ?? [];
+  return (await readApiResponse<DriverTripRatingDto[]>(
+    response,
+    "Failed to load driver ratings",
+  )) ?? [];
 }
 
 export async function getDriverComplaints(
   driverId: number,
+  token?: string,
 ): Promise<DriverComplaintDto[]> {
-  const headers = await authHeaders();
+  const headers = await authHeaders(token);
   const response = await fetch(apiUrl(`/api/complaints/driver/${driverId}`), {
     method: "GET",
     headers,
   });
 
-  if (!response.ok) {
-    throw new Error("Failed to load driver complaints");
-  }
-
-  const result: ApiResponse<DriverComplaintDto[]> = await response.json();
-  return result.data ?? [];
+  return (await readApiResponse<DriverComplaintDto[]>(
+    response,
+    "Failed to load driver complaints",
+  )) ?? [];
 }

@@ -191,8 +191,10 @@ export default function BookingHistoryScreen() {
         </View>
       ) : (
         <ScrollView
+          style={styles.bookingList}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
         >
           {data.map((b) => (
             <BookingCard
@@ -381,12 +383,23 @@ function BookingCard({
 
       {!isUpcoming && b.status.toLowerCase() !== "cancelled" ? (
         <View style={styles.pastActionRow}>
+          <Pressable style={styles.secondaryActionBtn} onPress={onTicket}>
+            <Ionicons name="ticket-outline" size={15} color="#475569" />
+            <Text style={styles.secondaryActionText}>View Ticket</Text>
+          </Pressable>
           <Pressable style={styles.secondaryActionBtn} onPress={onRate}>
             <Ionicons name="star" size={15} color="#475569" />
             <Text style={styles.secondaryActionText}>Rate</Text>
           </Pressable>
           <Pressable style={styles.secondaryActionBtn} onPress={onComplaint}>
             <Text style={styles.secondaryActionText}>Submit Complain</Text>
+          </Pressable>
+        </View>
+      ) : !isUpcoming ? (
+        <View style={styles.pastActionRow}>
+          <Pressable style={styles.secondaryActionBtn} onPress={onTicket}>
+            <Ionicons name="ticket-outline" size={15} color="#475569" />
+            <Text style={styles.secondaryActionText}>View Ticket</Text>
           </Pressable>
         </View>
       ) : null}
@@ -448,6 +461,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   emptyText: { fontSize: 14, color: "#94A3B8", fontWeight: "500" },
 
+  bookingList: { flex: 1 },
   listContent: { paddingHorizontal: 20, paddingBottom: 32, gap: 14 },
 
   card: {

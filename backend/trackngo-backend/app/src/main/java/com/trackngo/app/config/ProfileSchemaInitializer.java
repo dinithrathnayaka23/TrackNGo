@@ -16,6 +16,7 @@ public class ProfileSchemaInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         addColumnIfMissing("admin", "profile_photo", "TEXT NULL");
+        addColumnIfMissing("driver", "bank_name", "VARCHAR(120) NULL");
     }
 
     private void addColumnIfMissing(String tableName, String columnName, String definition) {

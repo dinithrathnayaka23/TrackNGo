@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 const env =
   (globalThis as { process?: { env?: Record<string, string | undefined> } })
@@ -29,10 +30,17 @@ function getAPIBaseUrl(): string {
 
   const devHost = getDevHost();
   if (devHost) {
-    return `http://${devHost}:8080`;
+    const androidEmulatorHost =
+      Platform.OS === 'android' &&
+      (devHost === 'localhost' || devHost === '127.0.0.1')
+        ? '10.0.2.2'
+        : devHost;
+    return `http://${androidEmulatorHost}:8080`;
   }
 
-  return 'http://localhost:8080';
+  return Platform.OS === 'android'
+    ? 'http://10.0.2.2:8080'
+    : 'http://localhost:8080';
 }
 
 export const API_BASE_URL = getAPIBaseUrl();

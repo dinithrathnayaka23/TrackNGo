@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faCalendarDays,
+  faBan,
   faChevronLeft,
   faChevronRight,
+  faCircleCheck,
   faDownload,
   faEllipsisVertical,
   faMagnifyingGlass,
   faSpinner,
 } from '@fortawesome/free-solid-svg-icons'
-import { fetchAdminUsers, type AdminUser } from '../../services/userService'
+import { fetchAdminUsers, updateAdminUserStatus, type AdminUser, type AdminUserStatus } from '../../services/userService'
 
 type Role = 'Passenger' | 'Driver' | 'Corporate' | 'Unknown'
 type Status = 'Active' | 'Suspended' | 'Inactive' | 'Pending' | 'On Leave' | 'Unknown'
@@ -120,6 +122,9 @@ function Users() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionMenu, setActionMenu] = useState<{ userId: string; top: number; right: number } | null>(null)
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
+  const [statusActionError, setStatusActionError] = useState<string | null>(null)
   const pageSize = 50
 
   useEffect(() => {
@@ -163,6 +168,19 @@ function Users() {
     if (page > pageCount) setPage(pageCount)
   }, [page, pageCount])
 
+  useEffect(() => {
+    if (!actionMenu) return
+    const closeMenu = () => setActionMenu(null)
+    document.addEventListener('pointerdown', closeMenu)
+    window.addEventListener('resize', closeMenu)
+    window.addEventListener('scroll', closeMenu, true)
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu)
+      window.removeEventListener('resize', closeMenu)
+      window.removeEventListener('scroll', closeMenu, true)
+    }
+  }, [actionMenu])
+
   const allVisibleSelected = visibleUsers.length > 0 && visibleUsers.every((user) => selectedRows.includes(user.uid))
   const toggleSelection = (uid: string) => {
     setSelectedRows((current) => current.includes(uid) ? current.filter((id) => id !== uid) : [...current, uid])
@@ -182,6 +200,27 @@ function Users() {
   }
   const firstVisible = filteredUsers.length === 0 ? 0 : (page - 1) * pageSize + 1
   const lastVisible = Math.min(page * pageSize, filteredUsers.length)
+
+  const changeUserStatus = async (user: UserRecord, status: AdminUserStatus) => {
+    const userId = Number(user.uid)
+    if (!Number.isInteger(userId)) {
+      setStatusActionError('This user does not have a valid account ID.')
+      setActionMenu(null)
+      return
+    }
+    setStatusActionError(null)
+    setUpdatingUserId(user.uid)
+    try {
+      const updated = await updateAdminUserStatus(userId, status)
+      const mapped = mapUser(updated)
+      if (mapped) setUsers((current) => current.map((item) => item.uid === user.uid ? mapped : item))
+      setActionMenu(null)
+    } catch (requestError) {
+      setStatusActionError(requestError instanceof Error ? requestError.message : 'Could not update user status.')
+    } finally {
+      setUpdatingUserId(null)
+    }
+  }
 
   return (
     <section className="mx-auto w-full max-w-[1320px]">
@@ -208,6 +247,8 @@ function Users() {
         </div>
       </article>
 
+      {statusActionError ? <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">{statusActionError}</p> : null}
+
       <article className="mt-4 overflow-hidden rounded-2xl border border-[#d7deec] bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d7deec] bg-[#f7f9fc] px-4 py-3"><p className="inline-flex items-center gap-3 text-sm font-medium text-[#334155]"><span className="rounded-md bg-[#22449d] px-2 py-0.5 text-xs font-semibold text-white">{selectedRows.length}</span>items selected</p><button type="button" onClick={() => setSelectedRows([])} className="text-sm text-[#64748b]">Clear selection</button></div>
         <div className="overflow-x-auto">
@@ -219,13 +260,27 @@ function Users() {
               {!loading && !error && visibleUsers.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-[#64748b]">No users match the selected filters.</td></tr>}
               {!loading && !error && visibleUsers.map((user) => {
                 const isSelected = selectedRows.includes(user.uid)
-                return <tr key={user.uid} className={`border-b border-[#e9edf4] text-sm ${isSelected ? 'bg-[#f5f8ff]' : 'bg-white'}`}><td className="px-4 py-3"><input type="checkbox" checked={isSelected} onChange={() => toggleSelection(user.uid)} className="h-4 w-4 rounded border-[#bfd0f2] text-[#22449d] focus:ring-[#22449d]" /></td><td className="px-4 py-3"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dbeafe] text-xs font-semibold text-[#1e3a8a]">{user.avatar}</div><div><p className="font-semibold text-[#0f172a]">{user.name}{user.verified ? <span className="ml-2 text-[#2563eb]" title="Email verified">✓</span> : null}</p><p className="text-xs text-[#64748b]">ID: {user.idTag}</p></div></div></td><td className="px-4 py-3"><p className="text-[#334155]">{user.email}</p><p className="text-xs text-[#64748b]">{user.phone}</p></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${roleBadgeClass(user.role)}`}>{user.role}</span></td><td className="px-4 py-3"><span className="inline-flex items-center gap-2 text-[15px] text-[#334155]"><span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(user.status)}`} />{user.status}</span></td><td className="px-4 py-3 text-[#475569]">{formatDate(user.joinedAt)}</td><td className="px-4 py-3 text-right text-[#94a3b8]"><button type="button" onClick={() => navigate(`/dashboard/users/${user.uid}`)} className="rounded p-2 hover:bg-[#eef2f8]" aria-label={`Open ${user.name}`}><FontAwesomeIcon icon={faEllipsisVertical} /></button></td></tr>
+                return <tr key={user.uid} className={`border-b border-[#e9edf4] text-sm ${isSelected ? 'bg-[#f5f8ff]' : 'bg-white'}`}><td className="px-4 py-3"><input type="checkbox" checked={isSelected} onChange={() => toggleSelection(user.uid)} className="h-4 w-4 rounded border-[#bfd0f2] text-[#22449d] focus:ring-[#22449d]" /></td><td className="px-4 py-3"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dbeafe] text-xs font-semibold text-[#1e3a8a]">{user.avatar}</div><div><p className="font-semibold text-[#0f172a]">{user.name}{user.verified ? <span className="ml-2 text-[#2563eb]" title="Email verified">✓</span> : null}</p><p className="text-xs text-[#64748b]">ID: {user.idTag}</p></div></div></td><td className="px-4 py-3"><p className="text-[#334155]">{user.email}</p><p className="text-xs text-[#64748b]">{user.phone}</p></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${roleBadgeClass(user.role)}`}>{user.role}</span></td><td className="px-4 py-3"><span className="inline-flex items-center gap-2 text-[15px] text-[#334155]"><span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(user.status)}`} />{user.status}</span></td><td className="px-4 py-3 text-[#475569]">{formatDate(user.joinedAt)}</td><td className="px-4 py-3 text-right text-[#94a3b8]"><button type="button" onClick={(event) => { event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect(); setActionMenu((current) => current?.userId === user.uid ? null : { userId: user.uid, top: rect.bottom + 6, right: Math.max(12, window.innerWidth - rect.right) }) }} className="rounded p-2 hover:bg-[#eef2f8]" aria-label={`Actions for ${user.name}`} aria-expanded={actionMenu?.userId === user.uid}><FontAwesomeIcon icon={faEllipsisVertical} /></button></td></tr>
               })}
             </tbody>
           </table>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e5eaf3] px-4 py-3 text-sm"><p className="text-[#475569]">Showing <span className="font-semibold text-[#0f172a]">{firstVisible}-{lastVisible} of {filteredUsers.length}</span></p><div className="flex items-center gap-3 text-[#475569]"><span>Rows per page: {pageSize}</span><div className="inline-flex overflow-hidden rounded-md border border-[#cfd8ea]"><button type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="grid h-8 w-8 place-items-center bg-white text-[#475569] disabled:text-[#cbd5e1]" aria-label="Previous page"><FontAwesomeIcon icon={faChevronLeft} /></button><span className="grid h-8 min-w-8 place-items-center bg-[#21409a] px-2 text-white">{page} / {pageCount}</span><button type="button" disabled={page === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))} className="grid h-8 w-8 place-items-center bg-white text-[#475569] disabled:text-[#cbd5e1]" aria-label="Next page"><FontAwesomeIcon icon={faChevronRight} /></button></div></div></div>
       </article>
+
+      {actionMenu ? (() => {
+        const actionUser = users.find((user) => user.uid === actionMenu.userId)
+        if (!actionUser) return null
+        const nextStatus: AdminUserStatus = actionUser.status === 'Active' ? 'suspended' : 'active'
+        const isUpdating = updatingUserId === actionUser.uid
+        return <div className="fixed z-50 w-56 overflow-hidden rounded-xl border border-[#d7deec] bg-white p-1.5 shadow-xl" style={{ top: actionMenu.top, right: actionMenu.right }} onPointerDown={(event) => event.stopPropagation()}>
+          <p className="px-3 pb-1.5 pt-2 text-[11px] font-bold uppercase tracking-wide text-[#94a3b8]">Account status</p>
+          <button type="button" disabled={isUpdating} onClick={() => void changeUserStatus(actionUser, nextStatus)} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold disabled:cursor-wait disabled:opacity-60 ${nextStatus === 'suspended' ? 'text-[#b91c1c] hover:bg-red-50' : 'text-[#047857] hover:bg-emerald-50'}`}>
+            <FontAwesomeIcon icon={nextStatus === 'suspended' ? faBan : faCircleCheck} className="w-4" />
+            {isUpdating ? 'Updating...' : nextStatus === 'suspended' ? 'Suspend user' : 'Reactivate user'}
+          </button>
+        </div>
+      })() : null}
     </section>
   )
 }

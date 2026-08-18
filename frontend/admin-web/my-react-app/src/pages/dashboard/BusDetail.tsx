@@ -23,11 +23,18 @@ import {
   faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import adminProfileImage from "../../assets/images/adminProfile.png";
+import adminProfileImage from "../../assets/images/adminProfilePlaceholder.svg";
 import { getBusImage } from "../../utils/busImage";
+import {
+  fetchAdminDriver,
+  updateAdminDriver,
+  validateAdminDriverRequest,
+  type AdminDriver,
+  type SaveAdminDriverRequest,
+} from "../../services/driverService";
 
-// Google Maps API key from environment variables
-const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+// Google Maps API key supplied by the repository root .env through vite.config.ts.
+const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim();
 
 /*
   Google Maps Script Loader - Lazy loads the Google Maps API
@@ -37,6 +44,9 @@ const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
   even if multiple components need it.
 */
 let mapsScriptLoaded = false;
+let mapsScriptPromise: Promise<void> | null = null;
+let mapsAuthFailed = false;
+const MAPS_AUTH_FAILURE_EVENT = "trackngo-google-maps-auth-failure";
 
 /*
   Loads the Google Maps JavaScript API dynamically
@@ -47,18 +57,54 @@ let mapsScriptLoaded = false;
   @returns Promise that resolves when the script is loaded
 */
 function loadMapsScript(): Promise<void> {
+  if (!GOOGLE_MAPS_KEY) {
+    return Promise.reject(new Error("Google Maps API key is missing"));
+  }
+  if (mapsAuthFailed) {
+    return Promise.reject(new Error("Google Maps authorization failed"));
+  }
   if (mapsScriptLoaded || window.google?.maps) {
     mapsScriptLoaded = true;
     return Promise.resolve();
   }
-  return new Promise((resolve, reject) => {
+  if (mapsScriptPromise) return mapsScriptPromise;
+
+  mapsScriptPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker`;
+    const mapsWindow = window as Window & { gm_authFailure?: () => void };
+    const previousAuthFailure = mapsWindow.gm_authFailure;
+
+    // Google reports invalid keys and referrer/billing restrictions through this
+    // callback while still returning a successful script response.
+    mapsWindow.gm_authFailure = () => {
+      mapsAuthFailed = true;
+      mapsScriptLoaded = false;
+      mapsScriptPromise = null;
+      previousAuthFailure?.();
+      window.dispatchEvent(new Event(MAPS_AUTH_FAILURE_EVENT));
+      reject(new Error("Google Maps authorization failed"));
+    };
+
+    script.id = "trackngo-google-maps-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_KEY)}&libraries=marker&loading=async`;
     script.async = true;
-    script.onload = () => { mapsScriptLoaded = true; resolve(); };
-    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    script.onload = () => {
+      if (mapsAuthFailed) return;
+      mapsScriptLoaded = true;
+      resolve();
+    };
+    script.onerror = () => {
+      mapsScriptPromise = null;
+      reject(new Error("Failed to load Google Maps"));
+    };
     document.head.appendChild(script);
   });
+  return mapsScriptPromise;
+}
+
+function buildEmbedMapUrl(location: string) {
+  const query = `${location.trim() || "Colombo"}, Sri Lanka`;
+  return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=14&output=embed`;
 }
 
 /*
@@ -73,52 +119,77 @@ function loadMapsScript(): Promise<void> {
  */
 function BusLocationMap({ locationName }: { locationName: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const [useEmbedFallback, setUseEmbedFallback] = useState(!GOOGLE_MAPS_KEY);
 
   useEffect(() => {
     let cancelled = false;
+    setUseEmbedFallback(!GOOGLE_MAPS_KEY);
+    const handleMapsAuthFailure = () => {
+      if (!cancelled) setUseEmbedFallback(true);
+    };
+    window.addEventListener(MAPS_AUTH_FAILURE_EVENT, handleMapsAuthFailure);
 
     async function init() {
-      // Load Google Maps API
-      await loadMapsScript();
-      if (cancelled || !mapRef.current) return;
-
-      // Geocode the location name to coordinates
-      const geocoder = new google.maps.Geocoder();
-      geocoder.geocode({ address: `${locationName}, Sri Lanka` }, (results, status) => {
+      try {
+        // Load Google Maps API
+        await loadMapsScript();
         if (cancelled || !mapRef.current) return;
-        
-        // Use geocoded location or fallback to Colombo, Sri Lanka
-        const center =
-          status === "OK" && results && results[0]
-            ? results[0].geometry.location
-            : new google.maps.LatLng(6.9271, 79.8612);
 
-        // Create the map
-        const map = new google.maps.Map(mapRef.current, {
-          center,
-          zoom: 14,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-        });
+        // Geocode the location name to coordinates
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: `${locationName}, Sri Lanka` }, (results, status) => {
+          if (cancelled || !mapRef.current) return;
 
-        // Add a bus marker to the map
-        new google.maps.Marker({
-          position: center,
-          map,
-          title: locationName,
-          icon: {
-            url: "https://maps.google.com/mapfiles/kml/shapes/bus.png",
-            scaledSize: new google.maps.Size(36, 36),
-          },
+          // Use geocoded location or fallback to Colombo, Sri Lanka
+          const center =
+            status === "OK" && results && results[0]
+              ? results[0].geometry.location
+              : new google.maps.LatLng(6.9271, 79.8612);
+
+          // Create the map
+          const map = new google.maps.Map(mapRef.current, {
+            center,
+            zoom: 14,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+          });
+
+          // Add a bus marker to the map
+          new google.maps.Marker({
+            position: center,
+            map,
+            title: locationName,
+            icon: {
+              url: "https://maps.google.com/mapfiles/kml/shapes/bus.png",
+              scaledSize: new google.maps.Size(36, 36),
+            },
+          });
         });
-      });
+      } catch {
+        if (!cancelled) setUseEmbedFallback(true);
+      }
     }
 
     init();
     // Cleanup: prevent state updates if component unmounts
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      window.removeEventListener(MAPS_AUTH_FAILURE_EVENT, handleMapsAuthFailure);
+    };
   }, [locationName]);
+
+  if (useEmbedFallback) {
+    return (
+      <iframe
+        title={`Map preview for ${locationName}`}
+        src={buildEmbedMapUrl(locationName)}
+        className="h-40 w-full"
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
+    );
+  }
 
   return <div ref={mapRef} className="h-40 w-full" />;
 }
@@ -160,6 +231,26 @@ type Driver = {
   rating: string;
   trips: number;
 };
+
+function saveRequestFromAdminDriver(driver: AdminDriver): SaveAdminDriverRequest {
+  return {
+    firstName: driver.firstName,
+    lastName: driver.lastName ?? "",
+    email: driver.email,
+    password: "",
+    phoneNumber: driver.phoneNumber,
+    licenseNumber: driver.licenseNumber,
+    licenceExpiry: driver.licenceExpiry,
+    yearsOfExperience: driver.yearsOfExperience,
+    accountNumber: driver.accountNumber ?? "",
+    bankName: driver.bankName ?? "",
+    status: driver.status,
+    isVerified: driver.isVerified,
+    isPhoneVerified: driver.isPhoneVerified,
+    joinedDate: driver.joinedDate ?? new Date().toISOString().slice(0, 10),
+    profilePhoto: driver.profilePhoto,
+  };
+}
 
 // BusInfo - Detailed information about the bus
 type BusInfo = {
@@ -355,6 +446,8 @@ function BusDetail() {
   const [driverDraft, setDriverDraft] = useState<Driver>({
     name: "", id: "", phone: "", rating: "0", trips: 0,
   });
+  const [adminDriverDraft, setAdminDriverDraft] = useState<SaveAdminDriverRequest | null>(null);
+  const [driverDetailsLoading, setDriverDetailsLoading] = useState(false);
 
   // ── Bus Information ───────────────────────────────────────────
   const [busInfo, setBusInfo] = useState<BusInfo>({
@@ -569,14 +662,32 @@ function BusDetail() {
 
   // ── Driver Assignment Handlers ────────────────────────────────
 
+  const loadDriverDetails = (driverId: string) => {
+    if (!driverId) {
+      setAdminDriverDraft(null);
+      return;
+    }
+    setDriverDetailsLoading(true);
+    setAdminDriverDraft(null);
+    fetchAdminDriver(Number(driverId))
+      .then((driver) => setAdminDriverDraft(saveRequestFromAdminDriver(driver)))
+      .catch((error: unknown) => {
+        setAdminDriverDraft(null);
+        setDriverFormError(error instanceof Error ? error.message : "Could not load driver details.");
+      })
+      .finally(() => setDriverDetailsLoading(false));
+  };
+
   /**
    * Opens the driver assignment modal
    * Resets draft from current saved values
    */
   const openDriverModal = () => {
     setDriverDraft(assignedDriver);
+    setAdminDriverDraft(null);
     setDriverFormError("");
     setIsDriverModalOpen(true);
+    loadDriverDetails(assignedDriver.id);
   };
 
   /**
@@ -593,8 +704,10 @@ function BusDetail() {
         name: selected.name,
         id: String(selected.driverId),
       }));
+      loadDriverDetails(String(selected.driverId));
     } else {
       setDriverDraft((prev) => ({ ...prev, name: "", id: "" }));
+      setAdminDriverDraft(null);
     }
     setDriverFormError("");
   };
@@ -608,19 +721,52 @@ function BusDetail() {
       setDriverFormError("Please select a driver.");
       return;
     }
+    if (driverDetailsLoading) {
+      setDriverFormError("Please wait for the selected driver's details to finish loading.");
+      return;
+    }
+    if (!adminDriverDraft) {
+      setDriverFormError("The selected driver's details could not be loaded. Please select the driver again.");
+      return;
+    }
+
+    const validationError = validateAdminDriverRequest(adminDriverDraft, false);
+    if (validationError) {
+      setDriverFormError(`${validationError.field}: ${validationError.message}`);
+      return;
+    }
 
     setDriverFormError("");
     setSaving(true);
     const numericId = Number(busId);
-    updateBus(numericId, buildSaveRequest({ driverId: Number(driverDraft.id) || null }))
-      .then(() => {
-        setAssignedDriver({ ...driverDraft });
+    const saveDriverDetails = adminDriverDraft
+      ? updateAdminDriver(Number(driverDraft.id), adminDriverDraft)
+      : Promise.resolve(null);
+    saveDriverDetails
+      .then((updatedDriver) => updateBus(numericId, buildSaveRequest({ driverId: Number(driverDraft.id) || null }))
+        .then(() => updatedDriver))
+      .then((updatedDriver) => {
+        const updatedName = updatedDriver
+          ? `${updatedDriver.firstName} ${updatedDriver.lastName ?? ""}`.trim()
+          : driverDraft.name;
+        setAssignedDriver({
+          ...driverDraft,
+          name: updatedName,
+          phone: updatedDriver?.phoneNumber ?? driverDraft.phone,
+          rating: updatedDriver?.averageRating?.toString() ?? driverDraft.rating,
+          trips: updatedDriver?.driverTrips ?? driverDraft.trips,
+        });
         if (busData) {
-          setBusData({ ...busData, driverId: Number(driverDraft.id), driverName: driverDraft.name, driverPhone: driverDraft.phone });
+          setBusData({
+            ...busData,
+            driverId: Number(driverDraft.id),
+            driverName: updatedName,
+            driverPhone: updatedDriver?.phoneNumber ?? driverDraft.phone,
+          });
         }
         setIsDriverModalOpen(false);
       })
-      .catch((e) => setDriverFormError(e.message))
+      .catch((error: unknown) => setDriverFormError(error instanceof Error ? error.message : "Could not save driver changes."))
       .finally(() => setSaving(false));
   };
 
@@ -2043,10 +2189,10 @@ function BusDetail() {
       ) : null}
 
       {isDriverModalOpen ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
-          <div className="w-full max-w-xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
-              <div>
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-[#101426]/45 p-3 sm:items-center sm:p-4">
+          <div className="my-2 flex max-h-[calc(100vh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)] sm:my-6 sm:max-h-[calc(100vh-3rem)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#e1e5ef] px-4 py-4 sm:px-6">
+              <div className="min-w-0 pr-3">
                 <h2 className="text-sm font-extrabold text-[#1f2737]">
                   Change Driver
                 </h2>
@@ -2057,14 +2203,15 @@ function BusDetail() {
               <button
                 type="button"
                 onClick={() => setIsDriverModalOpen(false)}
-                className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
                 aria-label="Close driver editor"
               >
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="grid grid-cols-1 gap-4 px-4 py-5 sm:px-6 md:grid-cols-2">
               <div className="md:col-span-2">
                 <label htmlFor="driver-select" className="mb-1 block text-sm font-semibold text-[#45516b]">Select Driver</label>
                 <select id="driver-select" value={driverDraft.id}
@@ -2077,22 +2224,31 @@ function BusDetail() {
                 </select>
               </div>
               {driverDraft.id ? (
-                <>
-                  <div>
-                    <p className="mb-1 block text-sm font-semibold text-[#45516b]">Driver Name</p>
-                    <div className="flex h-11 w-full items-center rounded-lg border border-[#d7dde9] bg-[#eef1f7] px-3 text-sm text-[#6a7284]">{driverDraft.name}</div>
-                  </div>
-                  <div>
-                    <p className="mb-1 block text-sm font-semibold text-[#45516b]">Driver ID</p>
-                    <div className="flex h-11 w-full items-center rounded-lg border border-[#d7dde9] bg-[#eef1f7] px-3 text-sm text-[#6a7284]">{driverDraft.id}</div>
-                  </div>
-                </>
+                driverDetailsLoading ? (
+                  <div className="md:col-span-2 py-5 text-center text-sm text-[#64748b]"><FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />Loading driver details...</div>
+                ) : adminDriverDraft ? (
+                  <>
+                    <label className="text-sm font-semibold text-[#45516b]">First name<input value={adminDriverDraft.firstName} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, firstName: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#45516b]">Last name<input value={adminDriverDraft.lastName} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, lastName: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#45516b]">Email<input type="email" value={adminDriverDraft.email} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, email: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#45516b]">Phone number<input inputMode="numeric" maxLength={10} value={adminDriverDraft.phoneNumber} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, phoneNumber: event.target.value.replace(/\D/g, '').slice(0, 10) })} placeholder="0XXXXXXXXX" className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#45516b]">License number<input maxLength={8} value={adminDriverDraft.licenseNumber} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, licenseNumber: event.target.value.toUpperCase().replace(/[^B0-9]/g, '').slice(0, 8) })} placeholder="B1234567" className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#45516b]">License expiry<input type="date" value={adminDriverDraft.licenceExpiry} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, licenceExpiry: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#45516b]">Years of experience<input type="number" min={0} value={adminDriverDraft.yearsOfExperience} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, yearsOfExperience: Number(event.target.value) })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#45516b]">Status<select value={adminDriverDraft.status} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, status: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]"><option value="active">Active</option><option value="on_leave">On leave</option><option value="suspended">Suspended</option><option value="inactive">Inactive</option></select></label>
+                    <label className="text-sm font-semibold text-[#45516b]">Bank account number<input value={adminDriverDraft.accountNumber} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, accountNumber: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#45516b]">Bank name<input value={adminDriverDraft.bankName} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, bankName: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="inline-flex items-center gap-2 text-sm font-semibold text-[#45516b]"><input type="checkbox" checked={adminDriverDraft.isVerified} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, isVerified: event.target.checked })} className="h-4 w-4 accent-[#2642a6]" /> License verified</label>
+                    <label className="inline-flex items-center gap-2 text-sm font-semibold text-[#45516b]"><input type="checkbox" checked={adminDriverDraft.isPhoneVerified} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, isPhoneVerified: event.target.checked })} className="h-4 w-4 accent-[#2642a6]" /> Phone verified</label>
+                  </>
+                ) : null
               ) : null}
+              </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-6 py-4">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-[#e1e5ef] px-4 py-4 sm:px-6">
               {driverFormError ? (
-                <p className="mr-auto text-sm font-semibold text-[#d14343]">
+                <p className="mr-auto min-w-0 basis-full text-sm font-semibold text-[#d14343] sm:basis-auto">
                   {driverFormError}
                 </p>
               ) : null}

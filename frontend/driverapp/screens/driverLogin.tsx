@@ -97,6 +97,12 @@ export default function DriverLoginScreen() {   //default finction because we ar
         <View style={styles.formContainer}>
           <Text style={styles.label}>Email</Text>
           <View style={styles.inputContainer}>
+            <MaterialCommunityIcons
+              name="email-outline"
+              size={21}
+              color="#64748B"
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Enter your email"
@@ -111,6 +117,12 @@ export default function DriverLoginScreen() {   //default finction because we ar
           {/* Password Input */}
           <Text style={styles.label}>Password</Text>
           <View style={styles.inputContainer}>
+            <MaterialCommunityIcons
+              name="lock-outline"
+              size={21}
+              color="#64748B"
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Enter password"
@@ -233,12 +245,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     marginBottom: 20,
+    paddingLeft: 14,
     paddingRight: 10,
     overflow: 'hidden',
   },
+  inputIcon: {
+    marginRight: 2,
+  },
   input: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 14,
     fontSize: 14,
     color: '#000',

@@ -4,6 +4,10 @@ import { faArrowRight, faCircleUser, faEnvelope, faPhone } from '@fortawesome/fr
 import { useNavigate } from 'react-router-dom'
 import authService from '../services/authService'
 import { fetchMyProfile, type AdminProfile } from '../services/profileService'
+import adminProfileImage from '../assets/images/adminProfilePlaceholder.svg'
+
+const ADMIN_PROFILE_PHOTO_KEY = 'adminProfilePhoto'
+const ADMIN_PROFILE_PHOTO_UPDATED_EVENT = 'admin-profile-photo-updated'
 
 function displayName(profile: AdminProfile | null) {
   if (profile?.fullName?.trim()) return profile.fullName.trim()
@@ -11,13 +15,10 @@ function displayName(profile: AdminProfile | null) {
   return [session?.firstName, session?.lastName].filter(Boolean).join(' ') || session?.email || 'Admin User'
 }
 
-function initials(name: string) {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'AD'
-}
-
 export default function AdminProfileCard() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState<AdminProfile | null>(null)
+  const [photoOverride, setPhotoOverride] = useState<string | null>(() => localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY))
 
   useEffect(() => {
     let active = true
@@ -31,8 +32,31 @@ export default function AdminProfileCard() {
     }
   }, [])
 
+  useEffect(() => {
+    const handlePhotoUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail
+      setPhotoOverride(detail || localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY))
+    }
+    const handleStorageUpdate = () => {
+      setPhotoOverride(localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY))
+    }
+
+    window.addEventListener(ADMIN_PROFILE_PHOTO_UPDATED_EVENT, handlePhotoUpdate)
+    window.addEventListener('storage', handleStorageUpdate)
+    return () => {
+      window.removeEventListener(ADMIN_PROFILE_PHOTO_UPDATED_EVENT, handlePhotoUpdate)
+      window.removeEventListener('storage', handleStorageUpdate)
+    }
+  }, [])
+
   const name = displayName(profile)
-  const photo = profile?.profilePhoto || localStorage.getItem('adminProfilePhoto')
+  const photo = photoOverride || profile?.profilePhoto || adminProfileImage
+  const handlePhotoError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    event.currentTarget.onerror = null
+    event.currentTarget.src = adminProfileImage
+    localStorage.removeItem(ADMIN_PROFILE_PHOTO_KEY)
+    setPhotoOverride(adminProfileImage)
+  }
 
   return (
     <article className="dashboard-card flex h-full flex-col rounded-xl border border-[#e5e7eb] bg-white p-5">
@@ -51,7 +75,7 @@ export default function AdminProfileCard() {
 
       <div className="mt-5 flex flex-1 items-center gap-4 rounded-xl border border-[#edf0f5] bg-[#f8fafc] p-4">
         <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border-4 border-white bg-[#eef2ff] text-[#2642a6] shadow-[0_0_0_1px_#cfd8f5]">
-          {photo ? <img src={photo} alt="" className="h-full w-full rounded-full object-cover" /> : <span className="text-lg font-extrabold">{initials(name)}</span>}
+          <img src={photo} alt="" onError={handlePhotoError} className="h-full w-full rounded-full object-cover" />
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-extrabold text-[#111827]">{name}</h3>

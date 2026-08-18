@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Profile placeholder</title>
+  <desc id="desc">A neutral professional profile avatar</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dbeafe" />
+      <stop offset="1" stop-color="#bfdbfe" />
+    </linearGradient>
+    <linearGradient id="shirt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#334155" />
+      <stop offset="1" stop-color="#1e3a8a" />
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="128" fill="url(#background)" />
+  <circle cx="128" cy="99" r="48" fill="#f8fafc" />
+  <path d="M48 224c8-48 38-75 80-75s72 27 80 75" fill="url(#shirt)" />
+  <path d="M93 148c9 11 21 17 35 17s26-6 35-17c-6 26-18 39-35 39s-29-13-35-39Z" fill="#e2e8f0" />
+</svg>

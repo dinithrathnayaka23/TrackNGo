@@ -20,4 +20,5 @@ public class ComplaintDto {
     private LocalDateTime createdAt;
     private LocalDateTime resolvedAt;
     private Long passengerId;
+    private Long driverId;
 }

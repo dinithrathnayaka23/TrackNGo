@@ -39,6 +39,9 @@ public class AuthServiceImpl implements AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new BusinessException("Invalid credentials");
         }
+        if (isSuspended(user)) {
+            throw new BusinessException("Your account is suspended. Please contact the administrator.");
+        }
         if (Boolean.FALSE.equals(user.getIsActive())) {
             throw new BusinessException("Account is inactive.");
         }
@@ -122,6 +125,38 @@ public class AuthServiceImpl implements AuthService {
             return Boolean.TRUE.equals(settings.get("two_factor_authentication"))
                     && settings.get("two_factor_secret") instanceof String secret
                     && !secret.isBlank();
+        } catch (DataAccessException ex) {
+            return false;
+        }
+    }
+
+    private boolean isSuspended(User user) {
+        String table;
+        String idColumn;
+        switch (normalizeUserType(user.getUserType())) {
+            case "passenger" -> {
+                table = "passenger";
+                idColumn = "passenger_id";
+            }
+            case "driver" -> {
+                table = "driver";
+                idColumn = "driver_id";
+            }
+            case "corporate" -> {
+                table = "corporate_user";
+                idColumn = "corporate_user_id";
+            }
+            default -> {
+                return false;
+            }
+        }
+        try {
+            String status = jdbcTemplate.queryForObject(
+                    "SELECT status FROM " + table + " WHERE " + idColumn + " = ?",
+                    String.class,
+                    user.getId()
+            );
+            return "suspended".equalsIgnoreCase(status);
         } catch (DataAccessException ex) {
             return false;
         }

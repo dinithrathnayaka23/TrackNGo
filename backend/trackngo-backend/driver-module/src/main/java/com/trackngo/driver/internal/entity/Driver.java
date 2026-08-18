@@ -30,6 +30,9 @@ public class Driver { //db table structure
     @Column(name = "account_number")
     private String accountNumber;
 
+    @Column(name = "bank_name")
+    private String bankName;
+
     @Column(name = "phone_number", unique = true) //no duplicates
     private String phoneNumber;
 

@@ -4,6 +4,7 @@ package com.trackngo.auth.internal.controller;
 import com.trackngo.auth.api.UserService;
 import com.trackngo.auth.api.dto.UserDto;
 import com.trackngo.auth.api.dto.AdminUserDto;
+import com.trackngo.auth.api.dto.UpdateUserStatusRequest;
 import com.trackngo.commons.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,15 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<List<AdminUserDto>> getAll() {
         return ApiResponse.ok("Users fetched", userService.getAllForAdmin());
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<AdminUserDto> updateStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateUserStatusRequest request
+    ) {
+        return ApiResponse.ok("User status updated", userService.updateStatus(id, request));
     }
 
     @PutMapping("/{id}")

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,118 +9,181 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useUser } from '@/context/UserContext';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';  // Import the Print module
 import * as Sharing from 'expo-sharing'; // Import the Sharing module to allow sharing the generated PDF
 import { apiUrl } from '@/config/env';
 import { useTheme } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 
 type EarningItem = {
   id: string; // Unique identifier for each earning item
+  bookingReference: string;
   route: string;
   date: string;
   time: string;
-  amount: string;
+  amount: number;
 }; // Define the type for each earning item
 
 type WeeklyPoint = {
+  date: string;
   day: string;
   amount: number;
   isHighlighted?: boolean; // in the chart
 }; // Define the type for each weekly point
 
+type DriverEarningsResponse = {
+  totalEarnings: number;
+  monthlyEarnings: number;
+  weeklyEarnings: number;
+  previousWeeklyEarnings: number;
+  percentageChange: number;
+  earnings: Array<{
+    id: string;
+    bookingReference: string;
+    route: string;
+    date: string;
+    time: string | null;
+    amount: number;
+  }>;
+  weeklyBreakdown: Array<{
+    date: string;
+    amount: number;
+  }>;
+};
+
+const formatAmount = (amount: number) =>
+  `LKR ${amount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const formatCompactAmount = (amount: number) => {
+  if (amount >= 1000000) return `LKR ${(amount / 1000000).toFixed(1)}M`;
+  if (amount >= 1000) return `LKR ${(amount / 1000).toFixed(1)}k`;
+  return formatAmount(amount);
+};
+
+const formatDate = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+
+const formatTime = (time: string | null) => time
+  ? new Date(`1970-01-01T${time}`).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  : '-';
+
+const formatWeekday = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: 'short',
+  });
+
 export default function DriverEarningsScreen() { 
   const router = useRouter();   
-  const { user } = useUser();  // Get the current user from the UserContext 
+  const { user } = useUser();  // Get the current user from the UserContext
+  const { t } = useLanguage(); // Get the translation function from the LanguageContext
   const insets = useSafeAreaInsets(); // Get the safe area insets to ensure content is not hidden behind notches or system UI elements
   const { width } = useWindowDimensions();  // Get the window width 
 
   const [showWeekly, setShowWeekly] = useState(false);  // State to controlweekly earnings breakdown modal
-  const [profileData, setProfileData] = useState<DriverProfile | null>(null); // comng fom the user context
-
-  
-  
-
-  const earningsData: EarningItem[] = [
-    {
-      id: '1',
-      route: 'Colombo - Kandy',
-      date: 'Oct 24',
-      time: '10:00 AM',
-      amount: 'LKR 4,500',
-    },
-    {
-      id: '2',
-      route: 'Kandy - Colombo',
-      date: 'Oct 24',
-      time: '03:30 PM',
-      amount: 'LKR 4,500',
-    },
-    {
-      id: '3',
-      route: 'Colombo - Galle',
-      date: 'Oct 23',
-      time: '08:00 AM',
-      amount: 'LKR 3,500',
-    },
-  ];
-
-  const weeklyData: WeeklyPoint[] = [
-    { day: 'Mon', amount: 2500 },
-    { day: 'Tue', amount: 4500 },
-    { day: 'Wed', amount: 4800, isHighlighted: true },
-    { day: 'Thu', amount: 3200 },
-    { day: 'Fri', amount: 2000 },
-    { day: 'Sat', amount: 3500 },
-    { day: 'Sun', amount: 2300 },
-  ];
-
-  interface DriverProfile {
-  driverEarnings: number;
-}
+  const [earningsResponse, setEarningsResponse] = useState<DriverEarningsResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [receipt, setReceipt] = useState<EarningItem | null>(null);
-  useEffect(() => {
-  const fetchDriverProfile = async () => {
-    if (!user?.userId || !user?.token) { 
-      return;
-    }
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
 
-    try {
-      const response = await fetch(
-        apiUrl(`/api/drivers/${user.userId}/profile`),
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-            'Content-Type': 'application/json',
-          },
+      const fetchDriverEarnings = async () => {
+        if (!user?.userId || !user?.token) {
+          setIsLoading(false);
+          return;
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch earnings profile: ${response.statusText}`);
-      }
+        setIsLoading(true);
+        setLoadError(null);
 
-      const result = await response.json(); //wait till the response is converted to json
+        try {
+          const response = await fetch(
+            apiUrl(`/api/drivers/${user.userId}/earnings`),
+            {
+              method: 'GET',
+              headers: {
+                Authorization: `Bearer ${user.token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
 
-      if (result.success && result.data) {
-        setProfileData(result.data);
-      }
-    } catch (error) {
-      console.error('Error fetching earnings profile:', error);
-    }
-  };
+          const result = await response.json();
+          if (!response.ok || !result.success || !result.data) {
+            throw new Error(result.message || `Failed to fetch earnings (${response.status})`);
+          }
 
-  fetchDriverProfile();
-}, [user?.userId, user?.token]);
+          if (!cancelled) {
+            setEarningsResponse(result.data);
+          }
+        } catch (error) {
+          if (!cancelled) {
+            setLoadError(error instanceof Error ? error.message : 'Failed to load earnings');
+            setEarningsResponse(null);
+          }
+        } finally {
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+        }
+      };
 
-const earningsAmount = profileData?.driverEarnings ?? 0;
+      void fetchDriverEarnings();
+      return () => {
+        cancelled = true;
+      };
+    }, [reloadKey, user?.userId, user?.token])
+  );
 
+  const earningsData: EarningItem[] = useMemo(
+    () => (earningsResponse?.earnings || []).map((earning) => ({
+      id: earning.id,
+      bookingReference: earning.bookingReference,
+      route: earning.route,
+      date: formatDate(earning.date),
+      time: formatTime(earning.time),
+      amount: Number(earning.amount),
+    })),
+    [earningsResponse?.earnings]
+  );
 
-  const maxAmount = Math.max(...weeklyData.map((d) => d.amount)); // Find the maximum amount in the weeklyData array for bar chart
+  const weeklyData: WeeklyPoint[] = useMemo(() => {
+    const points = (earningsResponse?.weeklyBreakdown || []).map((point) => ({
+      date: point.date,
+      day: formatWeekday(point.date),
+      amount: Number(point.amount),
+    }));
+    const max = Math.max(0, ...points.map((point) => point.amount));
+    return points.map((point) => ({
+      ...point,
+      isHighlighted: max > 0 && point.amount === max,
+    }));
+  }, [earningsResponse?.weeklyBreakdown]);
+
+  const earningsAmount = Number(earningsResponse?.monthlyEarnings || 0);
+  const weeklyAmount = Number(earningsResponse?.weeklyEarnings || 0);
+  const percentageChange = Number(earningsResponse?.percentageChange || 0);
+  const maxAmount = Math.max(1, ...weeklyData.map((d) => d.amount));
+  const chartYAxisLabels = [maxAmount, maxAmount * (2 / 3), maxAmount * (1 / 3), 0];
+  const percentageLabel = t('earnings.percentageChange', {
+    percent: percentageChange.toFixed(2),
+  });
   const handleExportPDF = async () => { 
   const html = `
       <html>
@@ -209,51 +272,53 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
       <body>
 
         <div class="header">
-          <h1>Driver Earnings Report</h1>
-          <div class="sub">Monthly Summary Statement</div>
+          <h1>${t('earnings.driverEarningsReport')}</h1>
+          <div class="sub">${t('earnings.monthlySummaryStatement')}</div>
         </div>
 
         <div class="card">
-          <div class="label">Driver Name</div>
-          <div class="value">${user?.firstName || 'Driver'}</div>
+          <div class="label">${t('earnings.driverName')}</div>
+          <div class="value">${user?.firstName || t('earnings.driverFallback')}</div>
         </div>
 
         <div class="card">
-          <div class="label">Total Earnings</div>
+          <div class="label">${t('earnings.totalEarnings')}</div>
           <div class="value">LKR ${earningsAmount.toLocaleString('en-US', { //convert amount to string with d.p & commas
               minimumFractionDigits: 2,
               maximumFractionDigits: 2, // 2 d.p
             })}</div>
         </div>
 
-        <h3>Weekly Breakdown</h3>
+        <h3>${t('earnings.weeklyBreakdown')}</h3>
 
         <table>
           <tr>
-            <th>Day</th>
-            <th>Amount</th>
+            <th>${t('earnings.day')}</th>
+            <th>${t('earnings.amount')}</th>
           </tr>
           ${weeklyData
             .map(
               (d) => `
             <tr>
               <td>${d.day}</td>
-              <td>LKR ${d.amount}</td>
+              <td>${formatAmount(d.amount)}</td>
             </tr>
           `
             )
             .join('')} //join the table rows
-        </table> 
+        </table>
 
         <div class="total">
-          Net Total: LKR ${earningsAmount.toLocaleString('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2, // 2 d.p
+          ${t('earnings.netTotal', {
+            amount: earningsAmount.toLocaleString('en-US', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2, // 2 d.p
+            }),
           })}
         </div>
 
         <div class="footer">
-          Generated by TrackNgo Driver App
+          ${t('earnings.generatedBy')}
         </div>
 
       </body>
@@ -310,9 +375,9 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
           </View>
 
           <View style={[styles.earningRightContainer, isCompact && styles.earningRightCompact]}>
-            <Text style={styles.earningAmount}>{item.amount}</Text>
+            <Text style={styles.earningAmount}>{formatAmount(item.amount)}</Text>
             <View style={styles.netEarningsBadge}>
-              <Text style={styles.netEarningsText}>Net Earnings</Text>
+              <Text style={styles.netEarningsText}>{t('earnings.netEarnings')}</Text>
             </View>
           </View>
         </View>
@@ -323,7 +388,7 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
         onPress={() => setReceipt(item)}
       >
 
-        <Text style={styles.receiptLinkText}>View Receipt</Text>
+        <Text style={styles.receiptLinkText}>{t('earnings.viewReceipt')}</Text>
         <MaterialCommunityIcons name="chevron-right" size={16} color="#0066FF" />
       </TouchableOpacity>
     </View>
@@ -344,54 +409,49 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
 
             <View style={styles.headerContent}>
               <Text style={styles.headerTitle} numberOfLines={1}>
-                Earnings
+                {t('earnings.title')}
               </Text>
               <Text style={styles.headerSubtitle} numberOfLines={1}>
-                Hello, {user?.firstName || 'Driver'}
+                {t('earnings.greeting', { name: user?.firstName || t('earnings.driverFallback') })}
               </Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.headerIconButton}
-              onPress={() => alert('Loading notifications...')}
-            >
-              <MaterialCommunityIcons name="bell" size={24} color={theme.text} />
-              <View style={styles.notificationDot} />
-            </TouchableOpacity>
           </View>
 
           <View style={styles.earningsCard}>
-            <View style={[styles.cardHeader, isCompact && styles.cardHeaderStack]}> 
-              <Text style={styles.cardLabel}>Your Monthly Earnings</Text>
+            <View style={[styles.cardHeader, isCompact && styles.cardHeaderStack]}>
+              <Text style={styles.cardLabel}>{t('earnings.yourMonthlyEarnings')}</Text>
 
               <View style={styles.percentageBadge}>
                 <MaterialCommunityIcons name="trending-up" size={14} color="#22C55E" />
-                <Text style={styles.percentageText}>+12%</Text>
+                <Text style={styles.percentageText}>{percentageLabel}</Text>
               </View>
             </View>
 
             <Text style={styles.earningsAmountTotal}>
-              LKR {earningsAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {isLoading ? '—' : formatAmount(earningsAmount)}
             </Text>
-            <Text style={styles.updatedText}>Updated just now</Text>
+            <Text style={styles.updatedText} numberOfLines={2}>
+              {loadError || t('earnings.updatedJustNow')}
+            </Text>
           </View>
 
           <View style={styles.weeklySection}>
-            <View style={[styles.weeklyHeader, isCompact && styles.weeklyHeaderStack]}> 
+            <View style={[styles.weeklyHeader, isCompact && styles.weeklyHeaderStack]}>
               <View style={styles.weeklyHeaderText}>
-                <Text style={styles.weeklyTitle}>Weekly Earnings</Text>
-                <Text style={styles.weeklySubtitle}>Last 7 Days</Text>
+                <Text style={styles.weeklyTitle}>{t('earnings.weeklyEarnings')}</Text>
+                <Text style={styles.weeklySubtitle}>{t('earnings.last7Days')}</Text>
               </View>
 
-              <Text style={styles.weeklyAmount}>LKR 84.5k</Text>
+              <Text style={styles.weeklyAmount}>{formatCompactAmount(weeklyAmount)}</Text>
             </View>
 
             <View style={styles.chartContainer}>
               <View style={styles.chartYAxis}>
-                <Text style={styles.yAxisLabel}>6000</Text>
-                <Text style={styles.yAxisLabel}>4000</Text>
-                <Text style={styles.yAxisLabel}>2000</Text>
-                <Text style={styles.yAxisLabel}>0</Text>
+                {chartYAxisLabels.map((label) => (
+                  <Text key={label} style={styles.yAxisLabel}>
+                    {Math.round(label).toLocaleString('en-US')}
+                  </Text>
+                ))}
               </View>
 
               <View style={styles.barsContainer}>
@@ -416,36 +476,58 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
             style={styles.viewAllLink}
             onPress={() => setShowWeekly(true)}
           >
-            <Text style={styles.viewAllText}>View All</Text>
+            <Text style={styles.viewAllText}>{t('earnings.viewAll')}</Text>
           </TouchableOpacity>
                     </View>
 
-          <View style={styles.earningsListSection}>{earningsData.map(renderEarningItem)}</View>
+          <View style={styles.earningsListSection}>
+            {earningsData.length > 0 ? (
+              earningsData.map(renderEarningItem)
+            ) : (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons
+                  name="cash-remove"
+                  size={28}
+                  color={theme.secondaryText}
+                />
+                <Text style={styles.emptyStateText}>
+                  {isLoading
+                    ? 'Loading earnings...'
+                    : loadError || t('allocations.noDataAvailable')}
+                </Text>
+                {!isLoading && loadError && (
+                  <TouchableOpacity onPress={() => setReloadKey((key) => key + 1)}>
+                    <Text style={styles.retryText}>Retry</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
 
           <TouchableOpacity style={styles.exportButton} onPress={handleExportPDF}>
             <MaterialCommunityIcons name="download" size={20} color='#FFF' />
-            <Text style={styles.exportButtonText}>Export Monthly Report</Text>
+            <Text style={styles.exportButtonText}>{t('earnings.exportMonthlyReport')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
       {receipt && (
   <View style={styles.modalOverlay}>
     <View style={styles.receiptModal}>
-      
-      <Text style={styles.receiptTitle}>Trip Receipt</Text>
+
+      <Text style={styles.receiptTitle}>{t('earnings.tripReceipt')}</Text>
 
       <View style={styles.receiptRow}>
-        <Text style={styles.receiptLabel}>Route</Text>
+        <Text style={styles.receiptLabel}>{t('earnings.route')}</Text>
         <Text style={styles.receiptValue}>{receipt.route}</Text>
       </View>
 
       <View style={styles.receiptRow}>
-        <Text style={styles.receiptLabel}>Date</Text>
+        <Text style={styles.receiptLabel}>{t('earnings.date')}</Text>
         <Text style={styles.receiptValue}>{receipt.date}</Text>
       </View>
 
       <View style={styles.receiptRow}>
-        <Text style={styles.receiptLabel}>Time</Text>
+        <Text style={styles.receiptLabel}>{t('earnings.time')}</Text>
         <Text style={styles.receiptValue}>{receipt.time}</Text>
       </View>
 
@@ -457,7 +539,7 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
         style={styles.closeBtn}
         onPress={() => setReceipt(null)}
       >
-        <Text style={styles.closeText}>Close</Text>
+        <Text style={styles.closeText}>{t('earnings.close')}</Text>
       </TouchableOpacity>
 
     </View>
@@ -468,8 +550,8 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
   <View style={styles.modalOverlay}>
     <View style={styles.weeklyModal}>
 
-      <Text style={styles.weeklyTitleModal}>Weekly Earnings</Text>
-      <Text style={styles.weeklySubtitleModal}>Last 7 Days Breakdown</Text>
+      <Text style={styles.weeklyTitleModal}>{t('earnings.weeklyEarnings')}</Text>
+      <Text style={styles.weeklySubtitleModal}>{t('earnings.last7DaysBreakdown')}</Text>
 
       {weeklyData.map((d) => (
         <View key={d.day} style={styles.weekRow}>
@@ -480,15 +562,18 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
 
       <View style={styles.weekTotalBox}>
         <Text style={styles.weekTotalText}>
-          Total: LKR {weeklyData.reduce((a, b) => a + b.amount, 0)}
-        </Text> 
+          {t('earnings.totalAmount', { amount: weeklyAmount.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) })}
+        </Text>
       </View>
 
       <TouchableOpacity
         style={styles.closeBtn}
         onPress={() => setShowWeekly(false)}
       >
-        <Text style={styles.closeText}>Close</Text>
+        <Text style={styles.closeText}>{t('earnings.close')}</Text>
       </TouchableOpacity>
 
     </View>
@@ -548,11 +633,6 @@ function createStyles({
       minWidth: 0,
       marginLeft: 12,
       marginRight: 8,
-    },
-    notificationIcon: {
-      position: 'relative',
-      padding: 8,
-      flexShrink: 0,
     },
     headerTitle: {
       fontSize: isSmallPhone ? 16 : 17,
@@ -724,6 +804,26 @@ function createStyles({
       marginHorizontal: horizontalPadding,
       marginVertical: 12,
       gap: 12,
+    },
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 30,
+      backgroundColor: theme.card,
+      borderRadius: 12,
+      gap: 8,
+    },
+    emptyStateText: {
+      color: theme.secondaryText,
+      fontSize: 14,
+      textAlign: 'center',
+    },
+    retryText: {
+      color: '#0066FF',
+      fontSize: 14,
+      fontWeight: '700',
+      marginTop: 4,
     },
     earningItemContainer: {
       padding: 14,

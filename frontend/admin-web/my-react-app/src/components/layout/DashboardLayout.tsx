@@ -14,7 +14,7 @@ import AdminNotificationsPanel from "../AdminNotificationsPanel";
 import AiAssistantPanel from "../AiAssistantPanel";
 import { logoutToLogin } from "../../utils/authSession";
 import { fetchAdminNotifications } from "../../services/adminNotificationService";
-import adminProfileImage from "../../assets/images/adminDinith.png";
+import adminProfileImage from "../../assets/images/adminProfilePlaceholder.svg";
 import authService from "../../services/authService";
 
 type DashboardLayoutProps = {
@@ -248,7 +248,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               {["Home", ...breadcrumbTrail].map((crumb, index, arr) => {
                 const isLast = index === arr.length - 1;
                 return (
-                  <div
+              <div
                     key={`${crumb}-${index}`}
                     className="flex min-w-0 items-center gap-2"
                   >
@@ -302,6 +302,12 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
                 <img
                   src={adminPhotoUrl}
                   alt=""
+                  onError={(event) => {
+                    event.currentTarget.onerror = null;
+                    event.currentTarget.src = adminProfileImage;
+                    localStorage.removeItem(ADMIN_PROFILE_PHOTO_KEY);
+                    setAdminPhotoUrl(adminProfileImage);
+                  }}
                   className="block h-full w-full rounded-full object-cover object-center"
                 />
               </button>

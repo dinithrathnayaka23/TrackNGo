@@ -2,15 +2,17 @@ import { Tabs } from 'expo-router'; // Tabs for navigation
 import React, { useCallback, useEffect, useState } from 'react'; //for React library
 
 import { HapticTab } from '@/components/haptic-tab'; // HapticTab for haptic feedback
-import { useTheme } from '@/context/ThemeContext'; 
+import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { getUserConversations, type ConversationDto } from '@/services/chatApi';
-import { MaterialCommunityIcons } from '@expo/vector-icons'; 
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   const { darkMode } = useTheme();
   const { user } = useUser();
+  const { t } = useLanguage();
   const [unreadTotal, setUnreadTotal] = useState(0);
 
   const refreshUnreadTotal = useCallback(async () => {
@@ -63,7 +65,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: t("tabs.home"),
           tabBarIcon: ({ color }) => <Ionicons size={22} name="home" color={color} />,
         }}
       />
@@ -71,7 +73,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="allocations"
         options={{
-          title: 'Allocations',
+          title: t("tabs.allocations"),
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons size={24} name="seat" color={color} />
           ),
@@ -81,7 +83,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="earnings"
         options={{
-          title: 'Earnings',
+          title: t("tabs.earnings"),
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons size={24} name="cash-multiple" color={color} />
           ),
@@ -91,7 +93,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chat"
         options={{
-          title: "Chat",
+          title: t("tabs.chat"),
           tabBarBadge: unreadTotal > 0 ? (unreadTotal > 99 ? '99+' : unreadTotal) : undefined,
           tabBarBadgeStyle: {
             backgroundColor: '#0066FF',
@@ -108,7 +110,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Settings",
+          title: t("tabs.settings"),
           tabBarIcon: ({ color }) => <Ionicons size={22} name="settings" color={color} />,
         }}
       />

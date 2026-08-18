@@ -13,6 +13,9 @@ import com.trackngo.tracking.api.RouteService;
 import com.trackngo.tracking.api.dto.RouteDto;  
 import lombok.RequiredArgsConstructor; 
 import org.springframework.stereotype.Service; //annonations (@service, @RequiredArgsConstructor etc)
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.trackngo.commons.exception.BusinessException;
 
 import java.util.Optional; //import optional keyword from java
 
@@ -26,6 +29,7 @@ public class DriverServiceImpl implements DriverService {
 
     @Override
     public DriverProfileDto getDriverProfile(Long driverId) { //interface from service 
+        assertDriverOwnsProfile(driverId);
         // Fetch driver details
         Driver driver = driverFileRepository.findByDriverId(driverId) 
                 .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + driverId)); //lambda to handle not found case
@@ -51,6 +55,7 @@ public class DriverServiceImpl implements DriverService {
         dto.setAverageRating(driver.getAverageRating());
         dto.setDriverEarnings(driver.getDriverEarnings());
         dto.setAccountNumber(driver.getAccountNumber());
+        dto.setBankName(driver.getBankName());
         dto.setIsPhoneVerified(driver.getIsPhoneVerified());
         //take data from driver entity and set it in dto
         return dto; //send to controller and then to frontend , in json format (jackson's work)
@@ -58,6 +63,7 @@ public class DriverServiceImpl implements DriverService {
 
     @Override
     public BusAssignmentDto getCurrentAssignment(Long driverId) { //from controller
+        assertDriverOwnsProfile(driverId);
         // Fetch bus assigned to driver
         Optional<DriverBus> busOptional = busRepository.findByDriverId(driverId); //go to bus table (Driverbus entity) and find by driver id (may or may not exist so wrap it in optional)
 
@@ -97,6 +103,20 @@ public class DriverServiceImpl implements DriverService {
             return route != null ? route.getName() : null; //if route is not null return name else return null
         } catch (RuntimeException ex) {
             return null;
+        }
+    }
+
+    private void assertDriverOwnsProfile(Long driverId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication.getName() == null
+                || "anonymousUser".equals(authentication.getName())) {
+            throw new BusinessException("You must be logged in as a driver.");
+        }
+        DriverUser user = userDriverRepository.findById(driverId)
+                .orElseThrow(() -> new BusinessException("Driver account not found."));
+        if (!authentication.getName().equalsIgnoreCase(user.getEmail())) {
+            throw new BusinessException("You can only view your own driver profile.");
         }
     }
 }

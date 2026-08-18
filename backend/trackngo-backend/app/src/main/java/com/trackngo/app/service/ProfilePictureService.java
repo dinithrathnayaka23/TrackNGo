@@ -44,6 +44,9 @@ public class ProfilePictureService {
         String normalizedType = currentUser.getUserType() == null
                 ? ""
                 : currentUser.getUserType().trim().toLowerCase(Locale.ROOT);
+        if ("driver".equals(normalizedType)) {
+            throw new BusinessException("Driver profile pictures are managed by an administrator.");
+        }
 
         try {
             Path baseDir = Path.of(uploadDir).toAbsolutePath().normalize().resolve("profile-pictures");

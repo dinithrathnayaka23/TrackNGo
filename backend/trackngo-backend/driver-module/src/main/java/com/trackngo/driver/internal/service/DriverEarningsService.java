@@ -3,9 +3,14 @@ package com.trackngo.driver.internal.service;
 import com.trackngo.driver.api.dto.DriverEarningDto;
 import com.trackngo.driver.api.dto.DriverEarningsDayDto;
 import com.trackngo.driver.api.dto.DriverEarningsResponse;
+import com.trackngo.driver.internal.entity.DriverUser;
+import com.trackngo.driver.internal.repository.UserDriverRepository;
+import com.trackngo.commons.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -23,8 +28,10 @@ public class DriverEarningsService {
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
     private final JdbcTemplate jdbcTemplate;
+    private final UserDriverRepository userDriverRepository;
 
     public DriverEarningsResponse getEarnings(Long driverId) {
+        assertDriverOwnsProfile(driverId);
         List<DriverEarningDto> earnings = jdbcTemplate.query("""
                 SELECT
                     CONCAT('seat-', sb.seat_booking_id) AS earning_id,
@@ -117,6 +124,17 @@ public class DriverEarningsService {
                 earnings,
                 weeklyBreakdown
         );
+    }
+
+    private void assertDriverOwnsProfile(Long driverId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        DriverUser user = userDriverRepository.findById(driverId)
+                .orElseThrow(() -> new BusinessException("Driver account not found."));
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication.getName() == null
+                || !authentication.getName().equalsIgnoreCase(user.getEmail())) {
+            throw new BusinessException("You can only view your own earnings.");
+        }
     }
 
     private BigDecimal sum(List<DriverEarningDto> earnings,

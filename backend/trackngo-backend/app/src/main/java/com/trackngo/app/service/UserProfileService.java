@@ -87,6 +87,7 @@ public class UserProfileService {
                 "SELECT email, user_type FROM `user` WHERE user_id = ?",
                 userId
         );
+        ensureCanModifyProfile(userId, String.valueOf(current.get("user_type")));
 
         String email = clean(request.email());
         if (email == null) {
@@ -251,5 +252,28 @@ public class UserProfileService {
         return userRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."))
                 .getId();
+    }
+
+    private void ensureCanModifyProfile(Long userId, String userType) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication.getName() == null
+                || "anonymousUser".equals(authentication.getName())) {
+            throw new BusinessException("You must be logged in to update a profile.");
+        }
+
+        boolean admin = authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+        if (admin) {
+            return;
+        }
+
+        Long authenticatedId = getAuthenticatedUserId();
+        if (!authenticatedId.equals(userId)) {
+            throw new BusinessException("You can only update your own profile.");
+        }
+        if ("driver".equalsIgnoreCase(userType)) {
+            throw new BusinessException("Driver profile details are managed by an administrator. Only password changes are allowed.");
+        }
     }
 }

@@ -10,12 +10,12 @@ import {
   useWindowDimensions, //get screen dimensions
   ActivityIndicator, // loading screen
   Modal, //popup screen for language
+  TextInput,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router'; //navigation
 import { useUser } from '@/context/UserContext'; //gloablly shared user data and auth functions
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; //prevent content overlap
-import * as ImagePicker from 'expo-image-picker'; // opening gallery to pick
 import { Image } from 'react-native'; //why because we need to diplay dp img
 import { apiUrl } from '@/config/env';
 import { useTheme } from '@/context/ThemeContext'; //global theme data
@@ -79,10 +79,15 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const [emailUpdates, setEmailUpdates] = useState(true);
   const [bookingUpdates, setBookingUpdates] = useState(true);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
 
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   console.log("USER:", user); // Log the user from UserContext when logged in.
   
@@ -200,77 +205,47 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
     ]);
   };
 
-  const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync(); //asks fo device permission to access
-
-    if (!permission.granted) {
-      Alert.alert(t('settings.permissionRequiredTitle'), t('settings.permissionRequiredMessage'));
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({ //allows the user to pick an image 
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Allow only images to be selected
-      allowsEditing: true, // Allow the user to edit (crop) the selected image
-      aspect: [1, 1], // Set the aspect ratio to square
-      quality: 1, //highest quality
-    });
-
-    if (!result.canceled) {
-      await uploadProfileImage(result.assets[0]);
-    }
+  const openPasswordModal = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+    setPasswordModalVisible(true);
   };
 
-  const uploadProfileImage = async (asset: ImagePicker.ImagePickerAsset) => {
-    if (!user?.token) {
-      Alert.alert(t('settings.loginRequiredTitle'), t('settings.loginRequiredMessage'));
+  const changePassword = async () => {
+    if (!user?.userId || !user.token) {
+      setPasswordError('Please log in again before changing your password.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('The new password must contain at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('The new passwords do not match.');
       return;
     }
 
-    const previousImage = profileImage;
-    setProfileImage(asset.uri);
-    setIsUploadingPhoto(true);
-
     try {
-      const formData = new FormData();
-      formData.append('file', {
-        uri: asset.uri,
-        name: getUploadFileName(asset),
-        type: getUploadMimeType(asset),
-      } as unknown as Blob);
-
-      const response = await fetch(apiUrl('/api/profile/picture'), {
+      setIsChangingPassword(true);
+      setPasswordError('');
+      const response = await fetch(apiUrl(`/api/users/${user.userId}/password`), {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-        },
-        body: formData,
+        headers: { Authorization: `Bearer ${user.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
       });
-
       const text = await response.text();
       const result = text ? JSON.parse(text) : null;
-
       if (!response.ok || !result?.success) {
-        throw new Error(result?.message || 'Failed to upload profile picture');
+        throw new Error(result?.message || 'Could not change your password.');
       }
-
-      const savedPhoto =
-        result.data?.imageUrl ?? result.data?.originalUrl ?? result.data?.thumbnailUrl ?? null;
-      const resolvedPhoto = resolveAssetUrl(savedPhoto) ?? asset.uri;
-
-      setProfileImage(resolvedPhoto);
-      setProfileData((current) =>
-        current ? { ...current, profilePhoto: savedPhoto ?? resolvedPhoto } : current
-      );
-      await AsyncStorage.mergeItem('user', JSON.stringify({ profilePhoto: savedPhoto ?? resolvedPhoto }));
+      setPasswordModalVisible(false);
+      Alert.alert('Password changed', 'Your driver account password was updated successfully.');
     } catch (error) {
-      console.error('Profile photo upload failed:', error);
-      setProfileImage(previousImage);
-      Alert.alert(
-        t('settings.uploadFailedTitle'),
-        error instanceof Error ? error.message : t('settings.uploadFailedMessage')
-      );
+      setPasswordError(error instanceof Error ? error.message : 'Could not change your password.');
     } finally {
-      setIsUploadingPhoto(false);
+      setIsChangingPassword(false);
     }
   };
 
@@ -330,7 +305,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
           <View style={styles.card}>
             <View style={styles.profileSection}>
               <View style={styles.avatarContainer}>
-                <TouchableOpacity style={styles.avatar} onPress={pickImage}>
+                <View style={styles.avatar}>
                 {profileImage ? (
                   <Image source={{ uri: profileImage }} style={styles.profileImage} resizeMode="cover"/> //display the profile image resizeMode  means how the image should fit in the container
                 ) : (
@@ -340,14 +315,6 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                     color="#0066FF"
                   />
                 )}
-                {isUploadingPhoto ? (
-                  <View style={styles.photoUploadOverlay}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  </View>
-                ) : null}
-                </TouchableOpacity>
-                <View style={styles.verificationBadge}>
-                  <MaterialCommunityIcons name="pencil" size={20} color="#0066FF" />
                 </View>
               </View>
 
@@ -452,9 +419,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
             <TouchableOpacity
               style={styles.detailItem}
-              onPress={() =>
-                Alert.alert(t('settings.changePassword'), t('settings.changePasswordAlertMessage'))
-              }
+              onPress={openPasswordModal}
             >
               <View style={styles.detailIcon}>
                 <MaterialCommunityIcons name="lock" size={16} color="#0066FF" />
@@ -816,6 +781,52 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
           </View>
         </View>
       </Modal>
+      <Modal
+        transparent
+        visible={passwordModalVisible}
+        animationType="fade"
+        onRequestClose={() => setPasswordModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.passwordModalContainer}>
+            <Text style={styles.modalTitle}>Change Password</Text>
+            <Text style={styles.passwordHint}>Only you can change your account password.</Text>
+            <TextInput
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholder="Current password"
+              placeholderTextColor="#999"
+              secureTextEntry
+              style={styles.passwordInput}
+            />
+            <TextInput
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="New password"
+              placeholderTextColor="#999"
+              secureTextEntry
+              style={styles.passwordInput}
+            />
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Confirm new password"
+              placeholderTextColor="#999"
+              secureTextEntry
+              style={styles.passwordInput}
+            />
+            {passwordError ? <Text style={styles.passwordError}>{passwordError}</Text> : null}
+            <View style={styles.passwordActions}>
+              <TouchableOpacity onPress={() => setPasswordModalVisible(false)} disabled={isChangingPassword}>
+                <Text style={styles.cancelPasswordText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.savePasswordButton} onPress={() => void changePassword()} disabled={isChangingPassword}>
+                {isChangingPassword ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.savePasswordText}>Save password</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1155,11 +1166,58 @@ function createStyles({
       width: '100%',
       height: '100%',
     },
-    photoUploadOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.35)',
+    passwordModalContainer: {
+      width: '88%',
+      backgroundColor: theme.card,
+      borderRadius: 14,
+      padding: 20,
+    },
+    passwordHint: {
+      marginTop: 8,
+      marginBottom: 14,
+      color: theme.secondaryText,
+      fontSize: 12,
+      textAlign: 'center',
+    },
+    passwordInput: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 9,
+      color: theme.text,
+      paddingHorizontal: 12,
+      paddingVertical: 11,
+      marginTop: 10,
+      backgroundColor: theme.background,
+    },
+    passwordError: {
+      marginTop: 10,
+      color: '#DC2626',
+      fontSize: 12,
+      textAlign: 'center',
+    },
+    passwordActions: {
+      marginTop: 18,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
       alignItems: 'center',
-      justifyContent: 'center',
+      gap: 14,
+    },
+    cancelPasswordText: {
+      color: theme.secondaryText,
+      fontSize: 14,
+      fontWeight: '700',
+      padding: 8,
+    },
+    savePasswordButton: {
+      backgroundColor: '#0066FF',
+      borderRadius: 9,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    savePasswordText: {
+      color: '#FFF',
+      fontSize: 14,
+      fontWeight: '700',
     },
     modalOverlay: {
     flex: 1,
@@ -1210,24 +1268,4 @@ function createStyles({
       height: 20,
     },
   });
-}
-
-function getUploadFileName(asset: ImagePicker.ImagePickerAsset) {
-  if (asset.fileName) {
-    return asset.fileName;
-  }
-
-  const extension = getUploadMimeType(asset).split('/')[1] || 'jpg';
-  return `driver-profile.${extension === 'jpeg' ? 'jpg' : extension}`;
-}
-
-function getUploadMimeType(asset: ImagePicker.ImagePickerAsset) {
-  if (asset.mimeType) {
-    return asset.mimeType;
-  }
-
-  const extension = asset.uri.split('.').pop()?.toLowerCase();
-  if (extension === 'png') return 'image/png';
-  if (extension === 'webp') return 'image/webp';
-  return 'image/jpeg';
 }

@@ -87,6 +87,7 @@ CREATE TABLE driver (
     years_of_experience INT DEFAULT 0,
     profile_photo TEXT,
     account_number VARCHAR(50),
+    bank_name VARCHAR(120),
     phone_number VARCHAR(20) UNIQUE NOT NULL,
     is_phone_verified BOOLEAN DEFAULT false,
     license_number VARCHAR(50) UNIQUE NOT NULL,

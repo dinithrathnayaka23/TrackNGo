@@ -20,17 +20,69 @@ import { useLanguage } from '@/context/LanguageContext';
 
 type EarningItem = {
   id: string; // Unique identifier for each earning item
+  bookingReference: string;
   route: string;
   date: string;
   time: string;
-  amount: string;
+  amount: number;
 }; // Define the type for each earning item
 
 type WeeklyPoint = {
+  date: string;
   day: string;
   amount: number;
   isHighlighted?: boolean; // in the chart
 }; // Define the type for each weekly point
+
+type DriverEarningsResponse = {
+  totalEarnings: number;
+  monthlyEarnings: number;
+  weeklyEarnings: number;
+  previousWeeklyEarnings: number;
+  percentageChange: number;
+  earnings: Array<{
+    id: string;
+    bookingReference: string;
+    route: string;
+    date: string;
+    time: string | null;
+    amount: number;
+  }>;
+  weeklyBreakdown: Array<{
+    date: string;
+    amount: number;
+  }>;
+};
+
+const formatAmount = (amount: number) =>
+  `LKR ${amount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const formatCompactAmount = (amount: number) => {
+  if (amount >= 1000000) return `LKR ${(amount / 1000000).toFixed(1)}M`;
+  if (amount >= 1000) return `LKR ${(amount / 1000).toFixed(1)}k`;
+  return formatAmount(amount);
+};
+
+const formatDate = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+
+const formatTime = (time: string | null) => time
+  ? new Date(`1970-01-01T${time}`).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  : '-';
+
+const formatWeekday = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: 'short',
+  });
 
 export default function DriverEarningsScreen() { 
   const router = useRouter();   
@@ -40,89 +92,94 @@ export default function DriverEarningsScreen() {
   const { width } = useWindowDimensions();  // Get the window width 
 
   const [showWeekly, setShowWeekly] = useState(false);  // State to controlweekly earnings breakdown modal
-  const [profileData, setProfileData] = useState<DriverProfile | null>(null); // comng fom the user context
-
-  
-  
-
-  const earningsData: EarningItem[] = [
-    {
-      id: '1',
-      route: 'Colombo - Kandy',
-      date: 'Oct 24',
-      time: '10:00 AM',
-      amount: 'LKR 4,500',
-    },
-    {
-      id: '2',
-      route: 'Kandy - Colombo',
-      date: 'Oct 24',
-      time: '03:30 PM',
-      amount: 'LKR 4,500',
-    },
-    {
-      id: '3',
-      route: 'Colombo - Galle',
-      date: 'Oct 23',
-      time: '08:00 AM',
-      amount: 'LKR 3,500',
-    },
-  ];
-
-  const weeklyData: WeeklyPoint[] = [
-    { day: t('earnings.mon'), amount: 2500 },
-    { day: t('earnings.tue'), amount: 4500 },
-    { day: t('earnings.wed'), amount: 4800, isHighlighted: true },
-    { day: t('earnings.thu'), amount: 3200 },
-    { day: t('earnings.fri'), amount: 2000 },
-    { day: t('earnings.sat'), amount: 3500 },
-    { day: t('earnings.sun'), amount: 2300 },
-  ];
-
-  interface DriverProfile {
-  driverEarnings: number;
-}
+  const [earningsResponse, setEarningsResponse] = useState<DriverEarningsResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [receipt, setReceipt] = useState<EarningItem | null>(null);
   useEffect(() => {
-  const fetchDriverProfile = async () => {
-    if (!user?.userId || !user?.token) { 
-      return;
-    }
+    let cancelled = false;
 
-    try {
-      const response = await fetch(
-        apiUrl(`/api/drivers/${user.userId}/profile`),
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-            'Content-Type': 'application/json',
-          },
+    const fetchDriverEarnings = async () => {
+      if (!user?.userId || !user?.token) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        const response = await fetch(
+          apiUrl(`/api/drivers/${user.userId}/earnings`),
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${user.token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        const result = await response.json();
+        if (!response.ok || !result.success || !result.data) {
+          throw new Error(result.message || `Failed to fetch earnings (${response.status})`);
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch earnings profile: ${response.statusText}`);
+        if (!cancelled) {
+          setEarningsResponse(result.data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : 'Failed to load earnings');
+          setEarningsResponse(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
+    };
 
-      const result = await response.json(); //wait till the response is converted to json
+    fetchDriverEarnings();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.userId, user?.token]);
 
-      if (result.success && result.data) {
-        setProfileData(result.data);
-      }
-    } catch (error) {
-      console.error('Error fetching earnings profile:', error);
-    }
-  };
+  const earningsData: EarningItem[] = useMemo(
+    () => (earningsResponse?.earnings || []).map((earning) => ({
+      id: earning.id,
+      bookingReference: earning.bookingReference,
+      route: earning.route,
+      date: formatDate(earning.date),
+      time: formatTime(earning.time),
+      amount: Number(earning.amount),
+    })),
+    [earningsResponse?.earnings]
+  );
 
-  fetchDriverProfile();
-}, [user?.userId, user?.token]);
+  const weeklyData: WeeklyPoint[] = useMemo(() => {
+    const points = (earningsResponse?.weeklyBreakdown || []).map((point) => ({
+      date: point.date,
+      day: formatWeekday(point.date),
+      amount: Number(point.amount),
+    }));
+    const max = Math.max(0, ...points.map((point) => point.amount));
+    return points.map((point) => ({
+      ...point,
+      isHighlighted: max > 0 && point.amount === max,
+    }));
+  }, [earningsResponse?.weeklyBreakdown]);
 
-const earningsAmount = profileData?.driverEarnings ?? 0;
-
-
-  const maxAmount = Math.max(...weeklyData.map((d) => d.amount)); // Find the maximum amount in the weeklyData array for bar chart
+  const earningsAmount = Number(earningsResponse?.monthlyEarnings || 0);
+  const weeklyAmount = Number(earningsResponse?.weeklyEarnings || 0);
+  const percentageChange = Number(earningsResponse?.percentageChange || 0);
+  const maxAmount = Math.max(1, ...weeklyData.map((d) => d.amount));
+  const chartYAxisLabels = [maxAmount, maxAmount * (2 / 3), maxAmount * (1 / 3), 0];
+  const percentageLabel = t('earnings.percentageChange', {
+    percent: percentageChange.toFixed(2),
+  });
   const handleExportPDF = async () => { 
   const html = `
       <html>
@@ -240,7 +297,7 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
               (d) => `
             <tr>
               <td>${d.day}</td>
-              <td>LKR ${d.amount}</td>
+              <td>${formatAmount(d.amount)}</td>
             </tr>
           `
             )
@@ -314,7 +371,7 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
           </View>
 
           <View style={[styles.earningRightContainer, isCompact && styles.earningRightCompact]}>
-            <Text style={styles.earningAmount}>{item.amount}</Text>
+            <Text style={styles.earningAmount}>{formatAmount(item.amount)}</Text>
             <View style={styles.netEarningsBadge}>
               <Text style={styles.netEarningsText}>{t('earnings.netEarnings')}</Text>
             </View>
@@ -362,14 +419,16 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
 
               <View style={styles.percentageBadge}>
                 <MaterialCommunityIcons name="trending-up" size={14} color="#22C55E" />
-                <Text style={styles.percentageText}>{t('earnings.percentageChange', { percent: 12 })}</Text>
+                <Text style={styles.percentageText}>{percentageLabel}</Text>
               </View>
             </View>
 
             <Text style={styles.earningsAmountTotal}>
-              LKR {earningsAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {isLoading ? '—' : formatAmount(earningsAmount)}
             </Text>
-            <Text style={styles.updatedText}>{t('earnings.updatedJustNow')}</Text>
+            <Text style={styles.updatedText} numberOfLines={2}>
+              {loadError || t('earnings.updatedJustNow')}
+            </Text>
           </View>
 
           <View style={styles.weeklySection}>
@@ -379,15 +438,16 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
                 <Text style={styles.weeklySubtitle}>{t('earnings.last7Days')}</Text>
               </View>
 
-              <Text style={styles.weeklyAmount}>LKR 84.5k</Text>
+              <Text style={styles.weeklyAmount}>{formatCompactAmount(weeklyAmount)}</Text>
             </View>
 
             <View style={styles.chartContainer}>
               <View style={styles.chartYAxis}>
-                <Text style={styles.yAxisLabel}>6000</Text>
-                <Text style={styles.yAxisLabel}>4000</Text>
-                <Text style={styles.yAxisLabel}>2000</Text>
-                <Text style={styles.yAxisLabel}>0</Text>
+                {chartYAxisLabels.map((label) => (
+                  <Text key={label} style={styles.yAxisLabel}>
+                    {Math.round(label).toLocaleString('en-US')}
+                  </Text>
+                ))}
               </View>
 
               <View style={styles.barsContainer}>
@@ -476,7 +536,10 @@ const earningsAmount = profileData?.driverEarnings ?? 0;
 
       <View style={styles.weekTotalBox}>
         <Text style={styles.weekTotalText}>
-          {t('earnings.totalAmount', { amount: weeklyData.reduce((a, b) => a + b.amount, 0) })}
+          {t('earnings.totalAmount', { amount: weeklyAmount.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) })}
         </Text>
       </View>
 

@@ -17,6 +17,9 @@ public interface ComplaintService {
     /** Returns the complaints submitted by the given user email. */
     List<ComplaintDto> getMine(String email);
 
+    /** Returns the complaints filed against the given driver. */
+    List<ComplaintDto> getForDriver(Long driverId);
+
     /** Updates an existing complaint using the provided payload. */
     ComplaintDto update(Long id, ComplaintDto dto);
 

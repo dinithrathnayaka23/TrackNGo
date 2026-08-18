@@ -155,6 +155,7 @@ export default function DriverRouteMap({
             anchor={{ x: 0.5, y: 0.5 }}
           >
             <View
+              collapsable={false}
               style={[
                 styles.stopMarker,
                 isStart && styles.startMarker,
@@ -172,7 +173,7 @@ export default function DriverRouteMap({
           rotation={liveBusLocation?.heading ?? 0}
           anchor={{ x: 0.5, y: 0.5 }}
         >
-          <View style={styles.busMarker}>
+          <View collapsable={false} style={styles.busMarker}>
             <MaterialCommunityIcons name="bus" size={18} color="#FFFFFF" />
           </View>
         </Marker>

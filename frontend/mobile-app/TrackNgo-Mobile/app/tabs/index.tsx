@@ -20,6 +20,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LocalizedText as Text } from "../../utils/i18n";
+import {
+  getGreetingForTime,
+  millisUntilNextGreetingBoundary,
+} from "../../utils/greeting";
 
 // API Services and Session management imports
 import {
@@ -116,23 +120,6 @@ function parseJourneyDateTime(date: string, time: string): Date {
   const [year, month, day] = date.split("-").map(Number);
   const [hour, minute, second = 0] = time.split(":").map(Number);
   return new Date(year, month - 1, day, hour, minute, second);
-}
-
-/**
- * Returns a time-appropriate greeting (Morning, Afternoon, etc.)
- */
-function getGreetingForTime(date: Date): string {
-  const hour = date.getHours();
-  if (hour >= 5 && hour < 12) {
-    return "Good Morning";
-  }
-  if (hour >= 12 && hour < 17) {
-    return "Good Afternoon";
-  }
-  if (hour >= 17 && hour < 21) {
-    return "Good Evening";
-  }
-  return "Good Night";
 }
 
 /**
@@ -385,17 +372,9 @@ export default function HomeScreen() {
    * Refreshes the "now" state at day/time boundaries to update greetings
    */
   useEffect(() => {
-    const nowDate = new Date();
-    const boundaryHours = [5, 12, 17, 21, 24];
-    const currentHour = nowDate.getHours();
-    const nextHour = boundaryHours.find((hour) => hour > currentHour) ?? 24;
-    const nextBoundary = new Date(nowDate);
-    nextBoundary.setHours(nextHour, 0, 0, 0);
-    const delayMillis = Math.max(nextBoundary.getTime() - Date.now(), 500);
-
     const timeoutId = setTimeout(() => {
       setNow(new Date());
-    }, delayMillis);
+    }, millisUntilNextGreetingBoundary());
 
     return () => clearTimeout(timeoutId);
   }, [now]);

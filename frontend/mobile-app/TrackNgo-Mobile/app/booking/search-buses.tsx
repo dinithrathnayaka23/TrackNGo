@@ -21,6 +21,7 @@ import PlacesInput from '../../components/PlacesInput';
 import { httpGet } from '../../services/http';
 import { formatLocalDate, isPastCalendarDate, normalizeBookableDate, PAST_BOOKING_DATE_MESSAGE, startOfToday } from '../../utils/bookingDate';
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from '../../utils/i18n';
+import { useTimeOfDayGreeting } from '../../utils/greeting';
 
 const MIN_GAP = 0.08;
 
@@ -55,6 +56,7 @@ export default function SearchBusesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser } = useSession();
+  const greeting = useTimeOfDayGreeting();
   const { busCategory } = useLocalSearchParams<{ busCategory?: string }>();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -290,13 +292,7 @@ export default function SearchBusesScreen() {
 
         {/* Personalized Greeting */}
         <View style={styles.greetingBlock}>
-          <Text style={styles.greetingSub}>
-            {new Date().getHours() < 12
-              ? 'Good Morning,'
-              : new Date().getHours() < 17
-                ? 'Good Afternoon,'
-                : 'Good Evening,'}
-          </Text>
+          <Text style={styles.greetingSub}>{greeting},</Text>
           <Text style={styles.greetingMain}>{displayName}</Text>
         </View>
 

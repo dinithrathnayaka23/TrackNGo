@@ -23,6 +23,18 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         List<String> notificationTypes
     );
 
+    List<Notification> findByCorporateUserIdOrderByCreatedAtDesc(Long corporateUserId);
+
+    List<Notification> findByCorporateUserIdAndNotificationTypeOrderByCreatedAtDesc(
+        Long corporateUserId,
+        String notificationType
+    );
+
+    List<Notification> findByCorporateUserIdAndNotificationTypeInOrderByCreatedAtDesc(
+        Long corporateUserId,
+        List<String> notificationTypes
+    );
+
     List<Notification> findByDriverIdOrderByCreatedAtDesc(Long driverId);
 
     List<Notification> findByDriverIdAndNotificationTypeOrderByCreatedAtDesc(
@@ -42,6 +54,10 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     int markPassengerNotificationsRead(@Param("passengerId") Long passengerId);
 
     @Modifying
+    @Query("update Notification n set n.read = true where n.corporateUserId = :corporateUserId")
+    int markCorporateNotificationsRead(@Param("corporateUserId") Long corporateUserId);
+
+    @Modifying
     @Query("update Notification n set n.read = true where n.driverId = :driverId")
     int markDriverNotificationsRead(@Param("driverId") Long driverId);
 
@@ -52,6 +68,10 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying
     @Query("delete from Notification n where n.passengerId = :passengerId")
     int deleteByPassengerId(@Param("passengerId") Long passengerId);
+
+    @Modifying
+    @Query("delete from Notification n where n.corporateUserId = :corporateUserId")
+    int deleteByCorporateUserId(@Param("corporateUserId") Long corporateUserId);
 
     @Modifying
     @Query("delete from Notification n where n.driverId = :driverId")

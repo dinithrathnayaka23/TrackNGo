@@ -18,7 +18,9 @@ import {
 import type { RootStackParamList } from "../../navigation/types";
 import { LocalizedText as Text } from "../../utils/i18n";
 import {
+  getCorporateNotifications,
   getPassengerNotifications,
+  markAllCorporateNotificationsRead,
   markAllPassengerNotificationsRead,
   markNotificationRead,
   type NotificationDto,
@@ -26,7 +28,9 @@ import {
 import { useSession } from "../../store/sessionStore";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Notification">;
-type NoticeCategory = "All" | "Bookings" | "Payments" | "Journeys";
+type PassengerCategory = "Bookings" | "Payments" | "Journeys";
+type CorporateCategory = "Contracts" | "Billing" | "Updates";
+type NoticeCategory = "All" | PassengerCategory | CorporateCategory;
 type ApiFilterType = "booking" | "payment" | "journey";
 
 type NoticeItem = {
@@ -43,9 +47,10 @@ type NoticeItem = {
   iconBackground: string;
 };
 
-const tabs: NoticeCategory[] = ["All", "Bookings", "Payments", "Journeys"];
+const passengerTabs: NoticeCategory[] = ["All", "Bookings", "Payments", "Journeys"];
+const corporateTabs: NoticeCategory[] = ["All", "Contracts", "Billing", "Updates"];
 
-const tabToApiType: Record<Exclude<NoticeCategory, "All">, ApiFilterType> = {
+const tabToApiType: Partial<Record<NoticeCategory, ApiFilterType>> = {
   Bookings: "booking",
   Payments: "payment",
   Journeys: "journey",
@@ -56,6 +61,21 @@ const categoryByType: Record<string, NoticeItem["category"]> = {
   cancellation: "Bookings",
   payment: "Payments",
   journey: "Journeys",
+};
+
+// A corporate account never sees seat bookings or journeys — its feed is about
+// contracts and invoices, so the same notification types read differently.
+// "Invoice Ready" arrives as a system_alert, hence system_alert → Billing here.
+const corporateCategoryByType: Record<string, NoticeItem["category"]> = {
+  booking: "Contracts",
+  cancellation: "Contracts",
+  payment: "Billing",
+  system_alert: "Billing",
+  system: "Billing",
+  promotion: "Updates",
+  journey: "Updates",
+  complaint: "Updates",
+  rating: "Updates",
 };
 
 const iconByType: Record<
@@ -101,6 +121,29 @@ const iconByType: Record<
     icon: "alert-circle",
     iconColor: "#DC2626",
     iconBackground: "#FEE2E2",
+  },
+};
+
+// Corporate overrides: a "booking" notice is a contract update, and a
+// system_alert is normally an invoice notice.
+const corporateIconByType: Record<
+  string,
+  Pick<NoticeItem, "icon" | "iconColor" | "iconBackground">
+> = {
+  booking: {
+    icon: "file-document-edit",
+    iconColor: "#067BF9",
+    iconBackground: "#E0F0FF",
+  },
+  cancellation: {
+    icon: "file-remove",
+    iconColor: "#EF4444",
+    iconBackground: "#FEE2E2",
+  },
+  system_alert: {
+    icon: "receipt",
+    iconColor: "#16A34A",
+    iconBackground: "#DCFCE7",
   },
 };
 
@@ -154,13 +197,18 @@ function timeAgo(value: string | null) {
   }).format(date);
 }
 
-function mapNotification(dto: NotificationDto): NoticeItem {
+function mapNotification(dto: NotificationDto, isCorporate: boolean): NoticeItem {
   const notificationType = (dto.notificationType ?? "").toLowerCase();
-  const iconStyle = iconByType[notificationType] ?? {
-    icon: "bell",
-    iconColor: "#64748B",
-    iconBackground: "#E2E8F0",
-  };
+  const iconStyle =
+    (isCorporate ? corporateIconByType[notificationType] : undefined) ??
+    iconByType[notificationType] ?? {
+      icon: "bell",
+      iconColor: "#64748B",
+      iconBackground: "#E2E8F0",
+    };
+  const category = isCorporate
+    ? corporateCategoryByType[notificationType]
+    : categoryByType[notificationType];
 
   return {
     id: dto.id,
@@ -168,7 +216,7 @@ function mapNotification(dto: NotificationDto): NoticeItem {
     text: dto.message,
     time: timeAgo(dto.createdAt),
     section: sectionForDate(dto.createdAt),
-    category: categoryByType[notificationType] ?? "Other",
+    category: category ?? "Other",
     notificationType,
     read: Boolean(dto.read),
     ...iconStyle,
@@ -178,6 +226,8 @@ function mapNotification(dto: NotificationDto): NoticeItem {
 export function NotificationScreen({ navigation }: Props) {
   const { bottom } = useSafeAreaInsets();
   const { currentUser } = useSession();
+  const isCorporate = currentUser?.userType === "CORPORATE_USER";
+  const tabs = isCorporate ? corporateTabs : passengerTabs;
   const [activeTab, setActiveTab] = useState<NoticeCategory>("All");
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -196,9 +246,15 @@ export function NotificationScreen({ navigation }: Props) {
       setError(null);
 
       try {
-        const type = activeTab === "All" ? undefined : tabToApiType[activeTab];
-        const data = await getPassengerNotifications(currentUser.userId, type);
-        setNotices(data.map(mapNotification));
+        // Corporate feeds are small, so they are fetched whole and filtered on
+        // the client; the passenger feed keeps its server-side type filter.
+        const data = isCorporate
+          ? await getCorporateNotifications(currentUser.userId)
+          : await getPassengerNotifications(
+              currentUser.userId,
+              activeTab === "All" ? undefined : tabToApiType[activeTab],
+            );
+        setNotices(data.map((dto) => mapNotification(dto, isCorporate)));
       } catch (err) {
         console.error("Failed to load notifications", err);
         setError("Could not load notifications. Pull down to try again.");
@@ -206,7 +262,7 @@ export function NotificationScreen({ navigation }: Props) {
         setLoading(false);
       }
     },
-    [activeTab, currentUser],
+    [activeTab, currentUser, isCorporate],
   );
 
   // This screen is mounted through an Expo Router adapter, so it must not
@@ -266,13 +322,17 @@ export function NotificationScreen({ navigation }: Props) {
     if (!currentUser || notices.length === 0) return;
 
     try {
-      await markAllPassengerNotificationsRead(currentUser.userId);
+      if (isCorporate) {
+        await markAllCorporateNotificationsRead(currentUser.userId);
+      } else {
+        await markAllPassengerNotificationsRead(currentUser.userId);
+      }
       setNotices((items) => items.map((item) => ({ ...item, read: true })));
     } catch (err) {
       console.error("Failed to mark notifications read", err);
       Alert.alert("Notifications", "Could not mark notifications as read.");
     }
-  }, [currentUser, notices.length]);
+  }, [currentUser, isCorporate, notices.length]);
 
   const handleMarkRead = useCallback(async (notice: NoticeItem) => {
     if (notice.read) return;
@@ -428,9 +488,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // Type scale mirrors the corporate screens: 17/700 header, 14/700 row title,
+  // 13 for section labels and states, 12/500 body, 11/500 meta.
   headerTitle: {
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 17,
+    fontWeight: "700",
     color: "#1F2937",
     textAlign: "center",
   },
@@ -441,21 +503,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tabChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
     backgroundColor: "#EEF2F7",
   },
   tabActive: {
     backgroundColor: "#1A73E8",
   },
   tabText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
     color: "#7B8794",
   },
   tabActiveText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
     color: "#FFFFFF",
   },
@@ -473,23 +535,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "700",
     color: "#94A3B8",
   },
   markRead: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#1A73E8",
   },
   noticeCard: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#E6ECF3",
-    padding: 12,
-    gap: 10,
+    padding: 14,
+    gap: 12,
   },
   noticeCardRead: {
     backgroundColor: "#FBFCFE",
@@ -516,20 +578,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#1A73E8",
   },
   noticeTitle: {
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "700",
     color: "#1F2937",
     flex: 1,
   },
   noticeText: {
     marginTop: 4,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "500",
     color: "#7B8794",
+    lineHeight: 17,
   },
   noticeTime: {
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "500",
     color: "#94A3B8",
   },
   stateCard: {
@@ -544,8 +607,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   stateText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#7B8794",
     textAlign: "center",
   },

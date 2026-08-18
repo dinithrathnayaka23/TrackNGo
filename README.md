@@ -359,6 +359,17 @@ Optional sample data:
 mysql -u root -p trackngo < trackngo_sample_data.sql
 ```
 
+For current, data-backed driver earnings in the demonstration app, run the
+idempotent development seed after importing the sample data:
+
+```bash
+mysql -u root -p trackngo < backend/trackngo-backend/database/seed/dev_driver_earnings.sql
+```
+
+This creates linked completed bookings and successful payments for assigned
+drivers. The driver app calculates monthly earnings, weekly earnings, growth,
+and the earnings list from those records.
+
 For an existing production database, run the seat-booking concurrency
 migration in `backend/trackngo-backend/database/migrations` before deploying
 the new backend build. It backfills the seat-level reservation index and adds
@@ -387,9 +398,15 @@ The backend is configured with `spring.jpa.hibernate.ddl-auto=update` for local 
 
 ```bash
 cd backend/trackngo-backend
-mvn clean install
-mvn spring-boot:run -pl app
+# Stop any previously running app process before cleaning the jar.
+mvn -pl app -am clean package -DskipTests
+java -jar app/target/app-1.0.0-SNAPSHOT.jar
 ```
+
+The `-am` flag builds the dependent modules from the current source tree, and
+the jar command runs the `app` module explicitly. This prevents the parent
+project from being selected as the Spring Boot application and avoids running
+an older installed copy of `driver-module` without the driver earnings endpoint.
 
 The backend runs on:
 

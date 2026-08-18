@@ -58,7 +58,11 @@ interface DriverProfile {
   lastName?: string;
   profilePhoto?: string | null;
   averageRating: number;
-  driverEarnings: number;
+}
+
+interface DriverEarningsSummary {
+  monthlyEarnings: number;
+  percentageChange: number;
 }
 
 interface DriverAssignment {
@@ -90,6 +94,7 @@ export default function DriverDashboardScreen() {
   const { t } = useLanguage(); // Accessing the translation function
   const [firstName, setFirstName] = useState("Driver");
   const [profileData, setProfileData] = useState<DriverProfile | null>(null);
+  const [earningsSummary, setEarningsSummary] = useState<DriverEarningsSummary | null>(null);
   const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<RouteGeometry | null>(
     null,
@@ -233,6 +238,30 @@ export default function DriverDashboardScreen() {
       const currentAssignment = result.data.assignment ?? null;
       setProfileData(profile);
       setAssignment(currentAssignment);
+
+      try {
+        const earningsResponse = await fetch(
+          apiUrl(`/api/drivers/${user.userId}/earnings`),
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${user.token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        const earningsResult = await earningsResponse.json();
+        if (!earningsResponse.ok || !earningsResult.success || !earningsResult.data) {
+          throw new Error(earningsResult.message || "Failed to load earnings summary");
+        }
+        setEarningsSummary({
+          monthlyEarnings: Number(earningsResult.data.monthlyEarnings || 0),
+          percentageChange: Number(earningsResult.data.percentageChange || 0),
+        });
+      } catch (error) {
+        console.warn("Failed to load driver earnings summary:", error);
+        setEarningsSummary(null);
+      }
 
       if (profile.firstName) {
         setFirstName(profile.firstName);
@@ -516,7 +545,11 @@ export default function DriverDashboardScreen() {
 
   const ratingValue = profileData?.averageRating ?? 0;
   const roundedRating = Math.round(ratingValue);
-  const earningsAmount = profileData?.driverEarnings ?? 0;
+  const earningsAmount = earningsSummary?.monthlyEarnings ?? 0;
+  const earningsGrowth = earningsSummary?.percentageChange ?? 0;
+  const earningsGrowthLabel = t("dashboard.growthVsPreviousWeek", {
+    percent: earningsGrowth.toFixed(2),
+  });
   const profilePhotoUri = resolveAssetUrl(profileData?.profilePhoto);
   const orderedStops = useMemo(
     () => getOrderedStops(routeGeometry?.stops ?? []),
@@ -717,21 +750,20 @@ export default function DriverDashboardScreen() {
             </View>
 
             <Text style={styles.earningsAmount}>
-              LKR{" "}
-              {earningsAmount.toLocaleString("en-US", {
+              {earningsSummary === null ? "—" : `LKR ${earningsAmount.toLocaleString("en-US", {
                 // Format earnings amount with commas and 2 decimal places
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
-              })}
+              })}`}
             </Text>
 
             <View style={styles.growthContainer}>
               <MaterialCommunityIcons
                 name="trending-up"
                 size={16}
-                color="#00AA00"
+                color={earningsGrowth >= 0 ? "#00AA00" : "#DC2626"}
               />
-              <Text style={styles.growthText}>{t("dashboard.growthVsYesterday", { percent: 5 })}</Text>
+              <Text style={styles.growthText}>{earningsGrowthLabel}</Text>
             </View>
           </TouchableOpacity>
 
@@ -774,6 +806,7 @@ export default function DriverDashboardScreen() {
                 liveBusLocation={liveBusLocation}
                 loading={isLoadingTrip}
                 darkMode={darkMode}
+                showStopMarkers={false}
               />
 
               <TouchableOpacity

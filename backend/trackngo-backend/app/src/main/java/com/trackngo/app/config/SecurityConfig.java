@@ -14,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @EnableMethodSecurity
@@ -32,7 +33,11 @@ public class SecurityConfig {
                 .requestMatchers("/chat/**").permitAll()
                 .requestMatchers("/api/routes/**").permitAll()
                 .requestMatchers("/api/users/*/conversations/**").permitAll()
-                .requestMatchers("/api/users/*/profile").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/users/*/profile").permitAll()
+                .requestMatchers("/api/users/*/profile").authenticated()
+                .requestMatchers("/api/users/*/settings").authenticated()
+                .requestMatchers("/api/users/*/password").authenticated()
+                .requestMatchers("/api/users/*/two-factor/**").authenticated()
                 .requestMatchers("/api/users/*/corporate").permitAll()
                 .requestMatchers("/api/conversations/**").permitAll()
                 .requestMatchers("/api/chat/presence").permitAll()

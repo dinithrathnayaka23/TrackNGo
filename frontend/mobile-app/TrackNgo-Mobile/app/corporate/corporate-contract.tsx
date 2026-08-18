@@ -13,14 +13,21 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSession } from "../../store/sessionStore";
+import { CorporateTabBar } from "../../components/CorporateTabBar";
 import {
   type CorporateContract,
+  type CorporateProfileDto,
+  describeCompletedContract,
   displayContractStatus,
+  formatAmount,
   formatContractDate,
   formatShiftTime,
   getCorporateContracts,
+  getCorporateProfile,
+  isContractCompleted,
+  isContractRunning,
 } from "../../services/corporateApi";
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
@@ -79,7 +86,9 @@ function ContractCard({ contract, onPress }: { contract: CorporateContract, onPr
             <View style={[styles.statusDot, { backgroundColor: badge.text }]} />
             <Text style={[styles.statusText, { color: badge.text }]}>{displayStatus}</Text>
           </View>
-          <View style={styles.menuBtn} />
+          <View style={styles.menuBtn}>
+            {onPress && <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />}
+          </View>
         </View>
 
         {/* Route */}
@@ -119,33 +128,38 @@ function ContractCard({ contract, onPress }: { contract: CorporateContract, onPr
 
 // ─── History Row ──────────────────────────────────────────────────────────────
 
-function HistoryRow({ contract }: { contract: CorporateContract }) {
-  const label = displayContractStatus(contract.status);
-  const colour =
-    contract.status === "expired"
-      ? "#EF4444"
-      : contract.status === "cancelled"
-      ? "#F59E0B"
-      : "#10B981";
+function HistoryRow({
+  contract,
+  onPress,
+}: {
+  contract: CorporateContract;
+  onPress?: () => void;
+}) {
+  const { label, colour } = describeCompletedContract(contract);
 
   return (
-    <View style={styles.historyRow}>
+    <Pressable
+      style={({ pressed }) => [styles.historyRow, pressed && styles.historyRowPressed]}
+      onPress={onPress}
+    >
       <View style={styles.historyIconCircle}>
         <MaterialCommunityIcons name="history" size={18} color="#94A3B8" />
       </View>
       <View style={styles.historyInfo}>
-        <Text style={styles.historyRoute}>
+        <Text style={styles.historyRoute} numberOfLines={1}>
           {contract.startingLocation} → {contract.destination}
         </Text>
+        <Text style={styles.historyName} numberOfLines={1}>{contract.contractName}</Text>
         <Text style={styles.historyPeriod}>
           {formatContractDate(contract.startDate)} – {formatContractDate(contract.endDate)}
         </Text>
       </View>
       <View style={styles.historyRight}>
-        <Text style={styles.historyName} numberOfLines={1}>{contract.contractName}</Text>
         <Text style={[styles.historyOutcome, { color: colour }]}>{label}</Text>
+        <Text style={styles.historyAmount}>{formatAmount(contract.billingAmount)}</Text>
       </View>
-    </View>
+      <Ionicons name="chevron-forward" size={14} color="#CBD5E1" />
+    </Pressable>
   );
 }
 
@@ -153,12 +167,19 @@ function HistoryRow({ contract }: { contract: CorporateContract }) {
 
 export default function CorporateContractScreen() {
   const router = useRouter();
+  const { section } = useLocalSearchParams<{ section?: string }>();
   const { currentUser } = useSession();
 
   const [contracts, setContracts] = useState<CorporateContract[]>([]);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<CorporateProfileDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Deep link support: /corporate/corporate-contract?section=active scrolls
+  // straight to the Active Contracts block (used by the dashboard stat cards).
+  const scrollRef = useRef<ScrollView>(null);
+  const activeSectionY = useRef(0);
+  const didAutoScroll = useRef(false);
 
   const headerAnim = useFadeSlide(0);
   const heroAnim = useFadeSlide(60);
@@ -172,9 +193,14 @@ export default function CorporateContractScreen() {
       else setLoading(true);
 
       try {
+        // The profile is only needed for the "create contract" completeness check,
+        // so a profile failure must not blank out the contract list.
         const [contractsData, profileData] = await Promise.all([
           getCorporateContracts(currentUser.userId),
-          fetch(`${process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.6:8080"}/api/users/${currentUser.userId}/profile`).then((res) => res.json()),
+          getCorporateProfile(currentUser.userId).catch((err) => {
+            console.warn("[CorporateContract] Failed to load profile:", err);
+            return null;
+          }),
         ]);
         setContracts(contractsData);
         setProfile(profileData);
@@ -194,9 +220,29 @@ export default function CorporateContractScreen() {
     }, [loadData]),
   );
 
+  // Scroll once the list has rendered, so the measured section offset is real.
+  useEffect(() => {
+    if (loading || section !== "active" || didAutoScroll.current) return;
+    didAutoScroll.current = true;
+    const timeoutId = setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(activeSectionY.current - 12, 0),
+        animated: true,
+      });
+    }, 250);
+    return () => clearTimeout(timeoutId);
+  }, [loading, section]);
+
   const handleCreateContract = () => {
-    if (!profile) return;
-    
+    if (!profile) {
+      Alert.alert(
+        "Profile Unavailable",
+        "We could not load your company profile. Pull down to refresh and try again.",
+      );
+      return;
+    }
+
+
     const isProfileComplete = 
       profile.businessRegistrationNumber && 
       profile.industry && 
@@ -219,9 +265,12 @@ export default function CorporateContractScreen() {
     router.push("/corporate/new-contract");
   };
 
-  const activeContracts = contracts.filter((c) => c.status?.toLowerCase() === "active");
+  const activeContracts = contracts.filter(isContractRunning);
   const pendingContracts = contracts.filter((c) => c.status?.toLowerCase() === "pending");
-  const historyContracts = contracts.filter((c) => c.status?.toLowerCase() === "expired" || c.status?.toLowerCase() === "cancelled");
+  // Finished contracts, most recently ended first.
+  const historyContracts = contracts
+    .filter(isContractCompleted)
+    .sort((a, b) => (b.endDate ?? "").localeCompare(a.endDate ?? ""));
 
   return (
     <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
@@ -239,6 +288,7 @@ export default function CorporateContractScreen() {
       </Animated.View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -312,6 +362,9 @@ export default function CorporateContractScreen() {
         {/* Active Contracts */}
         {!loading && (
           <Animated.View
+            onLayout={(event) => {
+              activeSectionY.current = event.nativeEvent.layout.y;
+            }}
             style={{ opacity: activeAnim.opacity, transform: [{ translateY: activeAnim.translateY }] }}
           >
             <View style={styles.sectionHeader}>
@@ -327,7 +380,11 @@ export default function CorporateContractScreen() {
             <View style={styles.contractList}>
               {activeContracts.length > 0 ? (
                 activeContracts.map((c) => (
-                  <ContractCard key={c.contractId} contract={c} />
+                  <ContractCard
+                    key={c.contractId}
+                    contract={c}
+                    onPress={() => router.push(`/corporate/contract-detail?contractId=${c.contractId}`)}
+                  />
                 ))
               ) : (
                 <View style={styles.emptyState}>
@@ -344,25 +401,47 @@ export default function CorporateContractScreen() {
           </Animated.View>
         )}
 
-        {/* Contract History */}
-        {!loading && historyContracts.length > 0 && (
+        {/* Previous (completed) contracts */}
+        {!loading && (
           <Animated.View
             style={{ opacity: historyAnim.opacity, transform: [{ translateY: historyAnim.translateY }] }}
           >
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Contract History</Text>
+              <Text style={styles.sectionTitle}>Previous Contracts</Text>
+              {historyContracts.length > 0 && (
+                <View style={styles.completedBadge}>
+                  <Text style={styles.completedBadgeText}>
+                    {historyContracts.length} COMPLETED
+                  </Text>
+                </View>
+              )}
             </View>
 
-            <View style={styles.historyCard}>
-              {historyContracts.map((contract, index) => (
-                <React.Fragment key={contract.contractId}>
-                  <HistoryRow contract={contract} />
-                  {index < historyContracts.length - 1 && (
-                    <View style={styles.historyDivider} />
-                  )}
-                </React.Fragment>
-              ))}
-            </View>
+            {historyContracts.length > 0 ? (
+              <View style={styles.historyCard}>
+                {historyContracts.map((contract, index) => (
+                  <React.Fragment key={contract.contractId}>
+                    <HistoryRow
+                      contract={contract}
+                      onPress={() =>
+                        router.push(`/corporate/contract-detail?contractId=${contract.contractId}`)
+                      }
+                    />
+                    {index < historyContracts.length - 1 && (
+                      <View style={styles.historyDivider} />
+                    )}
+                  </React.Fragment>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="history" size={36} color="#CBD5E1" />
+                <Text style={styles.emptyText}>No previous contracts</Text>
+                <Text style={styles.emptySubText}>
+                  Contracts that have ended or been cancelled will be listed here.
+                </Text>
+              </View>
+            )}
           </Animated.View>
         )}
 
@@ -370,40 +449,7 @@ export default function CorporateContractScreen() {
       </ScrollView>
 
       {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => router.push("/corporate/co-op-dashboard")}
-        >
-          <Ionicons name="grid-outline" size={22} color="#64748B" />
-          <Text style={styles.tabLabel}>Dashboard</Text>
-        </TouchableOpacity>
-
-        {/* Contracts – active */}
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => router.push("/corporate/corporate-contract")}
-        >
-          <Ionicons name="document-text" size={22} color="#067BF9" />
-          <Text style={[styles.tabLabel, styles.tabLabelActive]}>Contracts</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => router.push("/corporate/corporate-billing")}
-        >
-          <Ionicons name="receipt-outline" size={22} color="#64748B" />
-          <Text style={styles.tabLabel}>Billing</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => router.push("/corporate/corporate-profile")}
-        >
-          <Ionicons name="person-outline" size={22} color="#64748B" />
-          <Text style={styles.tabLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <CorporateTabBar active="contracts" />
     </SafeAreaView>
   );
 }
@@ -472,6 +518,11 @@ const styles = StyleSheet.create({
   runningBadge: { flexDirection: "row", alignItems: "center", gap: 5 },
   runningDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#10B981" },
   runningText: { fontSize: 11, fontWeight: "700", color: "#10B981", letterSpacing: 0.5 },
+  completedBadge: {
+    backgroundColor: "#F1F5F9", borderRadius: 20,
+    paddingHorizontal: 9, paddingVertical: 3,
+  },
+  completedBadgeText: { fontSize: 11, fontWeight: "700", color: "#64748B", letterSpacing: 0.5 },
 
   contractList: { gap: 12, marginBottom: 28 },
 
@@ -494,7 +545,7 @@ const styles = StyleSheet.create({
   statusBadge: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3 },
   statusDot: { width: 5, height: 5, borderRadius: 3 },
   statusText: { fontSize: 11, fontWeight: "600" },
-  menuBtn: { marginLeft: "auto", width: 20 },
+  menuBtn: { marginLeft: "auto", width: 20, alignItems: "flex-end" },
   routeRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
   routeCity: { fontSize: 17, fontWeight: "700", color: "#0F172A", flex: 1 },
   routeArrow: { marginHorizontal: 6 },
@@ -534,7 +585,8 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginBottom: 8,
   },
-  historyRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
+  historyRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
+  historyRowPressed: { backgroundColor: "#F8FAFC" },
   historyDivider: { height: 1, backgroundColor: "#F1F5F9", marginHorizontal: 16 },
   historyIconCircle: {
     width: 36, height: 36, borderRadius: 18,
@@ -542,17 +594,10 @@ const styles = StyleSheet.create({
   },
   historyInfo: { flex: 1 },
   historyRoute: { fontSize: 13, fontWeight: "700", color: "#1E293B", marginBottom: 2 },
+  historyName: { fontSize: 11, fontWeight: "500", color: "#64748B", marginBottom: 2 },
   historyPeriod: { fontSize: 11, color: "#94A3B8", fontWeight: "500" },
-  historyRight: { alignItems: "flex-end" },
-  historyName: { fontSize: 12, fontWeight: "700", color: "#1E293B", marginBottom: 2, maxWidth: 100 },
-  historyOutcome: { fontSize: 11, fontWeight: "600" },
+  historyRight: { alignItems: "flex-end", gap: 3 },
+  historyOutcome: { fontSize: 11, fontWeight: "700" },
+  historyAmount: { fontSize: 12, fontWeight: "700", color: "#1E293B" },
 
-  // Tab bar
-  tabBar: {
-    flexDirection: "row", height: 64, backgroundColor: "#FFFFFF",
-    borderTopWidth: 1, borderTopColor: "#E2E8F0", paddingBottom: 4,
-  },
-  tabItem: { flex: 1, justifyContent: "center", alignItems: "center", gap: 3 },
-  tabLabel: { fontSize: 11, fontWeight: "600", color: "#64748B", marginTop: 2 },
-  tabLabelActive: { color: "#067BF9" },
 });

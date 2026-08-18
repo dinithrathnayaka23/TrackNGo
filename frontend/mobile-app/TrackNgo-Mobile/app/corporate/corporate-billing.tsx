@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,15 +13,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSession } from "../../store/sessionStore";
+import { CorporateTabBar } from "../../components/CorporateTabBar";
 import {
+  type CorporateContract,
   type CorporateInvoice,
   type InvoiceStatus,
   computeOutstandingBalance,
+  daysRemaining,
   displayInvoiceStatus,
   formatAmount,
   formatContractDate,
+  getCorporateContracts,
   getCorporateInvoices,
 } from "../../services/corporateApi";
 
@@ -56,19 +60,46 @@ function buildInvoiceRef(invoice: CorporateInvoice): string {
   return `INV-${year}-${num}`;
 }
 
+/**
+ * Due-date wording for an unpaid invoice: overdue invoices say by how much,
+ * upcoming ones say how long is left.
+ */
+function describeDueDate(invoice: CorporateInvoice): { label: string; urgent: boolean } {
+  if (!invoice.dueDate) {
+    return { label: "No due date set", urgent: false };
+  }
+  const days = daysRemaining(invoice.dueDate);
+  if (days < 0) {
+    const overdue = Math.abs(days);
+    return { label: `Overdue by ${overdue} day${overdue === 1 ? "" : "s"}`, urgent: true };
+  }
+  if (days === 0) {
+    return { label: "Due today", urgent: true };
+  }
+  return { label: `Due in ${days} day${days === 1 ? "" : "s"}`, urgent: false };
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function CorporateBillingScreen() {
   const router = useRouter();
+  const { section } = useLocalSearchParams<{ section?: string }>();
   const { currentUser } = useSession();
 
   const [invoices, setInvoices] = useState<CorporateInvoice[]>([]);
+  const [contracts, setContracts] = useState<CorporateContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const headerAnim = useFadeSlide(0);
   const cardAnim = useFadeSlide(80);
+  const outstandingAnim = useFadeSlide(140);
   const invoicesAnim = useFadeSlide(180);
+
+  // Deep link from the dashboard's Outstanding Balance card.
+  const scrollRef = useRef<ScrollView>(null);
+  const outstandingSectionY = useRef(0);
+  const didAutoScroll = useRef(false);
 
   // ── Data loading ─────────────────────────────────────────────────
   const loadInvoices = useCallback(
@@ -78,8 +109,14 @@ export default function CorporateBillingScreen() {
       else setLoading(true);
 
       try {
-        const data = await getCorporateInvoices(currentUser.userId);
-        setInvoices(data);
+        // Contracts come along so each invoice can be shown against the route
+        // it belongs to rather than a bare contract id.
+        const [invoiceData, contractData] = await Promise.all([
+          getCorporateInvoices(currentUser.userId),
+          getCorporateContracts(currentUser.userId),
+        ]);
+        setInvoices(invoiceData);
+        setContracts(contractData);
       } catch (err) {
         console.error("[CorporateBilling] Failed to load invoices:", err);
       } finally {
@@ -96,11 +133,34 @@ export default function CorporateBillingScreen() {
     }, [loadInvoices]),
   );
 
+  useEffect(() => {
+    if (loading || section !== "outstanding" || didAutoScroll.current) return;
+    didAutoScroll.current = true;
+    const timeoutId = setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(outstandingSectionY.current - 12, 0),
+        animated: true,
+      });
+    }, 250);
+    return () => clearTimeout(timeoutId);
+  }, [loading, section]);
+
   // ── Computed values ──────────────────────────────────────────────
   const outstandingBalance = computeOutstandingBalance(invoices);
+  // Unpaid invoices, most urgent (earliest due date) first.
+  const outstandingInvoices = invoices
+    .filter((inv) => inv.status === "pending" || inv.status === "overdue")
+    .sort((a, b) => (a.dueDate ?? a.date).localeCompare(b.dueDate ?? b.date));
+  const overdueCount = outstandingInvoices.filter((inv) => inv.status === "overdue").length;
   const recentInvoices = [...invoices]
     .sort((a, b) => (b.date > a.date ? 1 : -1))
     .slice(0, 10);
+
+  const contractLabel = (contractId: number): string => {
+    const contract = contracts.find((c) => c.contractId === contractId);
+    if (!contract) return `Contract #${contractId}`;
+    return `${contract.startingLocation} → ${contract.destination}`;
+  };
 
   // ── Render ───────────────────────────────────────────────────────
   return (
@@ -116,6 +176,7 @@ export default function CorporateBillingScreen() {
       </Animated.View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -140,7 +201,16 @@ export default function CorporateBillingScreen() {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="large" style={{ marginVertical: 10 }} />
             ) : (
-              <Text style={styles.balanceAmount}>{formatAmount(outstandingBalance)}</Text>
+              <>
+                <Text style={styles.balanceAmountTight}>{formatAmount(outstandingBalance)}</Text>
+                <Text style={styles.balanceBreakdown}>
+                  {outstandingInvoices.length === 0
+                    ? "All invoices settled"
+                    : `${outstandingInvoices.length} unpaid invoice${
+                        outstandingInvoices.length === 1 ? "" : "s"
+                      }${overdueCount > 0 ? ` · ${overdueCount} overdue` : ""}`}
+                </Text>
+              </>
             )}
 
             <View style={styles.cardActions}>
@@ -169,6 +239,77 @@ export default function CorporateBillingScreen() {
             </View>
           </View>
         </Animated.View>
+
+        {/* Outstanding breakdown — what makes up the balance above */}
+        {!loading && (
+          <Animated.View
+            onLayout={(event) => {
+              outstandingSectionY.current = event.nativeEvent.layout.y;
+            }}
+            style={{
+              opacity: outstandingAnim.opacity,
+              transform: [{ translateY: outstandingAnim.translateY }],
+              marginBottom: 26,
+            }}
+          >
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Outstanding Invoices</Text>
+              {outstandingInvoices.length > 0 && (
+                <Text style={styles.outstandingTotal}>{formatAmount(outstandingBalance)}</Text>
+              )}
+            </View>
+
+            {outstandingInvoices.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <MaterialCommunityIcons name="check-circle-outline" size={36} color="#86EFAC" />
+                <Text style={styles.emptyText}>Nothing outstanding</Text>
+                <Text style={styles.emptySubText}>
+                  Every invoice raised against your contracts has been paid.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.invoicesCard}>
+                {outstandingInvoices.map((inv, idx) => {
+                  const st = invoiceStatusStyle(inv.status);
+                  const due = describeDueDate(inv);
+                  return (
+                    <React.Fragment key={`${inv.contractId}-${inv.invoiceNumber}`}>
+                      {idx > 0 && <View style={styles.divider} />}
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.invoiceRow,
+                          pressed && styles.invoiceRowPressed,
+                        ]}
+                        onPress={() =>
+                          router.push(`/corporate/contract-detail?contractId=${inv.contractId}`)
+                        }
+                      >
+                        <View style={styles.invoiceLeft}>
+                          <Text style={styles.invoiceRef}>{buildInvoiceRef(inv)}</Text>
+                          <Text style={styles.invoiceContract} numberOfLines={1}>
+                            {contractLabel(inv.contractId)}
+                          </Text>
+                          <Text style={[styles.dueLabel, due.urgent && styles.dueLabelUrgent]}>
+                            {due.label}
+                            {inv.dueDate ? ` · ${formatContractDate(inv.dueDate)}` : ""}
+                          </Text>
+                        </View>
+                        <View style={styles.invoiceRight}>
+                          <Text style={styles.invoiceAmount}>{formatAmount(inv.amount)}</Text>
+                          <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
+                            <Text style={[styles.statusText, { color: st.text }]}>
+                              {displayInvoiceStatus(inv.status)}
+                            </Text>
+                          </View>
+                        </View>
+                      </Pressable>
+                    </React.Fragment>
+                  );
+                })}
+              </View>
+            )}
+          </Animated.View>
+        )}
 
         {/* Recent Invoices */}
         <Animated.View
@@ -271,40 +412,7 @@ export default function CorporateBillingScreen() {
       </ScrollView>
 
       {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => router.push("/corporate/co-op-dashboard")}
-        >
-          <Ionicons name="grid-outline" size={22} color="#64748B" />
-          <Text style={styles.tabLabel}>Dashboard</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => router.push("/corporate/corporate-contract")}
-        >
-          <Ionicons name="document-text-outline" size={22} color="#64748B" />
-          <Text style={styles.tabLabel}>Contracts</Text>
-        </TouchableOpacity>
-
-        {/* Billing – active */}
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => router.push("/corporate/corporate-billing")}
-        >
-          <MaterialCommunityIcons name="receipt" size={22} color="#2F6BFF" />
-          <Text style={[styles.tabLabel, styles.tabLabelActive]}>Billing</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => router.push("/corporate/corporate-profile")}
-        >
-          <Ionicons name="person-outline" size={22} color="#64748B" />
-          <Text style={styles.tabLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <CorporateTabBar active="billing" />
     </SafeAreaView>
   );
 }
@@ -354,6 +462,13 @@ const styles = StyleSheet.create({
     fontSize: 32, fontWeight: "800", color: "#FFFFFF",
     letterSpacing: -0.5, marginBottom: 24,
   },
+  balanceAmountTight: {
+    fontSize: 32, fontWeight: "800", color: "#FFFFFF",
+    letterSpacing: -0.5, marginBottom: 4,
+  },
+  balanceBreakdown: {
+    fontSize: 12, fontWeight: "600", color: "rgba(255,255,255,0.8)", marginBottom: 20,
+  },
   cardActions: { flexDirection: "row", gap: 12 },
   payBtn: {
     flex: 1, backgroundColor: "#FFFFFF", borderRadius: 10,
@@ -388,9 +503,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
   },
   invoiceRowPressed: { backgroundColor: "#F8FAFC" },
-  invoiceLeft: { flex: 1 },
+  invoiceLeft: { flex: 1, paddingRight: 10 },
   invoiceRef: { fontSize: 14, fontWeight: "700", color: "#1E293B", marginBottom: 3 },
   invoiceDate: { fontSize: 12, color: "#94A3B8", fontWeight: "500" },
+  invoiceContract: { fontSize: 12, color: "#64748B", fontWeight: "500", marginBottom: 3 },
+  dueLabel: { fontSize: 11, color: "#94A3B8", fontWeight: "600" },
+  dueLabelUrgent: { color: "#EF4444" },
+  outstandingTotal: { fontSize: 14, fontWeight: "800", color: "#EF4444" },
   invoiceRight: { alignItems: "flex-end", gap: 5 },
   invoiceAmount: { fontSize: 14, fontWeight: "700", color: "#1E293B", marginBottom: 3 },
   statusPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
@@ -418,12 +537,4 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 22, fontWeight: "800", color: "#10B981", marginBottom: 4 },
   statLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8" },
 
-  // Tab bar
-  tabBar: {
-    flexDirection: "row", height: 64, backgroundColor: "#FFFFFF",
-    borderTopWidth: 1, borderTopColor: "#E2E8F0", paddingBottom: 4,
-  },
-  tabItem: { flex: 1, justifyContent: "center", alignItems: "center", gap: 3 },
-  tabLabel: { fontSize: 11, fontWeight: "600", color: "#64748B", marginTop: 2 },
-  tabLabelActive: { color: "#2F6BFF" },
 });

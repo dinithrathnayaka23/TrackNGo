@@ -72,6 +72,32 @@ export interface CorporateInvoice {
   createdAt: string;
 }
 
+export interface ContractBus {
+  busId: number;
+  busNumber: string | null;
+  busBrand: string | null;
+  registrationNumber: string | null;
+  seatCapacity: number | null;
+  amenities: string | null;   // JSON array string, e.g. '["ac","wifi"]'
+  busCondition: string | null;
+  status: string | null;
+  routeName: string | null;
+  driverId: number | null;
+  driverName: string | null;
+  driverPhone: string | null;
+}
+
+export interface CorporateContractDetail extends CorporateContract {
+  companyName: string | null;
+  contactPersonName: string | null;
+  contactPhone: string | null;
+  bus: ContractBus | null;
+  invoices: CorporateInvoice[];
+  totalBilled: number;
+  totalPaid: number;
+  outstandingAmount: number;
+}
+
 export interface CreateContractRequest {
   contractName: string;
   startingLocation: string;
@@ -156,6 +182,55 @@ export async function createCorporateContract(
   return res.data;
 }
 
+/**
+ * Fetches the full detail of a single contract — bus + driver, company info and
+ * the invoice history for that contract.
+ * GET /api/corporate/contracts/{contractId}?userId={userId}
+ *
+ * Falls back to composing the detail from the list endpoints when the backend
+ * does not expose the detail endpoint yet.
+ */
+export async function getCorporateContractDetail(
+  contractId: number,
+  userId: number,
+): Promise<CorporateContractDetail | null> {
+  try {
+    const res = await httpGet<ApiResponse<CorporateContractDetail>>(
+      `/api/corporate/contracts/${contractId}`,
+      { userId },
+    );
+    if (res.data) return res.data;
+  } catch (err) {
+    console.warn("[CorporateApi] getCorporateContractDetail failed, falling back:", err);
+  }
+
+  // Fallback: build the detail from the list endpoints.
+  const [contracts, invoices] = await Promise.all([
+    getCorporateContracts(userId),
+    getCorporateInvoices(userId),
+  ]);
+  const contract = contracts.find((c) => c.contractId === contractId);
+  if (!contract) return null;
+
+  const contractInvoices = invoices.filter((inv) => inv.contractId === contractId);
+  const sumBy = (statuses: InvoiceStatus[]) =>
+    contractInvoices
+      .filter((inv) => statuses.includes(inv.status))
+      .reduce((total, inv) => total + (inv.amount ?? 0), 0);
+
+  return {
+    ...contract,
+    companyName: null,
+    contactPersonName: null,
+    contactPhone: null,
+    bus: null,
+    invoices: contractInvoices,
+    totalBilled: sumBy(["paid", "pending", "overdue"]),
+    totalPaid: sumBy(["paid"]),
+    outstandingAmount: sumBy(["pending", "overdue"]),
+  };
+}
+
 /* ── Invoices ─────────────────────────────────────────────────────── */
 
 /**
@@ -228,6 +303,113 @@ export function computeOutstandingBalance(
   return invoices
     .filter((inv) => inv.status === "pending" || inv.status === "overdue")
     .reduce((sum, inv) => sum + (inv.amount ?? 0), 0);
+}
+
+/**
+ * Parses the `amenities` JSON column of a bus into a list of amenity keys.
+ * Accepts both a JSON array string and a comma separated string.
+ */
+export function parseBusAmenities(amenities: string | null | undefined): string[] {
+  if (!amenities) return [];
+  try {
+    const parsed = JSON.parse(amenities);
+    if (Array.isArray(parsed)) return parsed.map((a) => String(a));
+  } catch {
+    // Not JSON — fall through to comma separated handling.
+  }
+  return amenities
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Number of whole days between today and the contract end date.
+ * Negative once the contract has already ended.
+ */
+export function daysRemaining(endDate: string): number {
+  if (!endDate) return 0;
+  const [year, month, day] = endDate.split("-").map(Number);
+  const end = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Fraction (0–1) of the contract period that has already elapsed.
+ */
+export function contractProgress(startDate: string, endDate: string): number {
+  if (!startDate || !endDate) return 0;
+  const toDate = (value: string) => {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day).getTime();
+  };
+  const start = toDate(startDate);
+  const end = toDate(endDate);
+  if (end <= start) return 1;
+  const now = Date.now();
+  return Math.min(1, Math.max(0, (now - start) / (end - start)));
+}
+
+/**
+ * Formats a HH:MM:SS pair into a shift duration label, e.g. "12h 30m".
+ */
+export function formatShiftDuration(start: string, end: string): string {
+  if (!start || !end) return "—";
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let diff = eh * 60 + em - (sh * 60 + sm);
+  if (diff < 0) diff += 24 * 60;
+  const hours = Math.floor(diff / 60);
+  const minutes = diff % 60;
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+}
+
+/* ── Contract classification ──────────────────────────────────────── */
+
+/**
+ * True once the contract's end date has passed.
+ */
+export function isContractEnded(contract: CorporateContract): boolean {
+  return !!contract.endDate && daysRemaining(contract.endDate) < 0;
+}
+
+/**
+ * A contract is only *running* while its status is active AND its end date has
+ * not passed. The DB keeps `status = 'active'` after `end_date` until an admin
+ * expires it, so the date guard is what keeps finished contracts out of the
+ * active list.
+ */
+export function isContractRunning(contract: CorporateContract): boolean {
+  return contract.status?.toLowerCase() === "active" && !isContractEnded(contract);
+}
+
+/**
+ * A contract belongs to the "previous" list once it has been expired/cancelled,
+ * or once an active contract has run past its end date.
+ */
+export function isContractCompleted(contract: CorporateContract): boolean {
+  const status = contract.status?.toLowerCase();
+  if (status === "expired" || status === "cancelled") return true;
+  return status === "active" && isContractEnded(contract);
+}
+
+/**
+ * Label + colour for a finished contract: an active contract that simply ran to
+ * its end date reads as "Completed", not "Expired".
+ */
+export function describeCompletedContract(
+  contract: CorporateContract,
+): { label: string; colour: string } {
+  switch (contract.status?.toLowerCase()) {
+    case "cancelled":
+      return { label: "Cancelled", colour: "#F59E0B" };
+    case "expired":
+      return { label: "Expired", colour: "#EF4444" };
+    default:
+      return { label: "Completed", colour: "#10B981" };
+  }
 }
 
 /**

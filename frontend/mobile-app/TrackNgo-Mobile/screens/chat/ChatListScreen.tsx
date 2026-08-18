@@ -916,9 +916,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // Type scale matches the corporate screens (and the notification list):
+  // 17/700 header, 14/700 row title, 13 for search and states, 12/500 body,
+  // 11/500 meta.
   headerTitle: {
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 17,
+    fontWeight: "700",
     color: "#1F2937",
   },
   headerSpacer: {
@@ -939,8 +942,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "500",
     color: "#1F2937",
   },
   scrollContent: {
@@ -1001,18 +1004,18 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   chatTitle: {
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "700",
     color: "#1F2937",
   },
   chatSubtitle: {
     marginTop: 4,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "500",
     color: "#8A94A6",
   },
   chatTypingSubtitle: {
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#1A73E8",
   },
   chatMeta: {
@@ -1022,21 +1025,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chatTime: {
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "500",
     color: "#94A3B8",
   },
   unreadBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: "#1A73E8",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
   },
   unreadBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "800",
     color: "#FFFFFF",
   },
@@ -1051,13 +1054,15 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: "center",
     color: "#6C8195",
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: "600",
   },
   errorText: {
     textAlign: "center",
     color: "#D9534F",
     marginBottom: 12,
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: "600",
   },
   retryButton: {
     backgroundColor: "#1A73E8",

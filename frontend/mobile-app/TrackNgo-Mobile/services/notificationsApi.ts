@@ -52,6 +52,55 @@ export async function getPassengerNotifications(
   return res.data ?? [];
 }
 
+/**
+ * Corporate notifications are keyed by corporate_user_id, so they are *not*
+ * returned by the passenger endpoint — they need their own route.
+ * GET /api/notifications/corporate/{userId}
+ */
+export async function getCorporateNotifications(
+  userId: number,
+  type?: "booking" | "payment" | "promotion" | "system_alert",
+): Promise<NotificationDto[]> {
+  const headers = await authHeaders();
+  const res = await httpGet<ApiResponse<NotificationDto[]>>(
+    `/api/notifications/corporate/${userId}`,
+    { type },
+    headers,
+  );
+  return res.data ?? [];
+}
+
+/**
+ * Unread count for the corporate bell badge.
+ */
+export async function getCorporateUnreadCount(userId: number): Promise<number> {
+  try {
+    const notifications = await getCorporateNotifications(userId);
+    return notifications.filter((notification) => !notification.read).length;
+  } catch (err) {
+    console.warn("[Notifications] Failed to load corporate unread count:", err);
+    return 0;
+  }
+}
+
+export async function markAllCorporateNotificationsRead(
+  userId: number,
+): Promise<void> {
+  const headers = await authHeaders();
+  await httpPut<ApiResponse<void>>(
+    `/api/notifications/corporate/${userId}/read`,
+    undefined,
+    headers,
+  ).catch(async () => {
+    const notifications = await getCorporateNotifications(userId);
+    await Promise.all(
+      notifications
+        .filter((notification) => !notification.read)
+        .map((notification) => markNotificationRead(notification.id)),
+    );
+  });
+}
+
 export async function markNotificationRead(id: number): Promise<NotificationDto> {
   const headers = await authHeaders();
   const res = await httpPut<ApiResponse<NotificationDto>>(

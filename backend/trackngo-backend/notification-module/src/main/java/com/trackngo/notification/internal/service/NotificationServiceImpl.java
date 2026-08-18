@@ -76,6 +76,37 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<NotificationDto> getCorporateNotifications(Long corporateUserId, String notificationType) {
+        if (notificationType == null || notificationType.isBlank()) {
+            return repository.findByCorporateUserIdOrderByCreatedAtDesc(corporateUserId)
+                .stream()
+                .map(this::toDto)
+                .toList();
+        }
+
+        // Contract notices arrive as "booking" and, when a contract is dropped,
+        // as "cancellation" — the corporate app shows both under Contracts.
+        if ("booking".equalsIgnoreCase(notificationType.trim())) {
+            return repository.findByCorporateUserIdAndNotificationTypeInOrderByCreatedAtDesc(
+                    corporateUserId,
+                    List.of("booking", "cancellation")
+                )
+                .stream()
+                .map(this::toDto)
+                .toList();
+        }
+
+        return repository.findByCorporateUserIdAndNotificationTypeOrderByCreatedAtDesc(
+                corporateUserId,
+                notificationType.trim().toLowerCase(Locale.ROOT)
+            )
+            .stream()
+            .map(this::toDto)
+            .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<NotificationDto> getDriverNotifications(Long driverId, String notificationType) {
         if (notificationType == null || notificationType.isBlank()) {
             return repository.findByDriverIdOrderByCreatedAtDesc(driverId)
@@ -132,6 +163,11 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    public void markCorporateNotificationsRead(Long corporateUserId) {
+        repository.markCorporateNotificationsRead(corporateUserId);
+    }
+
+    @Override
     public void markDriverNotificationsRead(Long driverId) {
         repository.markDriverNotificationsRead(driverId);
     }
@@ -152,6 +188,11 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public void deletePassengerNotifications(Long passengerId) {
         repository.deleteByPassengerId(passengerId);
+    }
+
+    @Override
+    public void deleteCorporateNotifications(Long corporateUserId) {
+        repository.deleteByCorporateUserId(corporateUserId);
     }
 
     @Override

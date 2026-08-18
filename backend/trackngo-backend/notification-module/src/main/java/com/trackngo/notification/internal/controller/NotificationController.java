@@ -44,6 +44,14 @@ public class NotificationController {
         return ApiResponse.ok("Fetched", service.getPassengerNotifications(passengerId, type));
     }
 
+    @GetMapping("/corporate/{corporateUserId}")
+    public ApiResponse<List<NotificationDto>> getCorporateNotifications(
+        @PathVariable Long corporateUserId,
+        @RequestParam(required = false) String type
+    ) {
+        return ApiResponse.ok("Fetched", service.getCorporateNotifications(corporateUserId, type));
+    }
+
     @GetMapping("/driver/{driverId}")
     public ApiResponse<List<NotificationDto>> getDriverNotifications(
         @PathVariable Long driverId,
@@ -76,6 +84,12 @@ public class NotificationController {
         return ApiResponse.ok("Updated", null);
     }
 
+    @PutMapping("/corporate/{corporateUserId}/read")
+    public ApiResponse<Void> markCorporateNotificationsRead(@PathVariable Long corporateUserId) {
+        service.markCorporateNotificationsRead(corporateUserId);
+        return ApiResponse.ok("Updated", null);
+    }
+
     @PutMapping("/driver/{driverId}/read")
     public ApiResponse<Void> markDriverNotificationsRead(@PathVariable Long driverId) {
         service.markDriverNotificationsRead(driverId);
@@ -97,6 +111,12 @@ public class NotificationController {
     @DeleteMapping("/passenger/{passengerId}")
     public ApiResponse<Void> deletePassengerNotifications(@PathVariable Long passengerId) {
         service.deletePassengerNotifications(passengerId);
+        return ApiResponse.ok("Deleted", null);
+    }
+
+    @DeleteMapping("/corporate/{corporateUserId}")
+    public ApiResponse<Void> deleteCorporateNotifications(@PathVariable Long corporateUserId) {
+        service.deleteCorporateNotifications(corporateUserId);
         return ApiResponse.ok("Deleted", null);
     }
 

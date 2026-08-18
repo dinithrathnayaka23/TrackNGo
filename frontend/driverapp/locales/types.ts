@@ -16,6 +16,7 @@ export interface Translations {
     greeting: string;
     monthlyEarnings: string;
     growthVsYesterday: string;
+    growthVsPreviousWeek: string;
     currentTrip: string;
     live: string;
     notLive: string;
@@ -226,6 +227,7 @@ export const TRANSLATION_KEYS = [
   "dashboard.greeting",
   "dashboard.monthlyEarnings",
   "dashboard.growthVsYesterday",
+  "dashboard.growthVsPreviousWeek",
   "dashboard.currentTrip",
   "dashboard.live",
   "dashboard.notLive",

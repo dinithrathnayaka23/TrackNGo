@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useUser } from '@/context/UserContext';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';  // Import the Print module
@@ -95,57 +96,60 @@ export default function DriverEarningsScreen() {
   const [earningsResponse, setEarningsResponse] = useState<DriverEarningsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [receipt, setReceipt] = useState<EarningItem | null>(null);
-  useEffect(() => {
-    let cancelled = false;
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
 
-    const fetchDriverEarnings = async () => {
-      if (!user?.userId || !user?.token) {
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      setLoadError(null);
-
-      try {
-        const response = await fetch(
-          apiUrl(`/api/drivers/${user.userId}/earnings`),
-          {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${user.token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        const result = await response.json();
-        if (!response.ok || !result.success || !result.data) {
-          throw new Error(result.message || `Failed to fetch earnings (${response.status})`);
-        }
-
-        if (!cancelled) {
-          setEarningsResponse(result.data);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : 'Failed to load earnings');
-          setEarningsResponse(null);
-        }
-      } finally {
-        if (!cancelled) {
+      const fetchDriverEarnings = async () => {
+        if (!user?.userId || !user?.token) {
           setIsLoading(false);
+          return;
         }
-      }
-    };
 
-    fetchDriverEarnings();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.userId, user?.token]);
+        setIsLoading(true);
+        setLoadError(null);
+
+        try {
+          const response = await fetch(
+            apiUrl(`/api/drivers/${user.userId}/earnings`),
+            {
+              method: 'GET',
+              headers: {
+                Authorization: `Bearer ${user.token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          const result = await response.json();
+          if (!response.ok || !result.success || !result.data) {
+            throw new Error(result.message || `Failed to fetch earnings (${response.status})`);
+          }
+
+          if (!cancelled) {
+            setEarningsResponse(result.data);
+          }
+        } catch (error) {
+          if (!cancelled) {
+            setLoadError(error instanceof Error ? error.message : 'Failed to load earnings');
+            setEarningsResponse(null);
+          }
+        } finally {
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+        }
+      };
+
+      void fetchDriverEarnings();
+      return () => {
+        cancelled = true;
+      };
+    }, [reloadKey, user?.userId, user?.token])
+  );
 
   const earningsData: EarningItem[] = useMemo(
     () => (earningsResponse?.earnings || []).map((earning) => ({
@@ -476,7 +480,29 @@ export default function DriverEarningsScreen() {
           </TouchableOpacity>
                     </View>
 
-          <View style={styles.earningsListSection}>{earningsData.map(renderEarningItem)}</View>
+          <View style={styles.earningsListSection}>
+            {earningsData.length > 0 ? (
+              earningsData.map(renderEarningItem)
+            ) : (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons
+                  name="cash-remove"
+                  size={28}
+                  color={theme.secondaryText}
+                />
+                <Text style={styles.emptyStateText}>
+                  {isLoading
+                    ? 'Loading earnings...'
+                    : loadError || t('allocations.noDataAvailable')}
+                </Text>
+                {!isLoading && loadError && (
+                  <TouchableOpacity onPress={() => setReloadKey((key) => key + 1)}>
+                    <Text style={styles.retryText}>Retry</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
 
           <TouchableOpacity style={styles.exportButton} onPress={handleExportPDF}>
             <MaterialCommunityIcons name="download" size={20} color='#FFF' />
@@ -778,6 +804,26 @@ function createStyles({
       marginHorizontal: horizontalPadding,
       marginVertical: 12,
       gap: 12,
+    },
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 30,
+      backgroundColor: theme.card,
+      borderRadius: 12,
+      gap: 8,
+    },
+    emptyStateText: {
+      color: theme.secondaryText,
+      fontSize: 14,
+      textAlign: 'center',
+    },
+    retryText: {
+      color: '#0066FF',
+      fontSize: 14,
+      fontWeight: '700',
+      marginTop: 4,
     },
     earningItemContainer: {
       padding: 14,

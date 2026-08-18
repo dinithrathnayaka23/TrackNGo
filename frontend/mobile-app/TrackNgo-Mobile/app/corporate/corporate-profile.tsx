@@ -21,6 +21,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useSession } from "../../store/sessionStore";
+import { CorporateTabBar } from "../../components/CorporateTabBar";
 import {
   type CorporateProfileDto,
   getCorporateProfile,
@@ -462,24 +463,7 @@ export default function CorporateProfileScreen() {
       </Modal>
 
       {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity style={styles.tabItem} onPress={() => router.push("/corporate/co-op-dashboard")}>
-          <Ionicons name="grid-outline" size={22} color="#64748B" />
-          <Text style={styles.tabLabel}>Dashboard</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem} onPress={() => router.push("/corporate/corporate-contract")}>
-          <Ionicons name="document-text-outline" size={22} color="#64748B" />
-          <Text style={styles.tabLabel}>Contracts</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem} onPress={() => router.push("/corporate/corporate-billing")}>
-          <Ionicons name="receipt-outline" size={22} color="#64748B" />
-          <Text style={styles.tabLabel}>Billing</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem} onPress={() => router.push("/corporate/corporate-profile")}>
-          <Ionicons name="person" size={22} color="#2F6BFF" />
-          <Text style={[styles.tabLabel, styles.tabLabelActive]}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <CorporateTabBar active="profile" />
     </SafeAreaView>
   );
 }
@@ -627,18 +611,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   logoutText: { fontSize: 16, fontWeight: "700", color: "#EF4444" },
-
-  tabBar: {
-    flexDirection: "row",
-    height: 64,
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    paddingBottom: 4,
-  },
-  tabItem: { flex: 1, justifyContent: "center", alignItems: "center", gap: 3 },
-  tabLabel: { fontSize: 11, fontWeight: "600", color: "#64748B", marginTop: 2 },
-  tabLabelActive: { color: "#2F6BFF" },
 
   // Modal Styles
   modalContainer: { flex: 1, backgroundColor: "#F8FAFC" },

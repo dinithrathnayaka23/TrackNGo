@@ -1602,15 +1602,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
   },
+  // Type scale matches the corporate screens: 15/700 header, 14/500 message
+  // text, 12 secondary, 11 meta.
   headerTitle: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 15,
+    fontWeight: "700",
     color: "#1F2937",
   },
   headerStatusText: {
     marginTop: 2,
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   headerStatusOnlineText: {
     color: "#22C55E",
@@ -1681,14 +1683,15 @@ const styles = StyleSheet.create({
     borderColor: "#E6ECF3",
   },
   bubbleLeftText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "500",
     color: "#4B5563",
+    lineHeight: 19,
   },
   timeLeft: {
     marginTop: 4,
-    fontSize: 10,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "500",
     color: "#9AA4B2",
   },
   bubbleRight: {
@@ -1700,9 +1703,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 4,
   },
   bubbleRightText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "500",
     color: "#FFFFFF",
+    lineHeight: 19,
   },
   deletedText: {
     fontStyle: "italic",
@@ -1715,8 +1719,8 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
   timeRight: {
-    fontSize: 10,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "500",
     color: "#9AA4B2",
   },
   voiceBubble: {
@@ -1777,8 +1781,8 @@ const styles = StyleSheet.create({
   },
   voiceTime: {
     marginTop: 2,
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "500",
     color: "#788598",
   },
   voiceTimeOutgoing: {
@@ -1909,7 +1913,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#D9534F",
     marginBottom: 12,
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: "600",
   },
   retryButton: {
     backgroundColor: "#1A73E8",
@@ -1924,7 +1929,8 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: "center",
     color: "#6C8195",
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: "600",
   },
   composerArea: {
     paddingHorizontal: 12,
@@ -2022,8 +2028,8 @@ const styles = StyleSheet.create({
   },
   inputText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "500",
     color: "#1F2937",
   },
   sendButton: {

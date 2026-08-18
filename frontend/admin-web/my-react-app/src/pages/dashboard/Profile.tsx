@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import ProfilePictureUpload from '../../components/ProfilePictureUpload.jsx'
 import authService from '../../services/authService'
 import { fetchMyProfile, updateMyProfile, type AdminProfile } from '../../services/profileService'
+import adminProfileImage from '../../assets/images/adminProfilePlaceholder.svg'
 
 type ProfileForm = {
   fullName: string
@@ -13,10 +14,6 @@ type ProfileForm = {
 }
 
 const emptyForm: ProfileForm = { fullName: '', phoneNumber: '', email: '' }
-
-function initials(name: string) {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'AD'
-}
 
 function formFromProfile(profile: AdminProfile): ProfileForm {
   return {
@@ -108,7 +105,12 @@ export default function Profile() {
   }
 
   const name = profile?.fullName || 'Admin User'
-  const photo = profile?.profilePhoto || localStorage.getItem('adminProfilePhoto')
+  const photo = profile?.profilePhoto || localStorage.getItem('adminProfilePhoto') || adminProfileImage
+  const handlePhotoError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    event.currentTarget.onerror = null
+    event.currentTarget.src = adminProfileImage
+    localStorage.removeItem('adminProfilePhoto')
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
@@ -146,7 +148,7 @@ export default function Profile() {
                 <h2 className="mt-1 text-lg font-extrabold text-[#111827]">{name}</h2>
               </div>
               <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-full border-4 border-white bg-[#eef2ff] text-sm font-extrabold text-[#2642a6] shadow-[0_0_0_1px_#cfd8f5]">
-                {photo ? <img src={photo} alt="" className="h-full w-full rounded-full object-cover" /> : initials(name)}
+                <img src={photo} alt="" onError={handlePhotoError} className="h-full w-full rounded-full object-cover" />
               </div>
             </div>
 

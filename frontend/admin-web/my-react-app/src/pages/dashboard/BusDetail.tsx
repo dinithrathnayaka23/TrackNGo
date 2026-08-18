@@ -23,11 +23,11 @@ import {
   faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import adminProfileImage from "../../assets/images/adminProfile.png";
+import adminProfileImage from "../../assets/images/adminProfilePlaceholder.svg";
 import { getBusImage } from "../../utils/busImage";
 
-// Google Maps API key from environment variables
-const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+// Google Maps API key supplied by the repository root .env through vite.config.ts.
+const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim();
 
 /*
   Google Maps Script Loader - Lazy loads the Google Maps API
@@ -37,6 +37,9 @@ const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
   even if multiple components need it.
 */
 let mapsScriptLoaded = false;
+let mapsScriptPromise: Promise<void> | null = null;
+let mapsAuthFailed = false;
+const MAPS_AUTH_FAILURE_EVENT = "trackngo-google-maps-auth-failure";
 
 /*
   Loads the Google Maps JavaScript API dynamically
@@ -47,18 +50,54 @@ let mapsScriptLoaded = false;
   @returns Promise that resolves when the script is loaded
 */
 function loadMapsScript(): Promise<void> {
+  if (!GOOGLE_MAPS_KEY) {
+    return Promise.reject(new Error("Google Maps API key is missing"));
+  }
+  if (mapsAuthFailed) {
+    return Promise.reject(new Error("Google Maps authorization failed"));
+  }
   if (mapsScriptLoaded || window.google?.maps) {
     mapsScriptLoaded = true;
     return Promise.resolve();
   }
-  return new Promise((resolve, reject) => {
+  if (mapsScriptPromise) return mapsScriptPromise;
+
+  mapsScriptPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker`;
+    const mapsWindow = window as Window & { gm_authFailure?: () => void };
+    const previousAuthFailure = mapsWindow.gm_authFailure;
+
+    // Google reports invalid keys and referrer/billing restrictions through this
+    // callback while still returning a successful script response.
+    mapsWindow.gm_authFailure = () => {
+      mapsAuthFailed = true;
+      mapsScriptLoaded = false;
+      mapsScriptPromise = null;
+      previousAuthFailure?.();
+      window.dispatchEvent(new Event(MAPS_AUTH_FAILURE_EVENT));
+      reject(new Error("Google Maps authorization failed"));
+    };
+
+    script.id = "trackngo-google-maps-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_KEY)}&libraries=marker&loading=async`;
     script.async = true;
-    script.onload = () => { mapsScriptLoaded = true; resolve(); };
-    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    script.onload = () => {
+      if (mapsAuthFailed) return;
+      mapsScriptLoaded = true;
+      resolve();
+    };
+    script.onerror = () => {
+      mapsScriptPromise = null;
+      reject(new Error("Failed to load Google Maps"));
+    };
     document.head.appendChild(script);
   });
+  return mapsScriptPromise;
+}
+
+function buildEmbedMapUrl(location: string) {
+  const query = `${location.trim() || "Colombo"}, Sri Lanka`;
+  return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=14&output=embed`;
 }
 
 /*
@@ -73,52 +112,77 @@ function loadMapsScript(): Promise<void> {
  */
 function BusLocationMap({ locationName }: { locationName: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const [useEmbedFallback, setUseEmbedFallback] = useState(!GOOGLE_MAPS_KEY);
 
   useEffect(() => {
     let cancelled = false;
+    setUseEmbedFallback(!GOOGLE_MAPS_KEY);
+    const handleMapsAuthFailure = () => {
+      if (!cancelled) setUseEmbedFallback(true);
+    };
+    window.addEventListener(MAPS_AUTH_FAILURE_EVENT, handleMapsAuthFailure);
 
     async function init() {
-      // Load Google Maps API
-      await loadMapsScript();
-      if (cancelled || !mapRef.current) return;
-
-      // Geocode the location name to coordinates
-      const geocoder = new google.maps.Geocoder();
-      geocoder.geocode({ address: `${locationName}, Sri Lanka` }, (results, status) => {
+      try {
+        // Load Google Maps API
+        await loadMapsScript();
         if (cancelled || !mapRef.current) return;
-        
-        // Use geocoded location or fallback to Colombo, Sri Lanka
-        const center =
-          status === "OK" && results && results[0]
-            ? results[0].geometry.location
-            : new google.maps.LatLng(6.9271, 79.8612);
 
-        // Create the map
-        const map = new google.maps.Map(mapRef.current, {
-          center,
-          zoom: 14,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-        });
+        // Geocode the location name to coordinates
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: `${locationName}, Sri Lanka` }, (results, status) => {
+          if (cancelled || !mapRef.current) return;
 
-        // Add a bus marker to the map
-        new google.maps.Marker({
-          position: center,
-          map,
-          title: locationName,
-          icon: {
-            url: "https://maps.google.com/mapfiles/kml/shapes/bus.png",
-            scaledSize: new google.maps.Size(36, 36),
-          },
+          // Use geocoded location or fallback to Colombo, Sri Lanka
+          const center =
+            status === "OK" && results && results[0]
+              ? results[0].geometry.location
+              : new google.maps.LatLng(6.9271, 79.8612);
+
+          // Create the map
+          const map = new google.maps.Map(mapRef.current, {
+            center,
+            zoom: 14,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+          });
+
+          // Add a bus marker to the map
+          new google.maps.Marker({
+            position: center,
+            map,
+            title: locationName,
+            icon: {
+              url: "https://maps.google.com/mapfiles/kml/shapes/bus.png",
+              scaledSize: new google.maps.Size(36, 36),
+            },
+          });
         });
-      });
+      } catch {
+        if (!cancelled) setUseEmbedFallback(true);
+      }
     }
 
     init();
     // Cleanup: prevent state updates if component unmounts
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      window.removeEventListener(MAPS_AUTH_FAILURE_EVENT, handleMapsAuthFailure);
+    };
   }, [locationName]);
+
+  if (useEmbedFallback) {
+    return (
+      <iframe
+        title={`Map preview for ${locationName}`}
+        src={buildEmbedMapUrl(locationName)}
+        className="h-40 w-full"
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
+    );
+  }
 
   return <div ref={mapRef} className="h-40 w-full" />;
 }

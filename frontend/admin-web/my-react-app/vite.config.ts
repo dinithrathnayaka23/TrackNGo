@@ -5,7 +5,9 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const rootEnv = loadEnv(mode, path.resolve(__dirname, '../../'), '')
+  // The repository .env is three levels above this Vite config:
+  // my-react-app -> admin-web -> frontend -> TrackNGo.
+  const rootEnv = loadEnv(mode, path.resolve(__dirname, '../../../'), '')
   const googleMapsApiKey =
     rootEnv.VITE_GOOGLE_MAPS_API_KEY || rootEnv.GOOGLE_MAPS_API_KEY || ''
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import imageCompression from 'browser-image-compression'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCamera, faUser } from '@fortawesome/free-solid-svg-icons'
+import adminProfileImage from '../assets/images/adminProfilePlaceholder.svg'
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const TARGET_DIMENSION = 800
@@ -114,14 +115,12 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState('')
   const [sizeInfo, setSizeInfo] = useState('')
-  const [previewUrl, setPreviewUrl] = useState(() => localStorage.getItem(STORAGE_KEY) || currentImageUrl)
+  const [previewUrl, setPreviewUrl] = useState(() => localStorage.getItem(STORAGE_KEY) || currentImageUrl || adminProfileImage)
 
-  const effectivePreview = useMemo(() => previewUrl || currentImageUrl, [previewUrl, currentImageUrl])
+  const effectivePreview = useMemo(() => previewUrl || currentImageUrl || adminProfileImage, [previewUrl, currentImageUrl])
 
   useEffect(() => {
-    if (currentImageUrl && !localStorage.getItem(STORAGE_KEY)) {
-      setPreviewUrl(currentImageUrl)
-    }
+    setPreviewUrl(localStorage.getItem(STORAGE_KEY) || currentImageUrl || adminProfileImage)
   }, [currentImageUrl])
 
   async function handleFileChange(event) {
@@ -174,7 +173,7 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
       setSizeInfo(`Uploaded ${Math.round(processedFile.size / 1024)} KB`)
 
       if (typeof onUploadSuccess === 'function') {
-        onUploadSuccess(publicUrl, data)
+        onUploadSuccess(displayUrl, data)
       }
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : 'Failed to upload profile picture.')
@@ -200,13 +199,17 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
 
       <div className="mt-5 flex flex-1 items-center gap-5 rounded-xl border border-[#edf0f5] bg-[#f8fafc] p-4">
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-white bg-[#eef2ff] object-cover shadow-[0_0_0_1px_#cfd8f5,0_6px_14px_rgba(38,66,166,0.12)]">
-          {effectivePreview ? (
-            <img src={effectivePreview} alt="Admin profile" className="h-full w-full rounded-full object-cover" />
-          ) : (
-            <div className="grid h-full w-full place-items-center text-[#64748b]">
-              <FontAwesomeIcon icon={faUser} className="text-xl" />
-            </div>
-          )}
+          <img
+            src={effectivePreview}
+            alt="Admin profile"
+            onError={(event) => {
+              event.currentTarget.onerror = null
+              event.currentTarget.src = adminProfileImage
+              localStorage.removeItem(STORAGE_KEY)
+              setPreviewUrl(adminProfileImage)
+            }}
+            className="h-full w-full rounded-full object-cover"
+          />
         </div>
 
         <div className="min-w-0 flex-1">

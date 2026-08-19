@@ -1310,8 +1310,8 @@ function BusDetail() {
       ) : apiError && !busData ? (
         /* Error State - Show error message and back button */
         <div className="mx-auto max-w-7xl space-y-4 py-12 text-center">
-          <h1 className="text-xl font-extrabold text-[#111827]">Bus Not Found</h1>
-          <p className="text-sm text-[#64748b]">{apiError}</p>
+          <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Bus Not Found</h1>
+          <p className="mt-1 text-sm text-[#64748b]">{apiError}</p>
           <button
             type="button"
             onClick={() => navigate('/dashboard/buses')}
@@ -1379,7 +1379,7 @@ function BusDetail() {
                       />
                       {busInfo.status.charAt(0).toUpperCase() + busInfo.status.slice(1)}
                     </span>
-                    <h1 className="mt-1 text-lg font-extrabold tracking-tight text-[#111827]">
+                    <h1 className="mt-1 text-xl font-extrabold tracking-tight text-[#111827]">
                       {busInfo.code}
                     </h1>
                     <p className="mt-1 text-sm text-[#64748b]">

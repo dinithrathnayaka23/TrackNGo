@@ -454,7 +454,7 @@ function Routes() {
     <>
       <div className="mx-auto max-w-7xl space-y-3">
             <div className="flex items-center justify-between">
-              <h1 className="animate-dash-in text-base font-extrabold tracking-tight text-[#111827]" style={{ animationDelay: '80ms' }}>
+              <h1 className="animate-dash-in text-xl font-extrabold tracking-tight text-[#111827]" style={{ animationDelay: '80ms' }}>
                 Route Management
               </h1>
               <button

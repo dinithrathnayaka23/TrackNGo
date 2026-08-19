@@ -787,8 +787,8 @@ function Contracts() {
       {/* Header */}
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4 md:items-center">
         <div>
-          <h1 className="text-base font-extrabold tracking-tight text-[#111827]">Corporate Contracts</h1>
-          <p className="mt-1 text-sm font-normal text-[#64748b]">
+          <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Corporate Contracts</h1>
+          <p className="mt-1 text-sm text-[#64748b]">
             Manage and track all corporate transport contracts across clients.
           </p>
         </div>

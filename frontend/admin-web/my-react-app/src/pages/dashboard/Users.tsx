@@ -226,8 +226,8 @@ function Users() {
     <section className="mx-auto w-full max-w-[1320px]">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-4 md:items-center">
         <div>
-          <h1 className="text-base font-extrabold tracking-tight text-[#111827]">Users Management</h1>
-          <p className="mt-1 text-sm font-normal text-[#64748b]">Live passenger, driver, and corporate accounts from TrackNGo.</p>
+          <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Users Management</h1>
+          <p className="mt-1 text-sm text-[#64748b]">Live passenger, driver, and corporate accounts from TrackNGo.</p>
         </div>
         <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 md:w-auto md:gap-3">
           <button type="button" onClick={() => navigate('/dashboard/passenger')} className="rounded-lg border border-[#cfd8ea] bg-white px-4 py-2 text-sm font-semibold text-[#3156c2]">Passenger</button>

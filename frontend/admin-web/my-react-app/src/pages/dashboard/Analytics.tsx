@@ -257,7 +257,7 @@ function Analytics() {
     <section className="mx-auto w-full max-w-[1320px]">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="animate-dash-in text-base font-extrabold tracking-tight text-[#111827]">Dashboard</h1>
+          <h1 className="animate-dash-in text-xl font-extrabold tracking-tight text-[#111827]">Dashboard</h1>
           <p className="mt-1 text-sm text-[#64748b]">
             {lastRefreshedAt ? `Live data · refreshed at ${formatTime(lastRefreshedAt)}` : 'Loading live database data...'}
           </p>

@@ -107,7 +107,7 @@ function PassengerManagement() {
     <section className="mx-auto w-full max-w-[1320px]">
       <button type="button" onClick={() => navigate('/dashboard/users')} className="mb-5 grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#334155] hover:bg-[#f1f5f9]"><FontAwesomeIcon icon={faArrowLeft} /></button>
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div><h1 className="text-base font-extrabold tracking-tight text-[#111827]">Passenger Management</h1><p className="mt-1 text-sm font-semibold text-[#334155]">Total Passengers: <span className="text-[#111827]">{passengers.length}</span> | Active: <span className="text-[#10b981]">{activeCount}</span></p></div>
+        <div><h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Passenger Management</h1><p className="mt-1 text-sm text-[#64748b]">Total Passengers: <span className="text-[#111827]">{passengers.length}</span> | Active: <span className="text-[#10b981]">{activeCount}</span></p></div>
         <p className="text-sm text-[#64748b]">Live database records</p>
       </header>
       <article className="rounded-2xl border border-[#e5e7eb] bg-white p-4">

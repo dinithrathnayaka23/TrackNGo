@@ -240,7 +240,7 @@ function Promotions() {
     <div className="space-y-6">
       <div className="animate-dash-in flex flex-col gap-4 rounded-xl bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between" style={{ animationDelay: '70ms' }}>
         <div>
-          <h1 className="mt-1 text-2xl font-bold text-[#111827]">Promotions</h1>
+          <h1 className="mt-1 text-xl font-extrabold tracking-tight text-[#111827]">Promotions</h1>
         </div>
         <button
           type="button"

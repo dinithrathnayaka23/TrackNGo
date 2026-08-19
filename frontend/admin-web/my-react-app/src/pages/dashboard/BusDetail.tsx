@@ -1303,13 +1303,13 @@ function BusDetail() {
     <>
       {/* Loading State - Show spinner while fetching initial data */}
       {loading ? (
-        <div className="mx-auto max-w-7xl space-y-4 py-12 text-center">
+        <div className="mx-auto max-w-7xl space-y-5 py-12 text-center">
           <FontAwesomeIcon icon={faSpinner} className="animate-spin text-2xl text-[#2642a6]" />
           <p className="text-sm text-[#64748b]">Loading bus details...</p>
         </div>
       ) : apiError && !busData ? (
         /* Error State - Show error message and back button */
-        <div className="mx-auto max-w-7xl space-y-4 py-12 text-center">
+        <div className="mx-auto max-w-7xl space-y-5 py-12 text-center">
           <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Bus Not Found</h1>
           <p className="mt-1 text-sm text-[#64748b]">{apiError}</p>
           <button
@@ -1323,7 +1323,7 @@ function BusDetail() {
         </div>
       ) : (
       /* Success State - Display bus details and management UI */
-      <div className="mx-auto max-w-7xl space-y-4">
+      <div className="mx-auto max-w-7xl space-y-5">
             {/* Back Navigation */}
             <button
               type="button"
@@ -2489,7 +2489,7 @@ function BusDetail() {
             <div className="flex-1 overflow-y-auto px-5 py-4">
               <div className="mx-auto grid w-full max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
                 <section
-                  className="rounded-2xl border border-[#e5e7eb] bg-white p-4 shadow-sm mx-auto"
+                  className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-sm mx-auto"
                   style={{ maxWidth: `${previewMaxWidth}px` }}
                 >
                   <div className="mb-3 flex items-center justify-between">
@@ -2573,7 +2573,7 @@ function BusDetail() {
                   </div>
                 </section>
 
-                <aside className="rounded-2xl border border-[#e5e7eb] bg-white p-4 shadow-sm lg:sticky lg:top-4">
+                <aside className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-sm lg:sticky lg:top-4">
                   <h3 className="text-sm font-bold tracking-[0.04em] text-[#334155]">
                     Layout Controls
                   </h3>

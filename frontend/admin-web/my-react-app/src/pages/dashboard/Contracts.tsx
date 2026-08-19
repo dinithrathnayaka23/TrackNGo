@@ -853,7 +853,7 @@ function Contracts() {
         {stats.map((stat, i) => (
           <article
             key={stat.label}
-            className="animate-dash-in dashboard-card rounded-2xl border border-[#e5e7eb] bg-white p-5"
+            className="animate-dash-in dashboard-card rounded-xl border border-[#e5e7eb] bg-white p-5"
             style={{ animationDelay: `${i * 60}ms` }}
           >
             <div className="flex items-start justify-between gap-3">
@@ -874,7 +874,7 @@ function Contracts() {
 
       {/* Filter Panel */}
       {filterOpen && (
-        <article className="animate-dash-in mt-5 rounded-2xl border border-[#e5e7eb] bg-white p-4">
+        <article className="animate-dash-in mt-5 rounded-xl border border-[#e5e7eb] bg-white p-5">
           <div className="grid gap-3 md:grid-cols-[1.5fr_1fr_1fr_auto]">
             {/* Search */}
             <label className="flex h-11 items-center gap-2 rounded-xl border border-[#d6dbe6] px-3">

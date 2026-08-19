@@ -290,7 +290,7 @@ function AnalyticsPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl space-y-3">
+      <div className="mx-auto max-w-7xl space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="animate-dash-in text-xl font-extrabold tracking-tight text-[#111827]" style={{ animationDelay: '70ms' }}>

@@ -110,7 +110,7 @@ function PassengerManagement() {
         <div><h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Passenger Management</h1><p className="mt-1 text-sm text-[#64748b]">Total Passengers: <span className="text-[#111827]">{passengers.length}</span> | Active: <span className="text-[#10b981]">{activeCount}</span></p></div>
         <p className="text-sm text-[#64748b]">Live database records</p>
       </header>
-      <article className="rounded-2xl border border-[#e5e7eb] bg-white p-4">
+      <article className="rounded-xl border border-[#e5e7eb] bg-white p-5">
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, email, or phone" className="min-w-[260px] flex-1 rounded-lg border border-[#d6dbe6] px-4 py-2 outline-none focus:ring-2 focus:ring-[#22449d]" />
           <select value={status} onChange={(event) => setStatus(event.target.value as StatusFilter)} className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-[#334155]"><option value="All">All Status</option><option value="Active">Active</option><option value="Suspended">Suspended</option><option value="Inactive">Inactive</option></select>

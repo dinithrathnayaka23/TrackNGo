@@ -237,7 +237,7 @@ function Users() {
         </div>
       </header>
 
-      <article className="rounded-2xl border border-[#e5e7eb] bg-white p-4">
+      <article className="rounded-xl border border-[#e5e7eb] bg-white p-5">
         <div className="grid gap-3 lg:grid-cols-[2fr_0.6fr_0.6fr_0.9fr_auto]">
           <label className="flex h-11 items-center gap-2 rounded-xl border border-[#d6dbe6] px-3 text-sm text-[#94a3b8]"><FontAwesomeIcon icon={faMagnifyingGlass} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, email, phone..." className="w-full bg-transparent text-[#334155] placeholder:text-[#94a3b8] outline-none" /></label>
           <label className="inline-flex h-11 items-center justify-between rounded-xl border border-[#d6dbe6] px-3 text-sm text-[#334155]"><select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as 'All' | Role)} className="w-full bg-transparent outline-none"><option value="All">All Roles</option><option value="Passenger">Passenger</option><option value="Driver">Driver</option><option value="Corporate">Corporate</option></select></label>

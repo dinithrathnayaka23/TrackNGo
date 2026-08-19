@@ -452,7 +452,7 @@ function Routes() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl space-y-3">
+      <div className="mx-auto max-w-7xl space-y-5">
             <div className="flex items-center justify-between">
               <h1 className="animate-dash-in text-xl font-extrabold tracking-tight text-[#111827]" style={{ animationDelay: '80ms' }}>
                 Route Management

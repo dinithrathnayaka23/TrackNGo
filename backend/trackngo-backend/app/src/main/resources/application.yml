@@ -49,6 +49,22 @@ sms:
     url: ${SMS_ANDROID_GATEWAY_URL:}
     api-key: ${SMS_ANDROID_GATEWAY_API_KEY:}
 
+# Used by the forgot-password OTP email flow. Left blank-safe so the app
+# still boots without SMTP configured; the OTP sender then logs the code to
+# the console instead of emailing it (see auth-user-module OtpEmailSender).
+spring.mail:
+  host: ${MAIL_HOST:}
+  port: ${MAIL_PORT:587}
+  username: ${MAIL_USERNAME:}
+  password: ${MAIL_PASSWORD:}
+  from: ${MAIL_FROM:no-reply@trackngo.local}
+  properties:
+    mail:
+      smtp:
+        auth: true
+        starttls:
+          enable: true
+
 payhere:
   merchant-id: ${PAYHERE_MERCHANT_ID:}
   merchant-secret: ${PAYHERE_MERCHANT_SECRET:}

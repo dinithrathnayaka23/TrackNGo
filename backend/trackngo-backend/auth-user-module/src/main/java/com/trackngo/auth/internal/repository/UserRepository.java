@@ -26,5 +26,16 @@ public interface UserRepository extends JpaRepository<User, Long> { //user means
             """, nativeQuery = true)
     Optional<User> findByIdentifier(@Param("identifier") String identifier);
     boolean existsByEmail(String email);
+
+    @Query(value = """
+            SELECT COALESCE(a.phone_number, d.phone_number, p.mobile_number, c.contact_phone)
+            FROM `user` u
+            LEFT JOIN passenger p ON p.passenger_id = u.user_id
+            LEFT JOIN driver d ON d.driver_id = u.user_id
+            LEFT JOIN admin a ON a.admin_id = u.user_id
+            LEFT JOIN corporate_user c ON c.corporate_user_id = u.user_id
+            WHERE u.user_id = :userId
+            """, nativeQuery = true)
+    Optional<String> findContactPhoneByUserId(@Param("userId") Long userId);
 }
 

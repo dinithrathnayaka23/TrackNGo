@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/ai/**").permitAll()
                 .requestMatchers("/api/notifications/**").permitAll()
                 .requestMatchers("/api/complaints", "/api/complaints/mine").permitAll()
+                .requestMatchers("/api/ratings/**").permitAll()
                 .requestMatchers("/api/admin/buses/**").permitAll()
                 .requestMatchers("/api/admin/complaints/**").permitAll()
                 .requestMatchers("/api/admin/promotions", "/api/admin/promotions/**").permitAll()

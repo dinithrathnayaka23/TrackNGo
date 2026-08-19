@@ -49,7 +49,7 @@ export async function httpGet<T>(
       throw new Error(`GET ${path} failed: ${response.status} - ${errorText}`);
     }
     const data = await response.json();
-    console.log(`[HTTP GET] Success:`, data);
+    console.log(`[HTTP GET] Success: ${path}`);
     return data;
   } catch (err) {
     console.error(`[HTTP GET] Exception:`, err);
@@ -87,7 +87,7 @@ export async function httpPost<T>(
       throw new Error(`POST ${path} failed: ${response.status} - ${errorText}`);
     }
     const data = await response.json();
-    console.log(`[HTTP POST] Success:`, data);
+    console.log(`[HTTP POST] Success: ${path}`);
     return data;
   } catch (err) {
     if (timeoutMs && isAbortError(err)) {
@@ -129,7 +129,7 @@ export async function httpPut<T>(
       throw new Error(`PUT ${path} failed: ${response.status} - ${errorText}`);
     }
     const data = await response.json();
-    console.log(`[HTTP PUT] Success:`, data);
+    console.log(`[HTTP PUT] Success: ${path}`);
     return data;
   } catch (err) {
     console.error(`[HTTP PUT] Exception:`, err);
@@ -160,7 +160,7 @@ export async function httpDelete<T>(
       );
     }
     const data = await response.json();
-    console.log(`[HTTP DELETE] Success:`, data);
+    console.log(`[HTTP DELETE] Success: ${path}`);
     return data;
   } catch (err) {
     console.error(`[HTTP DELETE] Exception:`, err);
@@ -194,7 +194,7 @@ export async function httpPostForm<T>(
       throw new Error(`POST ${path} failed: ${response.status} - ${errorText}`);
     }
     const data = await response.json();
-    console.log(`[HTTP POST FORM] Success:`, data);
+    console.log(`[HTTP POST FORM] Success: ${path}`);
     return data;
   } catch (err) {
     console.error(`[HTTP POST FORM] Exception:`, err);

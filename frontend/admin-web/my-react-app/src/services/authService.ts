@@ -28,6 +28,63 @@ export type AdminSessionProfile = {
 
 const ADMIN_PROFILE_KEY = 'adminProfile'
 
+export type OtpChannel = 'EMAIL' | 'PHONE'
+
+export type ForgotPasswordResponse = {
+    maskedDestination: string
+    channel: OtpChannel
+    expiresInSeconds: number
+    resendCooldownSeconds: number
+}
+
+export type VerifyOtpResponse = {
+    resetToken: string
+    expiresInSeconds: number
+}
+
+export type AdminRegisterRequest = {
+    fullName: string
+    employeeId: string
+    email: string
+    phone: string
+    password: string
+}
+
+// Normalizes any thrown value into a short, user-facing message. Network-level
+// failures (server unreachable, DNS, CORS) surface as opaque browser errors like
+// "Failed to fetch" - replace those with plain language instead of leaking them.
+function toFriendlyErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof TypeError) {
+        return 'Unable to reach the server. Check your connection and try again.'
+    }
+    if (error instanceof Error && error.message) {
+        return error.message
+    }
+    return fallback
+}
+
+async function parseApiResponse<T>(res: Response, fallbackErrorMessage: string): Promise<T> {
+    const responseText = await res.text()
+    let body: ApiResponse<T> | null = null
+    if (responseText.trim()) {
+        try {
+            body = JSON.parse(responseText) as ApiResponse<T>
+        } catch {
+            throw new Error(`The server returned an invalid response (${res.status}).`)
+        }
+    }
+
+    if (!body) {
+        throw new Error(`The server returned an empty response (${res.status}).`)
+    }
+
+    if (!res.ok || !body.success) {
+        throw new Error(body.message || fallbackErrorMessage)
+    }
+
+    return body.data
+}
+
 const authService = {
     login: async (credentials: LoginRequest): Promise<LoginResponse> => {
         try {
@@ -81,8 +138,8 @@ const authService = {
             }
 
             return body.data
-        } catch (error: any) {
-            throw new Error(error?.message || 'Login failed')
+        } catch (error: unknown) {
+            throw new Error(toFriendlyErrorMessage(error, 'Login failed. Please try again.'))
         }
     },
 
@@ -105,6 +162,77 @@ const authService = {
     },
 
     isAuthenticated: () => !!localStorage.getItem('jwtToken'),
+
+    forgotPassword: async ({ identifier, channel }: { identifier: string; channel: OtpChannel }): Promise<ForgotPasswordResponse> => {
+        try {
+            const res = await fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: identifier.trim(), channel }),
+            })
+            return await parseApiResponse<ForgotPasswordResponse>(res, 'Failed to send verification code')
+        } catch (error: unknown) {
+            throw new Error(toFriendlyErrorMessage(error, 'Failed to send verification code. Please try again.'))
+        }
+    },
+
+    resendOtp: async ({ identifier }: { identifier: string }): Promise<ForgotPasswordResponse> => {
+        try {
+            const res = await fetch('/api/auth/resend-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: identifier.trim() }),
+            })
+            return await parseApiResponse<ForgotPasswordResponse>(res, 'Failed to resend verification code')
+        } catch (error: unknown) {
+            throw new Error(toFriendlyErrorMessage(error, 'Failed to resend verification code. Please try again.'))
+        }
+    },
+
+    verifyOtp: async ({ identifier, otp }: { identifier: string; otp: string }): Promise<VerifyOtpResponse> => {
+        try {
+            const res = await fetch('/api/auth/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: identifier.trim(), otp: otp.trim() }),
+            })
+            return await parseApiResponse<VerifyOtpResponse>(res, 'Failed to verify code')
+        } catch (error: unknown) {
+            throw new Error(toFriendlyErrorMessage(error, 'Failed to verify code. Please try again.'))
+        }
+    },
+
+    resetPassword: async ({ resetToken, newPassword }: { resetToken: string; newPassword: string }): Promise<void> => {
+        try {
+            const res = await fetch('/api/auth/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resetToken, newPassword }),
+            })
+            await parseApiResponse<void>(res, 'Failed to reset password')
+        } catch (error: unknown) {
+            throw new Error(toFriendlyErrorMessage(error, 'Failed to reset password. Please try again.'))
+        }
+    },
+
+    registerAdmin: async (payload: AdminRegisterRequest): Promise<void> => {
+        try {
+            const res = await fetch('/api/auth/register-admin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fullName: payload.fullName.trim(),
+                    employeeId: payload.employeeId.trim(),
+                    email: payload.email.trim(),
+                    phone: payload.phone.trim(),
+                    password: payload.password,
+                }),
+            })
+            await parseApiResponse<void>(res, 'Registration failed')
+        } catch (error: unknown) {
+            throw new Error(toFriendlyErrorMessage(error, 'Registration failed. Please try again.'))
+        }
+    },
 }
 
 export default authService

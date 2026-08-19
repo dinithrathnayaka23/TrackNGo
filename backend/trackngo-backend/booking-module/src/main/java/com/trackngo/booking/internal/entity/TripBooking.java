@@ -47,6 +47,20 @@ public class TripBooking {
     @Column(name = "final_price")
     private BigDecimal finalPrice;
 
+    /** Server estimate shown while the request is waiting for negotiation. */
+    @Column(name = "estimated_price")
+    private BigDecimal estimatedPrice;
+
+    /** Discount entered by an administrator during the negotiation. */
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "admin_note")
+    private String adminNote;
+
+    @Column(name = "negotiated_at")
+    private LocalDateTime negotiatedAt;
+
     // 4. Status of the booking (e.g., pending, confirmed)
     @Column(name = "booking_status")
     private String bookingStatus;
@@ -65,6 +79,18 @@ public class TripBooking {
 
     @Column(name = "bus_id")
     private Long busId;
+
+    @Transient
+    private String busNumber;
+
+    @Transient
+    private String busBrand;
+
+    @Transient
+    private String paymentStatus;
+
+    @Transient
+    private String transactionId;
 
     /**
      * This special method automatically runs just before the data is saved

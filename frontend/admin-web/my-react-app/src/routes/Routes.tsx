@@ -11,6 +11,7 @@ import Corporate from '../pages/dashboard/Corporate'
 import CorporateDetail from '../pages/dashboard/CorporateDetail'
 import RoutesPage from '../pages/dashboard/RoutesPage'
 import Settings from '../pages/dashboard/Settings'
+import Profile from '../pages/dashboard/Profile'
 import Driver from '../pages/dashboard/Driver'
 import Passenger from '../pages/dashboard/Passenger'
 import Promotions from '../pages/dashboard/Promotions'
@@ -37,6 +38,7 @@ function DashboardRoutes() {
         <Route path="promotions" element={<Promotions />} />
         <Route path="routes" element={<RoutesPage />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="settings/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </DashboardLayout>

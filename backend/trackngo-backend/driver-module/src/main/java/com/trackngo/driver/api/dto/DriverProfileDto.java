@@ -26,5 +26,6 @@ public class DriverProfileDto {
     private BigDecimal averageRating; //more accurate than double becoze of precision
     private BigDecimal driverEarnings; 
     private String accountNumber;
+    private String bankName;
     private Boolean isPhoneVerified;
 }

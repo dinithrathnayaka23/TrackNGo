@@ -6,7 +6,6 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -15,6 +14,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { httpPost } from "../../services/http";
 import { useSession } from "../../store/sessionStore";
+import { LocalizedText as Text } from "../../utils/i18n";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 165; // 2:45

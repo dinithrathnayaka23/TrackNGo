@@ -19,4 +19,5 @@ public class BookingHistoryDto {
     private BigDecimal totalAmount;
     private String status;
     private String transactionId;
+    private String paymentStatus;
 }

@@ -14,12 +14,16 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LocalizedText as Text } from "../../utils/i18n";
+import {
+  getGreetingForTime,
+  millisUntilNextGreetingBoundary,
+} from "../../utils/greeting";
 
 // API Services and Session management imports
 import {
@@ -80,6 +84,7 @@ interface DashboardRecentBooking {
      live map gates boarding on when the trip actually departs. */
   journeyDate: string;
   journeyTime: string;
+  paymentStatus?: string | null;
 }
 
 /**
@@ -118,23 +123,6 @@ function parseJourneyDateTime(date: string, time: string): Date {
 }
 
 /**
- * Returns a time-appropriate greeting (Morning, Afternoon, etc.)
- */
-function getGreetingForTime(date: Date): string {
-  const hour = date.getHours();
-  if (hour >= 5 && hour < 12) {
-    return "Good Morning";
-  }
-  if (hour >= 12 && hour < 17) {
-    return "Good Afternoon";
-  }
-  if (hour >= 17 && hour < 21) {
-    return "Good Evening";
-  }
-  return "Good Night";
-}
-
-/**
  * Transforms API DTO into a format suitable for the dashboard UI
  */
 function toDashboardRecentBooking(
@@ -161,6 +149,7 @@ function toDashboardRecentBooking(
     journeyAt,
     journeyDate: dto.journeyDate,
     journeyTime: dto.journeyTime,
+    paymentStatus: dto.paymentStatus,
   };
 }
 
@@ -383,17 +372,9 @@ export default function HomeScreen() {
    * Refreshes the "now" state at day/time boundaries to update greetings
    */
   useEffect(() => {
-    const nowDate = new Date();
-    const boundaryHours = [5, 12, 17, 21, 24];
-    const currentHour = nowDate.getHours();
-    const nextHour = boundaryHours.find((hour) => hour > currentHour) ?? 24;
-    const nextBoundary = new Date(nowDate);
-    nextBoundary.setHours(nextHour, 0, 0, 0);
-    const delayMillis = Math.max(nextBoundary.getTime() - Date.now(), 500);
-
     const timeoutId = setTimeout(() => {
       setNow(new Date());
-    }, delayMillis);
+    }, millisUntilNextGreetingBoundary());
 
     return () => clearTimeout(timeoutId);
   }, [now]);
@@ -465,13 +446,6 @@ export default function HomeScreen() {
                 {hasUnreadNotifications ? (
                   <View style={styles.notificationDot} />
                 ) : null}
-              </View>
-            </PressScale>
-            <PressScale
-              onPress={() => Alert.alert("Menu", "Menu button tapped.")}
-            >
-              <View style={styles.iconButton}>
-                <Ionicons name="menu" size={22} color="#1F2937" />
               </View>
             </PressScale>
           </View>
@@ -583,17 +557,17 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.tripRow}>
-                <View>
+                <View style={styles.tripEndpoint}>
                   <Text style={styles.tripLabel}>From</Text>
-                  <Text style={styles.tripValue}>{booking.from}</Text>
+                  <Text style={styles.tripValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{booking.from}</Text>
                 </View>
                 <View style={styles.tripLineWrap}>
                   <View style={styles.tripLine} />
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                 </View>
-                <View>
+                <View style={styles.tripEndpoint}>
                   <Text style={styles.tripLabel}>To</Text>
-                  <Text style={styles.tripValue}>{booking.to}</Text>
+                  <Text style={styles.tripValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{booking.to}</Text>
                 </View>
               </View>
 
@@ -602,66 +576,114 @@ export default function HomeScreen() {
                   {booking.dateLabel} | {booking.timeLabel}
                 </Text>
                 <View style={styles.cardActions}>
-                  <PressScale
-                    onPress={() =>
-                      router.push({
-                        pathname: "/map/live-map",
-                        params: {
-                          busNumber: booking.busNumber,
-                          startLocation: booking.from,
-                          endLocation: booking.to,
-                          // Boarding is limited to the trip the seat is
-                          // booked on, so the map needs its departure time.
-                          journeyDate: booking.journeyDate,
-                          journeyTime: booking.journeyTime,
-                        },
-                      })
-                    }
-                  >
-                    <View style={styles.smallButton}>
-                      <Ionicons
-                        name="location"
-                        size={13}
-                        color={booking.base}
-                      />
-                      <Text
-                        style={[
-                          styles.smallButtonText,
-                          { color: booking.base },
-                        ]}
+                  {booking.busType === "trip_booking" &&
+                  !["success", "paid"].includes(String(booking.paymentStatus ?? "").toLowerCase()) ? (
+                    <PressScale
+                      onPress={() => {
+                        const tripId = booking.id.replace("BK-", "");
+                        router.push({
+                          pathname: "/trips/NegotiationScreen",
+                          params: {
+                            tripDetails: JSON.stringify({
+                              bookingId: tripId,
+                              pickup: booking.from,
+                              drop: booking.to,
+                              depart: booking.dateLabel,
+                              busBrand: "Standard",
+                              busNumber: "Pending Assignment",
+                              totalPayment: 0,
+                              advancePayment: 0,
+                              dueAmount: 0
+                            })
+                          }
+                        });
+                      }}
+                    >
+                      <View style={styles.smallButton}>
+                        <Ionicons
+                          name="chatbubbles-outline"
+                          size={13}
+                          color={booking.base}
+                        />
+                        <Text
+                          style={[
+                            styles.smallButtonText,
+                            { color: booking.base },
+                          ]}
+                        >
+                          {booking.busNumber === "PENDING" ? "Review Booking" : "Open Booking Review"}
+                        </Text>
+                      </View>
+                    </PressScale>
+                  ) : (
+                    <>
+                      <PressScale
+                        onPress={() =>
+                          router.push({
+                            pathname: "/map/live-map",
+                            params: {
+                              busNumber: booking.busNumber,
+                              startLocation: booking.from,
+                              endLocation: booking.to,
+                              // Boarding is limited to the trip the seat is
+                              // booked on, so the map needs its departure time.
+                              journeyDate: booking.journeyDate,
+                              journeyTime: booking.journeyTime,
+                            },
+                          })
+                        }
                       >
-                        Track Live
-                      </Text>
-                    </View>
-                  </PressScale>
-                  <PressScale
-                    onPress={() =>
-                      router.push({
-                        pathname: "/booking/view-ticket",
-                        params: {
-                          bookingRef: booking.id,
-                          from: booking.from,
-                          to: booking.to,
-                          busNumber: booking.busNumber,
-                          date: booking.dateLabel,
-                          depart: booking.timeLabel,
-                          busType: booking.busType,
-                          passengerName: displayName,
-                        },
-                      })
-                    }
-                  >
-                    <View style={styles.smallButton}>
-                      <Text
-                        style={[
-                          styles.smallButtonText,
-                          { color: booking.base },
-                        ]}
+                        <View style={styles.smallButton}>
+                          <Ionicons
+                            name="location"
+                            size={13}
+                            color={booking.base}
+                          />
+                          <Text
+                            style={[
+                              styles.smallButtonText,
+                              { color: booking.base },
+                            ]}
+                          >
+                            Track Live
+                          </Text>
+                        </View>
+                      </PressScale>
+                      <PressScale
+                        onPress={() =>
+                          router.push({
+                            pathname: "/booking/view-ticket",
+                            params: {
+                              bookingRef: booking.id,
+                              from: booking.from,
+                              to: booking.to,
+                              busNumber: booking.busNumber,
+                              date: booking.dateLabel,
+                              depart: booking.timeLabel,
+                              busType: booking.busType,
+                              passengerName: displayName,
+                            },
+                          })
+                        }
                       >
-                        View Ticket
-                      </Text>
-                    </View>
-                  </PressScale>
+                        <View style={styles.smallButton}>
+                          <Text
+                            style={[
+                              styles.smallButtonText,
+                              { color: booking.base },
+                            ]}
+                          >
+                            View Ticket
+                          </Text>
+                          <Ionicons
+                            name="arrow-forward"
+                            size={13}
+                            color={booking.base}
+                          />
+                        </View>
+                      </PressScale>
+                    </>
+                  )}
                 </View>
               </View>
             </View>
@@ -802,12 +824,16 @@ const styles = StyleSheet.create({
   },
   cardTopRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 8,
     marginBottom: 12,
   },
   badgeRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    flexShrink: 1,
     gap: 8,
   },
   badge: {
@@ -828,37 +854,47 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255,255,255,0.85)",
     fontWeight: "600",
+    flexShrink: 1,
+    textAlign: "right",
   },
   tripRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 10,
     marginBottom: 12,
+  },
+  tripEndpoint: {
+    flex: 1,
+    minWidth: 0,
   },
   tripLabel: {
     fontSize: 10.5,
     color: "rgba(255,255,255,0.75)",
   },
   tripValue: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
     color: "#FFFFFF",
+    minWidth: 0,
+    flexShrink: 1,
   },
   tripLineWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "center",
+    width: 64,
+    flexShrink: 0,
   },
   tripLine: {
-    width: 72,
+    flex: 1,
     borderTopWidth: 1,
     borderColor: "rgba(255,255,255,0.55)",
     borderStyle: "dashed",
   },
   cardBottomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    alignItems: "stretch",
     gap: 12,
   },
   timeText: {
@@ -869,8 +905,9 @@ const styles = StyleSheet.create({
   },
   cardActions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
     alignItems: "center",
   },
   smallButton: {

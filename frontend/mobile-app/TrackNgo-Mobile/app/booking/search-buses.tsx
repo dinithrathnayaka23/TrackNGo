@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -6,10 +6,7 @@ import {
   PanResponder,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,8 +15,12 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSession } from '../../store/sessionStore';
 import { getUserProfile } from '../../services/userProfileApi';
+// PlacesInput uses Google Places with route-stop fallback suggestions.
+import PlacesInput from '../../components/PlacesInput';
 import { httpGet } from '../../services/http';
 import { formatLocalDate, isPastCalendarDate, normalizeBookableDate, PAST_BOOKING_DATE_MESSAGE, startOfToday } from '../../utils/bookingDate';
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from '../../utils/i18n';
+import { useTimeOfDayGreeting } from '../../utils/greeting';
 
 const MIN_GAP = 0.08;
 
@@ -54,6 +55,7 @@ export default function SearchBusesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser } = useSession();
+  const greeting = useTimeOfDayGreeting();
   const { busCategory } = useLocalSearchParams<{ busCategory?: string }>();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -71,17 +73,15 @@ export default function SearchBusesScreen() {
   const sliderLeft = useRef(0);
   const sliderRef = useRef<View>(null);
   const [displayName, setDisplayName] = useState('User');
+  const [routeStops, setRouteStops] = useState<string[]>([]);
 
   /* ── Autocomplete State ────────────────────────────────── */
-  const [allStops, setAllStops] = useState<string[]>([]); // Master list of all available stops
-  const [fromSuggestions, setFromSuggestions] = useState<string[]>([]);
-  const [toSuggestions, setToSuggestions] = useState<string[]>([]);
-  const [showFromSuggestions, setShowFromSuggestions] = useState(false);
-  const [showToSuggestions, setShowToSuggestions] = useState(false);
+  // Route stops are loaded once so matching bus terminals can appear instantly
+  // while the debounced Google Places request is still in flight.
 
   /* ── Lifecycle Effects ────────────────────────────────── */
 
-  // Fetch user profile to personalize the greeting message
+  // Fetch user profile to personalise the greeting message
   useEffect(() => {
     if (!currentUser) return;
     getUserProfile(currentUser.userId)
@@ -96,49 +96,38 @@ export default function SearchBusesScreen() {
       .catch(() => setDisplayName('User'));
   }, [currentUser]);
 
-  // Fetch all existing route stops from the backend to populate 
-  // autocomplete suggestions for 'From' and 'To' fields.
+  // Keep the route stop master list available for instant local suggestions and
+  // as a fallback when Google Places is unavailable.
   useEffect(() => {
-    httpGet<{ success: boolean; data: { stops: string[] }[] }>('/api/routes')
-      .then((res) => {
+    let active = true;
+
+    httpGet<{ success: boolean; data: Array<{ stops?: string[] }> }>('/api/routes')
+      .then((response) => {
+        if (!active) return;
+
         const stops = new Set<string>();
-        const routes = res.data ?? [];
-        // Flatten all stops from all routes into a single unique set
-        for (const route of routes) {
-          if (route.stops) {
-            for (const stop of route.stops) {
-              stops.add(stop);
-            }
-          }
-        }
-        setAllStops(Array.from(stops).sort());
+        response.data?.forEach((route) => {
+          route.stops?.forEach((stop) => {
+            const normalized = stop.trim();
+            if (normalized) stops.add(normalized);
+          });
+        });
+
+        setRouteStops(Array.from(stops).sort((a, b) => a.localeCompare(b)));
       })
-      .catch(() => { });
+      .catch(() => {
+        if (active) setRouteStops([]);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  /**
-   * Filters the master stop list based on user input.
-   * Returns top 8 matches.
-   */
-  const filterSuggestions = useCallback((text: string) => {
-    if (!text.trim()) return [];
-    const needle = text.toLowerCase().trim();
-    return allStops.filter((s) => s.toLowerCase().includes(needle)).slice(0, 8);
-  }, [allStops]);
-  // handle from and to change and show suggestions
-  const handleFromChange = useCallback((text: string) => {
-    setFrom(text);
-    const matches = filterSuggestions(text);
-    setFromSuggestions(matches);
-    setShowFromSuggestions(matches.length > 0 && text.length > 0);
-  }, [filterSuggestions]);
-  // handle to and show suggestions
-  const handleToChange = useCallback((text: string) => {
-    setTo(text);
-    const matches = filterSuggestions(text);
-    setToSuggestions(matches);
-    setShowToSuggestions(matches.length > 0 && text.length > 0);
-  }, [filterSuggestions]);
+  // NOTE: filterSuggestions, handleFromChange, and handleToChange have been removed.
+  // PlacesInput handles text changes and filtering internally via Google Places API.
+  // The parent (this screen) only receives the final selected location name via
+  // the onSelect callback, which calls setFrom(name) or setTo(name).
 
   const rangeRef = useRef(range);
   rangeRef.current = range;
@@ -255,18 +244,12 @@ export default function SearchBusesScreen() {
       return;
     }
 
-    // Advanced Validation: Ensure locations exist in the 'allStops' master list
-    const stopMap = new Map(allStops.map((stop) => [normalizeStopKey(stop), stop]));
-    const resolvedFrom = stopMap.get(normalizeStopKey(trimmedFrom));
-    const resolvedTo = stopMap.get(normalizeStopKey(trimmedTo));
-
-    if (!resolvedFrom || !resolvedTo) {
-      Alert.alert(
-        'Select valid stops',
-        'Please choose start and end locations from the route stop suggestions.',
-      );
-      return;
-    }
+    // NOTE: The old 'allStops' stop-list validation has been removed.
+    // Google Places API guarantees that any suggestion the user taps is a real
+    // location, so we no longer need to cross-check against a local list.
+    // We still normalise for the duplicate-location check below.
+    const resolvedFrom = trimmedFrom;
+    const resolvedTo = trimmedTo;
 
     if (normalizeStopKey(resolvedFrom) === normalizeStopKey(resolvedTo)) {
       Alert.alert('Invalid route', 'From and To cannot be the same location.');
@@ -321,24 +304,18 @@ export default function SearchBusesScreen() {
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        scrollEnabled={!dragging}>
+      <FlatList
+        data={[{ key: 'search-form' }]}
+        keyExtractor={(item) => item.key}
+        renderItem={() => (
+          <>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={22} color="#111827" />
         </Pressable>
 
         {/* Personalized Greeting */}
         <View style={styles.greetingBlock}>
-          <Text style={styles.greetingSub}>
-            {new Date().getHours() < 12
-              ? 'Good Morning,'
-              : new Date().getHours() < 17
-                ? 'Good Afternoon,'
-                : 'Good Evening,'}
-          </Text>
+          <Text style={styles.greetingSub}>{greeting},</Text>
           <Text style={styles.greetingMain}>{displayName}</Text>
         </View>
 
@@ -354,92 +331,48 @@ export default function SearchBusesScreen() {
             </View>
           </View>
 
-          {/* Start Location Input with Autocomplete */}
-          <View style={[styles.inputCard, { zIndex: 30 }]}>
+          {/* From — Google Maps Places Autocomplete */}
+          {/*
+            zIndex: 30 keeps this card's dropdown above the 'To' card below.
+            overflow: 'visible' lets the floating dropdown render outside
+            the bounds of this card's View.
+          */}
+          <View style={[styles.inputCard, { zIndex: 30, overflow: 'visible' }]}>
             <View style={styles.inputIcon}>
               <MaterialCommunityIcons name="target" size={18} color="#94A3B8" />
             </View>
-            <View style={styles.inputTextBlock}>
-              <Text style={styles.inputLabel}>From</Text>
-              <TextInput
-                value={from}
-                onChangeText={handleFromChange}
-                onFocus={() => {
-                  if (from.length > 0) {
-                    const matches = filterSuggestions(from);
-                    setFromSuggestions(matches);
-                    setShowFromSuggestions(matches.length > 0);
-                  }
-                }}
-                onBlur={() => {
-                  // Small delay to allow the suggestion click to register before hiding
-                  setTimeout(() => setShowFromSuggestions(false), 300);
-                }}
-                placeholder="Search location..."
-                placeholderTextColor="#94A3B8"
-                style={styles.inputValue}
+            {/*
+              PlacesInput uses Google suggestions and route stops as a fallback.
+              onSelect is called when the user taps a Google suggestion —
+              it sets the 'from' state in this screen, same as before.
+            */}
+            <View style={[styles.inputTextBlock, { overflow: 'visible' }]}>
+              <PlacesInput
+                label="From"
+                placeholder="Search pickup location..."
+                onSelect={(name) => setFrom(name)}
+                initialValue={from}
+                fallbackSuggestions={routeStops}
               />
-              {/* Suggestions Dropdown */}
-              {showFromSuggestions && (
-                <View style={styles.suggestionsContainer}>
-                  {fromSuggestions.map((item) => (
-                    <Pressable
-                      key={item}
-                      style={styles.suggestionItem}
-                      onPress={() => {
-                        setFrom(item);
-                        setShowFromSuggestions(false);
-                      }}>
-                      <Ionicons name="location-outline" size={14} color="#64748B" />
-                      <Text style={styles.suggestionText}>{item}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
             </View>
           </View>
 
           <View style={[styles.verticalConnector, { zIndex: 5 }]} />
 
-          <View style={[styles.inputCard, { zIndex: 20 }]}>
+          {/* To — Google Maps Places Autocomplete */}
+          {/* zIndex: 20 — below From so From's dropdown wins if they overlap */}
+          <View style={[styles.inputCard, { zIndex: 20, overflow: 'visible' }]}>
             <View style={[styles.inputIcon, styles.inputIconBlue]}>
               <Ionicons name="location" size={18} color="#2F6BFF" />
             </View>
-            <View style={styles.inputTextBlock}>
-              <Text style={styles.inputLabel}>To</Text>
-              <TextInput
-                value={to}
-                onChangeText={handleToChange}
-                onFocus={() => {
-                  if (to.length > 0) {
-                    const matches = filterSuggestions(to);
-                    setToSuggestions(matches);
-                    setShowToSuggestions(matches.length > 0);
-                  }
-                }}
-                onBlur={() => {
-                  setTimeout(() => setShowToSuggestions(false), 300);
-                }}
-                placeholder="Search location..."
-                placeholderTextColor="#94A3B8"
-                style={styles.inputValue}
+            <View style={[styles.inputTextBlock, { overflow: 'visible' }]}>
+              <PlacesInput
+                label="To"
+                placeholder="Search drop-off location..."
+                onSelect={(name) => setTo(name)}
+                initialValue={to}
+                fallbackSuggestions={routeStops}
               />
-              {showToSuggestions && (
-                <View style={styles.suggestionsContainer}>
-                  {toSuggestions.map((item) => (
-                    <Pressable
-                      key={item}
-                      style={styles.suggestionItem}
-                      onPress={() => {
-                        setTo(item);
-                        setShowToSuggestions(false);
-                      }}>
-                      <Ionicons name="location-outline" size={14} color="#64748B" />
-                      <Text style={styles.suggestionText}>{item}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
             </View>
           </View>
 
@@ -644,7 +577,13 @@ export default function SearchBusesScreen() {
         <Pressable onPress={handleSearch} style={styles.searchButton}>
           <Text style={styles.searchButtonText}>Search Buses</Text>
         </Pressable>
-      </ScrollView>
+          </>
+        )}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        scrollEnabled={!dragging}
+      />
 
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal transparent animationType="fade">

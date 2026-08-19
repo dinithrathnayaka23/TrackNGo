@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
@@ -40,6 +40,8 @@ function validateLogin(form: LoginForm): LoginErrors {
   return errors
 }
 
+const REMEMBERED_EMAIL_KEY = 'rememberedAdminEmail'
+
 function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [rememberDevice, setRememberDevice] = useState(false)
@@ -48,6 +50,14 @@ function Login() {
   const [loading, setLoading] = useState(false)
   const [apiError, setApiError] = useState<string>('')
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY)
+    if (rememberedEmail) {
+      setForm((current) => ({ ...current, email: rememberedEmail }))
+      setRememberDevice(true)
+    }
+  }, [])
 
   const updateField = (field: keyof LoginForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }))
@@ -77,6 +87,12 @@ function Login() {
         password: form.password,
       })
 
+      if (rememberDevice) {
+        localStorage.setItem(REMEMBERED_EMAIL_KEY, form.email.trim())
+      } else {
+        localStorage.removeItem(REMEMBERED_EMAIL_KEY)
+      }
+
       navigate('/dashboard')
     } catch (error: any) {
       setApiError(error.message || 'Login failed. Please try again.')
@@ -88,8 +104,8 @@ function Login() {
   return (
     <AuthLayout>
       <div className="w-full max-w-[520px]">
-        <h2 className="animate-auth-fade-up text-sm font-bold leading-tight text-[#121b33]">Admin Login</h2>
-        <p className="animate-auth-fade-up mt-2 text-sm text-[#5b6476]" style={{ animationDelay: '90ms' }}>
+        <h2 className="animate-auth-fade-up text-sm font-bold leading-tight text-[#111827]">Admin Login</h2>
+        <p className="animate-auth-fade-up mt-2 text-sm text-[#64748b]" style={{ animationDelay: '90ms' }}>
           Access your centralized transport control panel.
         </p>
 
@@ -105,11 +121,11 @@ function Login() {
           noValidate
         >
           <div className="animate-auth-fade-up" style={{ animationDelay: '160ms' }}>
-            <label htmlFor="login-email" className="mb-2 block text-sm font-semibold text-[#4d5564]">
+            <label htmlFor="login-email" className="mb-2 block text-sm font-semibold text-[#334155]">
               Email Address
             </label>
-            <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
-              <FontAwesomeIcon icon={faEnvelope} className="mr-3 text-[#8b92a1]" />
+            <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+              <FontAwesomeIcon icon={faEnvelope} className="mr-3 text-[#94a3b8]" />
               <input
                 id="login-email"
                 type="email"
@@ -121,7 +137,7 @@ function Login() {
                 disabled={loading}
                 aria-invalid={Boolean(errors.email)}
                 aria-describedby={errors.email ? 'login-email-error' : undefined}
-                className="w-full bg-transparent text-sm text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none disabled:opacity-50"
+                className="w-full bg-transparent text-sm text-[#111827] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none disabled:opacity-50"
               />
             </div>
             {errors.email ? (
@@ -134,12 +150,12 @@ function Login() {
           <div className="animate-auth-fade-up" style={{ animationDelay: '230ms' }}>
             <label
               htmlFor="login-password"
-              className="mb-2 block text-sm font-semibold text-[#4d5564]"
+              className="mb-2 block text-sm font-semibold text-[#334155]"
             >
               Password
             </label>
-            <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
-              <FontAwesomeIcon icon={faLock} className="mr-3 text-[#8b92a1]" />
+            <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+              <FontAwesomeIcon icon={faLock} className="mr-3 text-[#94a3b8]" />
               <input
                 id="login-password"
                 type={showPassword ? 'text' : 'password'}
@@ -151,13 +167,13 @@ function Login() {
                 disabled={loading}
                 aria-invalid={Boolean(errors.password)}
                 aria-describedby={errors.password ? 'login-password-error' : undefined}
-                className="w-full bg-transparent text-sm text-[#20283a] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none disabled:opacity-50"
+                className="w-full bg-transparent text-sm text-[#111827] placeholder:text-[#b3b8c3] focus:placeholder:text-transparent outline-none disabled:opacity-50"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
                 disabled={loading}
-                className="text-[#2b2b2b] transition-transform duration-200 hover:scale-110 disabled:opacity-50"
+                className="text-[#111827] transition-transform duration-200 hover:scale-110 disabled:opacity-50"
               >
                 <FontAwesomeIcon icon={showPassword ? faEye : faEyeSlash} />
               </button>
@@ -170,13 +186,13 @@ function Login() {
           </div>
 
           <div className="animate-auth-fade-up flex items-center justify-between text-sm" style={{ animationDelay: '300ms' }}>
-            <label className="flex cursor-pointer items-center gap-2 text-[#4d5564]">
+            <label className="flex cursor-pointer items-center gap-2 text-[#334155]">
               <input
                 type="checkbox"
                 checked={rememberDevice}
                 onChange={(event) => setRememberDevice(event.target.checked)}
                 disabled={loading}
-                className="h-5 w-5 rounded border-[#d4d8e3] text-[#2342a6] focus:ring-[#2342a6] disabled:opacity-50"
+                className="h-5 w-5 rounded border-[#d6dbe6] text-[#2342a6] focus:ring-[#2342a6] disabled:opacity-50"
               />
               <span className="font-semibold">Remember Device</span>
             </label>
@@ -196,15 +212,15 @@ function Login() {
           </button>
         </form>
 
-        <div className="animate-auth-fade-up mt-8 border-t border-[#dde0e7] pt-8 text-center" style={{ animationDelay: '420ms' }}>
-          <p className="text-sm font-semibold text-[#4d5564]">
+        <div className="animate-auth-fade-up mt-8 border-t border-[#e5e7eb] pt-8 text-center" style={{ animationDelay: '420ms' }}>
+          <p className="text-sm font-semibold text-[#334155]">
             New administrator profile required?{' '}
             <Link to="/signup" className="text-[#129a8f]">
               Sign Up
             </Link>
           </p>
 
-          <div className="mt-8 flex justify-center gap-16 text-sm font-semibold text-[#a3a9b5]">
+          <div className="mt-8 flex justify-center gap-16 text-sm font-semibold text-[#94a3b8]">
             <Link to="/privacy-policy">Privacy Policy</Link>
             <Link to="/terms-of-service">Terms of Service</Link>
           </div>

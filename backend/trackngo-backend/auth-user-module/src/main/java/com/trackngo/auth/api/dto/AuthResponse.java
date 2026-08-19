@@ -13,5 +13,8 @@ public class AuthResponse {
     private String email;
     private String firstName;
     private String lastName;
+    private boolean twoFactorRequired;
+    private String twoFactorToken;
+    private String trustedDeviceToken;
 }
 

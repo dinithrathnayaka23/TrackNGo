@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +16,7 @@ import { getBusImage } from '../../utils/busImage';
 import { resolveAssetUrl } from '../../utils/media';
 import { getBusRouteLabel, getBusRouteWithSuffix, getJourneyRouteStops } from '../../utils/routeDisplay';
 import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { LocalizedText as Text } from '../../utils/i18n';
 
 //Lookup table for Amneties data
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode; label: string }> = {

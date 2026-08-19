@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class CorporateProfileController {
 
     private final CorporateProfileService corporateProfileService;

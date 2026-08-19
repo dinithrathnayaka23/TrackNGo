@@ -30,6 +30,10 @@ public class JwtFilter extends OncePerRequestFilter {
             try {
                 String token = auth.substring(7);
                 Claims claims = jwtUtil.parse(token);
+                if ("2fa".equals(claims.get("purpose", String.class))) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 String username = claims.getSubject();
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     var userDetails = userDetailsService.loadUserByUsername(username);

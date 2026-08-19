@@ -48,4 +48,7 @@ public class Complaint {
 
     @Column(name = "passenger_id")
     private Long passengerId;
+
+    @Column(name = "driver_id")
+    private Long driverId;
 }

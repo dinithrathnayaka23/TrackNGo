@@ -1,5 +1,6 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { LocalizedText as Text } from "../../utils/i18n";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { RootStackParamList } from "../../navigation/types";
 

@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; //prevent content overlap
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { seatBookingService } from '@/services/seatBookingService';
 
 type SeatStatus = 'boarded' | 'booked' | 'blocked' | 'available'; // Define the possible seat statuses
@@ -63,6 +64,7 @@ export default function DriverSeatLayoutScreen() { //main component
   const router = useRouter();
   const { darkMode } = useTheme(); //get dark mode state from themecontext
   const { user } = useUser(); //get user data from usercontext to check if user is logged in
+  const { t } = useLanguage(); //get translation function from languagecontext
   const { width } = useWindowDimensions();
   const theme = useMemo(() => ({
     background: darkMode ? '#111' : '#F5F5F5',
@@ -109,7 +111,7 @@ export default function DriverSeatLayoutScreen() { //main component
       console.log('Assignment received:', assignment);
       
       if (!assignment || !assignment.busId) {
-        setError('No bus assignment found for this driver');
+        setError(t('allocations.noBusAssignment'));
         setLoading(false);
         return;
       }
@@ -150,11 +152,12 @@ export default function DriverSeatLayoutScreen() { //main component
       console.log('Blocked seats received:', blockedSeats);
 
       // Get route details for start and end locations
-      let startLocation = 'N/A';
-      let endLocation = 'N/A';
-      
+      const NA = t('common.notAvailable');
+      let startLocation = NA;
+      let endLocation = NA;
+
       // First, try to parse route name if it exists (e.g., "Kandy to Nuwara Eliya")
-      if (assignment.routeName && assignment.routeName.includes(' to ')) { 
+      if (assignment.routeName && assignment.routeName.includes(' to ')) {
         const [start, end] = assignment.routeName.split(' to ').map(s => s.trim()); // Split the route name into start and end locations
         startLocation = start;
         endLocation = end;
@@ -162,20 +165,20 @@ export default function DriverSeatLayoutScreen() { //main component
       } else if (assignment.routeName) {
         // If route name doesn't contain ' to ', use it as start location
         startLocation = assignment.routeName;
-        endLocation = 'N/A';
+        endLocation = NA;
         console.log('Using route name as start location:', startLocation);
       }
-      
+
       // If we still don't have proper locations, try to get route details from API
-      if ((startLocation === 'N/A' || endLocation === 'N/A') && assignment.routeId) {
+      if ((startLocation === NA || endLocation === NA) && assignment.routeId) {
         const routeDetails = await seatBookingService.getRouteDetails(
           assignment.routeId,
           token
         );
-        
+
         if (routeDetails) {
-          if (startLocation === 'N/A') startLocation = routeDetails.startLocation || 'N/A';
-          if (endLocation === 'N/A') endLocation = routeDetails.endLocation || 'N/A';
+          if (startLocation === NA) startLocation = routeDetails.startLocation || NA;
+          if (endLocation === NA) endLocation = routeDetails.endLocation || NA;
           console.log('Route locations from API:', { startLocation, endLocation });
         }
       }
@@ -197,10 +200,10 @@ export default function DriverSeatLayoutScreen() { //main component
         seatNumbers.forEach((seatId: string) => {
           bookedMap.set(seatId, { //store seat id
             passenger: {          // store booked passenger if any
-              name: booking.passengerName || 'Passenger',
+              name: booking.passengerName || t('allocations.passengerFallback'),
               phone: booking.passengerPhone || '',
-              pickupLocation: booking.fromStop || 'N/A',
-              dropoffLocation: booking.toStop || 'N/A',
+              pickupLocation: booking.fromStop || t('common.notAvailable'),
+              dropoffLocation: booking.toStop || t('common.notAvailable'),
               seatNumber: seatId,
               specialRequest: booking.specialRequest,
             },
@@ -243,10 +246,10 @@ export default function DriverSeatLayoutScreen() { //main component
       console.error('Error loading seat layout:', err);
       
       // Provide helpful error messages
-      let errorMessage = 'Failed to load seat layout data';
-      
+      let errorMessage = t('allocations.failedToLoadSeatLayout');
+
       if (err instanceof TypeError && err.message.includes('Network request failed')) { // If the error is a network error
-        errorMessage = 'Cannot connect to backend API. Check:\n1. Backend is running on port 8080\n2. Network connectivity\n3. API URL in .env file';
+        errorMessage = t('allocations.networkErrorMessage');
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
@@ -335,8 +338,8 @@ export default function DriverSeatLayoutScreen() { //main component
           ...seat, // Copy the original seat object
           status: normalizeSeatStatus(booking?.status),
           passenger: {
-            name: booking?.passengerName || 'Passenger', //get the name from the booking
-            initials: getInitials(booking?.passengerName || 'Passenger'),
+            name: booking?.passengerName || t('allocations.passengerFallback'), //get the name from the booking
+            initials: getInitials(booking?.passengerName || t('allocations.passengerFallback')),
             phone: booking?.passengerPhone || booking?.phone,
             seatBookingId: booking?.seatBookingId || booking?.bookingId,
           },
@@ -397,27 +400,27 @@ export default function DriverSeatLayoutScreen() { //main component
 
   const handlePassengerOptions = () => {
     if (!selectedSeat || !bookedSeatsMap.has(selectedSeat)) {
-      Alert.alert('Error', 'Please select a booked seat first');
+      Alert.alert(t('allocations.error'), t('allocations.pleaseSelectBookedSeat'));
       return;
     } // If the selected seat is not found in the bookedSeatsMap, show an error message.
 
     Alert.alert(
-      'Passenger Options',
-      'Choose an action',
+      t('allocations.passengerOptions'),
+      t('allocations.chooseAnAction'),
       [
         {
-          text: 'Scan QR Code',
+          text: t('allocations.scanQrCode'),
           onPress: () => {
             // TODO: Implement QR Scanner
             console.log('Open QR Scanner for:', selectedSeat);
           },
         },
         {
-          text: 'Mark as Boarded',
+          text: t('allocations.markAsBoarded'),
           onPress: handleMarkBoarded,
         },
         {
-          text: 'Cancel',
+          text: t('common.cancel'),
           onPress: () => { },
         },
       ]
@@ -429,7 +432,7 @@ export default function DriverSeatLayoutScreen() { //main component
 
     const bookedData = bookedSeatsMap.get(selectedSeat); // Get the booking data for the selected seat from the bookedSeatsMap. This will include the passenger details and the seat booking ID needed to call the API to mark the passenger as boarded.
     if (!bookedData) {
-      Alert.alert('Error', 'Seat is not booked');
+      Alert.alert(t('allocations.error'), t('allocations.seatNotBooked'));
       return;
     }
 
@@ -463,13 +466,16 @@ export default function DriverSeatLayoutScreen() { //main component
           });
         }
 
-        Alert.alert('Success', `Passenger ${selectedPassenger?.name} marked as boarded`);
+        Alert.alert(
+          t('allocations.success'),
+          t('allocations.passengerMarkedBoarded', { name: selectedPassenger?.name ?? '' }),
+        );
       } else {
-        Alert.alert('Error', 'Failed to mark passenger as boarded');
+        Alert.alert(t('allocations.error'), t('allocations.failedToMarkBoarded'));
       }
     } catch (err) {
       console.error('Error marking passenger as boarded:', err);
-      Alert.alert('Error', 'Failed to mark passenger as boarded');
+      Alert.alert(t('allocations.error'), t('allocations.failedToMarkBoarded'));
     } finally {
       setLoading(false);
     }
@@ -481,7 +487,7 @@ export default function DriverSeatLayoutScreen() { //main component
     const seat = seatData.find((item) => item.id === seatId);
     if (seat?.status === 'blocked') {
       setSelectedPassenger(null);
-      Alert.alert('Blocked Seat', 'This seat is blocked in the admin layout.');
+      Alert.alert(t('allocations.blockedSeatTitle'), t('allocations.blockedSeatMessage'));
       return;
     }
 
@@ -530,7 +536,7 @@ export default function DriverSeatLayoutScreen() { //main component
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#0066FF" />
-          <Text style={[styles.loadingText, { color: theme.text }]}>Loading seat layout...</Text>
+          <Text style={[styles.loadingText, { color: theme.text }]}>{t('allocations.loadingSeatLayout')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -542,9 +548,9 @@ export default function DriverSeatLayoutScreen() { //main component
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
         <View style={styles.centerContainer}>
           <MaterialCommunityIcons name="alert-circle" size={48} color="#FF6B6B" />
-          <Text style={[styles.errorText, { color: theme.text }]}>{error || 'No data available'}</Text>
+          <Text style={[styles.errorText, { color: theme.text }]}>{error || t('allocations.noDataAvailable')}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadSeatLayoutData}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -580,19 +586,21 @@ export default function DriverSeatLayoutScreen() { //main component
         {/* Trip Details Section */}
         <View style={styles.tripDetailsSection}>
           <View style={styles.detailCard}>
-            <Text style={styles.detailLabel}>Departure</Text>
+            <Text style={styles.detailLabel}>{t('allocations.departure')}</Text>
             <Text style={styles.detailValue}>{journeyData?.journeyTime}</Text>
           </View>
           <View style={styles.detailCard}>
-            <Text style={styles.detailLabel}>Journey Date</Text>
+            <Text style={styles.detailLabel}>{t('allocations.journeyDate')}</Text>
             <Text style={styles.detailValue}>{formatDateForDisplay(journeyData?.journeyDate || '')}</Text>
           </View>
           <View style={styles.detailCard}>
-            <Text style={styles.detailLabel}>Passengers</Text>
+            <Text style={styles.detailLabel}>{t('allocations.passengers')}</Text>
             <Text style={styles.detailValue}>
               {journeyData?.bookedCount}/{journeyData?.totalSeats}
             </Text>
-            <Text style={styles.detailSubtitle}>{journeyData?.boardedCount} boarded</Text>
+            <Text style={styles.detailSubtitle}>
+              {t('allocations.boardedCount', { count: journeyData?.boardedCount ?? 0 })}
+            </Text>
           </View>
         </View>
 
@@ -600,19 +608,19 @@ export default function DriverSeatLayoutScreen() { //main component
         <View style={styles.statusIndicators}>
           <View style={styles.indicator}>
             <View style={[styles.indicatorDot, { backgroundColor: '#22C55E' }]} />
-            <Text style={styles.indicatorText}>Boarded</Text>
+            <Text style={styles.indicatorText}>{t('allocations.boarded')}</Text>
           </View>
           <View style={styles.indicator}>
             <View style={[styles.indicatorDot, { backgroundColor: '#EF4444' }]} />
-            <Text style={styles.indicatorText}>Booked</Text>
+            <Text style={styles.indicatorText}>{t('allocations.booked')}</Text>
           </View>
           <View style={styles.indicator}>
             <View style={[styles.indicatorDot, { backgroundColor: '#D1D5DB' }]} />
-            <Text style={styles.indicatorText}>Available</Text>
+            <Text style={styles.indicatorText}>{t('allocations.available')}</Text>
           </View>
           <View style={styles.indicator}>
             <View style={[styles.indicatorDot, { backgroundColor: '#64748B' }]} />
-            <Text style={styles.indicatorText}>Blocked</Text>
+            <Text style={styles.indicatorText}>{t('allocations.blocked')}</Text>
           </View>
         </View>
 
@@ -623,7 +631,7 @@ export default function DriverSeatLayoutScreen() { //main component
             <View style={styles.driverIcon}>
               <MaterialCommunityIcons name="steering" size={32} color="#000" />
             </View>
-            <Text style={styles.driverLabel}>Driver</Text>
+            <Text style={styles.driverLabel}>{t('allocations.driver')}</Text>
           </View>
 
           {/* Seats Grid */}
@@ -672,7 +680,7 @@ export default function DriverSeatLayoutScreen() { //main component
               </>
             ) : (
               <Text style={[styles.noSeatsText, { color: theme.secondaryText }]}>
-                No seats available
+                {t('allocations.noSeatsAvailable')}
               </Text>
             )}
           </View>
@@ -689,7 +697,7 @@ export default function DriverSeatLayoutScreen() { //main component
               </View>
               <View style={styles.passengerInfo}>
                 <Text style={styles.passengerName}>{selectedPassenger.name}</Text>
-                <Text style={styles.seatInfo}>Seat {selectedSeat}</Text>
+                <Text style={styles.seatInfo}>{t('allocations.seatNumber', { seat: selectedSeat ?? '' })}</Text>
               </View>
               <TouchableOpacity onPress={handlePassengerOptions}>
                 <MaterialCommunityIcons name="pencil" size={20} color="#0066FF" />
@@ -706,7 +714,7 @@ export default function DriverSeatLayoutScreen() { //main component
                 <MaterialCommunityIcons name="map-marker" size={20} color="#000" />
               </View>
               <View style={styles.locationDetails}>
-                <Text style={styles.locationLabel}>Pick up</Text>
+                <Text style={styles.locationLabel}>{t('allocations.pickUp')}</Text>
                 <Text style={styles.locationName}>{selectedPassenger.pickupLocation}</Text>
               </View>
             </View>
@@ -716,7 +724,7 @@ export default function DriverSeatLayoutScreen() { //main component
                 <MaterialCommunityIcons name="map-marker" size={20} color="#000" />
               </View>
               <View style={styles.locationDetails}>
-                <Text style={styles.locationLabel}>Drop off</Text>
+                <Text style={styles.locationLabel}>{t('allocations.dropOff')}</Text>
                 <Text style={styles.locationName}>{selectedPassenger.dropoffLocation}</Text>
               </View>
             </View>
@@ -726,7 +734,7 @@ export default function DriverSeatLayoutScreen() { //main component
         {/* Special Requests */}
         {selectedPassenger?.specialRequest && (
           <View style={styles.specialRequestsSection}>
-            <Text style={styles.sectionTitle}>Special Requests</Text>
+            <Text style={styles.sectionTitle}>{t('allocations.specialRequests')}</Text>
             <View style={styles.requestItem}>
               <MaterialCommunityIcons name="bag-suitcase" size={20} color={theme.text} />
               <Text style={styles.requestText}>{selectedPassenger.specialRequest}</Text>
@@ -740,12 +748,12 @@ export default function DriverSeatLayoutScreen() { //main component
             <View style={styles.actionButtonsSection}>
               <TouchableOpacity style={styles.callButton} onPress={handleCall}>
                 <MaterialCommunityIcons name="phone" size={20} color="#FFF" />
-                <Text style={styles.callButtonText}>Call</Text>
+                <Text style={styles.callButtonText}>{t('allocations.call')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.messageButton} onPress={handleMessage}>
                 <MaterialCommunityIcons name="message-text" size={20} color={theme.text} />
-                <Text style={styles.messageButtonText}>Message</Text>
+                <Text style={styles.messageButtonText}>{t('allocations.message')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -757,8 +765,8 @@ export default function DriverSeatLayoutScreen() { //main component
               <MaterialCommunityIcons name="check" size={20} color="#FFF" />
               <Text style={styles.boardButtonText}>
                 {seatData.find((s) => s.id === selectedSeat)?.status === 'boarded'
-                  ? 'Already Boarded'
-                  : 'Mark as Boarded'}
+                  ? t('allocations.alreadyBoarded')
+                  : t('allocations.markAsBoarded')}
               </Text>
             </TouchableOpacity>
           </>

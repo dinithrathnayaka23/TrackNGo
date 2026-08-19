@@ -6,8 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,6 +19,7 @@ import {
 } from "../../services/complaintsApi";
 import { uploadMedia } from "../../services/chatApi";
 import { useSession } from "../../store/sessionStore";
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 
 type PriorityLevel = "Low" | "Medium" | "High";
 

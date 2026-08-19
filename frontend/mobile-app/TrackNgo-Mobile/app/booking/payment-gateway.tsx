@@ -4,7 +4,6 @@ import {
   Alert,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +15,7 @@ import { createBooking, createStripeCheckoutSession, getStripeSessionStatus } fr
 import { useSession } from '../../store/sessionStore';
 import { API_BASE_URL } from '../../config/env';
 import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { LocalizedText as Text } from '../../utils/i18n';
 
 /*
  * PaymentGatewayScreen - Orchestrates the Stripe checkout process.

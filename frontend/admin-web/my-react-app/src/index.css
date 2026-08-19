@@ -47,6 +47,10 @@
 }
 
 @layer utilities {
+  .form-input {
+    @apply mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm font-normal outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6];
+  }
+
   .animate-auth-card {
     animation: authCardIn 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }

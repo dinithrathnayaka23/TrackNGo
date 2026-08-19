@@ -14,7 +14,7 @@ import AdminNotificationsPanel from "../AdminNotificationsPanel";
 import AiAssistantPanel from "../AiAssistantPanel";
 import { logoutToLogin } from "../../utils/authSession";
 import { fetchAdminNotifications } from "../../services/adminNotificationService";
-import adminProfileImage from "../../assets/images/adminDinith.png";
+import adminProfileImage from "../../assets/images/adminProfilePlaceholder.svg";
 import authService from "../../services/authService";
 
 type DashboardLayoutProps = {
@@ -102,7 +102,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
   const [adminPhotoUrl, setAdminPhotoUrl] = useState(
     () => localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY) || adminProfileImage,
   );
-  const adminProfile = authService.getAdminProfile();
+  const [adminProfile, setAdminProfile] = useState(() => authService.getAdminProfile());
   const fallbackEmail = localStorage.getItem("adminEmail") ?? "";
   const adminFullName = [adminProfile?.firstName, adminProfile?.lastName]
     .filter((value): value is string => Boolean(value && value.trim()))
@@ -182,6 +182,8 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
       "admin-profile-photo-updated",
       onCustomUpdate as EventListener,
     );
+    const onProfileUpdate = () => setAdminProfile(authService.getAdminProfile());
+    window.addEventListener("admin-profile-updated", onProfileUpdate);
 
     return () => {
       window.removeEventListener("storage", onStorageUpdate);
@@ -189,6 +191,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
         "admin-profile-photo-updated",
         onCustomUpdate as EventListener,
       );
+      window.removeEventListener("admin-profile-updated", onProfileUpdate);
     };
   }, []);
 
@@ -229,14 +232,14 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
 
         <div className="min-h-screen flex-1 min-w-0">
           <header
-            className="animate-dash-in z-10 flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-[#e2e8f0] bg-white/95 px-4 backdrop-blur sm:px-6"
+            className="animate-dash-in z-10 flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-[#e5e7eb] bg-white/95 px-4 backdrop-blur sm:px-6"
             style={{ animationDelay: "40ms" }}
           >
             <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 text-sm text-[#94a3b8] whitespace-nowrap">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
-                className="mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#475569] transition hover:bg-[#f1f5f9] lg:hidden"
+                className="mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#334155] transition hover:bg-[#f1f5f9] lg:hidden"
                 aria-label="Open navigation menu"
               >
                 <FontAwesomeIcon icon={faBars} />
@@ -245,14 +248,14 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               {["Home", ...breadcrumbTrail].map((crumb, index, arr) => {
                 const isLast = index === arr.length - 1;
                 return (
-                  <div
+              <div
                     key={`${crumb}-${index}`}
                     className="flex min-w-0 items-center gap-2"
                   >
                     <span
                       className={
                         isLast
-                          ? "truncate font-bold text-[#1e293b]"
+                          ? "truncate font-bold text-[#111827]"
                           : "hidden sm:inline"
                       }
                     >
@@ -268,7 +271,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               <button
                 type="button"
                 onClick={() => setShowAiAssistant((current) => !current)}
-                className={`grid h-10 w-10 place-items-center rounded-xl border text-sm transition duration-200 ${showAiAssistant ? "border-[#c7d2fe] bg-[#eef2ff] text-[#2642a6]" : "border-transparent text-[#64748b] hover:border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#2642a6]"}`}
+                className={`grid h-10 w-10 place-items-center rounded-xl border text-sm transition duration-200 ${showAiAssistant ? "border-[#c7d2fe] bg-[#eef2ff] text-[#2642a6]" : "border-transparent text-[#64748b] hover:border-[#e5e7eb] hover:bg-[#f8fafc] hover:text-[#2642a6]"}`}
                 aria-label="AI Assistant"
                 title="AI Assistant"
               >
@@ -277,7 +280,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               <button
                 type="button"
                 onClick={() => setShowNotifications((current) => !current)}
-                className={`relative grid h-10 w-10 place-items-center rounded-xl border text-sm transition duration-200 ${showNotifications ? "border-[#c7d2fe] bg-[#eef2ff] text-[#2642a6]" : "border-transparent text-[#64748b] hover:border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#2642a6]"}`}
+                className={`relative grid h-10 w-10 place-items-center rounded-xl border text-sm transition duration-200 ${showNotifications ? "border-[#c7d2fe] bg-[#eef2ff] text-[#2642a6]" : "border-transparent text-[#64748b] hover:border-[#e5e7eb] hover:bg-[#f8fafc] hover:text-[#2642a6]"}`}
                 aria-label="Notifications"
                 title="Notifications"
               >
@@ -291,7 +294,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="mx-1 hidden h-8 w-px bg-[#e2e8f0] sm:block" />
               <button
                 type="button"
-                onClick={() => navigate("/dashboard/settings#profile-section")}
+                onClick={() => navigate("/dashboard/settings/profile")}
                 className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-[#eef2ff] p-0 shadow-[0_0_0_1px_#dbe4f0] transition hover:scale-105 hover:shadow-[0_0_0_3px_#c7d2fe] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2"
                 aria-label={`Open ${adminDisplayName} profile`}
                 title="Profile settings"
@@ -299,6 +302,12 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
                 <img
                   src={adminPhotoUrl}
                   alt=""
+                  onError={(event) => {
+                    event.currentTarget.onerror = null;
+                    event.currentTarget.src = adminProfileImage;
+                    localStorage.removeItem(ADMIN_PROFILE_PHOTO_KEY);
+                    setAdminPhotoUrl(adminProfileImage);
+                  }}
                   className="block h-full w-full rounded-full object-cover object-center"
                 />
               </button>

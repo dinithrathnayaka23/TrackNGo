@@ -23,4 +23,10 @@ public class AdminBookingController {
     public ApiResponse<List<AdminBookingDto>> getAll() {
         return ApiResponse.ok("Fetched", bookingService.getAllForAdmin());
     }
+
+    @GetMapping("/trip-requests")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<List<AdminBookingDto>> getTripBookingRequests() {
+        return ApiResponse.ok("Fetched trip booking requests", bookingService.getTripBookingRequestsForAdmin());
+    }
 }

@@ -44,6 +44,9 @@ public class ProfilePictureService {
         String normalizedType = currentUser.getUserType() == null
                 ? ""
                 : currentUser.getUserType().trim().toLowerCase(Locale.ROOT);
+        if ("driver".equals(normalizedType)) {
+            throw new BusinessException("Driver profile pictures are managed by an administrator.");
+        }
 
         try {
             Path baseDir = Path.of(uploadDir).toAbsolutePath().normalize().resolve("profile-pictures");
@@ -165,8 +168,12 @@ public class ProfilePictureService {
                     profilePhotoUrl,
                     userId
             );
+            case "admin" -> jdbcTemplate.update(
+                    "UPDATE admin SET profile_photo = ? WHERE admin_id = ?",
+                    profilePhotoUrl,
+                    userId
+            );
             default -> {
-                // Admin profile photos are currently client-persisted in admin web local storage.
             }
         }
     }

@@ -25,6 +25,8 @@ import { apiUrl } from "@/config/env";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/context/ThemeContext";
+import { useLanguage } from "@/context/LanguageContext";
+import type { TranslateFn } from "@/locales";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { useFocusEffect } from "@react-navigation/native";
@@ -56,7 +58,11 @@ interface DriverProfile {
   lastName?: string;
   profilePhoto?: string | null;
   averageRating: number;
-  driverEarnings: number;
+}
+
+interface DriverEarningsSummary {
+  monthlyEarnings: number;
+  percentageChange: number;
 }
 
 interface DriverAssignment {
@@ -85,8 +91,10 @@ export default function DriverDashboardScreen() {
   const { width } = useWindowDimensions(); //responsive design
   const insets = useSafeAreaInsets(); //ensure content is not hidden behind notches or system UI elements
   const { darkMode } = useTheme(); // Accessing the theme context
+  const { t } = useLanguage(); // Accessing the translation function
   const [firstName, setFirstName] = useState("Driver");
   const [profileData, setProfileData] = useState<DriverProfile | null>(null);
+  const [earningsSummary, setEarningsSummary] = useState<DriverEarningsSummary | null>(null);
   const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<RouteGeometry | null>(
     null,
@@ -230,6 +238,30 @@ export default function DriverDashboardScreen() {
       const currentAssignment = result.data.assignment ?? null;
       setProfileData(profile);
       setAssignment(currentAssignment);
+
+      try {
+        const earningsResponse = await fetch(
+          apiUrl(`/api/drivers/${user.userId}/earnings`),
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${user.token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        const earningsResult = await earningsResponse.json();
+        if (!earningsResponse.ok || !earningsResult.success || !earningsResult.data) {
+          throw new Error(earningsResult.message || "Failed to load earnings summary");
+        }
+        setEarningsSummary({
+          monthlyEarnings: Number(earningsResult.data.monthlyEarnings || 0),
+          percentageChange: Number(earningsResult.data.percentageChange || 0),
+        });
+      } catch (error) {
+        console.warn("Failed to load driver earnings summary:", error);
+        setEarningsSummary(null);
+      }
 
       if (profile.firstName) {
         setFirstName(profile.firstName);
@@ -498,7 +530,6 @@ export default function DriverDashboardScreen() {
   }, [assignment?.busNumber, shareLocationEnabled, user?.token]);
 
   const isSmallPhone = width < 360;
-  const isCompact = width < 390;
   const horizontalPadding = isSmallPhone ? 14 : 16;
   const contentWidth = Math.min(width - horizontalPadding * 2, 560); // Calculate the content width by taking the window width and subtracting the horizontal padding on both sides, while also capping it at a maximum of 560 pixels
   const mapHeight = Math.max(150, Math.min(contentWidth * 0.42, 220)); // Calculate the map height by taking the content width and multiplying it by a ratio of 0.42. This will ensure that the map is at least 150 pixels tall and never exceeds 220 pixels.
@@ -514,7 +545,11 @@ export default function DriverDashboardScreen() {
 
   const ratingValue = profileData?.averageRating ?? 0;
   const roundedRating = Math.round(ratingValue);
-  const earningsAmount = profileData?.driverEarnings ?? 0;
+  const earningsAmount = earningsSummary?.monthlyEarnings ?? 0;
+  const earningsGrowth = earningsSummary?.percentageChange ?? 0;
+  const earningsGrowthLabel = t("dashboard.growthVsPreviousWeek", {
+    percent: earningsGrowth.toFixed(2),
+  });
   const profilePhotoUri = resolveAssetUrl(profileData?.profilePhoto);
   const orderedStops = useMemo(
     () => getOrderedStops(routeGeometry?.stops ?? []),
@@ -527,11 +562,12 @@ export default function DriverDashboardScreen() {
   const routeDisplay =
     routeStart && routeEnd
       ? `${routeStart} -> ${routeEnd}`
-      : (assignment?.routeName ?? "No current route");
+      : (assignment?.routeName ?? t("dashboard.noCurrentRoute"));
 
   const trackingStatusText = getTrackingStatusText(
     locationSharingStatus,
     liveBusLocation,
+    t,
     gpsAccuracyPercent,
   );
   const gpsQualityLabel =
@@ -564,10 +600,10 @@ export default function DriverDashboardScreen() {
     return () => animation.stop();
   }, [isTripLive, livePulseOpacity]);
 
-  const etaText = getEtaText(routeGeometry?.stops ?? []);
+  const etaText = getEtaText(routeGeometry?.stops ?? [], t);
   const passengerText = assignment?.seatCapacity
-    ? `0/${assignment.seatCapacity} Pax`
-    : "No passenger data";
+    ? t("dashboard.passengerCount", { current: 0, capacity: assignment.seatCapacity })
+    : t("dashboard.noPassengerData");
 
   const theme = {
     background: darkMode ? "#111" : "#F5F5F5",
@@ -609,8 +645,8 @@ export default function DriverDashboardScreen() {
   const handleNavigation = () => {
     if (!assignment?.routeId && !routeGeometry) {
       Alert.alert(
-        "No Route Available",
-        "No route information available for navigation.",
+        t("dashboard.noRouteAvailableTitle"),
+        t("dashboard.noRouteAvailableMessage"),
       );
       return;
     }
@@ -648,7 +684,7 @@ export default function DriverDashboardScreen() {
 
               <View style={styles.greetingText}>
                 <Text style={styles.greetingTitle} numberOfLines={1}>
-                  Hello, {firstName}
+                  {t("dashboard.greeting", { name: firstName })}
                 </Text>
 
                 <View style={styles.dateContainer}>
@@ -701,7 +737,7 @@ export default function DriverDashboardScreen() {
             activeOpacity={0.9}
           >
             <View style={styles.earningsHeader}>
-              <Text style={styles.sectionLabel}>Monthly Earnings</Text>
+              <Text style={styles.sectionLabel}>{t("dashboard.monthlyEarnings")}</Text>
 
               <View style={styles.earningsIndicator}>
                 <Animated.View
@@ -714,27 +750,26 @@ export default function DriverDashboardScreen() {
             </View>
 
             <Text style={styles.earningsAmount}>
-              LKR{" "}
-              {earningsAmount.toLocaleString("en-US", {
+              {earningsSummary === null ? "—" : `LKR ${earningsAmount.toLocaleString("en-US", {
                 // Format earnings amount with commas and 2 decimal places
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
-              })}
+              })}`}
             </Text>
 
             <View style={styles.growthContainer}>
               <MaterialCommunityIcons
                 name="trending-up"
                 size={16}
-                color="#00AA00"
+                color={earningsGrowth >= 0 ? "#00AA00" : "#DC2626"}
               />
-              <Text style={styles.growthText}>5% vs yesterday</Text>
+              <Text style={styles.growthText}>{earningsGrowthLabel}</Text>
             </View>
           </TouchableOpacity>
 
           <View style={styles.card}>
             <View style={styles.tripHeader}>
-              <Text style={styles.sectionTitle}>Current Trip</Text>
+              <Text style={styles.sectionTitle}>{t("dashboard.currentTrip")}</Text>
               <View
                 style={[
                   styles.liveStatusPill,
@@ -760,7 +795,7 @@ export default function DriverDashboardScreen() {
                       : styles.liveStatusTextInactive,
                   ]}
                 >
-                  {isTripLive ? "Live" : "Not Live"}
+                  {isTripLive ? t("dashboard.live") : t("dashboard.notLive")}
                 </Text>
               </View>
             </View>
@@ -771,6 +806,7 @@ export default function DriverDashboardScreen() {
                 liveBusLocation={liveBusLocation}
                 loading={isLoadingTrip}
                 darkMode={darkMode}
+                showStopMarkers={false}
               />
 
               <TouchableOpacity
@@ -783,7 +819,7 @@ export default function DriverDashboardScreen() {
                   size={15}
                   color="#FFFFFF"
                 />
-                <Text style={styles.mapOpenButtonText}>Map View</Text>
+                <Text style={styles.mapOpenButtonText}>{t("dashboard.mapView")}</Text>
               </TouchableOpacity>
 
               <View style={styles.inTransitBadge}>
@@ -803,9 +839,7 @@ export default function DriverDashboardScreen() {
               </View>
             </View>
 
-            <View
-              style={[styles.tripDetails, isCompact && styles.tripDetailsStack]}
-            >
+            <View style={styles.tripDetails}>
               <View style={styles.routeContainer}>
                 <Text style={styles.routeText} numberOfLines={1}>
                   {routeDisplay}
@@ -813,9 +847,12 @@ export default function DriverDashboardScreen() {
                 {orderedStops.length > 0 ? (
                   <View style={styles.stopsBlock}>
                     <View style={styles.stopsHeader}>
-                      <Text style={styles.stopsTitle}>Route Stops</Text>
+                      <Text style={styles.stopsTitle}>{t("dashboard.routeStops")}</Text>
                       <Text style={styles.stopsCount}>
-                        {coordinateStopCount}/{orderedStops.length} mapped
+                        {t("dashboard.stopsMapped", {
+                          mapped: coordinateStopCount,
+                          total: orderedStops.length,
+                        })}
                       </Text>
                     </View>
 
@@ -856,25 +893,25 @@ export default function DriverDashboardScreen() {
                   </View>
                 ) : (
                   <Text style={styles.emptyStopsText}>
-                    Stops not loaded from route database
+                    {t("dashboard.stopsNotLoaded")}
                   </Text>
                 )}
-                <Text style={styles.etaLabel}>ETA</Text>
-                <Text style={styles.etaTime}>{etaText}</Text>
               </View>
 
-              <View
-                style={[
-                  styles.passengerContainer,
-                  isCompact && styles.passengerCompact,
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="account-multiple"
-                  size={20}
-                  color={theme.text}
-                />
-                <Text style={styles.passengerText}>{passengerText}</Text>
+              <View style={styles.tripFooterRow}>
+                <View style={styles.etaBlock}>
+                  <Text style={styles.etaLabel}>{t("dashboard.eta")}</Text>
+                  <Text style={styles.etaTime}>{etaText}</Text>
+                </View>
+
+                <View style={styles.passengerContainer}>
+                  <MaterialCommunityIcons
+                    name="account-multiple"
+                    size={20}
+                    color={theme.text}
+                  />
+                  <Text style={styles.passengerText}>{passengerText}</Text>
+                </View>
               </View>
             </View>
 
@@ -892,7 +929,7 @@ export default function DriverDashboardScreen() {
                 onPress={handleDetails}
               >
                 <MaterialCommunityIcons name="eye" size={20} color="#0066FF" />
-                <Text style={styles.detailsButtonText}>Details</Text>
+                <Text style={styles.detailsButtonText}>{t("dashboard.details")}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -907,13 +944,13 @@ export default function DriverDashboardScreen() {
                   size={20}
                   color="#FFF"
                 />
-                <Text style={styles.navigateButtonText}>Navigate</Text>
+                <Text style={styles.navigateButtonText}>{t("dashboard.navigate")}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.statsSection}>
-            <Text style={styles.sectionTitle}>Quick Stats</Text>
+            <Text style={styles.sectionTitle}>{t("dashboard.quickStats")}</Text>
 
             <View
               style={[styles.statsContainer, isSmallPhone && styles.statsStack]}
@@ -927,7 +964,7 @@ export default function DriverDashboardScreen() {
                   />
                 </View>
                 <Text style={styles.statNumber}>3</Text>
-                <Text style={styles.statLabel}>Trips Done</Text>
+                <Text style={styles.statLabel}>{t("dashboard.tripsDone")}</Text>
               </View>
 
               <View
@@ -945,7 +982,7 @@ export default function DriverDashboardScreen() {
                   />
                 </View>
                 <Text style={styles.statNumber}>5</Text>
-                <Text style={styles.statLabel}>Total Trips</Text>
+                <Text style={styles.statLabel}>{t("dashboard.totalTrips")}</Text>
               </View>
             </View>
           </View>
@@ -1216,15 +1253,7 @@ function createStyles({
       textTransform: "uppercase",
     },
     tripDetails: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
       marginBottom: 16,
-      gap: 12,
-    },
-    tripDetailsStack: {
-      alignItems: "flex-start",
-      flexDirection: "column",
     },
     routeContainer: {
       flex: 1,
@@ -1264,15 +1293,16 @@ function createStyles({
       paddingBottom: 3,
     },
     stopChip: {
-      minWidth: 88,
-      maxWidth: 112,
-      minHeight: 44,
-      paddingHorizontal: 8,
-      paddingVertical: 7,
-      borderRadius: 8,
+      width: 95,
+      height: 68,
+      paddingHorizontal: 6,
+      paddingVertical: 6,
+      borderRadius: 10,
       backgroundColor: theme.background,
       borderWidth: 1,
       borderColor: theme.border,
+      alignItems: "center",
+      justifyContent: "center",
     },
     stopChipStart: {
       borderColor: "#86EFAC",
@@ -1298,18 +1328,32 @@ function createStyles({
       fontSize: 10,
       color: theme.text,
       fontWeight: "700",
+      textAlign: "center",
     },
     stopEta: {
       fontSize: 9,
       color: theme.secondaryText,
       fontWeight: "700",
       marginTop: 2,
+      textAlign: "center",
     },
     emptyStopsText: {
       fontSize: 11,
       color: theme.secondaryText,
       fontWeight: "600",
       marginBottom: 8,
+    },
+    tripFooterRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: 4,
+      paddingTop: 12,
+    },
+    etaBlock: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: 6,
     },
     etaLabel: {
       fontSize: 10,
@@ -1325,9 +1369,6 @@ function createStyles({
       flexDirection: "row",
       alignItems: "center",
       flexShrink: 0,
-    },
-    passengerCompact: {
-      marginTop: 4,
     },
     passengerText: {
       fontSize: 13,
@@ -1425,22 +1466,23 @@ function createStyles({
 function getTrackingStatusText(
   status: LocationSharingStatus,
   liveBusLocation: LiveBusLocation | null,
+  t: TranslateFn,
   gpsAccuracyPercent?: number | null,
 ) {
   if (status === "active") {
     return gpsAccuracyPercent != null
-      ? `Live sharing • GPS ${gpsAccuracyPercent}%`
-      : "Live sharing";
+      ? t("dashboard.liveSharingWithGps", { percent: gpsAccuracyPercent })
+      : t("dashboard.liveSharing");
   }
   if (status === "poor-signal") {
     return gpsAccuracyPercent != null
-      ? `Weak GPS signal (${gpsAccuracyPercent}%)`
-      : "Weak GPS signal";
+      ? t("dashboard.weakGpsSignalWithPercent", { percent: gpsAccuracyPercent })
+      : t("dashboard.weakGpsSignal");
   }
-  if (status === "disabled") return "Sharing off";
-  if (status === "permission-denied") return "Location denied";
-  if (status === "error") return "Tracking retrying";
-  return liveBusLocation ? "Live Route" : "Assigned Route";
+  if (status === "disabled") return t("dashboard.sharingOff");
+  if (status === "permission-denied") return t("dashboard.locationDenied");
+  if (status === "error") return t("dashboard.trackingRetrying");
+  return liveBusLocation ? t("dashboard.liveRoute") : t("dashboard.assignedRoute");
 }
 
 function getTripLiveStatus(
@@ -1455,13 +1497,13 @@ function getTripLiveStatus(
   );
 }
 
-function getEtaText(stops: RouteStop[]) {
+function getEtaText(stops: RouteStop[], t: TranslateFn) {
   const validEta = stops
     .map((stop) => stop.estimatedArrivalMins)
     .filter((value): value is number => typeof value === "number");
 
   if (validEta.length === 0) {
-    return "N/A";
+    return t("common.notAvailable");
   }
 
   const maxEta = Math.max(...validEta);
@@ -1469,8 +1511,8 @@ function getEtaText(stops: RouteStop[]) {
   const minutes = maxEta % 60;
 
   if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+    return t("dashboard.etaHoursMinutes", { hours, minutes });
   }
 
-  return `${minutes} min`;
+  return t("dashboard.etaMinutes", { minutes });
 }

@@ -340,7 +340,7 @@ function LocationPreview({ latitude, longitude }: { latitude: number; longitude:
           </svg>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-2 bg-[#dde5f0] px-2.5 py-2 text-[10px] font-semibold text-[#465468]">
+      <div className="flex items-center justify-between gap-2 bg-[#dde5f0] px-2.5 py-2 text-[10px] font-semibold text-[#334155]">
         <span>Shared location</span>
         <span className="whitespace-nowrap text-[9px]">
           {latitude.toFixed(5)}, {longitude.toFixed(5)}
@@ -1229,15 +1229,15 @@ function Chat() {
           }
         `}
       </style>
-      <section className="flex w-[390px] min-w-[320px] flex-col border-r border-[#e6ecf3] bg-[#f7f9fc]">
+      <section className="flex w-[390px] min-w-[320px] flex-col border-r border-[#e5e7eb] bg-[#f7f9fc]">
         <div className="px-4 py-4">
-          <div className="flex h-11 items-center gap-2 rounded-xl border border-[#e6ecf3] bg-white px-3">
+          <div className="flex h-11 items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3">
             <FontAwesomeIcon icon={faMagnifyingGlass} className="text-sm text-[#94a3b8]" />
             <input
               type="text"
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
-              className="min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-[#1f2937] outline-none placeholder:text-[#a6b0c3]"
+              className="min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-[#111827] outline-none placeholder:text-[#94a3b8]"
               placeholder="Search messages..."
             />
           </div>
@@ -1245,9 +1245,9 @@ function Chat() {
 
         <div className="chat-scrollbar-hidden min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-5">
           {loadingConversations ? (
-            <p className="rounded-xl border border-[#e6ecf3] bg-white px-4 py-4 text-[13px] font-semibold text-[#7b8495]">Loading chats...</p>
+            <p className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-4 text-[13px] font-semibold text-[#64748b]">Loading chats...</p>
           ) : filteredConversations.length === 0 ? (
-            <p className="rounded-xl border border-[#e6ecf3] bg-white px-4 py-4 text-[13px] text-[#6f7a90]">
+            <p className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-4 text-[13px] text-[#64748b]">
               No support chats found.
             </p>
           ) : (
@@ -1269,11 +1269,11 @@ function Chat() {
                     'flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition',
                     selected
                       ? 'border-[#bcd3ff] bg-[#eef5ff] shadow-[0_8px_18px_rgba(26,115,232,0.10)]'
-                      : 'border-[#e6ecf3] bg-white hover:border-[#cfd9e8]',
+                      : 'border-[#e5e7eb] bg-white hover:border-[#cfd9e8]',
                   ].join(' ')}
                 >
                   <div className="relative h-11 w-11 shrink-0">
-                    <div className="grid h-full w-full place-items-center overflow-hidden rounded-full bg-[#dde5f0] text-sm font-extrabold text-[#475569]">
+                    <div className="grid h-full w-full place-items-center overflow-hidden rounded-full bg-[#dde5f0] text-sm font-extrabold text-[#334155]">
                       {avatarUrl ? (
                         <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
@@ -1286,10 +1286,10 @@ function Chat() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-[13px] font-extrabold leading-5 text-[#1f2937]">
+                      <p className="truncate text-[13px] font-extrabold leading-5 text-[#111827]">
                         {getParticipantDisplayTitle(other.userId, other.userType, profile)}
                       </p>
-                      <span className="whitespace-nowrap text-[10px] font-semibold text-[#8993a5]">
+                      <span className="whitespace-nowrap text-[10px] font-semibold text-[#94a3b8]">
                         {formatDay(conversation.lastMessageTimestamp) === 'Today'
                           ? formatTime(conversation.lastMessageTimestamp)
                           : formatDay(conversation.lastMessageTimestamp)}
@@ -1298,7 +1298,7 @@ function Chat() {
                     <p
                       className={[
                         'mt-2 truncate text-[11px]',
-                        isTyping || unread > 0 ? 'font-extrabold text-[#1a73e8]' : 'font-semibold text-[#8a94a6]',
+                        isTyping || unread > 0 ? 'font-extrabold text-[#1a73e8]' : 'font-semibold text-[#94a3b8]',
                       ].join(' ')}
                     >
                       {isTyping ? 'typing...' : previewText(conversation)}
@@ -1317,11 +1317,11 @@ function Chat() {
       </section>
 
       <section className="flex min-w-0 flex-1 flex-col bg-[#f4f6fa]">
-        <div className="flex h-14 items-center justify-between border-b border-[#e6ecf3] bg-[#f7f9fc] px-4">
+        <div className="flex h-14 items-center justify-between border-b border-[#e5e7eb] bg-[#f7f9fc] px-4">
           {activeParticipant ? (
             <div className="flex min-w-0 items-center gap-3">
               <div className="relative h-9 w-9 shrink-0">
-                <div className="grid h-full w-full place-items-center overflow-hidden rounded-full bg-[#dde5f0] text-sm font-extrabold text-[#475569]">
+                <div className="grid h-full w-full place-items-center overflow-hidden rounded-full bg-[#dde5f0] text-sm font-extrabold text-[#334155]">
                   {resolveAssetUrl(activeProfile?.profilePhoto) ? (
                     <img
                       src={resolveAssetUrl(activeProfile?.profilePhoto) ?? ''}
@@ -1333,11 +1333,11 @@ function Chat() {
                   )}
                 </div>
                 {onlineByUserId[activeParticipant.userId] ? (
-                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#f7f9fc] bg-[#22c55e]" />
+                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#f1f5f9] bg-[#22c55e]" />
                 ) : null}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-[14px] font-extrabold leading-5 text-[#1f2937]">
+                <p className="truncate text-[14px] font-extrabold leading-5 text-[#111827]">
                   {getParticipantDisplayTitle(activeParticipant.userId, activeParticipant.userType, activeProfile)}
                 </p>
                 <p
@@ -1357,7 +1357,7 @@ function Chat() {
               </div>
             </div>
           ) : (
-            <p className="text-sm font-extrabold text-[#1f2737]">No chat selected</p>
+            <p className="text-sm font-extrabold text-[#111827]">No chat selected</p>
           )}
         </div>
 
@@ -1370,16 +1370,16 @@ function Chat() {
         <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-0">
           <div ref={messagesContainerRef} className="chat-scrollbar-hidden min-h-0 flex-1 space-y-4 overflow-y-auto pr-2 pt-3">
             {loadingMessages ? (
-              <p className="text-[13px] font-semibold text-[#6f7a90]">Loading messages...</p>
+              <p className="text-[13px] font-semibold text-[#64748b]">Loading messages...</p>
             ) : messageItems.length === 0 ? (
-              <p className="text-[13px] font-semibold text-[#6f7a90]">No messages yet.</p>
+              <p className="text-[13px] font-semibold text-[#64748b]">No messages yet.</p>
             ) : (
               messageItems.map((item) => {
                 if (item.type === 'date') {
                   return (
                     <div key={item.key} className="flex justify-center">
                       <div className="rounded-xl bg-[#e9eef7] px-3.5 py-1">
-                        <span className="text-[11px] font-bold text-[#8a94a6]">{item.label}</span>
+                        <span className="text-[11px] font-bold text-[#94a3b8]">{item.label}</span>
                       </div>
                     </div>
                   )
@@ -1407,7 +1407,7 @@ function Chat() {
                   >
                     <div className={mine ? 'flex justify-end' : 'flex items-end gap-2'}>
                       {showRowAvatar ? (
-                        <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[#dde5f0] text-[10px] font-extrabold text-[#475569]">
+                        <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[#dde5f0] text-[10px] font-extrabold text-[#334155]">
                           {resolveAssetUrl(activeProfile?.profilePhoto) ? (
                             <img
                               src={resolveAssetUrl(activeProfile?.profilePhoto) ?? ''}
@@ -1426,7 +1426,7 @@ function Chat() {
                               ? ''
                               : mine
                                 ? 'inline-block rounded-[14px] rounded-tr bg-[#1a73e8] px-3 py-2.5 text-white'
-                                : 'inline-block rounded-[14px] rounded-tl border border-[#e6ecf3] bg-white px-3 py-2.5 text-[#4b5563]',
+                                : 'inline-block rounded-[14px] rounded-tl border border-[#e5e7eb] bg-white px-3 py-2.5 text-[#334155]',
                             isDeleted ? 'italic opacity-75' : '',
                           ].join(' ')}
                           onContextMenu={(event) => {
@@ -1468,7 +1468,7 @@ function Chat() {
                             <div
                               className={[
                                 'inline-flex max-w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2.5 shadow-[0_8px_18px_rgba(15,23,42,0.10)]',
-                                mine ? 'bg-[#1a73e8] text-white' : 'border border-[#e6ecf3] bg-white text-[#1f2937]',
+                                mine ? 'bg-[#1a73e8] text-white' : 'border border-[#e5e7eb] bg-white text-[#111827]',
                               ].join(' ')}
                             >
                               <button
@@ -1496,7 +1496,7 @@ function Chat() {
                                     />
                                   ))}
                                 </div>
-                                <p className={['mt-1 text-[11px] font-semibold', mine ? 'text-white/75' : 'text-[#788598]'].join(' ')}>
+                                <p className={['mt-1 text-[11px] font-semibold', mine ? 'text-white/75' : 'text-[#64748b]'].join(' ')}>
                                   {formatDuration(voiceDuration)}
                                 </p>
                               </div>
@@ -1528,7 +1528,7 @@ function Chat() {
                         </div>
                         <div
                           className={[
-                            'mt-1 flex min-h-4 items-center gap-1 text-[10px] font-semibold text-[#9aa4b2]',
+                            'mt-1 flex min-h-4 items-center gap-1 text-[10px] font-semibold text-[#94a3b8]',
                             mine ? 'justify-end pr-1' : 'justify-start pl-1',
                           ].join(' ')}
                         >
@@ -1546,7 +1546,7 @@ function Chat() {
 
         {deleteMenu ? (
           <div
-            className="fixed z-50 w-[150px] rounded-lg border border-[#e6ecf3] bg-white py-1 shadow-[0_14px_30px_rgba(15,23,42,0.16)]"
+            className="fixed z-50 w-[150px] rounded-lg border border-[#e5e7eb] bg-white py-1 shadow-[0_14px_30px_rgba(15,23,42,0.16)]"
             style={{
               left: deleteMenu.x,
               top: deleteMenu.y,
@@ -1564,7 +1564,7 @@ function Chat() {
           </div>
         ) : null}
 
-        <div className="border-t border-[#e6ecf3] bg-[#f7f9fc] px-3 py-3">
+        <div className="border-t border-[#e5e7eb] bg-[#f7f9fc] px-3 py-3">
           {recordingActive ? (
             <div className="mb-2 flex items-center justify-between rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2">
               <div className="flex min-w-0 items-center gap-3">
@@ -1611,12 +1611,12 @@ function Chat() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={!activeConversation || sending || recordingActive || recordingBusy}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#e6ecf3] bg-white text-[#64748b] transition hover:text-[#1a73e8] disabled:opacity-40"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#e5e7eb] bg-white text-[#64748b] transition hover:text-[#1a73e8] disabled:opacity-40"
               aria-label="Attach media"
             >
               <FontAwesomeIcon icon={faPlus} />
             </button>
-            <div className="flex h-10 min-w-0 flex-1 items-center rounded-full border border-[#e6ecf3] bg-white px-3">
+            <div className="flex h-10 min-w-0 flex-1 items-center rounded-full border border-[#e5e7eb] bg-white px-3">
             <input
               type="text"
               value={draftMessage}
@@ -1624,7 +1624,7 @@ function Chat() {
               onKeyDown={onComposerEnter}
               placeholder={recordingActive ? 'Recording voice...' : 'Type a message...'}
               disabled={!activeConversation || sending || recordingActive}
-              className="min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-[#1f2937] outline-none placeholder:text-[#a6b0c3] disabled:opacity-50"
+              className="min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-[#111827] outline-none placeholder:text-[#94a3b8] disabled:opacity-50"
             />
             </div>
             <button

@@ -11,4 +11,5 @@ public interface RecentBookingProjection {
     String getEndLocation();
     LocalDate getJourneyDate();
     LocalTime getJourneyTime();
+    String getPaymentStatus();
 }

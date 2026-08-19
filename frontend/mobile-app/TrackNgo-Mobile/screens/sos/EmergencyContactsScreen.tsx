@@ -5,8 +5,6 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -18,6 +16,7 @@ import {
 } from "react-native-safe-area-context";
 import type { RootStackParamList } from "../../navigation/types";
 import { useSession } from "../../store/sessionStore";
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 import {
   getEmergencyContacts,
   addEmergencyContact,

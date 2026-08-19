@@ -5,7 +5,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { searchBuses, type BusSearchResult } from '../../services/bookingFlowApi';
 import { getBusRouteLabel, getBusRouteWithSuffix } from '../../utils/routeDisplay';
 import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { LocalizedText as Text } from '../../utils/i18n';
 
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode }> = {
   ac: { icon: <MaterialCommunityIcons name="snowflake" size={16} color="#94A3B8" /> },

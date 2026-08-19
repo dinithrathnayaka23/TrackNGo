@@ -49,9 +49,13 @@ public class ComplaintServiceImpl implements ComplaintService {
     @Value("${trackngo.time-zone:Asia/Colombo}")
     private String timeZoneId;
 
-    /** Ensures the complaint table contains the booking reference support required by this module. */
+    /** Ensures the complaint table contains the driver and booking fields required by this module. */
     @PostConstruct
     void ensureComplaintSchema() {
+        ensureColumnExists(
+            "driver_id",
+            "ALTER TABLE complaint ADD COLUMN driver_id BIGINT NULL AFTER passenger_id"
+        );
         ensureColumnExists(
             "booking_reference",
             "ALTER TABLE complaint ADD COLUMN booking_reference VARCHAR(50) NULL AFTER image"
@@ -93,6 +97,15 @@ public class ComplaintServiceImpl implements ComplaintService {
     @Override
     public List<ComplaintDto> getMine(String email) {
         return repository.findOwnedByEmail(email)
+            .stream()
+            .map(this::toDto)
+            .toList();
+    }
+
+    /** Returns the complaints filed against the given driver, newest first. */
+    @Override
+    public List<ComplaintDto> getForDriver(Long driverId) {
+        return repository.findByDriverId(driverId)
             .stream()
             .map(this::toDto)
             .toList();
@@ -391,6 +404,7 @@ public class ComplaintServiceImpl implements ComplaintService {
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setResolvedAt(entity.getResolvedAt());
         dto.setPassengerId(entity.getPassengerId());
+        dto.setDriverId(entity.getDriverId());
         return dto;
     }
 }

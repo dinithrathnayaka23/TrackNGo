@@ -14,6 +14,8 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ADMIN_SUPPORT_USER_ID } from '@/config/env';
 import { useUser } from '@/context/UserContext';
+import { useLanguage } from '@/context/LanguageContext';
+import type { TranslateFn } from '@/locales';
 import {
   createConversation,
   getConversationMessages,
@@ -41,6 +43,7 @@ interface Conversation {
 export default function DriverChatScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,10 +94,10 @@ export default function DriverChatScreen() {
         }
 
         const mapped = dedupeConversations(items).map((item) =>
-          mapConversation(item, user.userId),
+          mapConversation(item, user.userId, t),
         );
         const enriched = await Promise.all(
-          mapped.map((item) => enrichConversationWithLatestMessage(item, user.token)),
+          mapped.map((item) => enrichConversationWithLatestMessage(item, user.token, t)),
         );
 
         setPage(result.page ?? targetPage);
@@ -110,7 +113,7 @@ export default function DriverChatScreen() {
           setError(
             fetchError instanceof Error
               ? fetchError.message
-              : 'Failed to load conversations',
+              : t('chat.failedToLoadConversations'),
           );
         }
       } finally {
@@ -118,7 +121,7 @@ export default function DriverChatScreen() {
         setIsLoadingMore(false);
       }
     },
-    [trimmed, user?.token, user?.userId],
+    [trimmed, user?.token, user?.userId, t],
   );
 
   useEffect(() => {
@@ -170,7 +173,7 @@ export default function DriverChatScreen() {
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <MaterialCommunityIcons name="arrow-left" size={22} color="#1F2937" />
         </Pressable>
-        <Text style={styles.headerTitle}>Messages</Text>
+        <Text style={styles.headerTitle}>{t('chat.title')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -180,7 +183,7 @@ export default function DriverChatScreen() {
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
-          placeholder="Search by name..."
+          placeholder={t('chat.searchPlaceholder')}
           placeholderTextColor="#A6B0C3"
           returnKeyType="search"
         />
@@ -231,7 +234,7 @@ export default function DriverChatScreen() {
 
                 <View style={styles.chatMeta}>
                   <Text style={styles.chatTime}>
-                    {getConversationTimeLabel(item.lastMessageTimestamp)}
+                    {getConversationTimeLabel(item.lastMessageTimestamp, t)}
                   </Text>
                   {unread > 0 ? (
                     <View style={styles.unreadBadge}>
@@ -258,12 +261,12 @@ export default function DriverChatScreen() {
                   style={styles.retryButton}
                   onPress={() => refreshConversations(0, true, true)}
                 >
-                  <Text style={styles.retryText}>Retry</Text>
+                  <Text style={styles.retryText}>{t('common.retry')}</Text>
                 </Pressable>
               </View>
             ) : (
               <View style={styles.centered}>
-                <Text style={styles.emptyText}>No conversations found.</Text>
+                <Text style={styles.emptyText}>{t('chat.noConversations')}</Text>
               </View>
             )
           }
@@ -295,9 +298,9 @@ function timestampValue(timestamp?: string | null) {
   return Number.isNaN(value) ? null : value;
 }
 
-function getConversationTimeLabel(timestamp?: string | null) {
-  const dayLabel = formatDayLabel(timestamp);
-  if (dayLabel === 'Today') {
+function getConversationTimeLabel(timestamp: string | null | undefined, t: TranslateFn) {
+  const dayLabel = formatDayLabel(timestamp, t);
+  if (dayLabel === t('chat.today')) {
     return formatTime(timestamp) || dayLabel;
   }
   return dayLabel || '';
@@ -314,7 +317,7 @@ function formatTime(iso?: string | null) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatDayLabel(iso?: string | null) {
+function formatDayLabel(iso: string | null | undefined, t: TranslateFn) {
   if (!iso) {
     return '';
   }
@@ -332,10 +335,10 @@ function formatDayLabel(iso?: string | null) {
     left.getDate() === right.getDate();
 
   if (isSameDay(date, today)) {
-    return 'Today';
+    return t('chat.today');
   }
   if (isSameDay(date, yesterday)) {
-    return 'Yesterday';
+    return t('chat.yesterday');
   }
   return date.toLocaleDateString();
 }
@@ -396,18 +399,20 @@ function pinSupportAndSort(items: Conversation[]) {
   return support ? [support, ...rest] : rest;
 }
 
-function mapConversation(item: ConversationDto, currentUserId: number): Conversation {
+function mapConversation(item: ConversationDto, currentUserId: number, t: TranslateFn): Conversation {
   const other = getOtherParticipant(item, currentUserId);
   const isSupport = other.id === ADMIN_SUPPORT_USER_ID && other.type === 'ADMIN';
-  const fallbackName = other.id ? `User ${other.id}` : `Conversation ${item.conversationId}`;
+  const fallbackName = other.id
+    ? t('chat.userFallback', { id: other.id })
+    : t('chat.conversationFallback', { id: item.conversationId });
 
   return {
     id: String(item.conversationId),
     name: isSupport
-      ? 'Customer Support - Admin'
-      : getParticipantTitle(other.type, other.id, item.otherParticipantName ?? fallbackName),
-    message: formatConversationPreview(item.lastMessage, item.lastMessageType),
-    timestamp: getConversationTimeLabel(item.lastMessageTimestamp),
+      ? t('chat.customerSupport')
+      : getParticipantTitle(other.type, other.id, item.otherParticipantName ?? fallbackName, t),
+    message: formatConversationPreview(item.lastMessage, item.lastMessageType, t),
+    timestamp: getConversationTimeLabel(item.lastMessageTimestamp, t),
     unreadCount: other.unreadCount,
     otherUserId: other.id ?? item.otherParticipantId,
     otherUserType: other.type ?? item.otherParticipantType,
@@ -420,6 +425,7 @@ function mapConversation(item: ConversationDto, currentUserId: number): Conversa
 async function enrichConversationWithLatestMessage(
   conversation: Conversation,
   token: string,
+  t: TranslateFn,
 ): Promise<Conversation> {
   try {
     const result = await getConversationMessages({
@@ -435,50 +441,55 @@ async function enrichConversationWithLatestMessage(
 
     return {
       ...conversation,
-      message: formatMessagePreview(latest),
+      message: formatMessagePreview(latest, t),
       lastMessageSenderId: latest.senderId,
       lastMessageStatus: latest.status,
       lastMessageType: latest.messageType,
       lastMessageTimestamp: latest.createdAt ?? conversation.lastMessageTimestamp,
-      timestamp: getConversationTimeLabel(latest.createdAt ?? conversation.lastMessageTimestamp),
+      timestamp: getConversationTimeLabel(latest.createdAt ?? conversation.lastMessageTimestamp, t),
     };
   } catch {
     return conversation;
   }
 }
 
-function formatConversationPreview(lastMessage?: string | null, messageType?: string | null) {
-  if (messageType === 'IMAGE') return 'Photo';
-  if (messageType === 'VOICE') return 'Voice message';
-  if (messageType === 'LOCATION') return 'Shared location';
-  return lastMessage?.trim() || 'No messages yet';
+function formatConversationPreview(
+  lastMessage: string | null | undefined,
+  messageType: string | null | undefined,
+  t: TranslateFn,
+) {
+  if (messageType === 'IMAGE') return t('chat.photo');
+  if (messageType === 'VOICE') return t('chat.voiceMessage');
+  if (messageType === 'LOCATION') return t('chat.sharedLocation');
+  return lastMessage?.trim() || t('chat.noMessagesYet');
 }
 
-function formatMessagePreview(message: ChatMessageDto) {
-  if (message.deleted) return 'Message deleted';
-  if (message.messageType === 'IMAGE') return 'Photo';
-  if (message.messageType === 'VOICE') return 'Voice message';
-  if (message.messageType === 'LOCATION') return 'Shared location';
-  return message.content || 'No messages yet';
+function formatMessagePreview(message: ChatMessageDto, t: TranslateFn) {
+  if (message.deleted) return t('chat.messageDeleted');
+  if (message.messageType === 'IMAGE') return t('chat.photo');
+  if (message.messageType === 'VOICE') return t('chat.voiceMessage');
+  if (message.messageType === 'LOCATION') return t('chat.sharedLocation');
+  return message.content || t('chat.noMessagesYet');
 }
 
 function getParticipantTitle(
-  type?: ChatParticipantType | null,
-  userId?: number | null,
-  name?: string | null,
+  type: ChatParticipantType | null | undefined,
+  userId: number | null | undefined,
+  name: string | null | undefined,
+  t: TranslateFn,
 ) {
-  const personName = name?.trim() || `User ${userId ?? ''}`.trim();
+  const personName = name?.trim() || t('chat.userFallback', { id: userId ?? '' });
   if (type === 'ADMIN') {
-    return 'Customer Support - Admin';
+    return t('chat.customerSupport');
   }
   if (type === 'PASSENGER') {
-    return `${personName} - Passenger`;
+    return t('chat.participantPassenger', { name: personName });
   }
   if (type === 'DRIVER') {
-    return `${personName} - Driver`;
+    return t('chat.participantDriver', { name: personName });
   }
   if (type === 'CORPORATE_USER') {
-    return `${personName} - Corporate User`;
+    return t('chat.participantCorporate', { name: personName });
   }
   return personName;
 }

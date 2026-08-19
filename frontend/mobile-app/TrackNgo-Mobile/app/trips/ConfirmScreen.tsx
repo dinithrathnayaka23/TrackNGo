@@ -1,363 +1,202 @@
-import React, { useRef, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  ScrollView,
-  Modal,
-  Dimensions,
-  Image
-} from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import ViewShot from "react-native-view-shot";
-import { useRouter, useLocalSearchParams } from "expo-router";
-
-const { width } = Dimensions.get('window');
+import { useLocalSearchParams, useRouter } from "expo-router";
+import QRCode from "react-native-qrcode-svg";
+import { getTripBooking, TripBooking } from "../../services/tripBookingsApi";
+import { API_BASE_URL } from "../../config/env";
+import { LocalizedText as Text } from "../../utils/i18n";
 
 export default function ConfirmScreen() {
   const router = useRouter();
-  const { tripDetails: tripDetailsStr } = useLocalSearchParams<{ tripDetails: string }>();
-  const tripDetails = tripDetailsStr ? JSON.parse(tripDetailsStr) : {};
-  const bookingData = tripDetails;
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const params = useLocalSearchParams<{ bookingId?: string; tripDetails?: string }>();
+  const fallback = params.tripDetails ? JSON.parse(params.tripDetails) : {};
+  const bookingId = Number(params.bookingId || fallback.bookingId || fallback.id);
+  const [booking, setBooking] = useState<TripBooking | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [ticketVisible, setTicketVisible] = useState(false);
+  const qrSize = Math.min(180, Math.max(140, width - 96));
 
-  const ticketRef = useRef<ViewShot>(null);
-  const modalTicketRef = useRef<ViewShot>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  useEffect(() => {
+    if (!bookingId) {
+      setLoading(false);
+      return;
+    }
+    getTripBooking(bookingId)
+      .then(setBooking)
+      .catch((error: any) => Alert.alert("Booking unavailable", error?.message || "Could not load the saved booking."))
+      .finally(() => setLoading(false));
+  }, [bookingId]);
 
-  const handleViewTicket = () => setModalVisible(true);
-  const handleCloseTicket = () => setModalVisible(false);
+  if (loading) {
+    return (
+      <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.center}>
+        <ActivityIndicator size="large" color="#2563EB" />
+        <Text style={styles.muted}>Loading your confirmed booking...</Text>
+      </SafeAreaView>
+    );
+  }
 
-  const formatDate = (date: any) => {
-    if (!date) return "Select Date";
-    return new Date(date).toDateString();
-  };
+  if (!booking) {
+    return (
+      <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.center}>
+        <Text style={styles.muted}>The booking could not be loaded.</Text>
+        <Pressable style={styles.button} onPress={() => router.replace("/tabs")}>
+          <Text style={styles.buttonText}>Return Home</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
+  const verifyUrl = `${API_BASE_URL}/api/trips/verify/${booking.id}`;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F6F7FB" }}>
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
-
-        {/* Header */}
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safe}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + 28, 40) }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.push('/tabs')}>
-             <Ionicons name="chevron-back" size={22} />
-          </TouchableOpacity>
-          <Text style={styles.headerText}>
-            Booking #{bookingData?.bookingId || "8392"}
+          <Pressable style={styles.headerSide} onPress={() => router.replace("/tabs")} hitSlop={8}>
+            <Ionicons name="chevron-back" size={22} color="#111827" />
+          </Pressable>
+          <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+            Booking #{booking.id}
           </Text>
-          <View style={{ width: 20 }} />
+          <View style={styles.headerSide} />
         </View>
 
-        {/* Payment Success */}
-        <View style={{ alignItems: "center", marginVertical: 24 }}>
-          <View style={styles.successIconContainer}>
-             <Ionicons name="checkmark" size={40} color="white" />
+        <View style={styles.success}>
+          <View style={styles.successIcon}>
+            <Ionicons name="checkmark" size={40} color="white" />
           </View>
-          <Text style={{ color: "#111827", fontSize: 22, fontWeight: "bold", marginTop: 16 }}>
-            Booking Confirmed!
-          </Text>
-          <Text style={{ color: "#6B7280", fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 20 }}>
-            Your trip has been successfully scheduled. You can view your ticket below.
-          </Text>
+          <Text style={styles.successTitle}>Booking Confirmed</Text>
+          <Text style={styles.muted}>Your advance payment is recorded and your ticket is ready.</Text>
         </View>
 
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: "100%" }]} />
+        <View style={styles.progress}>
+          <View style={styles.track}>
+            <View style={styles.fill} />
           </View>
-          <View style={styles.progressLabels}>
-            <Text style={styles.completedStep}>Sent</Text>
-            <Text style={styles.completedStep}>Negotiation</Text>
-            <Text style={styles.completedStep}>Payment</Text>
-            <Text style={styles.completedStep}>Confirmed</Text>
-          </View>
+          <Text style={styles.progressText}>Sent · Negotiation · Payment · Confirmed</Text>
         </View>
 
-        {/* Main Card View */}
         <View style={styles.card}>
-            <View style={styles.tripHeader}>
-              <Text style={styles.tripId}>REF: #{bookingData?.bookingId || "8392"}</Text>
-              <Text style={styles.tripTitle}>
-                {bookingData?.pickup || "Colombo"} → {bookingData?.drop || "Kandy"}
-              </Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.detailRow}><Text style={styles.detailLabel}>Departure</Text><Text style={styles.detailValue}>{formatDate(bookingData?.depart)}</Text></View>
-            <View style={styles.detailRow}><Text style={styles.detailLabel}>Passengers</Text><Text style={styles.detailValue}>{bookingData?.passengers || 1} People</Text></View>
-            <View style={styles.detailRow}><Text style={styles.detailLabel}>Type</Text><Text style={styles.detailValue}>{bookingData?.selectedRequirement || "Standard"}</Text></View>
+          <Text style={styles.ref}>REF: #{booking.id}</Text>
+          <View style={styles.routeRow}>
+            <Text style={styles.routeCity} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
+              {booking.startLocation}
+            </Text>
+            <Text style={styles.routeArrow}>→</Text>
+            <Text style={[styles.routeCity, styles.routeDestination]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
+              {booking.destination}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+          <Row label="Departure" value={booking.startDate} />
+          <Row label="Return" value={booking.returnDate || "Same day"} />
+          <Row label="Passengers" value={String(booking.passengerCount)} />
+          <Row label="Bus" value={booking.busNumber || "Assigned bus"} />
+          <Row label="Advance paid" value={`LKR ${Number(booking.advancePayment).toLocaleString()}`} />
         </View>
 
-        {/* Action Buttons */}
-        <TouchableOpacity style={styles.primaryButton} onPress={handleViewTicket}>
-          <Ionicons name="ticket-outline" size={20} color="white" style={{ marginRight: 8 }} />
-          <Text style={styles.primaryButtonText}>View Digital Ticket</Text>
-        </TouchableOpacity>
+        <Pressable style={styles.button} onPress={() => setTicketVisible(true)}>
+          <Ionicons name="ticket-outline" size={20} color="white" />
+          <Text style={styles.buttonText}>View Digital Ticket</Text>
+        </Pressable>
+        <Pressable style={styles.homeButton} onPress={() => router.replace("/tabs")}>
+          <Text style={styles.homeText}>Return to Home</Text>
+        </Pressable>
 
-        <TouchableOpacity 
-          style={styles.secondaryButton} 
-          onPress={() => router.push('/tabs')}>
-          <Text style={styles.secondaryButtonText}>Return to Home</Text>
-        </TouchableOpacity>
-
-        {/* ── TICKET MODAL ────────────────────────────────────────── */}
-        <Modal visible={modalVisible} animationType="fade" transparent>
-          <View style={styles.modalOverlay}>
-            <SafeAreaView style={styles.modalContent}>
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 40 }}>
-                
-                {/* THE TICKET DESIGN */}
-                <View style={styles.ticketContainer}>
-                  {/* Top Section */}
-                  <View style={styles.ticketTop}>
-                    <View style={styles.ticketHeader}>
-                      <Text style={styles.ticketBrand}>TRACKNGo</Text>
-                      <Text style={styles.ticketType}>E-TICKET</Text>
-                    </View>
-                    
-                    <View style={styles.ticketRoute}>
-                      <View>
-                        <Text style={styles.cityCode}>{bookingData?.pickup?.substring(0,3).toUpperCase() || "CMB"}</Text>
-                        <Text style={styles.cityName}>{bookingData?.pickup || "Colombo"}</Text>
-                      </View>
-                      <Ionicons name="bus" size={24} color="#2563EB" />
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.cityCode}>{bookingData?.drop?.substring(0,3).toUpperCase() || "KND"}</Text>
-                        <Text style={styles.cityName}>{bookingData?.drop || "Kandy"}</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Perforation Line with Side Notches */}
-                  <View style={styles.perforationContainer}>
-                    <View style={styles.leftNotch} />
-                    <View style={styles.dottedLine} />
-                    <View style={styles.rightNotch} />
-                  </View>
-
-                  {/* Bottom Section */}
-                  <View style={styles.ticketBottom}>
-                    <View style={styles.ticketGrid}>
-                      <View style={styles.gridItem}>
-                        <Text style={styles.gridLabel}>DATE</Text>
-                        <Text style={styles.gridValue}>{formatDate(bookingData?.depart).split(' ').slice(1,3).join(' ')}</Text>
-                      </View>
-                      <View style={styles.gridItem}>
-                        <Text style={styles.gridLabel}>TIME</Text>
-                        <Text style={styles.gridValue}>08:30 AM</Text>
-                      </View>
-                      <View style={styles.gridItem}>
-                        <Text style={styles.gridLabel}>BOOKING ID</Text>
-                        <Text style={styles.gridValue}>#{bookingData?.bookingId || "8392"}</Text>
-                      </View>
-                      <View style={styles.gridItem}>
-                        <Text style={styles.gridLabel}>PASSENGERS</Text>
-                        <Text style={styles.gridValue}>{bookingData?.passengers || 1}</Text>
-                      </View>
-                    </View>
-
-                    {/* QR Code - Real Dynamic QR! */}
-                    <View style={styles.qrContainer}>
-                       <View style={styles.qrSquare}>
-                          <Image 
-                            source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-                              `TrackNGo VERIFIED\n-----------------\nID: #${bookingData?.bookingId}\nRoute: ${bookingData?.pickup} to ${bookingData?.drop}\nDate: ${formatDate(bookingData?.depart)}\nStatus: PAID`
-                            )}` }}
-                            style={{ width: 140, height: 140 }}
-                          />
-                       </View>
-                       <Text style={styles.qrText}>Scan to Verify Booking</Text>
-                    </View>
-                  </View>
+        <Modal visible={ticketVisible} transparent animationType="fade" onRequestClose={() => setTicketVisible(false)}>
+          <View style={[styles.overlay, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+            <View style={styles.ticket}>
+              <ScrollView contentContainerStyle={styles.ticketContent} showsVerticalScrollIndicator={false}>
+                <View style={styles.ticketHeader}>
+                  <Text style={styles.brand}>TRACKNGo</Text>
+                  <Text style={styles.eTicket}>E-TICKET</Text>
                 </View>
-
-                {/* Close Button */}
-                <TouchableOpacity style={styles.closeButton} onPress={handleCloseTicket}>
-                  <Ionicons name="close-circle" size={50} color="white" />
-                </TouchableOpacity>
-
+                <View style={styles.ticketRouteRow}>
+                  <Text style={styles.ticketRouteCity} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                    {booking.startLocation}
+                  </Text>
+                  <Text style={styles.ticketRouteArrow}>→</Text>
+                  <Text style={[styles.ticketRouteCity, styles.ticketRouteDestination]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                    {booking.destination}
+                  </Text>
+                </View>
+                <Row label="DATE" value={booking.startDate} />
+                <Row label="BOOKING ID" value={`#${booking.id}`} />
+                <Row label="BUS" value={booking.busNumber || "Assigned bus"} />
+                <View style={styles.qr}>
+                  <QRCode value={verifyUrl} size={qrSize} />
+                  <Text style={styles.qrText}>Scan to verify this booking</Text>
+                </View>
+                <Pressable onPress={() => setTicketVisible(false)} style={styles.close}>
+                  <Text style={styles.closeText}>Close</Text>
+                </Pressable>
               </ScrollView>
-            </SafeAreaView>
+            </View>
           </View>
         </Modal>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue} numberOfLines={2}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  headerText: { fontSize: 16, fontWeight: "600", color: "#111827" },
-  
-  successIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#22C55E",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 4,
-    shadowColor: "#22C55E",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-
-  progressContainer: { marginBottom: 24 },
-  progressBar: { height: 6, backgroundColor: "#E5E7EB", borderRadius: 10 },
-  progressFill: { height: 6, backgroundColor: "#2563EB", borderRadius: 10 },
-  progressLabels: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
-  completedStep: { fontSize: 11, color: "#2563EB", fontWeight: "600" },
-  
-  card: { backgroundColor: "white", borderRadius: 16, padding: 20, marginBottom: 16, elevation: 2 },
-  tripHeader: { marginBottom: 12 },
-  tripId: { fontSize: 12, fontWeight: "700", color: "#94A3B8", marginBottom: 4 },
-  tripTitle: { fontSize: 18, fontWeight: "bold", color: "#111827" },
+  safe: { flex: 1, backgroundColor: "#F6F7FB" },
+  content: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 16 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: "#F6F7FB" },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+  headerSide: { width: 32, minWidth: 32, alignItems: "center" },
+  headerTitle: { flex: 1, fontSize: 16, fontWeight: "600", color: "#111827", textAlign: "center", marginHorizontal: 8 },
+  success: { alignItems: "center", marginBottom: 22 },
+  successIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: "#22C55E", justifyContent: "center", alignItems: "center" },
+  successTitle: { color: "#111827", fontSize: 22, fontWeight: "bold", marginTop: 16, textAlign: "center" },
+  muted: { color: "#6B7280", fontSize: 13, marginTop: 8, textAlign: "center", maxWidth: 340 },
+  progress: { marginBottom: 20 },
+  track: { height: 6, backgroundColor: "#E5E7EB", borderRadius: 8, overflow: "hidden" },
+  fill: { height: 6, width: "100%", backgroundColor: "#2563EB", borderRadius: 8 },
+  progressText: { color: "#2563EB", fontSize: 11, textAlign: "center", marginTop: 8 },
+  card: { backgroundColor: "white", borderRadius: 16, padding: 20, elevation: 2, marginBottom: 16 },
+  ref: { color: "#94A3B8", fontSize: 12, fontWeight: "700" },
+  routeRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8, minWidth: 0 },
+  routeCity: { flex: 1, minWidth: 0, color: "#111827", fontSize: 18, fontWeight: "bold" },
+  routeDestination: { textAlign: "right" },
+  routeArrow: { color: "#64748B", fontSize: 17, fontWeight: "700" },
   divider: { height: 1, backgroundColor: "#F1F5F9", marginVertical: 16 },
-  detailRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
-  detailLabel: { fontSize: 14, color: "#64748B" },
-  detailValue: { fontSize: 14, color: "#111827", fontWeight: "600" },
-
-  primaryButton: { 
-    backgroundColor: "#2563EB", 
-    padding: 16, 
-    borderRadius: 14, 
-    flexDirection: 'row',
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-    elevation: 2
-  },
-  primaryButtonText: { color: "white", fontWeight: "bold", fontSize: 16 },
-  secondaryButton: { padding: 16, alignItems: "center" },
-  secondaryButtonText: { color: "#64748B", fontWeight: "600", fontSize: 14 },
-
-  /* ── TICKET STYLES ───────────────────────────────────────── */
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center" },
-  modalContent: { flex: 1 },
-  
-  ticketContainer: {
-    backgroundColor: 'white',
-    marginHorizontal: 30,
-    borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 10,
-  },
-  ticketTop: {
-    padding: 24,
-    backgroundColor: '#FFFFFF',
-  },
-  ticketHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  ticketBrand: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#2563EB',
-    letterSpacing: 1,
-  },
-  ticketType: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#94A3B8',
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  ticketRoute: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cityCode: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  cityName: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-
-  perforationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 40,
-    backgroundColor: '#FFFFFF',
-  },
-  leftNotch: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    marginLeft: -10,
-  },
-  rightNotch: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    marginRight: -10,
-  },
-  dottedLine: {
-    flex: 1,
-    height: 1,
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginHorizontal: 10,
-  },
-
-  ticketBottom: {
-    padding: 24,
-    backgroundColor: '#FFFFFF',
-  },
-  ticketGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 24,
-  },
-  gridItem: {
-    width: '50%',
-    marginBottom: 16,
-  },
-  gridLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#94A3B8',
-    marginBottom: 4,
-  },
-  gridValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  qrContainer: {
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  qrSquare: {
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
-  },
-  qrText: {
-    fontSize: 10,
-    color: '#94A3B8',
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  closeButton: {
-    alignItems: 'center',
-    marginTop: 30,
-  },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, gap: 16 },
+  rowLabel: { color: "#64748B", fontSize: 13, flexShrink: 0 },
+  rowValue: { color: "#111827", fontSize: 13, fontWeight: "600", flex: 1, textAlign: "right", flexShrink: 1 },
+  button: { width: "100%", minHeight: 54, flexDirection: "row", gap: 8, justifyContent: "center", alignItems: "center", backgroundColor: "#2563EB", paddingHorizontal: 12, paddingVertical: 14, borderRadius: 14 },
+  buttonText: { color: "white", fontWeight: "bold", fontSize: 16, flexShrink: 1, textAlign: "center" },
+  homeButton: { padding: 16, alignItems: "center" },
+  homeText: { color: "#64748B", fontWeight: "600" },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,.8)", justifyContent: "center", paddingHorizontal: 16 },
+  ticket: { width: "100%", maxWidth: 420, maxHeight: "100%", alignSelf: "center", backgroundColor: "white", borderRadius: 20 },
+  ticketContent: { padding: 24 },
+  ticketHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
+  brand: { color: "#2563EB", fontWeight: "900", letterSpacing: 1 },
+  eTicket: { color: "#94A3B8", fontSize: 11, fontWeight: "700" },
+  ticketRouteRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20, minWidth: 0 },
+  ticketRouteCity: { flex: 1, minWidth: 0, fontSize: 22, fontWeight: "800", color: "#111827" },
+  ticketRouteDestination: { textAlign: "right" },
+  ticketRouteArrow: { color: "#64748B", fontSize: 19, fontWeight: "800" },
+  qr: { alignItems: "center", marginTop: 12 },
+  qrText: { color: "#94A3B8", fontSize: 11, marginTop: 10, textAlign: "center" },
+  close: { alignItems: "center", padding: 14, marginTop: 12 },
+  closeText: { color: "#2563EB", fontWeight: "700" },
 });

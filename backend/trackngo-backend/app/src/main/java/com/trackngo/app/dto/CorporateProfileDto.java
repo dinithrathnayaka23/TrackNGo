@@ -7,6 +7,7 @@ public record CorporateProfileDto(
         String address,
         String contactPersonName,
         String contactPersonDesignation,
-        String contactPhone
+        String contactPhone,
+        String profilePhoto
 ) {
 }

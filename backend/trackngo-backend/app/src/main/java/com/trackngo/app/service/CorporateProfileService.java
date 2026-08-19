@@ -22,8 +22,9 @@ public class CorporateProfileService {
                 contact_person_designation,
                 status,
                 business_registration_number,
-                industry
-            ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
+                industry,
+                profile_photo
+            ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 address = VALUES(address),
                 company_name = VALUES(company_name),
@@ -31,7 +32,8 @@ public class CorporateProfileService {
                 contact_phone = VALUES(contact_phone),
                 contact_person_designation = VALUES(contact_person_designation),
                 business_registration_number = VALUES(business_registration_number),
-                industry = VALUES(industry);
+                industry = VALUES(industry),
+                profile_photo = VALUES(profile_photo);
             """;
 
     private static final String UPDATE_USER_TYPE_SQL = """
@@ -53,7 +55,8 @@ public class CorporateProfileService {
                 dto.contactPhone(),
                 dto.contactPersonDesignation(),
                 dto.businessRegistrationNumber(),
-                dto.industry()
+                dto.industry(),
+                dto.profilePhoto()
         );
     }
 }

@@ -24,8 +24,12 @@ public class JwtUtil {
     }
 
     public String generateToken(String subject, Map<String, Object> claims) {
+        return generateToken(subject, claims, expirationMs);
+    }
+
+    public String generateToken(String subject, Map<String, Object> claims, long tokenExpirationMs) {
         Date now = new Date();
-        Date exp = new Date(now.getTime() + expirationMs);
+        Date exp = new Date(now.getTime() + tokenExpirationMs);
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)

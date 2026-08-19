@@ -19,7 +19,7 @@ import {
   type EmergencyNumber,
   type SaveEmergencyNumberRequest,
 } from '../../services/emergencyNumberService'
-import ProfilePictureUpload from '../../components/ProfilePictureUpload.jsx'
+import AdminProfileCard from '../../components/AdminProfileCard'
 
 const emptyForm: SaveEmergencyNumberRequest = {
   label: '',
@@ -180,7 +180,7 @@ function Settings() {
         </div>
 
         <section className="animate-dash-in grid gap-4 sm:grid-cols-2 xl:grid-cols-3" style={{ animationDelay: '100ms' }}>
-          <article className="dashboard-card rounded-xl border border-[#e5e7eb] bg-white p-5">
+          <article className="dashboard-card h-full rounded-xl border border-[#e5e7eb] bg-white p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[#eef2ff] text-[#2642a6]">
                 <FontAwesomeIcon icon={faPhoneVolume} />
@@ -207,8 +207,8 @@ function Settings() {
             </button>
           </article>
 
-          <div id="profile-section" className="scroll-mt-24">
-            <ProfilePictureUpload />
+          <div id="profile-section" className="h-full scroll-mt-24">
+            <AdminProfileCard />
           </div>
         </section>
       </div>
@@ -287,10 +287,10 @@ function Settings() {
                       {!loading && !error && rows.map((row) => (
                         <tr key={row.emergencyId} className="border-b border-[#f1f5f9] last:border-b-0">
                           <td className="px-4 py-3 font-bold text-[#111827]">{row.label}</td>
-                          <td className="px-4 py-3 text-[#475569]">{row.fireBrigade}</td>
-                          <td className="px-4 py-3 text-[#475569]">{row.ambulance}</td>
-                          <td className="px-4 py-3 text-[#475569]">{row.police}</td>
-                          <td className="px-4 py-3 text-[#475569]">{row.helpCenter}</td>
+                          <td className="px-4 py-3 text-[#334155]">{row.fireBrigade}</td>
+                          <td className="px-4 py-3 text-[#334155]">{row.ambulance}</td>
+                          <td className="px-4 py-3 text-[#334155]">{row.police}</td>
+                          <td className="px-4 py-3 text-[#334155]">{row.helpCenter}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${activeBadge(row.isActive)}`}>
                               {row.isActive && <FontAwesomeIcon icon={faCheckCircle} className="text-[10px]" />}

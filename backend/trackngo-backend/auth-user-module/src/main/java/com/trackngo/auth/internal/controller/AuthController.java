@@ -5,6 +5,7 @@ import com.trackngo.auth.api.AuthService;
 import com.trackngo.auth.api.dto.AdminRegisterRequest;
 import com.trackngo.auth.api.dto.AuthRequest;
 import com.trackngo.auth.api.dto.AuthResponse;
+import com.trackngo.auth.api.dto.TwoFactorVerifyRequest;
 import com.trackngo.commons.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,11 @@ public class AuthController {
     public ApiResponse<Void> registerAdmin(@Valid @RequestBody AdminRegisterRequest request) {
         authService.registerAdmin(request);
         return ApiResponse.ok("Admin registration successful. You can now log in.");
+    }
+
+    @PostMapping("/2fa/verify")
+    public ApiResponse<AuthResponse> verifyTwoFactor(@Valid @RequestBody TwoFactorVerifyRequest request) {
+        return ApiResponse.ok("Two-factor verification successful", authService.verifyTwoFactor(request));
     }
 }
 

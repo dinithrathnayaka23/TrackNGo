@@ -6,8 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +16,7 @@ import { PromotionQuoteResult, quotePromotion } from '../../services/bookingFlow
 import { useSession } from '../../store/sessionStore';
 import { getUserProfile } from '../../services/userProfileApi';
 import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from '../../utils/i18n';
 
 /**
  * BookingSummaryScreen - The final step before payment where users review their selection,

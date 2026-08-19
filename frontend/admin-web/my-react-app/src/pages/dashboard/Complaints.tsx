@@ -737,7 +737,7 @@ function Complaints() {
 
               {!detailLoading && !detailError && selectedComplaint && (
                 <div className="p-6">
-                  <div className="rounded-xl border border-[#d9dee8] bg-white p-5">
+                  <div className="rounded-xl border border-[#d6dbe6] bg-white p-5">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="mr-3 text-[22px] font-extrabold tracking-tight text-[#1a2340]">
                         {selectedComplaint.type}
@@ -794,7 +794,7 @@ function Complaints() {
                             return (
                               <div
                                 key={`${selectedComplaint.id}-image-${index + 1}`}
-                                className="relative h-[84px] w-[84px] shrink-0 overflow-hidden rounded-md border border-[#cfd8e3] bg-white shadow-sm"
+                                className="relative h-[84px] w-[84px] shrink-0 overflow-hidden rounded-md border border-[#d6dbe6] bg-white shadow-sm"
                               >
                                 <a
                                   href={resolvedUrl}

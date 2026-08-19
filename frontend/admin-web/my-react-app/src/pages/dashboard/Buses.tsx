@@ -411,7 +411,7 @@ function Buses() {
           return (
           <article
             key={bus.busId}
-            className="animate-dash-in overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]"
+            className="animate-dash-in overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]"
             style={{ animationDelay: '150ms' }}
           >
             {/* Bus image section */}
@@ -486,7 +486,7 @@ function Buses() {
                     <p className="mt-1 text-sm font-bold text-[#1d4ed8]">{outboundWindow}</p>
                   </div>
 
-                  <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2">
+                  <div className="rounded-lg border border-[#e5e7eb] bg-[#f8fafc] px-3 py-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Return</span>
                       <FontAwesomeIcon icon={faClock} className="text-[11px] text-[#94a3b8]" />

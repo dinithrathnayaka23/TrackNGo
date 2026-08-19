@@ -22,7 +22,7 @@ function Navbar({
   return (
     // Reusable top bar used across dashboard pages.
     <header
-      className="animate-dash-in z-10 flex h-16 shrink-0 items-center justify-between border-b border-[#dfe1e8] bg-[#f7f7fa] px-6"
+      className="animate-dash-in z-10 flex h-16 shrink-0 items-center justify-between border-b border-[#e5e7eb] bg-[#f7f7fa] px-6"
       style={{ animationDelay: '40ms' }}
     >
       <div className="flex flex-nowrap items-center gap-3 text-sm text-[#6a7284] whitespace-nowrap">

@@ -111,14 +111,14 @@ function RouteMapEmbed({ location }: { location: string }) {
       <iframe
         title={`Map preview for ${location}`}
         src={buildEmbedMapUrl(location, 14)}
-        className="h-[50vh] max-h-[360px] w-full rounded-lg border border-[#d8dfeb]"
+        className="h-[50vh] max-h-[360px] w-full rounded-lg border border-[#e5e7eb]"
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"
       />
     )
   }
 
-  return <div ref={mapRef} className="h-[50vh] max-h-[360px] w-full rounded-lg border border-[#d8dfeb]" />
+  return <div ref={mapRef} className="h-[50vh] max-h-[360px] w-full rounded-lg border border-[#e5e7eb]" />
 }
 
 function buildStaticMapUrl(startLocation: string) {
@@ -177,7 +177,7 @@ function RouteMapThumbnail({
     <button
       type="button"
       onClick={onOpen}
-      className="block h-16 w-28 cursor-pointer overflow-hidden rounded-md border border-[#d8dfeb] bg-[#edf1f8] transition duration-200 hover:ring-2 hover:ring-[#2642a6]/40 focus:outline-none focus:ring-2 focus:ring-[#2642a6]/50"
+      className="block h-16 w-28 cursor-pointer overflow-hidden rounded-md border border-[#e5e7eb] bg-[#edf1f8] transition duration-200 hover:ring-2 hover:ring-[#2642a6]/40 focus:outline-none focus:ring-2 focus:ring-[#2642a6]/50"
       aria-label={`Open map preview for ${routeName}`}
     >
       <img
@@ -215,7 +215,7 @@ function SummaryCard({
 }) {
   return (
     <article
-      className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
+      className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm"
       style={{ animationDelay: delay }}
     >
       <div className="flex items-center gap-3">
@@ -500,7 +500,7 @@ function Routes() {
             </section>
 
             <section
-              className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
+              className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm"
               style={{ animationDelay: '240ms' }}
             >
               <div className="flex flex-wrap gap-3">
@@ -509,14 +509,14 @@ function Routes() {
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search by name, code..."
-                  className="h-12 min-w-[320px] rounded-xl border border-[#d4d9e4] bg-[#f8f9fd] px-4 text-sm text-[#2f394d] outline-none"
+                  className="h-12 min-w-[320px] rounded-xl border border-[#d6dbe6] bg-[#f8f9fd] px-4 text-sm text-[#2f394d] outline-none"
                 />
 
                 <div className="relative min-w-[190px]">
                   <select
                     value={statusFilter}
                     onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'inactive')}
-                    className="h-12 w-full appearance-none rounded-xl border border-[#d4d9e4] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#2f394d] outline-none"
+                    className="h-12 w-full appearance-none rounded-xl border border-[#d6dbe6] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#2f394d] outline-none"
                   >
                     <option value="all">Status: All</option>
                     <option value="active">Active</option>
@@ -532,7 +532,7 @@ function Routes() {
                   <select
                     value={busTypeFilter}
                     onChange={(event) => setBusTypeFilter(event.target.value as 'all' | 'high-way' | 'long-distance')}
-                    className="h-12 w-full appearance-none rounded-xl border border-[#d4d9e4] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#2f394d] outline-none"
+                    className="h-12 w-full appearance-none rounded-xl border border-[#d6dbe6] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#2f394d] outline-none"
                   >
                     <option value="all">Bus Type: All</option>
                     <option value="high-way">High Way</option>
@@ -547,12 +547,12 @@ function Routes() {
             </section>
 
             <section
-              className="dashboard-card animate-dash-in overflow-hidden rounded-2xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm"
+              className="dashboard-card animate-dash-in overflow-hidden rounded-2xl border border-[#e5e7eb] bg-[#f7f8fc] shadow-sm"
               style={{ animationDelay: '280ms' }}
             >
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1180px]">
-                  <thead className="border-b border-[#e2e6ef] bg-[#f4f6fb] text-left">
+                  <thead className="border-b border-[#e5e7eb] bg-[#f4f6fb] text-left">
                     <tr className="text-xs uppercase tracking-wide text-[#6f7890]">
                       <th className="px-4 py-3">Route Name & Code</th>
                       <th className="px-4 py-3">Map Preview</th>
@@ -581,7 +581,7 @@ function Routes() {
                       filteredRoutes.map((route) => (
                         <tr
                           key={route.id ?? route.code}
-                          className="border-b border-[#e7eaf1] text-[#1f2737] transition duration-200 hover:bg-[#f2f5fd]"
+                          className="border-b border-[#e5e7eb] text-[#1f2737] transition duration-200 hover:bg-[#f2f5fd]"
                         >
                           <td className="px-4 py-3">
                             <p className="text-sm font-extrabold">{route.name}</p>
@@ -612,7 +612,7 @@ function Routes() {
                             <button
                               type="button"
                               onClick={() => setRouteStopsPreview(route)}
-                              className="inline-flex items-center gap-2 rounded-lg border border-[#d6dce8] bg-[#f2f5fb] px-3 py-2 text-xs font-semibold text-[#31405d] transition duration-200 hover:bg-[#eaf0fb]"
+                              className="inline-flex items-center gap-2 rounded-lg border border-[#d6dbe6] bg-[#f2f5fb] px-3 py-2 text-xs font-semibold text-[#31405d] transition duration-200 hover:bg-[#eaf0fb]"
                             >
                               <FontAwesomeIcon icon={faListOl} />
                               Click to view stops
@@ -670,10 +670,10 @@ function Routes() {
                 </table>
               </div>
 
-              <div className="flex items-center justify-between border-t border-[#e2e6ef] px-4 py-3 text-sm text-[#667288]">
+              <div className="flex items-center justify-between border-t border-[#e5e7eb] px-4 py-3 text-sm text-[#667288]">
                 <p>
                   Showing{' '}
-                  <span className="rounded-lg border border-[#d7dde9] bg-[#f7f9fd] px-2 py-1 font-semibold text-[#2f394d]">{filteredRoutes.length}</span>{' '}
+                  <span className="rounded-lg border border-[#d6dbe6] bg-[#f7f9fd] px-2 py-1 font-semibold text-[#2f394d]">{filteredRoutes.length}</span>{' '}
                   of <span className="font-semibold text-[#2f394d]">{routesData.length} routes</span>
                 </p>
 
@@ -701,8 +701,8 @@ function Routes() {
 
       {isCreateModalOpen ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-[#101426]/45 p-4">
-          <div className="my-auto flex w-full max-w-3xl flex-col rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
-            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-4 py-3">
+          <div className="my-auto flex w-full max-w-3xl flex-col rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+            <div className="flex items-center justify-between border-b border-[#e5e7eb] px-4 py-3">
               <div>
                 <h2 className="text-sm font-extrabold text-[#1f2737]">
                   {editingRouteId ? 'Edit Route' : 'Create New Route'}
@@ -738,7 +738,7 @@ function Routes() {
                     value={newRoute.name}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, name: event.target.value }))}
                     placeholder="Colombo - Kurunegala"
-                    className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                   />
                 </div>
 
@@ -751,7 +751,7 @@ function Routes() {
                     value={newRoute.code}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, code: event.target.value }))}
                     placeholder="e.g. RT-200"
-                    className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                   />
                 </div>
 
@@ -763,7 +763,7 @@ function Routes() {
                     id="route-type"
                     value={newRoute.type}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, type: event.target.value }))}
-                    className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                   >
                     <option value="High Way">High Way</option>
                     <option value="Long Distance">Long Distance</option>
@@ -783,7 +783,7 @@ function Routes() {
                         status: event.target.value as RouteRow['status'],
                       }))
                     }
-                    className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -799,7 +799,7 @@ function Routes() {
                     value={newRoute.distance}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, distance: event.target.value }))}
                     placeholder="120 km"
-                    className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                   />
                 </div>
 
@@ -812,7 +812,7 @@ function Routes() {
                     value={newRoute.duration}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, duration: event.target.value }))}
                     placeholder="2h 35m"
-                    className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                   />
                 </div>
 
@@ -835,7 +835,7 @@ function Routes() {
                             }))
                           }}
                           placeholder={`Enter ${formatStopPriorityLabel(index)}`}
-                          className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                          className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                         />
                         <button
                           type="button"
@@ -849,7 +849,7 @@ function Routes() {
                             }))
                           }}
                           disabled={newRoute.stops.length <= 2}
-                          className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Remove
                         </button>
@@ -863,7 +863,7 @@ function Routes() {
                           stops: [...prev.stops, ''],
                         }))
                       }
-                      className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                      className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
                     >
                       + Add Next Stop
                     </button>
@@ -881,7 +881,7 @@ function Routes() {
                     value={newRoute.activeBuses}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, activeBuses: event.target.value }))}
                     placeholder="4"
-                    className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                   />
                 </div>
               </div>
@@ -895,13 +895,13 @@ function Routes() {
                   value={newRoute.baseFare}
                   onChange={(event) => setNewRoute((prev) => ({ ...prev, baseFare: event.target.value }))}
                   placeholder="450"
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
                 />
               </div>
 
             </form>
 
-            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[#e1e5ef] px-4 py-3">
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[#e5e7eb] px-4 py-3">
               {createRouteError ? (
                 <p className="mr-auto text-sm font-semibold text-[#d14343]">{createRouteError}</p>
               ) : null}
@@ -913,7 +913,7 @@ function Routes() {
                   setCreateRouteError('')
                   resetRouteForm()
                 }}
-                className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Cancel
               </button>
@@ -931,8 +931,8 @@ function Routes() {
 
       {routeStopsPreview ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101426]/45 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-4 py-3">
+          <div className="w-full max-w-lg rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
+            <div className="flex items-center justify-between border-b border-[#e5e7eb] px-4 py-3">
               <div>
                 <h2 className="text-sm font-extrabold text-[#1f2737]">Route Stops</h2>
                 <p className="text-sm text-[#6d778e]">
@@ -953,7 +953,7 @@ function Routes() {
               {routeStopsPreview.stops.map((stop, index) => (
                 <div
                   key={`${routeStopsPreview.code}-popup-stop-${index}`}
-                  className="rounded-lg border border-[#e2e6ef] bg-[#f9fafd] px-4 py-3"
+                  className="rounded-lg border border-[#e5e7eb] bg-[#f9fafd] px-4 py-3"
                 >
                   <p className="text-xs font-bold uppercase tracking-wide text-[#6f7890]">
                     {formatStopPriorityLabel(index)}
@@ -963,11 +963,11 @@ function Routes() {
               ))}
             </div>
 
-            <div className="flex justify-end border-t border-[#e1e5ef] px-4 py-3">
+            <div className="flex justify-end border-t border-[#e5e7eb] px-4 py-3">
               <button
                 type="button"
                 onClick={() => setRouteStopsPreview(null)}
-                className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Close
               </button>
@@ -978,8 +978,8 @@ function Routes() {
 
       {mapPreviewRoute ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101426]/45 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-3 py-2">
+          <div className="w-full max-w-lg rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
+            <div className="flex items-center justify-between border-b border-[#e5e7eb] px-3 py-2">
               <div>
                 <h2 className="text-sm font-extrabold text-[#1f2737]">Route Location</h2>
                 <p className="text-xs text-[#6d778e]">
@@ -1000,11 +1000,11 @@ function Routes() {
               <RouteMapEmbed location={mapPreviewRoute.stops[0] ?? mapPreviewRoute.name} />
             </div>
 
-            <div className="flex justify-end border-t border-[#e1e5ef] px-3 py-2">
+            <div className="flex justify-end border-t border-[#e5e7eb] px-3 py-2">
               <button
                 type="button"
                 onClick={() => setMapPreviewRoute(null)}
-                className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Close
               </button>
@@ -1016,7 +1016,7 @@ function Routes() {
       {routePendingDelete ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-md rounded-2xl border border-[#f0d6d6] bg-[#fff7f7] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="border-b border-[#efdcdc] px-4 py-3">
+            <div className="border-b border-[#e5e7eb] px-4 py-3">
               <h2 className="text-sm font-extrabold text-[#8d1f1f]">Delete Route</h2>
               <p className="text-sm text-[#9a5555]">
                 Are you sure you want to delete {routePendingDelete.name} ({routePendingDelete.code})?
@@ -1026,7 +1026,7 @@ function Routes() {
               <button
                 type="button"
                 onClick={cancelDeleteRoute}
-                className="rounded-lg border border-[#d3d9e6] bg-white px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#f5f7fc]"
+                className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#f5f7fc]"
               >
                 Cancel
               </button>

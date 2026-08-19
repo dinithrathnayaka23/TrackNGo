@@ -124,7 +124,7 @@ function Login() {
             <label htmlFor="login-email" className="mb-2 block text-sm font-semibold text-[#4d5564]">
               Email Address
             </label>
-            <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+            <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
               <FontAwesomeIcon icon={faEnvelope} className="mr-3 text-[#8b92a1]" />
               <input
                 id="login-email"
@@ -154,7 +154,7 @@ function Login() {
             >
               Password
             </label>
-            <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+            <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
               <FontAwesomeIcon icon={faLock} className="mr-3 text-[#8b92a1]" />
               <input
                 id="login-password"
@@ -192,7 +192,7 @@ function Login() {
                 checked={rememberDevice}
                 onChange={(event) => setRememberDevice(event.target.checked)}
                 disabled={loading}
-                className="h-5 w-5 rounded border-[#d4d8e3] text-[#2342a6] focus:ring-[#2342a6] disabled:opacity-50"
+                className="h-5 w-5 rounded border-[#d6dbe6] text-[#2342a6] focus:ring-[#2342a6] disabled:opacity-50"
               />
               <span className="font-semibold">Remember Device</span>
             </label>
@@ -212,7 +212,7 @@ function Login() {
           </button>
         </form>
 
-        <div className="animate-auth-fade-up mt-8 border-t border-[#dde0e7] pt-8 text-center" style={{ animationDelay: '420ms' }}>
+        <div className="animate-auth-fade-up mt-8 border-t border-[#e5e7eb] pt-8 text-center" style={{ animationDelay: '420ms' }}>
           <p className="text-sm font-semibold text-[#4d5564]">
             New administrator profile required?{' '}
             <Link to="/signup" className="text-[#129a8f]">

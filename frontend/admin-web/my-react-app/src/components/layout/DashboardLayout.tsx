@@ -232,7 +232,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
 
         <div className="min-h-screen flex-1 min-w-0">
           <header
-            className="animate-dash-in z-10 flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-[#e2e8f0] bg-white/95 px-4 backdrop-blur sm:px-6"
+            className="animate-dash-in z-10 flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-[#e5e7eb] bg-white/95 px-4 backdrop-blur sm:px-6"
             style={{ animationDelay: "40ms" }}
           >
             <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 text-sm text-[#94a3b8] whitespace-nowrap">
@@ -271,7 +271,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               <button
                 type="button"
                 onClick={() => setShowAiAssistant((current) => !current)}
-                className={`grid h-10 w-10 place-items-center rounded-xl border text-sm transition duration-200 ${showAiAssistant ? "border-[#c7d2fe] bg-[#eef2ff] text-[#2642a6]" : "border-transparent text-[#64748b] hover:border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#2642a6]"}`}
+                className={`grid h-10 w-10 place-items-center rounded-xl border text-sm transition duration-200 ${showAiAssistant ? "border-[#c7d2fe] bg-[#eef2ff] text-[#2642a6]" : "border-transparent text-[#64748b] hover:border-[#e5e7eb] hover:bg-[#f8fafc] hover:text-[#2642a6]"}`}
                 aria-label="AI Assistant"
                 title="AI Assistant"
               >
@@ -280,7 +280,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               <button
                 type="button"
                 onClick={() => setShowNotifications((current) => !current)}
-                className={`relative grid h-10 w-10 place-items-center rounded-xl border text-sm transition duration-200 ${showNotifications ? "border-[#c7d2fe] bg-[#eef2ff] text-[#2642a6]" : "border-transparent text-[#64748b] hover:border-[#e2e8f0] hover:bg-[#f8fafc] hover:text-[#2642a6]"}`}
+                className={`relative grid h-10 w-10 place-items-center rounded-xl border text-sm transition duration-200 ${showNotifications ? "border-[#c7d2fe] bg-[#eef2ff] text-[#2642a6]" : "border-transparent text-[#64748b] hover:border-[#e5e7eb] hover:bg-[#f8fafc] hover:text-[#2642a6]"}`}
                 aria-label="Notifications"
                 title="Notifications"
               >

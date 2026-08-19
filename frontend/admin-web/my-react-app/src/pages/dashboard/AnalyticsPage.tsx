@@ -304,7 +304,7 @@ function AnalyticsPage() {
           </div>
 
           <div className="animate-dash-in flex items-center gap-3" style={{ animationDelay: '90ms' }}>
-            <div className="flex items-center rounded-lg border border-[#d8deea] bg-[#f7f8fc] p-1 text-xs font-semibold text-[#5e6a82]">
+            <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-[#f7f8fc] p-1 text-xs font-semibold text-[#5e6a82]">
               {[
                 { label: '7 Days', value: '7d' as RangeKey },
                 { label: '30 Days', value: '30d' as RangeKey },
@@ -338,7 +338,7 @@ function AnalyticsPage() {
         </div>
 
         {activeRange === 'custom' ? (
-          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-[#d8deea] bg-[#f7f8fc] p-3">
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-[#d6dbe6] bg-[#f7f8fc] p-3">
             <div>
               <label htmlFor="custom-from" className="mb-1 block text-xs font-semibold text-[#5e6a82]">
                 From
@@ -348,7 +348,7 @@ function AnalyticsPage() {
                 type="date"
                 value={customFrom}
                 onChange={(event) => setCustomFrom(event.target.value)}
-                className="h-8 rounded-lg border border-[#d8deea] bg-white px-3 text-sm text-[#2f394d] outline-none"
+                className="h-8 rounded-lg border border-[#d6dbe6] bg-white px-3 text-sm text-[#2f394d] outline-none"
               />
             </div>
             <div>
@@ -360,7 +360,7 @@ function AnalyticsPage() {
                 type="date"
                 value={customTo}
                 onChange={(event) => setCustomTo(event.target.value)}
-                className="h-8 rounded-lg border border-[#d8deea] bg-white px-3 text-sm text-[#2f394d] outline-none"
+                className="h-8 rounded-lg border border-[#d6dbe6] bg-white px-3 text-sm text-[#2f394d] outline-none"
               />
             </div>
             <button
@@ -391,7 +391,7 @@ function AnalyticsPage() {
         ) : null}
 
         {!error && !loading && !hasData ? (
-          <div className="rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 text-sm text-[#7f899e]">
+          <div className="rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 text-sm text-[#7f899e]">
             No bookings were recorded in this period.
           </div>
         ) : null}
@@ -405,7 +405,7 @@ function AnalyticsPage() {
           {stats.map((card, index) => (
             <article
               key={card.title}
-              className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
+              className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm"
               style={{ animationDelay: `${120 + index * 40}ms` }}
             >
               <div className="mb-2 flex items-start justify-between">
@@ -425,7 +425,7 @@ function AnalyticsPage() {
           ))}
         </section>
 
-        <section className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '260ms' }}>
+        <section className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '260ms' }}>
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-[#1f2737]">Revenue Trends</h2>
@@ -456,7 +456,7 @@ function AnalyticsPage() {
                 type="button"
                 onClick={handleDownloadRevenueTrends}
                 disabled={!data}
-                className="ml-1 flex items-center gap-2 rounded-md border border-[#d5dbea] bg-white px-3 py-1.5 text-xs font-bold text-[#2642a6] transition duration-200 hover:bg-[#f3f6fc] disabled:cursor-not-allowed disabled:opacity-50"
+                className="ml-1 flex items-center gap-2 rounded-md border border-[#d6dbe6] bg-white px-3 py-1.5 text-xs font-bold text-[#2642a6] transition duration-200 hover:bg-[#f3f6fc] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FontAwesomeIcon icon={faDownload} />
                 Download
@@ -496,7 +496,7 @@ function AnalyticsPage() {
         </section>
 
         <section className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '300ms' }}>
+          <article className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '300ms' }}>
             <h2 className="text-sm font-bold text-[#1f2737]">Bookings by Category</h2>
             <div className="mt-3 flex flex-wrap items-center gap-4">
               <div
@@ -527,7 +527,7 @@ function AnalyticsPage() {
             </div>
           </article>
 
-          <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '340ms' }}>
+          <article className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '340ms' }}>
             <h2 className="text-sm font-bold text-[#1f2737]">Booking Status Overview</h2>
             <p className="mt-1 text-sm text-[#7f899e]">Completed, upcoming and cancelled counts by booking type.</p>
             <div className="mt-6 overflow-x-auto">
@@ -542,7 +542,7 @@ function AnalyticsPage() {
                 </thead>
                 <tbody>
                   {(data?.statusByType ?? []).map((row) => (
-                    <tr key={row.type} className="border-b border-[#e8ebf2] text-[#2a3448]">
+                    <tr key={row.type} className="border-b border-[#e5e7eb] text-[#2a3448]">
                       <td className="px-4 py-3 text-sm font-semibold">{row.type}</td>
                       <td className="px-4 py-3 text-sm font-bold text-[#1bb37f]">{row.completed.toLocaleString()}</td>
                       <td className="px-4 py-3 text-sm font-bold text-[#2f4fb5]">{row.pending.toLocaleString()}</td>
@@ -557,7 +557,7 @@ function AnalyticsPage() {
       </div>
 
       {toastMessage ? (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-lg border border-[#d8deea] bg-white px-4 py-3 shadow-lg">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-lg border border-[#d6dbe6] bg-white px-4 py-3 shadow-lg">
           <p className="text-sm font-semibold text-[#2f394d]">{toastMessage}</p>
           <button type="button" onClick={() => setToastMessage(null)} className="text-[#5f6b82]">
             <FontAwesomeIcon icon={faXmark} />

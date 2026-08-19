@@ -53,7 +53,7 @@ function Field({
       <label htmlFor={id} className="mb-2 block text-sm font-semibold text-[#4d5564]">
         {label}
       </label>
-      <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+      <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
         <FontAwesomeIcon icon={icon} className="mr-3 text-[#8b92a1]" />
         <input
           id={id}
@@ -235,13 +235,13 @@ function Signup() {
             />
           </div>
 
-          <div className="animate-auth-fade-up border-t border-[#dde0e7] pt-6" style={{ animationDelay: '240ms' }}>
+          <div className="animate-auth-fade-up border-t border-[#e5e7eb] pt-6" style={{ animationDelay: '240ms' }}>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
                 <label htmlFor="signup-password" className="mb-2 block text-sm font-semibold text-[#4d5564]">
                   Password
                 </label>
-                <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+                <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
                   <FontAwesomeIcon icon={faLock} className="mr-3 text-[#8b92a1]" />
                   <input
                     id="signup-password"
@@ -295,7 +295,7 @@ function Signup() {
                 >
                   Confirm Password
                 </label>
-                <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+                <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
                   <FontAwesomeIcon icon={faLock} className="mr-3 text-[#8b92a1]" />
                   <input
                     id="confirm-password"
@@ -334,7 +334,7 @@ function Signup() {
                 setAgreePolicy(event.target.checked)
                 setErrors((current) => ({ ...current, agreePolicy: undefined }))
               }}
-              className="mt-1 h-5 w-5 rounded border-[#d4d8e3] text-[#2342a6] focus:ring-[#2342a6]"
+              className="mt-1 h-5 w-5 rounded border-[#d6dbe6] text-[#2342a6] focus:ring-[#2342a6]"
             />
             <span>
               I agree to the{' '}

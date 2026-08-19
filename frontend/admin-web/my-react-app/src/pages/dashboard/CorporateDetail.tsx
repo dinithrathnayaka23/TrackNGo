@@ -152,7 +152,7 @@ function CorporateDetail() {
     }
   }
 
-  if (loading) return <section className="mx-auto w-full max-w-[1280px] rounded-2xl border border-[#dfe4ef] bg-white px-5 py-16 text-center text-sm text-[#64748b]"><FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />Loading corporate account details...</section>
+  if (loading) return <section className="mx-auto w-full max-w-[1280px] rounded-2xl border border-[#e5e7eb] bg-white px-5 py-16 text-center text-sm text-[#64748b]"><FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />Loading corporate account details...</section>
   if (error || !account || !profile) return <section className="mx-auto w-full max-w-[1280px] space-y-4 rounded-2xl border border-red-200 bg-white px-5 py-12 text-center"><p className="text-sm font-semibold text-red-700">{error || 'Corporate account details are unavailable.'}</p><button type="button" onClick={() => navigate('/dashboard/corporate')} className="inline-flex items-center gap-2 text-sm font-semibold text-[#22449d]"><FontAwesomeIcon icon={faArrowLeft} />Back to Corporate Accounts</button></section>
 
   const company = displayName(profile, account)

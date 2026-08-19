@@ -73,7 +73,7 @@ export default function AdminProfileCard() {
         <span className="rounded-full bg-[#f1f5f9] px-2.5 py-1 text-xs font-bold text-[#64748b]">Admin</span>
       </div>
 
-      <div className="mt-5 flex flex-1 items-center gap-4 rounded-xl border border-[#edf0f5] bg-[#f8fafc] p-4">
+      <div className="mt-5 flex flex-1 items-center gap-4 rounded-xl border border-[#f1f5f9] bg-[#f8fafc] p-4">
         <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border-4 border-white bg-[#eef2ff] text-[#2642a6] shadow-[0_0_0_1px_#cfd8f5]">
           <img src={photo} alt="" onError={handlePhotoError} className="h-full w-full rounded-full object-cover" />
         </div>

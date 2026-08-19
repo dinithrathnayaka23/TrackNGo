@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-[#ececec] px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[720px] rounded-[20px] border border-[#dde0e7] bg-white p-8 shadow-[0_12px_35px_rgba(15,23,42,0.08)] sm:p-10">
+      <div className="mx-auto max-w-[720px] rounded-[20px] border border-[#e5e7eb] bg-white p-8 shadow-[0_12px_35px_rgba(15,23,42,0.08)] sm:p-10">
         <Link to="/login" className="text-sm font-semibold text-[#129a8f]">
           &larr; Back to Login
         </Link>

@@ -263,7 +263,7 @@ function Analytics() {
           </p>
         </div>
         <div className="animate-dash-in flex flex-wrap items-center gap-3">
-          <label className="inline-flex h-10 items-center rounded-lg border border-[#d8deea] bg-[#f7f8fc] px-3 text-sm font-medium text-[#5e6a82]">
+          <label className="inline-flex h-10 items-center rounded-lg border border-[#d6dbe6] bg-[#f7f8fc] px-3 text-sm font-medium text-[#5e6a82]">
             <select
               value={selectedRange}
               onChange={(event) => setSelectedRange(Number(event.target.value) as Range)}
@@ -274,7 +274,7 @@ function Analytics() {
               <option value={90}>Last 90 Days</option>
             </select>
           </label>
-          <button type="button" onClick={() => void loadDashboard(true)} disabled={loading || refreshing} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d8deea] bg-white px-4 text-sm font-bold text-[#2f394d] disabled:opacity-60">
+          <button type="button" onClick={() => void loadDashboard(true)} disabled={loading || refreshing} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 text-sm font-bold text-[#2f394d] disabled:opacity-60">
             <FontAwesomeIcon icon={faArrowRotateRight} spin={refreshing} />
             Refresh
           </button>
@@ -299,7 +299,7 @@ function Analytics() {
           { title: 'Monthly Revenue', value: formatAmount(monthlyRevenue), icon: faMoneyBillWave, iconWrap: 'bg-[#e6f7ee] text-[#1aa56e]' },
           { title: 'Pending Complaints', value: pendingComplaints.toLocaleString(), icon: faCircleExclamation, iconWrap: 'bg-[#fff2e3] text-[#e68d10]' },
         ].map((kpi) => (
-          <article key={kpi.title} className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm">
+          <article key={kpi.title} className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm">
             <div className="mb-2 flex items-start justify-between">
               <p className="text-xs font-semibold text-[#758098]">{kpi.title}</p>
               <div className={`grid h-7 w-7 place-items-center rounded-md text-xs ${kpi.iconWrap}`}><FontAwesomeIcon icon={kpi.icon} /></div>
@@ -311,7 +311,7 @@ function Analytics() {
       </section>
 
       <div className="mt-3 grid gap-3 xl:grid-cols-[1.58fr_1fr]">
-        <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm">
+        <article className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm">
           <h2 className="text-sm font-bold text-[#1f2737]">Booking Trends</h2>
           <p className="text-sm text-[#7f899e]">Bookings by route type from journey dates in the database</p>
           <div className="mt-4 h-[240px] rounded-xl bg-[#fafbff] p-4">
@@ -331,11 +331,11 @@ function Analytics() {
           </div>
         </article>
 
-        <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm">
+        <article className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm">
           <h2 className="text-sm font-bold text-[#1f2737]">Revenue by Category</h2>
           <p className="text-sm text-[#7f899e]">Paid booking revenue from the database</p>
           <div className="mt-5 flex justify-center">
-            <div className="rounded-xl border border-[#e1e7f2] bg-white px-5 py-2.5 text-center shadow-sm">
+            <div className="rounded-xl border border-[#e5e7eb] bg-white px-5 py-2.5 text-center shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8994a8]">Total paid revenue</p>
               <p className="mt-1 text-lg font-extrabold tracking-tight text-[#1f2737]">{formatAmount(revenueCategories.total)}</p>
             </div>
@@ -381,7 +381,7 @@ function Analytics() {
         </article>
       </div>
 
-      <article className="mt-3 dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm">
+      <article className="mt-3 dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] shadow-sm">
         <div className="flex items-center justify-between px-4 py-3"><h2 className="text-sm font-bold text-[#1f2737]">Recent Bookings</h2><button type="button" onClick={() => navigate('/dashboard/booking')} className="text-sm font-semibold text-[#2642a6]">View All</button></div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px]">
@@ -389,7 +389,7 @@ function Analytics() {
             <tbody>
               {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-[#7d879b]">Loading bookings from the database...</td></tr> : null}
               {!loading && !recentBookings.length ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-[#7d879b]">No bookings found.</td></tr> : null}
-              {!loading && recentBookings.map((booking) => <tr key={booking.bookingId} className="border-b border-[#e8ebf2] text-sm text-[#2a3448]"><td className="px-4 py-3 font-semibold text-[#2642a6]">{booking.bookingId}</td><td className="px-4 py-3">{booking.passengerName}</td><td className="px-4 py-3 text-[#7d879b]">{booking.route}</td><td className="px-4 py-3 text-[#7d879b]"><span className="inline-flex items-center gap-2"><FontAwesomeIcon icon={faCalendarDays} className="text-[#9ca3af]" />{formatDateTime(booking.journeyDate, booking.journeyTime)}</span></td><td className="px-4 py-3 font-semibold">{formatAmount(booking.amount)}</td><td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(booking.status)}`}>{booking.status || 'Unknown'}</span></td></tr>)}
+              {!loading && recentBookings.map((booking) => <tr key={booking.bookingId} className="border-b border-[#e5e7eb] text-sm text-[#2a3448]"><td className="px-4 py-3 font-semibold text-[#2642a6]">{booking.bookingId}</td><td className="px-4 py-3">{booking.passengerName}</td><td className="px-4 py-3 text-[#7d879b]">{booking.route}</td><td className="px-4 py-3 text-[#7d879b]"><span className="inline-flex items-center gap-2"><FontAwesomeIcon icon={faCalendarDays} className="text-[#9ca3af]" />{formatDateTime(booking.journeyDate, booking.journeyTime)}</span></td><td className="px-4 py-3 font-semibold">{formatAmount(booking.amount)}</td><td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(booking.status)}`}>{booking.status || 'Unknown'}</span></td></tr>)}
             </tbody>
           </table>
         </div>

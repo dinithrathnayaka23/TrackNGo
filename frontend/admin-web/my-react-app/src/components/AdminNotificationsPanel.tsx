@@ -142,7 +142,7 @@ export default function AdminNotificationsPanel({
               {error}
             </div>
           ) : items.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-[#d1d5db] bg-[#f9fafb] px-3 py-8 text-center text-sm text-[#6b7280]">
+            <div className="rounded-xl border border-dashed border-[#d6dbe6] bg-[#f9fafb] px-3 py-8 text-center text-sm text-[#6b7280]">
               No notifications yet.
             </div>
           ) : (

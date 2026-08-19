@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     padding: 0,
-    fontSize: 13,
+    fontSize: 14,
     color: "#111827",
   },
   searchAction: {
@@ -528,12 +528,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   sheetTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     color: "#0F172A",
   },
   sheetSubtitle: {
-    fontSize: 12,
+    fontSize: 12, fontWeight: "500",
     color: "#94A3B8",
     marginTop: 2,
   },
@@ -582,12 +582,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   metricLabel: {
-    fontSize: 10,
+    fontSize: 11, fontWeight: "600",
     color: "#94A3B8",
   },
   metricValue: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#1F2937",
   },
   sheetButtons: {
@@ -604,8 +604,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   outlineButtonText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#475569",
   },
   primaryButton: {
@@ -619,8 +619,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryButtonText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#FFFFFF",
   },
 });

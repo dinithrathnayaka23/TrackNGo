@@ -1143,8 +1143,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   statusText: {
-    fontSize: 9,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "700",
     color: "#64748B",
     letterSpacing: 0.5,
   },
@@ -1264,7 +1264,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheetBusNumber: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     color: "#0F172A",
   },
@@ -1283,8 +1283,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   sosBtnText: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#FFFFFF",
   },
 
@@ -1315,15 +1315,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   metricLabel: {
-    fontSize: 9,
-    fontWeight: "500",
+    fontSize: 11,
+    fontWeight: "600",
     color: "#94A3B8",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   metricValue: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#1E293B",
   },
 
@@ -1355,7 +1355,7 @@ const styles = StyleSheet.create({
     color: "#64748B",
   },
   accuracyBadge: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.5,
     color: "#15803D",
@@ -1421,7 +1421,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#94A3B8",
   },
   boardBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
     color: "#FFFFFF",
   },
@@ -1436,7 +1436,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   alightBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
     color: "#FFFFFF",
   },
@@ -1452,7 +1452,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   msgBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
     color: "#2F6BFF",
   },
@@ -1596,13 +1596,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
     color: "#0F172A",
     textAlign: "center",
   },
   modalSubtitle: {
-    fontSize: 13,
+    fontSize: 12, fontWeight: "500",
     color: "#64748B",
     textAlign: "center",
     marginTop: 8,
@@ -1635,7 +1635,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#2F6BFF",
   },
   modalConfirmText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     color: "#FFFFFF",
   },

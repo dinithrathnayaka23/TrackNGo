@@ -35,7 +35,8 @@ export default function TabLayout() {
       );
       setUnreadTotal(total);
     } catch {
-      setUnreadTotal(0);
+      // A dropped poll says nothing about the inbox, so the previous count
+      // stays put rather than blinking the badge off on a flaky connection.
     }
   }, [user?.token, user?.userId]);
 
@@ -99,7 +100,7 @@ export default function TabLayout() {
             backgroundColor: '#0066FF',
             color: '#FFFFFF',
             fontSize: 10,
-            fontWeight: '800',
+            fontWeight: "800",
           },
           tabBarIcon: ({ color }) => (
             <Ionicons size={22} name="chatbubble-ellipses" color={color} />

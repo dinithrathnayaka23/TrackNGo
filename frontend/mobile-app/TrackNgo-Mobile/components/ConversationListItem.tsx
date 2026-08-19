@@ -6,6 +6,7 @@ import {
   formatDayLabel,
   getParticipantAvatarFallback,
   getParticipantAvatarUri,
+  getConversationUnread,
   getOtherParticipant,
   getParticipantTitle,
 } from "../utils/chat";
@@ -24,10 +25,7 @@ export function ConversationListItem({
   onPress,
 }: Props) {
   const other = getOtherParticipant(item, currentUser);
-  const unread =
-    item.participant1Id === currentUser.userId
-      ? item.participant1Unread
-      : item.participant2Unread;
+  const unread = getConversationUnread(item, currentUser.userId);
   const avatarUri = getParticipantAvatarUri(otherProfile);
   const avatarFallback = getParticipantAvatarFallback(
     other.userType,
@@ -97,7 +95,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#1f2a35",
     fontWeight: "700",
   },

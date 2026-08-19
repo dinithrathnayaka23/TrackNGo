@@ -1605,7 +1605,7 @@ const styles = StyleSheet.create({
   // Type scale matches the corporate screens: 15/700 header, 14/500 message
   // text, 12 secondary, 11 meta.
   headerTitle: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: "700",
     color: "#1F2937",
   },
@@ -1897,7 +1897,7 @@ const styles = StyleSheet.create({
     color: "#465468",
   },
   locationFooterCoords: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "700",
     color: "#465468",
   },
@@ -1913,7 +1913,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#D9534F",
     marginBottom: 12,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
   },
   retryButton: {
@@ -1929,7 +1929,7 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: "center",
     color: "#6C8195",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   composerArea: {
@@ -2066,7 +2066,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   attachmentTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "800",
     color: "#1F2937",
   },

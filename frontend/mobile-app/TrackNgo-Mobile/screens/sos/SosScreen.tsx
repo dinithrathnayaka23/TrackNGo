@@ -328,8 +328,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "700",
     color: "#1F2937",
   },
   headerSpacer: {
@@ -337,8 +337,8 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 6,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "500",
     color: "#8A94A6",
   },
   sosRing: {
@@ -450,8 +450,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 8,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "500",
     color: "#8A94A6",
   },
 });

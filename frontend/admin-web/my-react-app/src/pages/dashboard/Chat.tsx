@@ -25,6 +25,7 @@ import {
   fetchConversationMessages,
   fetchPresenceSnapshot,
   fetchSupportConversations,
+  getSupportUnread,
   markConversationRead,
   sendConversationMessage,
   uploadChatMedia,
@@ -136,14 +137,6 @@ export function getOtherParticipant(conversation: ConversationDto) {
     userId: conversation.participant1Id,
     userType: normalizeUserType(conversation.participant1Type),
   }
-}
-
-// Reads the unread count that belongs to the support-admin side of the conversation.
-function getSupportUnread(conversation: ConversationDto) {
-  if (conversation.participant1Id === SUPPORT_ADMIN_ID) {
-    return conversation.participant1Unread
-  }
-  return conversation.participant2Unread
 }
 
 // Chooses the best human-readable participant name from profile data.

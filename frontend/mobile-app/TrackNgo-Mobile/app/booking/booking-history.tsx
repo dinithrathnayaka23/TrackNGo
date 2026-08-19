@@ -1,9 +1,11 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
+  type ListRenderItemInfo,
   Pressable,
-  ScrollView,
+  RefreshControl,
   StyleSheet,
   View,
 } from "react-native";
@@ -34,14 +36,20 @@ export default function BookingHistoryScreen() {
   const [tab, setTab] = useState<Tab>("upcoming");
   const [upcoming, setUpcoming] = useState<BookingHistoryDto[]>([]);
   const [past, setPast] = useState<BookingHistoryDto[]>([]);
+  // The blocking spinner is only for the very first fetch; later refreshes keep
+  // the existing list on screen so returning to this tab does not flash empty.
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const inFlight = useRef(false);
 
   /**
    * Fetches both upcoming and past bookings from the API in parallel.
    */
-  const load = useCallback(async () => {
+  const load = useCallback(async (mode: "initial" | "background" | "pull" = "background") => {
+    if (inFlight.current) return; // A focus event mid-request must not queue a second fetch
+    inFlight.current = true;
+    if (mode === "pull") setRefreshing(true);
     try {
-      setLoading(true);
       const uid = currentUser?.userId ?? 0;
       const [u, p] = await Promise.all([
         getUpcomingBookings(uid),
@@ -52,6 +60,8 @@ export default function BookingHistoryScreen() {
     } catch (e) {
       console.error("[BookingHistory] load error", e);
     } finally {
+      inFlight.current = false;
+      if (mode === "pull") setRefreshing(false);
       setLoading(false);
     }
   }, [currentUser]);
@@ -59,14 +69,19 @@ export default function BookingHistoryScreen() {
   // Automatically refresh data whenever the screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      void load();
+      void load("background");
     }, [load]),
   );
+
+  const onRefresh = useCallback(() => {
+    void load("pull");
+  }, [load]);
 
   /**
    * Triggers a confirmation dialog before cancelling a booking.
    */
-  const handleCancel = (ref: string) => {
+  const handleCancel = useCallback((b: BookingHistoryDto) => {
+    const ref = b.bookingReference;
     Alert.alert(
       "Cancel Booking",
       `Are you sure you want to cancel booking ${ref}?`,
@@ -79,7 +94,7 @@ export default function BookingHistoryScreen() {
             try {
               await cancelBooking(ref);
               Alert.alert("Cancelled", "Your booking has been cancelled.");
-              void load(); // Refresh the list
+              void load("background"); // Refresh the list
             } catch (e) {
               Alert.alert("Error", "Failed to cancel booking.");
             }
@@ -87,11 +102,11 @@ export default function BookingHistoryScreen() {
         },
       ],
     );
-  };
+  }, [load]);
 
   // ── Navigation Handlers ────────────────────────────────
 
-  const navigateToTicket = (b: BookingHistoryDto) => {
+  const navigateToTicket = useCallback((b: BookingHistoryDto) => {
     router.push({
       pathname: "/booking/view-ticket",
       params: {
@@ -108,9 +123,9 @@ export default function BookingHistoryScreen() {
         busType: b.busType,
       },
     });
-  };
+  }, [router]);
 
-  const navigateToRate = (b: BookingHistoryDto) => {
+  const navigateToRate = useCallback((b: BookingHistoryDto) => {
     router.push({
       pathname: "/booking/rate",
       params: {
@@ -122,9 +137,9 @@ export default function BookingHistoryScreen() {
         time: b.journeyTime,
       },
     });
-  };
+  }, [router]);
 
-  const navigateToComplaint = (b: BookingHistoryDto) => {
+  const navigateToComplaint = useCallback((b: BookingHistoryDto) => {
     router.push({
       pathname: "/booking/complaint",
       params: {
@@ -136,9 +151,75 @@ export default function BookingHistoryScreen() {
         time: b.journeyTime,
       },
     });
-  };
+  }, [router]);
+
+  const navigateToTrack = useCallback((b: BookingHistoryDto) => {
+    router.push({
+      pathname: "/map/live-map",
+      params: {
+        busNumber: b.busNumber,
+        startLocation: b.startLocation,
+        endLocation: b.endLocation,
+        // Boarding is limited to the trip the seat is booked on,
+        // so the map needs to know when that trip departs.
+        journeyDate: b.journeyDate,
+        journeyTime: b.journeyTime,
+      },
+    });
+  }, [router]);
+
+  const navigateToNegotiate = useCallback((b: BookingHistoryDto) => {
+    if (b.busType !== "trip_booking") return;
+    const tripId = b.bookingReference.replace("BK-", "");
+    const advancePayment = Math.round(Number(b.totalAmount) * 0.15);
+    router.push({
+      pathname: "/trips/NegotiationScreen",
+      params: {
+        tripDetails: JSON.stringify({
+          bookingId: tripId,
+          pickup: b.startLocation,
+          drop: b.endLocation,
+          depart: b.journeyDate,
+          busBrand: "Standard",
+          busNumber: b.busNumber !== "PENDING" ? b.busNumber : "Pending Assignment",
+          totalPayment: b.totalAmount,
+          advancePayment,
+          dueAmount: Number(b.totalAmount) - advancePayment,
+        }),
+      },
+    });
+  }, [router]);
 
   const data = tab === "upcoming" ? upcoming : past;
+  const isUpcoming = tab === "upcoming";
+
+  // Kept out of the render body so <BookingCard /> props stay referentially
+  // stable and React.memo can skip untouched rows.
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<BookingHistoryDto>) => (
+      <BookingCard
+        booking={item}
+        isUpcoming={isUpcoming}
+        onTicket={navigateToTicket}
+        onRate={navigateToRate}
+        onComplaint={navigateToComplaint}
+        onCancel={handleCancel}
+        onTrack={navigateToTrack}
+        onNegotiate={navigateToNegotiate}
+      />
+    ),
+    [
+      isUpcoming,
+      navigateToTicket,
+      navigateToRate,
+      navigateToComplaint,
+      handleCancel,
+      navigateToTrack,
+      navigateToNegotiate,
+    ],
+  );
+
+  const keyExtractor = useCallback((b: BookingHistoryDto) => b.bookingReference, []);
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -190,68 +271,58 @@ export default function BookingHistoryScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView
+        <FlatList
+          data={data}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
           style={styles.bookingList}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="always"
-        >
-          {data.map((b) => (
-            <BookingCard
-              key={b.bookingReference}
-              booking={b}
-              isUpcoming={tab === "upcoming"}
-              onTicket={() => navigateToTicket(b)}
-              onRate={() => navigateToRate(b)}
-              onComplaint={() => navigateToComplaint(b)}
-              onCancel={() => handleCancel(b.bookingReference)}
-              onTrack={() =>
-                router.push({
-                  pathname: "/map/live-map",
-                  params: {
-                    busNumber: b.busNumber,
-                    startLocation: b.startLocation,
-                    endLocation: b.endLocation,
-                    // Boarding is limited to the trip the seat is booked on,
-                    // so the map needs to know when that trip departs.
-                    journeyDate: b.journeyDate,
-                    journeyTime: b.journeyTime,
-                  },
-                })
-              }
-              onNegotiate={() => {
-                if (b.busType === "trip_booking") {
-                  const tripId = b.bookingReference.replace("BK-", "");
-                  router.push({
-                    pathname: "/trips/NegotiationScreen",
-                    params: {
-                      tripDetails: JSON.stringify({
-                        bookingId: tripId,
-                        pickup: b.startLocation,
-                        drop: b.endLocation,
-                        depart: b.journeyDate,
-                        busBrand: "Standard",
-                        busNumber: b.busNumber !== "PENDING" ? b.busNumber : "Pending Assignment",
-                        totalPayment: b.totalAmount,
-                        advancePayment: Math.round(Number(b.totalAmount) * 0.15),
-                        dueAmount: Number(b.totalAmount) - Math.round(Number(b.totalAmount) * 0.15)
-                      })
-                    }
-                  });
-                }
-              }}
-            />
-          ))}
-        </ScrollView>
+          // Only the visible window of cards is mounted; a long booking history
+          // used to render every card up front, which is what made this screen lag.
+          initialNumToRender={5}
+          maxToRenderPerBatch={5}
+          windowSize={7}
+          removeClippedSubviews
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2F6BFF" />
+          }
+        />
       )}
     </SafeAreaView>
   );
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  confirmed: "#16A34A",
+  cancelled: "#DC2626",
+  pending: "#F59E0B",
+};
+
+/** 24h "HH:mm[:ss]" -> "hh:mm AM/PM" without touching Intl, which is slow on device. */
+function formatJourneyTime(value: string): string {
+  const [h, m] = value.split(":");
+  const hour = Number(h);
+  const minute = Number(m);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${String(hour12).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
+/** Groups the integer part in thousands and always shows 2 decimals. */
+function formatAmount(value: number | string): string {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return String(value);
+  const [whole, fraction] = amount.toFixed(2).split(".");
+  return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${fraction}`;
+}
+
 /**
  * BookingCard - Individual card displaying trip details and contextual actions.
  */
-function BookingCard({
+const BookingCard = React.memo(function BookingCard({
   booking: b,
   isUpcoming,
   onTicket,
@@ -263,39 +334,29 @@ function BookingCard({
 }: {
   booking: BookingHistoryDto;
   isUpcoming: boolean;
-  onTicket: () => void;
-  onRate: () => void;
-  onComplaint: () => void;
-  onCancel: () => void;
-  onTrack: () => void;
-  onNegotiate: () => void;
+  onTicket: (b: BookingHistoryDto) => void;
+  onRate: (b: BookingHistoryDto) => void;
+  onComplaint: (b: BookingHistoryDto) => void;
+  onCancel: (b: BookingHistoryDto) => void;
+  onTrack: (b: BookingHistoryDto) => void;
+  onNegotiate: (b: BookingHistoryDto) => void;
 }) {
-  const statusColor =
-    b.status.toLowerCase() === "confirmed"
-      ? "#16A34A"
-      : b.status.toLowerCase() === "cancelled"
-        ? "#DC2626"
-        : b.status.toLowerCase() === "pending"
-        ? "#F59E0B"
-        : "#6B7280";
+  const status = b.status.toLowerCase();
+  const paymentStatus = String(b.paymentStatus ?? "").toLowerCase();
+  const isPaid = paymentStatus === "success" || paymentStatus === "paid";
+  const isTripBooking = b.busType === "trip_booking";
 
-  const statusLabel =
-    b.status.charAt(0).toUpperCase() + b.status.slice(1);
+  const statusColor = STATUS_COLORS[status] ?? "#6B7280";
+  const statusLabel = b.status.charAt(0).toUpperCase() + b.status.slice(1);
+  const formattedTime = useMemo(() => formatJourneyTime(b.journeyTime), [b.journeyTime]);
+  const formattedAmount = useMemo(() => formatAmount(b.totalAmount), [b.totalAmount]);
 
-  const formattedTime = (() => {
-    try {
-      const [h, m] = b.journeyTime.split(":");
-      const d = new Date();
-      d.setHours(Number(h), Number(m));
-      return d.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-    } catch {
-      return b.journeyTime;
-    }
-  })();
+  const handleTicket = useCallback(() => onTicket(b), [onTicket, b]);
+  const handleRate = useCallback(() => onRate(b), [onRate, b]);
+  const handleComplaint = useCallback(() => onComplaint(b), [onComplaint, b]);
+  const handleCancelPress = useCallback(() => onCancel(b), [onCancel, b]);
+  const handleTrack = useCallback(() => onTrack(b), [onTrack, b]);
+  const handleNegotiate = useCallback(() => onNegotiate(b), [onNegotiate, b]);
 
   return (
     <View style={styles.card}>
@@ -312,7 +373,7 @@ function BookingCard({
 
       {/* Route */}
       <View style={styles.routeRow}>
-        <View style={{ flex: 1 }}>
+        <View style={styles.routeCol}>
           <Text style={styles.locationLabel}>From</Text>
           <Text style={styles.locationValue} numberOfLines={1}>
             {b.startLocation}
@@ -322,7 +383,7 @@ function BookingCard({
           <View style={styles.arrowLine} />
           <Ionicons name="arrow-forward" size={14} color="#94A3B8" />
         </View>
-        <View style={{ flex: 1, alignItems: "flex-end" }}>
+        <View style={styles.routeColEnd}>
           <Text style={styles.locationLabel}>To</Text>
           <Text style={styles.locationValue} numberOfLines={1}>
             {b.endLocation}
@@ -345,59 +406,56 @@ function BookingCard({
       {/* Price */}
       <View style={styles.priceRow}>
         <Text style={styles.priceLabel}>Total Amount</Text>
-        <Text style={styles.priceValue}>
-          LKR {Number(b.totalAmount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-        </Text>
+        <Text style={styles.priceValue}>LKR {formattedAmount}</Text>
       </View>
 
       {/* Actions */}
-      {isUpcoming && b.status.toLowerCase() === "confirmed" &&
-      !(b.busType === "trip_booking" && !["success", "paid"].includes(String(b.paymentStatus ?? "").toLowerCase())) ? (
+      {isUpcoming && status === "confirmed" && !(isTripBooking && !isPaid) ? (
         <View style={styles.actionRow}>
-          <Pressable style={styles.primaryBtn} onPress={onTicket}>
+          <Pressable style={styles.primaryBtn} onPress={handleTicket}>
             <Ionicons name="ticket-outline" size={15} color="#FFF" />
             <Text style={styles.primaryBtnText}>View Ticket</Text>
           </Pressable>
-          <Pressable style={styles.trackBtn} onPress={onTrack}>
+          <Pressable style={styles.trackBtn} onPress={handleTrack}>
             <Ionicons name="location-outline" size={15} color="#2F6BFF" />
             <Text style={styles.trackBtnText}>Track</Text>
           </Pressable>
-          <Pressable style={styles.cancelBtn} onPress={onCancel}>
+          <Pressable style={styles.cancelBtn} onPress={handleCancelPress}>
             <Ionicons name="close-circle-outline" size={15} color="#DC2626" />
           </Pressable>
         </View>
       ) : isUpcoming &&
-        b.busType === "trip_booking" &&
-        ["pending", "confirmed"].includes(b.status.toLowerCase()) &&
-        !["success", "paid"].includes(String(b.paymentStatus ?? "").toLowerCase()) ? (
+        isTripBooking &&
+        (status === "pending" || status === "confirmed") &&
+        !isPaid ? (
         <View style={styles.actionRow}>
-          <Pressable style={styles.primaryBtn} onPress={onNegotiate}>
+          <Pressable style={styles.primaryBtn} onPress={handleNegotiate}>
             <Ionicons name="chatbubbles-outline" size={15} color="#FFF" />
-            <Text style={styles.primaryBtnText}>{b.status.toLowerCase() === "confirmed" ? "Review Booking" : "Negotiate Booking"}</Text>
+            <Text style={styles.primaryBtnText}>{status === "confirmed" ? "Review Booking" : "Negotiate Booking"}</Text>
           </Pressable>
-          <Pressable style={styles.cancelBtn} onPress={onCancel}>
+          <Pressable style={styles.cancelBtn} onPress={handleCancelPress}>
             <Ionicons name="close-circle-outline" size={15} color="#DC2626" />
           </Pressable>
         </View>
       ) : null}
 
-      {!isUpcoming && b.status.toLowerCase() !== "cancelled" ? (
+      {!isUpcoming && status !== "cancelled" ? (
         <View style={styles.pastActionRow}>
-          <Pressable style={styles.secondaryActionBtn} onPress={onTicket}>
+          <Pressable style={styles.secondaryActionBtn} onPress={handleTicket}>
             <Ionicons name="ticket-outline" size={15} color="#475569" />
             <Text style={styles.secondaryActionText}>View Ticket</Text>
           </Pressable>
-          <Pressable style={styles.secondaryActionBtn} onPress={onRate}>
+          <Pressable style={styles.secondaryActionBtn} onPress={handleRate}>
             <Ionicons name="star" size={15} color="#475569" />
             <Text style={styles.secondaryActionText}>Rate</Text>
           </Pressable>
-          <Pressable style={styles.secondaryActionBtn} onPress={onComplaint}>
+          <Pressable style={styles.secondaryActionBtn} onPress={handleComplaint}>
             <Text style={styles.secondaryActionText}>Submit Complain</Text>
           </Pressable>
         </View>
       ) : !isUpcoming ? (
         <View style={styles.pastActionRow}>
-          <Pressable style={styles.secondaryActionBtn} onPress={onTicket}>
+          <Pressable style={styles.secondaryActionBtn} onPress={handleTicket}>
             <Ionicons name="ticket-outline" size={15} color="#475569" />
             <Text style={styles.secondaryActionText}>View Ticket</Text>
           </Pressable>
@@ -405,9 +463,9 @@ function BookingCard({
       ) : null}
     </View>
   );
-}
+});
 
-function DetailItem({
+const DetailItem = React.memo(function DetailItem({
   icon,
   label,
   value,
@@ -419,13 +477,13 @@ function DetailItem({
   return (
     <View style={styles.detailItem}>
       <Ionicons name={icon} size={14} color="#94A3B8" />
-      <View style={{ marginLeft: 6 }}>
+      <View style={styles.detailTextWrap}>
         <Text style={styles.detailLabel}>{label}</Text>
         <Text style={styles.detailValue}>{value}</Text>
       </View>
     </View>
   );
-}
+});
 
 // Stylesheet for the Booking History screen components
 const styles = StyleSheet.create({
@@ -497,6 +555,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
+  routeCol: { flex: 1 },
+  routeColEnd: { flex: 1, alignItems: "flex-end" },
   locationLabel: { fontSize: 11, color: "#94A3B8", marginBottom: 2 },
   locationValue: { fontSize: 14, fontWeight: "600", color: "#1F2937" },
   arrowWrap: {
@@ -525,6 +585,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "45%",
   },
+  detailTextWrap: { marginLeft: 6 },
   detailLabel: { fontSize: 10, color: "#94A3B8" },
   detailValue: { fontSize: 12, fontWeight: "600", color: "#334155" },
 

@@ -440,24 +440,40 @@ const BookingCard = React.memo(function BookingCard({
       ) : null}
 
       {!isUpcoming && status !== "cancelled" ? (
-        <View style={styles.pastActionRow}>
-          <Pressable style={styles.secondaryActionBtn} onPress={handleTicket}>
-            <Ionicons name="ticket-outline" size={15} color="#475569" />
-            <Text style={styles.secondaryActionText}>View Ticket</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryActionBtn} onPress={handleRate}>
-            <Ionicons name="star" size={15} color="#475569" />
-            <Text style={styles.secondaryActionText}>Rate</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryActionBtn} onPress={handleComplaint}>
-            <Text style={styles.secondaryActionText}>Submit Complain</Text>
+        // "Submit Complain" needs a row of its own: three flex:1 buttons left it
+        // about 60dp of text space, so the label broke mid-word.
+        <View style={styles.pastActions}>
+          <View style={styles.pastActionRow}>
+            <Pressable style={styles.secondaryActionBtn} onPress={handleTicket}>
+              <Ionicons name="ticket-outline" size={15} color="#475569" />
+              <Text style={styles.secondaryActionText} numberOfLines={1}>
+                View Ticket
+              </Text>
+            </Pressable>
+            <Pressable style={styles.secondaryActionBtn} onPress={handleRate}>
+              <Ionicons name="star" size={15} color="#475569" />
+              <Text style={styles.secondaryActionText} numberOfLines={1}>
+                Rate
+              </Text>
+            </Pressable>
+          </View>
+          <Pressable
+            style={[styles.secondaryActionBtn, styles.wideActionBtn]}
+            onPress={handleComplaint}
+          >
+            <Ionicons name="chatbox-ellipses-outline" size={15} color="#475569" />
+            <Text style={styles.secondaryActionText} numberOfLines={1}>
+              Submit Complain
+            </Text>
           </Pressable>
         </View>
       ) : !isUpcoming ? (
         <View style={styles.pastActionRow}>
           <Pressable style={styles.secondaryActionBtn} onPress={handleTicket}>
             <Ionicons name="ticket-outline" size={15} color="#475569" />
-            <Text style={styles.secondaryActionText}>View Ticket</Text>
+            <Text style={styles.secondaryActionText} numberOfLines={1}>
+              View Ticket
+            </Text>
           </Pressable>
         </View>
       ) : null}
@@ -606,10 +622,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  pastActions: {
+    gap: 10,
+  },
   pastActionRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+  },
+  wideActionBtn: {
+    // Cancels the flex:1 above so the button stretches across the row
+    // instead of growing to fill the column.
+    flex: 0,
+    alignSelf: "stretch",
   },
   primaryBtn: {
     flex: 1,

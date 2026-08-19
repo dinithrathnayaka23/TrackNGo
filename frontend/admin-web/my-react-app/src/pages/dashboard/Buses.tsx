@@ -296,7 +296,7 @@ function Buses() {
             <p className="text-sm text-[#64748b]">Total Buses</p>
             <p className="mt-1 text-2xl font-extrabold text-[#111827]">{TOTAL}</p>
           </div>
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f1f5f9] text-[#475569]">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f1f5f9] text-[#334155]">
             <FontAwesomeIcon icon={faBus} />
           </div>
         </article>
@@ -411,7 +411,7 @@ function Buses() {
           return (
           <article
             key={bus.busId}
-            className="animate-dash-in overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]"
+            className="animate-dash-in overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]"
             style={{ animationDelay: '150ms' }}
           >
             {/* Bus image section */}
@@ -441,7 +441,7 @@ function Buses() {
                 <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
                   acType === 'AC'
                     ? 'bg-[#dbeafe] text-[#2563eb]'
-                    : 'bg-[#f1f5f9] text-[#475569]'
+                    : 'bg-[#f1f5f9] text-[#334155]'
                 }`}>
                   {acType}
                 </span>
@@ -449,7 +449,7 @@ function Buses() {
               <p className="mt-0.5 text-sm text-[#64748b]">{bus.busBrand}</p>
 
               {/* Seat capacity display */}
-              <div className="mt-3 flex items-center gap-1.5 text-sm text-[#475569]">
+              <div className="mt-3 flex items-center gap-1.5 text-sm text-[#334155]">
                 <FontAwesomeIcon icon={faChair} className="text-xs text-[#94a3b8]" />
                 <span>{bus.seatCapacity} Seats</span>
               </div>
@@ -486,7 +486,7 @@ function Buses() {
                     <p className="mt-1 text-sm font-bold text-[#1d4ed8]">{outboundWindow}</p>
                   </div>
 
-                  <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2">
+                  <div className="rounded-lg border border-[#e5e7eb] bg-[#f8fafc] px-3 py-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Return</span>
                       <FontAwesomeIcon icon={faClock} className="text-[11px] text-[#94a3b8]" />
@@ -733,7 +733,7 @@ function Buses() {
                     className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                       form.amenities.includes(key)
                         ? 'bg-[#2642a6] text-white'
-                        : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'
+                        : 'bg-[#f1f5f9] text-[#334155] hover:bg-[#e2e8f0]'
                     }`}
                   >
                     {key === 'ac' ? 'AC' : key === 'wifi' ? 'WiFi' : key === 'charging_ports' ? 'Charging Ports' : key === 'entertainment' ? 'Entertainment' : key === 'cctv' ? 'CCTV' : 'Restroom'}

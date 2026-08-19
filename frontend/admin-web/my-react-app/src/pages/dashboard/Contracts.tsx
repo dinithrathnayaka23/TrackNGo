@@ -266,7 +266,7 @@ function statusBadgeClass(status: ContractStatus) {
     case 'Pending':
       return 'bg-[#ede9fe] text-[#6d28d9]'
     default:
-      return 'bg-[#f1f5f9] text-[#475569]'
+      return 'bg-[#f1f5f9] text-[#334155]'
   }
 }
 
@@ -466,7 +466,7 @@ function ContractFormModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#e5e7eb] px-6 py-5">
           <div>
-            <h2 className="text-lg font-extrabold text-[#0f172a]">
+            <h2 className="text-lg font-extrabold text-[#111827]">
               {editContract ? 'Edit Contract' : 'New Contract'}
             </h2>
             <p className="mt-0.5 text-sm text-[#64748b]">
@@ -478,7 +478,7 @@ function ContractFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] text-[#475569] transition hover:bg-[#f1f5f9]"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] text-[#334155] transition hover:bg-[#f1f5f9]"
           >
             <FontAwesomeIcon icon={faXmark} />
           </button>
@@ -495,7 +495,7 @@ function ContractFormModal({
                 placeholder="e.g. Daily Staff Shuttle"
                 value={form.name}
                 onChange={(e) => setField('name', e.target.value)}
-                className="w-full rounded-xl border border-[#d9dde5] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
+                className="w-full rounded-xl border border-[#d6dbe6] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
               />
             </label>
 
@@ -513,7 +513,7 @@ function ContractFormModal({
                     company: company ? company.name : '',
                   }))
                 }}
-                className="w-full rounded-xl border border-[#d9dde5] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
+                className="w-full rounded-xl border border-[#d6dbe6] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
               >
                 <option value="" disabled>
                   Select a company
@@ -532,7 +532,7 @@ function ContractFormModal({
               <select
                 value={form.status}
                 onChange={(e) => setField('status', e.target.value as ContractStatus)}
-                className="w-full rounded-xl border border-[#d9dde5] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
+                className="w-full rounded-xl border border-[#d6dbe6] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
               >
                 <option value="Active">Active</option>
                 <option value="Expiring Soon">Expiring Soon</option>
@@ -549,7 +549,7 @@ function ContractFormModal({
                 type="date"
                 value={form.validFrom}
                 onChange={(e) => setField('validFrom', e.target.value)}
-                className="w-full rounded-xl border border-[#d9dde5] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
+                className="w-full rounded-xl border border-[#d6dbe6] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
               />
             </label>
 
@@ -561,7 +561,7 @@ function ContractFormModal({
                 type="date"
                 value={form.validTo}
                 onChange={(e) => setField('validTo', e.target.value)}
-                className="w-full rounded-xl border border-[#d9dde5] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
+                className="w-full rounded-xl border border-[#d6dbe6] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
               />
             </label>
 
@@ -575,7 +575,7 @@ function ContractFormModal({
                 placeholder="e.g. 3"
                 value={form.buses}
                 onChange={(e) => setField('buses', e.target.value)}
-                className="w-full rounded-xl border border-[#d9dde5] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
+                className="w-full rounded-xl border border-[#d6dbe6] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
               />
             </label>
 
@@ -589,7 +589,7 @@ function ContractFormModal({
                 placeholder="e.g. 45000"
                 value={form.monthly}
                 onChange={(e) => setField('monthly', e.target.value)}
-                className="w-full rounded-xl border border-[#d9dde5] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
+                className="w-full rounded-xl border border-[#d6dbe6] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
               />
             </label>
 
@@ -601,7 +601,7 @@ function ContractFormModal({
                 placeholder="e.g. Colombo Fort → Katunayake"
                 value={form.routes}
                 onChange={(e) => setField('routes', e.target.value)}
-                className="w-full rounded-xl border border-[#d9dde5] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
+                className="w-full rounded-xl border border-[#d6dbe6] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
               />
             </label>
 
@@ -613,7 +613,7 @@ function ContractFormModal({
                 placeholder="Brief description of the contract..."
                 value={form.description}
                 onChange={(e) => setField('description', e.target.value)}
-                className="w-full resize-none rounded-xl border border-[#d9dde5] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
+                className="w-full resize-none rounded-xl border border-[#d6dbe6] px-3 py-2.5 text-sm outline-none transition focus:border-[#2642a6] focus:ring-2 focus:ring-[#2642a6]/20"
               />
             </label>
           </div>
@@ -622,7 +622,7 @@ function ContractFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-[#d1d5db] px-5 py-2.5 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+              className="rounded-xl border border-[#d6dbe6] px-5 py-2.5 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
             >
               Cancel
             </button>
@@ -779,7 +779,7 @@ function Contracts() {
       <button
         type="button"
         onClick={() => navigate('/dashboard/corporate')}
-        className="mb-5 grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#475569] transition hover:bg-[#f1f5f9]"
+        className="mb-5 grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#334155] transition hover:bg-[#f1f5f9]"
       >
         <FontAwesomeIcon icon={faArrowLeft} />
       </button>
@@ -787,8 +787,8 @@ function Contracts() {
       {/* Header */}
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4 md:items-center">
         <div>
-          <h1 className="text-base font-extrabold tracking-tight text-[#111827]">Corporate Contracts</h1>
-          <p className="mt-1 text-sm font-normal text-[#64748b]">
+          <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Corporate Contracts</h1>
+          <p className="mt-1 text-sm text-[#64748b]">
             Manage and track all corporate transport contracts across clients.
           </p>
         </div>
@@ -800,7 +800,7 @@ function Contracts() {
               type="button"
               onClick={() => setViewMode('table')}
               className={`px-3 py-2 text-sm font-semibold transition ${
-                viewMode === 'table' ? 'bg-[#2642a6] text-white' : 'text-[#475569] hover:bg-[#f1f5f9]'
+                viewMode === 'table' ? 'bg-[#2642a6] text-white' : 'text-[#334155] hover:bg-[#f1f5f9]'
               }`}
             >
               Table
@@ -809,7 +809,7 @@ function Contracts() {
               type="button"
               onClick={() => setViewMode('cards')}
               className={`px-3 py-2 text-sm font-semibold transition ${
-                viewMode === 'cards' ? 'bg-[#2642a6] text-white' : 'text-[#475569] hover:bg-[#f1f5f9]'
+                viewMode === 'cards' ? 'bg-[#2642a6] text-white' : 'text-[#334155] hover:bg-[#f1f5f9]'
               }`}
             >
               Cards
@@ -853,7 +853,7 @@ function Contracts() {
         {stats.map((stat, i) => (
           <article
             key={stat.label}
-            className="animate-dash-in dashboard-card rounded-2xl border border-[#dfe4ef] bg-white p-5"
+            className="animate-dash-in dashboard-card rounded-xl border border-[#e5e7eb] bg-white p-5"
             style={{ animationDelay: `${i * 60}ms` }}
           >
             <div className="flex items-start justify-between gap-3">
@@ -874,10 +874,10 @@ function Contracts() {
 
       {/* Filter Panel */}
       {filterOpen && (
-        <article className="animate-dash-in mt-5 rounded-2xl border border-[#dfe4ef] bg-white p-4">
+        <article className="animate-dash-in mt-5 rounded-xl border border-[#e5e7eb] bg-white p-5">
           <div className="grid gap-3 md:grid-cols-[1.5fr_1fr_1fr_auto]">
             {/* Search */}
-            <label className="flex h-11 items-center gap-2 rounded-xl border border-[#d9dde5] px-3">
+            <label className="flex h-11 items-center gap-2 rounded-xl border border-[#d6dbe6] px-3">
               <FontAwesomeIcon icon={faSearch} className="shrink-0 text-[#94a3b8]" />
               <input
                 value={filterQuery}
@@ -891,7 +891,7 @@ function Contracts() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-              className="h-11 rounded-xl border border-[#d9dde5] px-3 text-sm outline-none"
+              className="h-11 rounded-xl border border-[#d6dbe6] px-3 text-sm outline-none"
             >
               <option value="All">All Statuses</option>
               <option value="Active">Active</option>
@@ -904,7 +904,7 @@ function Contracts() {
             <select
               value={filterCompany}
               onChange={(e) => setFilterCompany(e.target.value)}
-              className="h-11 rounded-xl border border-[#d9dde5] px-3 text-sm outline-none"
+              className="h-11 rounded-xl border border-[#d6dbe6] px-3 text-sm outline-none"
             >
               <option value="All">All Companies</option>
               {COMPANIES.map((c) => (
@@ -918,7 +918,7 @@ function Contracts() {
             <button
               type="button"
               onClick={clearFilters}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#d6dbe6] bg-white px-4 text-sm font-semibold text-[#475569] transition hover:bg-[#f8fafc]"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#d6dbe6] bg-white px-4 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
             >
               <FontAwesomeIcon icon={faRotateLeft} />
               Clear
@@ -939,7 +939,7 @@ function Contracts() {
 
         {/* Table View */}
         {viewMode === 'table' && (
-          <div className="animate-dash-in overflow-hidden rounded-2xl border border-[#dfe4ef] bg-white">
+          <div className="animate-dash-in overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -1064,7 +1064,7 @@ function Contracts() {
                 return (
                   <article
                     key={contract.id}
-                    className="animate-dash-in dashboard-card flex h-full flex-col overflow-hidden rounded-2xl border border-[#dfe4ef] bg-white"
+                    className="animate-dash-in dashboard-card flex h-full flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white"
                     style={{ animationDelay: `${i * 40}ms` }}
                   >
                     {/* Card Header */}
@@ -1089,7 +1089,7 @@ function Contracts() {
                     {/* Company */}
                     <div className="flex items-center gap-2 border-t border-[#f1f5f9] px-5 py-3">
                       <FontAwesomeIcon icon={faBuilding} className="text-xs text-[#94a3b8]" />
-                      <span className="text-sm font-medium text-[#475569]">{contract.company}</span>
+                      <span className="text-sm font-medium text-[#334155]">{contract.company}</span>
                     </div>
 
                     {/* Details */}
@@ -1128,7 +1128,7 @@ function Contracts() {
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="mt-auto flex items-center justify-between border-t border-[#e7ecf5] px-5 py-3">
+                    <div className="mt-auto flex items-center justify-between border-t border-[#e5e7eb] px-5 py-3">
                       <button
                         type="button"
                         onClick={() => setViewContract(contract)}
@@ -1205,7 +1205,7 @@ function Contracts() {
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fee2e2]">
                 <FontAwesomeIcon icon={faTrash} className="text-lg text-[#dc2626]" />
               </div>
-              <h3 className="mt-4 text-base font-extrabold text-[#0f172a]">Delete Contract?</h3>
+              <h3 className="mt-4 text-base font-extrabold text-[#111827]">Delete Contract?</h3>
               <p className="mt-2 text-sm text-[#64748b]">
                 This will permanently remove the contract. This action cannot be undone.
               </p>
@@ -1214,7 +1214,7 @@ function Contracts() {
               <button
                 type="button"
                 onClick={() => setDeleteConfirm(null)}
-                className="rounded-xl border border-[#d1d5db] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+                className="rounded-xl border border-[#d6dbe6] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
               >
                 Cancel
               </button>

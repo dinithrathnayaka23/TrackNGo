@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom'
 function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-[#ececec] px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[720px] rounded-[20px] border border-[#dde0e7] bg-white p-8 shadow-[0_12px_35px_rgba(15,23,42,0.08)] sm:p-10">
+      <div className="mx-auto max-w-[720px] rounded-[20px] border border-[#e5e7eb] bg-white p-8 shadow-[0_12px_35px_rgba(15,23,42,0.08)] sm:p-10">
         <Link to="/login" className="text-sm font-semibold text-[#129a8f]">
           &larr; Back to Login
         </Link>
-        <h1 className="mt-4 text-2xl font-bold text-[#121b33]">Privacy Policy</h1>
-        <p className="mt-2 text-sm text-[#5b6476]">Last updated: {new Date().getFullYear()}</p>
+        <h1 className="mt-4 text-xl font-extrabold tracking-tight text-[#111827]">Privacy Policy</h1>
+        <p className="mt-2 text-sm text-[#64748b]">Last updated: {new Date().getFullYear()}</p>
 
-        <div className="mt-6 space-y-5 text-sm leading-relaxed text-[#4d5564]">
+        <div className="mt-6 space-y-5 text-sm leading-relaxed text-[#334155]">
           <p>
             TrackNGo collects administrative account information such as your name, email address, and
             employee ID in order to authenticate access to the admin panel and attribute actions taken

@@ -287,10 +287,10 @@ function Settings() {
                       {!loading && !error && rows.map((row) => (
                         <tr key={row.emergencyId} className="border-b border-[#f1f5f9] last:border-b-0">
                           <td className="px-4 py-3 font-bold text-[#111827]">{row.label}</td>
-                          <td className="px-4 py-3 text-[#475569]">{row.fireBrigade}</td>
-                          <td className="px-4 py-3 text-[#475569]">{row.ambulance}</td>
-                          <td className="px-4 py-3 text-[#475569]">{row.police}</td>
-                          <td className="px-4 py-3 text-[#475569]">{row.helpCenter}</td>
+                          <td className="px-4 py-3 text-[#334155]">{row.fireBrigade}</td>
+                          <td className="px-4 py-3 text-[#334155]">{row.ambulance}</td>
+                          <td className="px-4 py-3 text-[#334155]">{row.police}</td>
+                          <td className="px-4 py-3 text-[#334155]">{row.helpCenter}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${activeBadge(row.isActive)}`}>
                               {row.isActive && <FontAwesomeIcon icon={faCheckCircle} className="text-[10px]" />}

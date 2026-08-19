@@ -240,12 +240,12 @@ function Promotions() {
     <div className="space-y-6">
       <div className="animate-dash-in flex flex-col gap-4 rounded-xl bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between" style={{ animationDelay: '70ms' }}>
         <div>
-          <h1 className="mt-1 text-2xl font-bold text-[#111827]">Promotions</h1>
+          <h1 className="mt-1 text-xl font-extrabold tracking-tight text-[#111827]">Promotions</h1>
         </div>
         <button
           type="button"
           onClick={loadPromotions}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#d8deea] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#d6dbe6] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
         >
           <FontAwesomeIcon icon={faRotate} />
           Refresh
@@ -298,7 +298,7 @@ function Promotions() {
             <button
               type="button"
               onClick={resetForm}
-              className="inline-flex items-center justify-center rounded-lg border border-[#d8deea] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+              className="inline-flex items-center justify-center rounded-lg border border-[#d6dbe6] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
             >
               New promotion
             </button>
@@ -317,7 +317,7 @@ function Promotions() {
             <input
               value={form.name}
               onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-              className="w-full rounded-lg border border-[#d8deea] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
               placeholder="Weekend highway discount"
             />
           </label>
@@ -327,7 +327,7 @@ function Promotions() {
             <select
               value={form.targetType}
               onChange={(event) => setForm((current) => ({ ...current, targetType: event.target.value as PromotionTarget }))}
-              className="w-full rounded-lg border border-[#d8deea] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
             >
               {Object.entries(targetLabels).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -342,7 +342,7 @@ function Promotions() {
             <select
               value={form.discountType}
               onChange={(event) => setForm((current) => ({ ...current, discountType: event.target.value as PromotionDiscountType }))}
-              className="w-full rounded-lg border border-[#d8deea] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
             >
               {Object.entries(discountLabels).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -360,7 +360,7 @@ function Promotions() {
               step="0.01"
               value={form.discountValue}
               onChange={(event) => setForm((current) => ({ ...current, discountValue: event.target.value }))}
-              className="w-full rounded-lg border border-[#d8deea] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
             />
           </label>
 
@@ -370,7 +370,7 @@ function Promotions() {
               <input
                 value={form.promoCode}
                 onChange={(event) => setForm((current) => ({ ...current, promoCode: event.target.value.toUpperCase() }))}
-                className="w-full rounded-lg border border-[#d8deea] px-3 py-2 text-sm uppercase outline-none focus:border-[#2563eb]"
+                className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm uppercase outline-none focus:border-[#2563eb]"
                 placeholder="TRACK20"
               />
             </label>
@@ -384,7 +384,7 @@ function Promotions() {
                 min="0"
                 value={form.regularCustomerMinCompletedBookings}
                 onChange={(event) => setForm((current) => ({ ...current, regularCustomerMinCompletedBookings: event.target.value }))}
-                className="w-full rounded-lg border border-[#d8deea] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+                className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
               />
             </label>
           )}
@@ -396,7 +396,7 @@ function Promotions() {
               min="1"
               value={form.maxBookings}
               onChange={(event) => setForm((current) => ({ ...current, maxBookings: event.target.value }))}
-              className="w-full rounded-lg border border-[#d8deea] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
             />
           </label>
 
@@ -405,7 +405,7 @@ function Promotions() {
             <textarea
               value={form.description}
               onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-              className="min-h-24 w-full rounded-lg border border-[#d8deea] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="min-h-24 w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
               placeholder="Optional notes for the admin team"
             />
           </label>
@@ -424,7 +424,7 @@ function Promotions() {
       </form>
 
       <div className="animate-dash-in rounded-xl bg-white shadow-sm" style={{ animationDelay: '280ms' }}>
-        <div className="border-b border-[#eef2f7] px-5 py-4">
+        <div className="border-b border-[#f1f5f9] px-5 py-4">
           <h2 className="text-lg font-bold text-[#111827]">Promotion list</h2>
         </div>
         {loading ? (
@@ -489,7 +489,7 @@ function Promotions() {
                               <button
                                 type="button"
                                 onClick={() => handleEdit(promotion)}
-                                className="grid h-9 w-9 place-items-center rounded-lg border border-[#d8deea] text-[#334155] transition hover:bg-[#f8fafc]"
+                                className="grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] text-[#334155] transition hover:bg-[#f8fafc]"
                                 aria-label={`Edit ${promotion.name}`}
                               >
                                 <FontAwesomeIcon icon={faPen} />

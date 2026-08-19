@@ -290,21 +290,21 @@ function AnalyticsPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl space-y-3">
+      <div className="mx-auto max-w-7xl space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="animate-dash-in text-base font-extrabold tracking-tight text-[#1f2737]" style={{ animationDelay: '70ms' }}>
+            <h1 className="animate-dash-in text-xl font-extrabold tracking-tight text-[#111827]" style={{ animationDelay: '70ms' }}>
               Analytics &amp; Insights
             </h1>
             {data ? (
-              <p className="mt-0.5 text-xs text-[#7f899e]">
+              <p className="mt-0.5 text-xs text-[#64748b]">
                 {data.from} to {data.to}
               </p>
             ) : null}
           </div>
 
           <div className="animate-dash-in flex items-center gap-3" style={{ animationDelay: '90ms' }}>
-            <div className="flex items-center rounded-lg border border-[#d8deea] bg-[#f7f8fc] p-1 text-xs font-semibold text-[#5e6a82]">
+            <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-[#f7f8fc] p-1 text-xs font-semibold text-[#64748b]">
               {[
                 { label: '7 Days', value: '7d' as RangeKey },
                 { label: '30 Days', value: '30d' as RangeKey },
@@ -338,9 +338,9 @@ function AnalyticsPage() {
         </div>
 
         {activeRange === 'custom' ? (
-          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-[#d8deea] bg-[#f7f8fc] p-3">
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-[#d6dbe6] bg-[#f7f8fc] p-3">
             <div>
-              <label htmlFor="custom-from" className="mb-1 block text-xs font-semibold text-[#5e6a82]">
+              <label htmlFor="custom-from" className="mb-1 block text-xs font-semibold text-[#64748b]">
                 From
               </label>
               <input
@@ -348,11 +348,11 @@ function AnalyticsPage() {
                 type="date"
                 value={customFrom}
                 onChange={(event) => setCustomFrom(event.target.value)}
-                className="h-8 rounded-lg border border-[#d8deea] bg-white px-3 text-sm text-[#2f394d] outline-none"
+                className="h-8 rounded-lg border border-[#d6dbe6] bg-white px-3 text-sm text-[#334155] outline-none"
               />
             </div>
             <div>
-              <label htmlFor="custom-to" className="mb-1 block text-xs font-semibold text-[#5e6a82]">
+              <label htmlFor="custom-to" className="mb-1 block text-xs font-semibold text-[#64748b]">
                 To
               </label>
               <input
@@ -360,7 +360,7 @@ function AnalyticsPage() {
                 type="date"
                 value={customTo}
                 onChange={(event) => setCustomTo(event.target.value)}
-                className="h-8 rounded-lg border border-[#d8deea] bg-white px-3 text-sm text-[#2f394d] outline-none"
+                className="h-8 rounded-lg border border-[#d6dbe6] bg-white px-3 text-sm text-[#334155] outline-none"
               />
             </div>
             <button
@@ -391,7 +391,7 @@ function AnalyticsPage() {
         ) : null}
 
         {!error && !loading && !hasData ? (
-          <div className="rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 text-sm text-[#7f899e]">
+          <div className="rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 text-sm text-[#64748b]">
             No bookings were recorded in this period.
           </div>
         ) : null}
@@ -405,16 +405,16 @@ function AnalyticsPage() {
           {stats.map((card, index) => (
             <article
               key={card.title}
-              className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
+              className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm"
               style={{ animationDelay: `${120 + index * 40}ms` }}
             >
               <div className="mb-2 flex items-start justify-between">
-                <p className="text-xs font-semibold text-[#758098]">{card.title}</p>
+                <p className="text-xs font-semibold text-[#64748b]">{card.title}</p>
                 <div className={['grid h-7 w-7 place-items-center rounded-md text-xs', card.iconWrap].join(' ')}>
                   <FontAwesomeIcon icon={card.icon} />
                 </div>
               </div>
-              <p className="text-sm font-extrabold leading-none text-[#1f2737]">{loading ? '—' : card.value}</p>
+              <p className="text-sm font-extrabold leading-none text-[#111827]">{loading ? '—' : card.value}</p>
               <p className={['mt-1.5 text-xs font-semibold', card.trendUp ? 'text-[#11a765]' : 'text-[#d74949]'].join(' ')}>
                 {!loading && card.trend !== 'No prior period data' ? (
                   <FontAwesomeIcon icon={card.trendUp ? faArrowUp : faArrowDown} className="mr-1 text-xs" />
@@ -425,14 +425,14 @@ function AnalyticsPage() {
           ))}
         </section>
 
-        <section className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '260ms' }}>
+        <section className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '260ms' }}>
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-bold text-[#1f2737]">Revenue Trends</h2>
-              <p className="text-sm text-[#7f899e]">Breakdown of revenue streams over time</p>
+              <h2 className="text-sm font-bold text-[#111827]">Revenue Trends</h2>
+              <p className="text-sm text-[#64748b]">Breakdown of revenue streams over time</p>
             </div>
 
-            <div className="flex items-center gap-3 text-sm text-[#5d6880]">
+            <div className="flex items-center gap-3 text-sm text-[#64748b]">
               {[
                 { key: 'total' as SeriesKey, color: '#2741a0', label: 'Total' },
                 { key: 'highway' as SeriesKey, color: '#19a19a', label: 'Highway' },
@@ -456,7 +456,7 @@ function AnalyticsPage() {
                 type="button"
                 onClick={handleDownloadRevenueTrends}
                 disabled={!data}
-                className="ml-1 flex items-center gap-2 rounded-md border border-[#d5dbea] bg-white px-3 py-1.5 text-xs font-bold text-[#2642a6] transition duration-200 hover:bg-[#f3f6fc] disabled:cursor-not-allowed disabled:opacity-50"
+                className="ml-1 flex items-center gap-2 rounded-md border border-[#d6dbe6] bg-white px-3 py-1.5 text-xs font-bold text-[#2642a6] transition duration-200 hover:bg-[#f3f6fc] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FontAwesomeIcon icon={faDownload} />
                 Download
@@ -496,26 +496,26 @@ function AnalyticsPage() {
         </section>
 
         <section className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '300ms' }}>
-            <h2 className="text-sm font-bold text-[#1f2737]">Bookings by Category</h2>
+          <article className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '300ms' }}>
+            <h2 className="text-sm font-bold text-[#111827]">Bookings by Category</h2>
             <div className="mt-3 flex flex-wrap items-center gap-4">
               <div
                 className="animate-analytics-ring grid h-36 w-36 place-items-center rounded-full"
                 style={{ background: donutGradient }}
               >
                 <div className="grid h-20 w-20 place-items-center rounded-full bg-[#f7f8fc] text-center">
-                  <p className="text-sm font-extrabold leading-none text-[#1f2737]">
+                  <p className="text-sm font-extrabold leading-none text-[#111827]">
                     {totalCategoryBookings >= 1000
                       ? `${(totalCategoryBookings / 1000).toFixed(1)}K`
                       : totalCategoryBookings.toLocaleString()}
                   </p>
-                  <p className="text-xs font-semibold text-[#7f899e]">Total</p>
+                  <p className="text-xs font-semibold text-[#64748b]">Total</p>
                 </div>
               </div>
 
               <div className="space-y-3 text-sm">
                 {categoryMix.map((slice) => (
-                  <p key={slice.type} className="flex items-center gap-2 text-[#2d3950]">
+                  <p key={slice.type} className="flex items-center gap-2 text-[#334155]">
                     <span
                       className="h-3 w-3 rounded-sm"
                       style={{ backgroundColor: CATEGORY_COLORS[slice.type] ?? '#9aa4bd' }}
@@ -527,13 +527,13 @@ function AnalyticsPage() {
             </div>
           </article>
 
-          <article className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '340ms' }}>
-            <h2 className="text-sm font-bold text-[#1f2737]">Booking Status Overview</h2>
-            <p className="mt-1 text-sm text-[#7f899e]">Completed, upcoming and cancelled counts by booking type.</p>
+          <article className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm" style={{ animationDelay: '340ms' }}>
+            <h2 className="text-sm font-bold text-[#111827]">Booking Status Overview</h2>
+            <p className="mt-1 text-sm text-[#64748b]">Completed, upcoming and cancelled counts by booking type.</p>
             <div className="mt-6 overflow-x-auto">
               <table className="w-full min-w-[620px]">
                 <thead>
-                  <tr className="bg-[#f1f4fa] text-left text-sm text-[#616f88]">
+                  <tr className="bg-[#f1f4fa] text-left text-sm text-[#64748b]">
                     <th className="px-4 py-3 font-semibold">Booking Type</th>
                     <th className="px-4 py-3 font-semibold text-[#1bb37f]">Completed</th>
                     <th className="px-4 py-3 font-semibold text-[#2f4fb5]">Upcoming</th>
@@ -542,7 +542,7 @@ function AnalyticsPage() {
                 </thead>
                 <tbody>
                   {(data?.statusByType ?? []).map((row) => (
-                    <tr key={row.type} className="border-b border-[#e8ebf2] text-[#2a3448]">
+                    <tr key={row.type} className="border-b border-[#e5e7eb] text-[#111827]">
                       <td className="px-4 py-3 text-sm font-semibold">{row.type}</td>
                       <td className="px-4 py-3 text-sm font-bold text-[#1bb37f]">{row.completed.toLocaleString()}</td>
                       <td className="px-4 py-3 text-sm font-bold text-[#2f4fb5]">{row.pending.toLocaleString()}</td>
@@ -557,9 +557,9 @@ function AnalyticsPage() {
       </div>
 
       {toastMessage ? (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-lg border border-[#d8deea] bg-white px-4 py-3 shadow-lg">
-          <p className="text-sm font-semibold text-[#2f394d]">{toastMessage}</p>
-          <button type="button" onClick={() => setToastMessage(null)} className="text-[#5f6b82]">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-lg border border-[#d6dbe6] bg-white px-4 py-3 shadow-lg">
+          <p className="text-sm font-semibold text-[#334155]">{toastMessage}</p>
+          <button type="button" onClick={() => setToastMessage(null)} className="text-[#64748b]">
             <FontAwesomeIcon icon={faXmark} />
           </button>
         </div>

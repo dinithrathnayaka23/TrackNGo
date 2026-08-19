@@ -115,7 +115,7 @@ export default function AdminNotificationsPanel({
             <p className="text-sm font-semibold text-[#111827]">
               Notifications
             </p>
-            <p className="text-xs text-[#6b7280]">
+            <p className="text-xs text-[#64748b]">
               Latest admin alerts and updates
             </p>
           </div>
@@ -133,7 +133,7 @@ export default function AdminNotificationsPanel({
 
         <div className="max-h-[420px] overflow-y-auto px-2 py-2">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-sm text-[#6b7280]">
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-[#64748b]">
               <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
               Loading notifications...
             </div>
@@ -142,7 +142,7 @@ export default function AdminNotificationsPanel({
               {error}
             </div>
           ) : items.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-[#d1d5db] bg-[#f9fafb] px-3 py-8 text-center text-sm text-[#6b7280]">
+            <div className="rounded-xl border border-dashed border-[#d6dbe6] bg-[#f9fafb] px-3 py-8 text-center text-sm text-[#64748b]">
               No notifications yet.
             </div>
           ) : (
@@ -166,7 +166,7 @@ export default function AdminNotificationsPanel({
                           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#2642a6]" />
                         ) : null}
                       </div>
-                      <p className="mt-1 text-sm text-[#6b7280]">
+                      <p className="mt-1 text-sm text-[#64748b]">
                         {item.message}
                       </p>
                       <p className="mt-2 text-xs text-[#94a3b8]">
@@ -184,7 +184,7 @@ export default function AdminNotificationsPanel({
           <button
             type="button"
             onClick={onClose}
-            className="text-sm font-semibold text-[#6b7280]"
+            className="text-sm font-semibold text-[#64748b]"
           >
             Close
           </button>

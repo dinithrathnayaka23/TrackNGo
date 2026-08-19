@@ -1041,7 +1041,7 @@ function BusDetail() {
           "grid h-11 w-11 place-items-center rounded-lg border text-sm font-semibold shadow-inner transition duration-150",
           isBlocked
             ? "border-[#e39b9b] bg-[#f7d9d9] text-[#9b1c1c] hover:bg-[#f2caca]"
-            : "border-[#d6d9df] bg-[#e5e7eb] text-[#374151] hover:bg-[#dce0e7]",
+            : "border-[#d6dbe6] bg-[#e5e7eb] text-[#334155] hover:bg-[#dce0e7]",
         ].join(" ")}
       >
         {seatId}
@@ -1303,15 +1303,15 @@ function BusDetail() {
     <>
       {/* Loading State - Show spinner while fetching initial data */}
       {loading ? (
-        <div className="mx-auto max-w-7xl space-y-4 py-12 text-center">
+        <div className="mx-auto max-w-7xl space-y-5 py-12 text-center">
           <FontAwesomeIcon icon={faSpinner} className="animate-spin text-2xl text-[#2642a6]" />
           <p className="text-sm text-[#64748b]">Loading bus details...</p>
         </div>
       ) : apiError && !busData ? (
         /* Error State - Show error message and back button */
-        <div className="mx-auto max-w-7xl space-y-4 py-12 text-center">
-          <h1 className="text-xl font-extrabold text-[#111827]">Bus Not Found</h1>
-          <p className="text-sm text-[#64748b]">{apiError}</p>
+        <div className="mx-auto max-w-7xl space-y-5 py-12 text-center">
+          <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Bus Not Found</h1>
+          <p className="mt-1 text-sm text-[#64748b]">{apiError}</p>
           <button
             type="button"
             onClick={() => navigate('/dashboard/buses')}
@@ -1323,12 +1323,12 @@ function BusDetail() {
         </div>
       ) : (
       /* Success State - Display bus details and management UI */
-      <div className="mx-auto max-w-7xl space-y-4">
+      <div className="mx-auto max-w-7xl space-y-5">
             {/* Back Navigation */}
             <button
               type="button"
               onClick={() => navigate('/dashboard/buses')}
-              className="flex items-center gap-2 text-sm text-[#202535] transition duration-200 hover:-translate-x-0.5"
+              className="flex items-center gap-2 text-sm text-[#111827] transition duration-200 hover:-translate-x-0.5"
               aria-label="Go back"
             >
               <FontAwesomeIcon icon={faArrowLeft} />
@@ -1337,7 +1337,7 @@ function BusDetail() {
 
             {/* Header Section - Bus image, status badge, and action buttons */}
             <section
-              className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-5 shadow-sm"
+              className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-5 shadow-sm"
               style={{ animationDelay: "80ms" }}
             >
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1363,7 +1363,7 @@ function BusDetail() {
                           ? "bg-[#e7f8eb] text-[#0f9b45]"
                           : busInfo.status === "maintenance"
                             ? "bg-[#fff3d8] text-[#99680b]"
-                            : "bg-[#f3f4f6] text-[#6b7280]",
+                            : "bg-[#f3f4f6] text-[#64748b]",
                       ].join(" ")}
                     >
                       <span
@@ -1379,10 +1379,10 @@ function BusDetail() {
                       />
                       {busInfo.status.charAt(0).toUpperCase() + busInfo.status.slice(1)}
                     </span>
-                    <h1 className="mt-1 text-lg font-extrabold tracking-tight text-[#1f2737]">
+                    <h1 className="mt-1 text-xl font-extrabold tracking-tight text-[#111827]">
                       {busInfo.code}
                     </h1>
-                    <p className="mt-1 text-sm text-[#5d677e]">
+                    <p className="mt-1 text-sm text-[#64748b]">
                       <FontAwesomeIcon
                         icon={faUsers}
                         className="mr-2 text-sm"
@@ -1398,7 +1398,7 @@ function BusDetail() {
                     type="button"
                     onClick={openEditBusModal}
                     disabled={isBusDeleted}
-                    className="rounded-lg border border-[#d5d9e3] bg-white px-4 py-2 text-sm font-bold text-[#2f394d] transition duration-200 hover:-translate-y-0.5"
+                    className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-bold text-[#334155] transition duration-200 hover:-translate-y-0.5"
                   >
                     <FontAwesomeIcon icon={faPen} className="mr-2" />
                     Edit
@@ -1442,7 +1442,7 @@ function BusDetail() {
                 <button
                   type="button"
                   onClick={() => setIsBusDeleted(false)}
-                  className="mt-4 rounded-lg border border-[#d7dde9] bg-white px-4 py-2 text-sm font-semibold text-[#2f394d] transition duration-200 hover:bg-[#f2f5fd]"
+                  className="mt-4 rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#f2f5fd]"
                 >
                   Restore Bus
                 </button>
@@ -1453,16 +1453,16 @@ function BusDetail() {
                 {/* Card 1: Vehicle Specifications */}
                 {/* Displays key bus details like brand, condition, type, registration, and schedule info */}
                 <article
-                  className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
+                  className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm"
                   style={{ animationDelay: "130ms" }}
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-[#1f2737]">
+                    <h2 className="text-sm font-bold text-[#111827]">
                       Vehicle Specs
                     </h2>
                     <FontAwesomeIcon
                       icon={faEllipsis}
-                      className="text-[#6f7788]"
+                      className="text-[#64748b]"
                     />
                   </div>
                   <div className="space-y-2 text-sm">
@@ -1481,10 +1481,10 @@ function BusDetail() {
                     ].map(([key, value]) => (
                       <div
                         key={key}
-                        className="flex items-start justify-between gap-3 border-b border-[#eceef4] pb-1.5 last:border-0 last:pb-0"
+                        className="flex items-start justify-between gap-3 border-b border-[#f1f5f9] pb-1.5 last:border-0 last:pb-0"
                       >
-                        <span className="shrink-0 text-[#7b8394]">{key}</span>
-                        <span className="min-w-0 break-words text-right font-semibold text-[#2c3448] capitalize">
+                        <span className="shrink-0 text-[#64748b]">{key}</span>
+                        <span className="min-w-0 break-words text-right font-semibold text-[#111827] capitalize">
                           {value}
                         </span>
                       </div>
@@ -1495,11 +1495,11 @@ function BusDetail() {
                 {/* Card 2: Assigned Driver Information */}
                 {/* Shows driver profile, ID, rating, and provides quick contact options */}
                 <article
-                  className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
+                  className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm"
                   style={{ animationDelay: "170ms" }}
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-[#1f2737]">
+                    <h2 className="text-sm font-bold text-[#111827]">
                       Assigned Driver
                     </h2>
                     <button
@@ -1517,16 +1517,16 @@ function BusDetail() {
                       className="h-16 w-16 rounded-full object-cover"
                     />
                     <div>
-                      <p className="text-sm font-bold text-[#1f2737]">
+                      <p className="text-sm font-bold text-[#111827]">
                         {assignedDriver.name}
                       </p>
-                      <p className="text-sm text-[#8a93a4]">
+                      <p className="text-sm text-[#94a3b8]">
                         ID: {assignedDriver.id}
                       </p>
                       <p className="text-sm font-semibold text-[#efaf00]">
                         <FontAwesomeIcon icon={faStar} className="mr-1" />
                         {assignedDriver.rating}{" "}
-                        <span className="text-[#8a93a4]">
+                        <span className="text-[#94a3b8]">
                           ({assignedDriver.trips} trips)
                         </span>
                       </p>
@@ -1536,14 +1536,14 @@ function BusDetail() {
                   <div className="mt-4 flex gap-2">
                     <button
                       type="button"
-                      className="rounded-lg border border-[#d8dce6] px-3 py-2 text-sm font-semibold text-[#2f394d] transition duration-200 hover:bg-[#f0f3fa]"
+                      className="rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#f0f3fa]"
                     >
                       <FontAwesomeIcon icon={faPhone} className="mr-2" />
                       {assignedDriver.phone}
                     </button>
                     <button
                       type="button"
-                      className="rounded-lg border border-[#d8dce6] px-3 py-2 text-sm font-semibold text-[#2f394d] transition duration-200 hover:bg-[#f0f3fa]"
+                      className="rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#f0f3fa]"
                     >
                       <FontAwesomeIcon icon={faComment} className="mr-2" />
                       Message
@@ -1554,25 +1554,25 @@ function BusDetail() {
                 {/* Card 3: Route Location Map */}
                 {/* Shows the starting location of the bus route with embedded map visualization */}
                 <article
-                  className="dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm"
+                  className="dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] shadow-sm"
                   style={{ animationDelay: "210ms" }}
                 >
                   <BusLocationMap locationName={busInfo.routeName ? busInfo.routeName.split(" to ")[0] : "Colombo"} />
                   <div className="flex items-end justify-between p-4">
                     <div>
-                      <p className="text-sm font-semibold text-[#8a93a4]">
+                      <p className="text-sm font-semibold text-[#94a3b8]">
                         Current Location
                       </p>
-                      <p className="text-sm font-bold text-[#232c3f]">
+                      <p className="text-sm font-bold text-[#111827]">
                         {busInfo.routeName ? busInfo.routeName.split(" to ")[0] : "Not assigned"}
                       </p>
-                      <p className="text-sm text-[#8a93a4]">
+                      <p className="text-sm text-[#94a3b8]">
                         Start location
                       </p>
                     </div>
                     <FontAwesomeIcon
                       icon={faLocationDot}
-                      className="pb-2 text-xl text-[#263247]"
+                      className="pb-2 text-xl text-[#111827]"
                     />
                   </div>
                 </article>
@@ -1580,11 +1580,11 @@ function BusDetail() {
                 {/* Card 4: Bus Amenities */}
                 {/* Lists available amenities with enabled/disabled visual indicator */}
                 <article
-                  className="dashboard-card animate-dash-in rounded-xl border border-[#dee1e8] bg-[#f7f8fc] p-4 shadow-sm"
+                  className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm"
                   style={{ animationDelay: "250ms" }}
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-[#1f2737]">
+                    <h2 className="text-sm font-bold text-[#111827]">
                       Amenities
                     </h2>
                     <button
@@ -1603,8 +1603,8 @@ function BusDetail() {
                         className={[
                           "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition duration-200 hover:-translate-y-0.5",
                           amenity.enabled
-                            ? "border-[#e5e8f0] bg-[#f2f4f8] text-[#3a4255]"
-                            : "border-[#eceff5] bg-[#f7f8fb] text-[#9fa7b7]",
+                            ? "border-[#e5e7eb] bg-[#f2f4f8] text-[#334155]"
+                            : "border-[#f1f5f9] bg-[#f7f8fb] text-[#94a3b8]",
                         ].join(" ")}
                       >
                         <FontAwesomeIcon
@@ -1622,11 +1622,11 @@ function BusDetail() {
             {!isBusDeleted ? (
               /* Tab Section - Overview, Schedule, Revenue tabs with dynamic content switching */
               <section
-                className="dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#dee1e8] bg-[#f7f8fc] shadow-sm"
+                className="dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] shadow-sm"
                 style={{ animationDelay: "300ms" }}
               >
                 {/* Tab Navigation - Three main tabs for managing bus information */}
-                <div className="flex gap-6 border-b border-[#dee1e8] px-5 pt-3">
+                <div className="flex gap-6 border-b border-[#e5e7eb] px-5 pt-3">
                   {[
                     { label: "Overview", value: "overview" as DashboardTab },
                     { label: "Schedule", value: "schedule" as DashboardTab },
@@ -1640,7 +1640,7 @@ function BusDetail() {
                         "border-b-2 pb-3 text-sm font-semibold transition duration-200",
                         activeTab === tab.value
                           ? "border-[#2642a6] text-[#2642a6]"
-                          : "border-transparent text-[#6f7788] hover:text-[#50586a]",
+                          : "border-transparent text-[#64748b] hover:text-[#64748b]",
                       ].join(" ")}
                     >
                       {tab.label}
@@ -1654,19 +1654,19 @@ function BusDetail() {
                   <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-[2fr_1fr]">
                     {/* Revenue Trends Chart */}
                     {/* SVG-based area and line chart showing 30-day revenue with customizable Y-axis scaling */}
-                    <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
+                    <article className="dashboard-card rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-5">
                       <div className="mb-3 flex items-start justify-between">
                         <div>
-                          <h3 className="text-sm font-bold text-[#1f2737]">
+                          <h3 className="text-sm font-bold text-[#111827]">
                             Revenue Trends
                           </h3>
-                          <p className="text-sm text-[#8a93a4]">
+                          <p className="text-sm text-[#94a3b8]">
                             Revenue earned by this bus over the last 30 days
                           </p>
                         </div>
                         <button
                           type="button"
-                          className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm text-[#3d4558] transition duration-200 hover:bg-[#f2f5fd]"
+                          className="rounded-md border border-[#d6dbe6] bg-white px-3 py-1 text-sm text-[#334155] transition duration-200 hover:bg-[#f2f5fd]"
                         >
                           Last 30 Days
                         </button>
@@ -1767,18 +1767,18 @@ function BusDetail() {
                       </svg>
 
                       {/* Revenue Summary Statistics */}
-                      <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#eceff5] pt-3 text-center">
+                      <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#f1f5f9] pt-3 text-center">
                         <div>
-                          <p className="text-sm text-[#8a93a4]">
+                          <p className="text-sm text-[#94a3b8]">
                             Total Revenue
                           </p>
-                          <p className="text-sm font-extrabold text-[#1f2737]">
+                          <p className="text-sm font-extrabold text-[#111827]">
                             Rs.{totalRevenueLast30Days.toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-[#8a93a4]">Avg. Per Day</p>
-                          <p className="text-sm font-extrabold text-[#1f2737]">
+                          <p className="text-sm text-[#94a3b8]">Avg. Per Day</p>
+                          <p className="text-sm font-extrabold text-[#111827]">
                             Rs.{averageRevenuePerDay.toLocaleString()}
                           </p>
                         </div>
@@ -1787,8 +1787,8 @@ function BusDetail() {
 
                     {/* Upcoming Schedule Preview */}
                     {/* Shows next scheduled trips with passenger booking status */}
-                    <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
-                      <h3 className="text-sm font-bold text-[#1f2737]">
+                    <article className="dashboard-card rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-5">
+                      <h3 className="text-sm font-bold text-[#111827]">
                         Upcoming Schedule
                       </h3>
                       <div className="mt-4 space-y-4">
@@ -1798,21 +1798,21 @@ function BusDetail() {
                             key={`${item.time}-${item.route}`}
                             className={[
                               "border-l-2 pl-4",
-                              item.highlighted ? "border-[#2642a6]" : "border-[#d0d5e0]",
+                              item.highlighted ? "border-[#2642a6]" : "border-[#d6dbe6]",
                             ].join(" ")}
                           >
                             <p
                               className={[
                                 "text-sm font-bold",
-                                item.highlighted ? "text-[#2642a6]" : "text-[#6e7587]",
+                                item.highlighted ? "text-[#2642a6]" : "text-[#64748b]",
                               ].join(" ")}
                             >
                               {item.time}
                             </p>
-                            <p className="text-sm font-extrabold text-[#1f2737]">
+                            <p className="text-sm font-extrabold text-[#111827]">
                               {item.route}
                             </p>
-                            <p className="text-sm text-[#8a93a4]">
+                            <p className="text-sm text-[#94a3b8]">
                               Driver: {item.driver}
                             </p>
                             <p className="mt-1 inline-block rounded bg-[#edf2ff] px-2 py-0.5 text-sm font-semibold text-[#2642a6]">
@@ -1828,7 +1828,7 @@ function BusDetail() {
                           setActiveTab("schedule");
                           setIsFullScheduleVisible(true);
                         }}
-                        className="mt-4 w-full rounded-lg border border-[#d9dde7] bg-[#f5f7fb] py-2 text-sm font-semibold text-[#495162] transition duration-200 hover:bg-[#eef2fa]"
+                        className="mt-4 w-full rounded-lg border border-[#d6dbe6] bg-[#f5f7fb] py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#eef2fa]"
                       >
                         View Full Schedule
                       </button>
@@ -1840,8 +1840,8 @@ function BusDetail() {
                   <div className="p-4 space-y-4">
                     {/* Schedule edit form */}
                     {isScheduleEditing ? (
-                      <article className="dashboard-card rounded-xl border border-[#d7dde9] bg-[#f7f8fc] p-5">
-                        <h3 className="mb-4 text-sm font-bold text-[#1f2737]">Edit Schedule</h3>
+                      <article className="dashboard-card rounded-xl border border-[#d6dbe6] bg-[#f7f8fc] p-5">
+                        <h3 className="mb-4 text-sm font-bold text-[#111827]">Edit Schedule</h3>
                         {scheduleFormError && (
                           <p className="mb-3 rounded-lg bg-[#fef2f2] px-4 py-2 text-sm font-semibold text-[#dc2626]">
                             {scheduleFormError}
@@ -1849,39 +1849,39 @@ function BusDetail() {
                         )}
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Forward Departure</label>
+                            <label className="mb-1 block text-xs font-semibold text-[#334155]">Forward Departure</label>
                             <input
                               type="time"
                               value={scheduleDraft.startTime}
                               onChange={(e) => setScheduleDraft((p) => ({ ...p, startTime: e.target.value }))}
-                              className="h-10 w-full rounded-lg border border-[#d7dde9] bg-white px-3 text-sm text-[#273246] outline-none focus:border-[#2642a6]"
+                              className="h-10 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 text-sm text-[#111827] outline-none focus:border-[#2642a6]"
                             />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Forward Arrival</label>
+                            <label className="mb-1 block text-xs font-semibold text-[#334155]">Forward Arrival</label>
                             <input
                               type="time"
                               value={scheduleDraft.endTime}
                               onChange={(e) => setScheduleDraft((p) => ({ ...p, endTime: e.target.value }))}
-                              className="h-10 w-full rounded-lg border border-[#d7dde9] bg-white px-3 text-sm text-[#273246] outline-none focus:border-[#2642a6]"
+                              className="h-10 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 text-sm text-[#111827] outline-none focus:border-[#2642a6]"
                             />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Return Departure</label>
+                            <label className="mb-1 block text-xs font-semibold text-[#334155]">Return Departure</label>
                             <input
                               type="time"
                               value={scheduleDraft.returnStartTime}
                               onChange={(e) => setScheduleDraft((p) => ({ ...p, returnStartTime: e.target.value }))}
-                              className="h-10 w-full rounded-lg border border-[#d7dde9] bg-white px-3 text-sm text-[#273246] outline-none focus:border-[#2642a6]"
+                              className="h-10 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 text-sm text-[#111827] outline-none focus:border-[#2642a6]"
                             />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#45516b]">Return Arrival</label>
+                            <label className="mb-1 block text-xs font-semibold text-[#334155]">Return Arrival</label>
                             <input
                               type="time"
                               value={scheduleDraft.returnEndTime}
                               onChange={(e) => setScheduleDraft((p) => ({ ...p, returnEndTime: e.target.value }))}
-                              className="h-10 w-full rounded-lg border border-[#d7dde9] bg-white px-3 text-sm text-[#273246] outline-none focus:border-[#2642a6]"
+                              className="h-10 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 text-sm text-[#111827] outline-none focus:border-[#2642a6]"
                             />
                           </div>
                         </div>
@@ -1889,7 +1889,7 @@ function BusDetail() {
                           <button
                             type="button"
                             onClick={() => { setIsScheduleEditing(false); setScheduleFormError(""); }}
-                            className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                            className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#e9edf7]"
                           >
                             Cancel
                           </button>
@@ -1931,9 +1931,9 @@ function BusDetail() {
                       </article>
                     ) : null}
 
-                    <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
+                    <article className="dashboard-card rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-5">
                       <div className="mb-3 flex items-center justify-between">
-                        <h3 className="text-sm font-bold text-[#1f2737]">
+                        <h3 className="text-sm font-bold text-[#111827]">
                           Bus Schedule
                         </h3>
                         <div className="flex gap-2">
@@ -1949,14 +1949,14 @@ function BusDetail() {
                               setScheduleFormError("");
                               setIsScheduleEditing((v) => !v);
                             }}
-                            className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm font-semibold text-[#2642a6] transition duration-200 hover:bg-[#f2f5fd]"
+                            className="rounded-md border border-[#d6dbe6] bg-white px-3 py-1 text-sm font-semibold text-[#2642a6] transition duration-200 hover:bg-[#f2f5fd]"
                           >
                             {isScheduleEditing ? "Cancel Edit" : "Edit Schedule"}
                           </button>
                           <button
                             type="button"
                             onClick={() => setIsFullScheduleVisible((value) => !value)}
-                            className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm font-semibold text-[#3d4558] transition duration-200 hover:bg-[#f2f5fd]"
+                            className="rounded-md border border-[#d6dbe6] bg-white px-3 py-1 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#f2f5fd]"
                           >
                             {isFullScheduleVisible ? "Show Less" : "View Full Schedule"}
                           </button>
@@ -1969,22 +1969,22 @@ function BusDetail() {
                             className={
                               item.highlighted
                                 ? "rounded-lg border-l-4 border-[#2642a6] bg-[#f3f6ff] px-4 py-3"
-                                : "rounded-lg border-l-4 border-[#d0d5e0] bg-[#f8f9fd] px-4 py-3"
+                                : "rounded-lg border-l-4 border-[#d6dbe6] bg-[#f8f9fd] px-4 py-3"
                             }
                           >
                             <p
                               className={
                                 item.highlighted
                                   ? "text-sm font-bold text-[#2642a6]"
-                                  : "text-sm font-bold text-[#6e7587]"
+                                  : "text-sm font-bold text-[#64748b]"
                               }
                             >
                               {item.time}
                             </p>
-                            <p className="text-sm font-extrabold text-[#1f2737]">
+                            <p className="text-sm font-extrabold text-[#111827]">
                               {item.route}
                             </p>
-                            <p className="text-sm text-[#8a93a4]">
+                            <p className="text-sm text-[#94a3b8]">
                               Driver: {item.driver}
                             </p>
                             <p className="mt-1 inline-block rounded bg-[#edf2ff] px-2 py-0.5 text-sm font-semibold text-[#2642a6]">
@@ -1999,19 +1999,19 @@ function BusDetail() {
 
                 {activeTab === "revenue" ? (
                   <div className="p-4">
-                    <article className="dashboard-card rounded-xl border border-[#e6e8ef] bg-[#f7f8fc] p-5">
+                    <article className="dashboard-card rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-5">
                       <div className="mb-3 flex items-start justify-between">
                         <div>
-                          <h3 className="text-sm font-bold text-[#1f2737]">
+                          <h3 className="text-sm font-bold text-[#111827]">
                             Revenue Trends
                           </h3>
-                          <p className="text-sm text-[#8a93a4]">
+                          <p className="text-sm text-[#94a3b8]">
                             Revenue earned by this bus over the last 30 days
                           </p>
                         </div>
                         <button
                           type="button"
-                          className="rounded-md border border-[#d6dae4] bg-white px-3 py-1 text-sm text-[#3d4558] transition duration-200 hover:bg-[#f2f5fd]"
+                          className="rounded-md border border-[#d6dbe6] bg-white px-3 py-1 text-sm text-[#334155] transition duration-200 hover:bg-[#f2f5fd]"
                         >
                           Last 30 Days
                         </button>
@@ -2102,18 +2102,18 @@ function BusDetail() {
                         </g>
                       </svg>
 
-                      <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#eceff5] pt-3 text-center">
+                      <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#f1f5f9] pt-3 text-center">
                         <div>
-                          <p className="text-sm text-[#8a93a4]">
+                          <p className="text-sm text-[#94a3b8]">
                             Total Revenue
                           </p>
-                          <p className="text-sm font-extrabold text-[#1f2737]">
+                          <p className="text-sm font-extrabold text-[#111827]">
                             Rs.{totalRevenueLast30Days.toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-[#8a93a4]">Avg. Per Day</p>
-                          <p className="text-sm font-extrabold text-[#1f2737]">
+                          <p className="text-sm text-[#94a3b8]">Avg. Per Day</p>
+                          <p className="text-sm font-extrabold text-[#111827]">
                             Rs.{averageRevenuePerDay.toLocaleString()}
                           </p>
                         </div>
@@ -2128,20 +2128,20 @@ function BusDetail() {
 
       {isAmenityModalOpen ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
-          <div className="w-full max-w-xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
+          <div className="w-full max-w-xl rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
+            <div className="flex items-center justify-between border-b border-[#e5e7eb] px-6 py-4">
               <div>
-                <h2 className="text-sm font-extrabold text-[#1f2737]">
+                <h2 className="text-sm font-extrabold text-[#111827]">
                   Edit Amenities
                 </h2>
-                <p className="text-sm text-[#6d778e]">
+                <p className="text-sm text-[#64748b]">
                   Enable or disable amenities for this bus.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAmenityModalOpen(false)}
-                className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
+                className="grid h-9 w-9 place-items-center rounded-md text-[#64748b] transition duration-200 hover:bg-[#eceff7] hover:text-[#111827]"
                 aria-label="Close amenities editor"
               >
                 <FontAwesomeIcon icon={faXmark} />
@@ -2152,9 +2152,9 @@ function BusDetail() {
               {amenityDraft.map((amenity) => (
                 <label
                   key={amenity.key}
-                  className="flex cursor-pointer items-center justify-between rounded-lg border border-[#e3e7f0] bg-[#f9fafd] px-4 py-3"
+                  className="flex cursor-pointer items-center justify-between rounded-lg border border-[#e5e7eb] bg-[#f9fafd] px-4 py-3"
                 >
-                  <span className="flex items-center gap-3 text-sm font-semibold text-[#2f394d]">
+                  <span className="flex items-center gap-3 text-sm font-semibold text-[#334155]">
                     <FontAwesomeIcon icon={amenity.icon} className="text-xs" />
                     {amenity.name}
                   </span>
@@ -2162,17 +2162,17 @@ function BusDetail() {
                     type="checkbox"
                     checked={amenity.enabled}
                     onChange={() => handleAmenityToggle(amenity.key)}
-                    className="h-4 w-4 rounded border-[#d1d8e5] text-[#2642a6] focus:ring-[#2642a6]"
+                    className="h-4 w-4 rounded border-[#d6dbe6] text-[#2642a6] focus:ring-[#2642a6]"
                   />
                 </label>
               ))}
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-6 py-4">
+            <div className="flex items-center justify-end gap-3 border-t border-[#e5e7eb] px-6 py-4">
               <button
                 type="button"
                 onClick={() => setIsAmenityModalOpen(false)}
-                className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Cancel
               </button>
@@ -2190,20 +2190,20 @@ function BusDetail() {
 
       {isDriverModalOpen ? (
         <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-[#101426]/45 p-3 sm:items-center sm:p-4">
-          <div className="my-2 flex max-h-[calc(100vh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)] sm:my-6 sm:max-h-[calc(100vh-3rem)]">
-            <div className="flex shrink-0 items-center justify-between border-b border-[#e1e5ef] px-4 py-4 sm:px-6">
+          <div className="my-2 flex max-h-[calc(100vh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)] sm:my-6 sm:max-h-[calc(100vh-3rem)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#e5e7eb] px-4 py-4 sm:px-6">
               <div className="min-w-0 pr-3">
-                <h2 className="text-sm font-extrabold text-[#1f2737]">
+                <h2 className="text-sm font-extrabold text-[#111827]">
                   Change Driver
                 </h2>
-                <p className="text-sm text-[#6d778e]">
+                <p className="text-sm text-[#64748b]">
                   Update assigned driver details.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsDriverModalOpen(false)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[#64748b] transition duration-200 hover:bg-[#eceff7] hover:text-[#111827]"
                 aria-label="Close driver editor"
               >
                 <FontAwesomeIcon icon={faXmark} />
@@ -2213,10 +2213,10 @@ function BusDetail() {
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="grid grid-cols-1 gap-4 px-4 py-5 sm:px-6 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label htmlFor="driver-select" className="mb-1 block text-sm font-semibold text-[#45516b]">Select Driver</label>
+                <label htmlFor="driver-select" className="mb-1 block text-sm font-semibold text-[#334155]">Select Driver</label>
                 <select id="driver-select" value={driverDraft.id}
                   onChange={(e) => handleDriverSelect(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none">
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none">
                   <option value="">-- Select a driver --</option>
                   {driverOptions.map((d) => (
                     <option key={d.driverId} value={d.driverId}>{d.name} (ID: {d.driverId})</option>
@@ -2228,25 +2228,25 @@ function BusDetail() {
                   <div className="md:col-span-2 py-5 text-center text-sm text-[#64748b]"><FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />Loading driver details...</div>
                 ) : adminDriverDraft ? (
                   <>
-                    <label className="text-sm font-semibold text-[#45516b]">First name<input value={adminDriverDraft.firstName} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, firstName: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
-                    <label className="text-sm font-semibold text-[#45516b]">Last name<input value={adminDriverDraft.lastName} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, lastName: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
-                    <label className="text-sm font-semibold text-[#45516b]">Email<input type="email" value={adminDriverDraft.email} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, email: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
-                    <label className="text-sm font-semibold text-[#45516b]">Phone number<input inputMode="numeric" maxLength={10} value={adminDriverDraft.phoneNumber} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, phoneNumber: event.target.value.replace(/\D/g, '').slice(0, 10) })} placeholder="0XXXXXXXXX" className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
-                    <label className="text-sm font-semibold text-[#45516b]">License number<input maxLength={8} value={adminDriverDraft.licenseNumber} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, licenseNumber: event.target.value.toUpperCase().replace(/[^B0-9]/g, '').slice(0, 8) })} placeholder="B1234567" className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
-                    <label className="text-sm font-semibold text-[#45516b]">License expiry<input type="date" value={adminDriverDraft.licenceExpiry} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, licenceExpiry: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
-                    <label className="text-sm font-semibold text-[#45516b]">Years of experience<input type="number" min={0} value={adminDriverDraft.yearsOfExperience} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, yearsOfExperience: Number(event.target.value) })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
-                    <label className="text-sm font-semibold text-[#45516b]">Status<select value={adminDriverDraft.status} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, status: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]"><option value="active">Active</option><option value="on_leave">On leave</option><option value="suspended">Suspended</option><option value="inactive">Inactive</option></select></label>
-                    <label className="text-sm font-semibold text-[#45516b]">Bank account number<input value={adminDriverDraft.accountNumber} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, accountNumber: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
-                    <label className="text-sm font-semibold text-[#45516b]">Bank name<input value={adminDriverDraft.bankName} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, bankName: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d7dde9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
-                    <label className="inline-flex items-center gap-2 text-sm font-semibold text-[#45516b]"><input type="checkbox" checked={adminDriverDraft.isVerified} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, isVerified: event.target.checked })} className="h-4 w-4 accent-[#2642a6]" /> License verified</label>
-                    <label className="inline-flex items-center gap-2 text-sm font-semibold text-[#45516b]"><input type="checkbox" checked={adminDriverDraft.isPhoneVerified} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, isPhoneVerified: event.target.checked })} className="h-4 w-4 accent-[#2642a6]" /> Phone verified</label>
+                    <label className="text-sm font-semibold text-[#334155]">First name<input value={adminDriverDraft.firstName} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, firstName: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#334155]">Last name<input value={adminDriverDraft.lastName} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, lastName: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#334155]">Email<input type="email" value={adminDriverDraft.email} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, email: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#334155]">Phone number<input inputMode="numeric" maxLength={10} value={adminDriverDraft.phoneNumber} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, phoneNumber: event.target.value.replace(/\D/g, '').slice(0, 10) })} placeholder="0XXXXXXXXX" className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#334155]">License number<input maxLength={8} value={adminDriverDraft.licenseNumber} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, licenseNumber: event.target.value.toUpperCase().replace(/[^B0-9]/g, '').slice(0, 8) })} placeholder="B1234567" className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#334155]">License expiry<input type="date" value={adminDriverDraft.licenceExpiry} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, licenceExpiry: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#334155]">Years of experience<input type="number" min={0} value={adminDriverDraft.yearsOfExperience} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, yearsOfExperience: Number(event.target.value) })} className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#334155]">Status<select value={adminDriverDraft.status} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, status: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]"><option value="active">Active</option><option value="on_leave">On leave</option><option value="suspended">Suspended</option><option value="inactive">Inactive</option></select></label>
+                    <label className="text-sm font-semibold text-[#334155]">Bank account number<input value={adminDriverDraft.accountNumber} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, accountNumber: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="text-sm font-semibold text-[#334155]">Bank name<input value={adminDriverDraft.bankName} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, bankName: event.target.value })} className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2642a6]" /></label>
+                    <label className="inline-flex items-center gap-2 text-sm font-semibold text-[#334155]"><input type="checkbox" checked={adminDriverDraft.isVerified} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, isVerified: event.target.checked })} className="h-4 w-4 accent-[#2642a6]" /> License verified</label>
+                    <label className="inline-flex items-center gap-2 text-sm font-semibold text-[#334155]"><input type="checkbox" checked={adminDriverDraft.isPhoneVerified} onChange={(event) => setAdminDriverDraft({ ...adminDriverDraft, isPhoneVerified: event.target.checked })} className="h-4 w-4 accent-[#2642a6]" /> Phone verified</label>
                   </>
                 ) : null
               ) : null}
               </div>
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-[#e1e5ef] px-4 py-4 sm:px-6">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-[#e5e7eb] px-4 py-4 sm:px-6">
               {driverFormError ? (
                 <p className="mr-auto min-w-0 basis-full text-sm font-semibold text-[#d14343] sm:basis-auto">
                   {driverFormError}
@@ -2258,7 +2258,7 @@ function BusDetail() {
                   setDriverFormError("");
                   setIsDriverModalOpen(false);
                 }}
-                className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Cancel
               </button>
@@ -2276,13 +2276,13 @@ function BusDetail() {
 
       {isEditBusModalOpen ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
-          <div className="w-full max-w-xl rounded-2xl border border-[#d8deea] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="flex items-center justify-between border-b border-[#e1e5ef] px-6 py-4">
+          <div className="w-full max-w-xl rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
+            <div className="flex items-center justify-between border-b border-[#e5e7eb] px-6 py-4">
               <div>
-                <h2 className="text-sm font-extrabold text-[#1f2737]">
+                <h2 className="text-sm font-extrabold text-[#111827]">
                   Edit Bus
                 </h2>
-                <p className="text-sm text-[#6d778e]">
+                <p className="text-sm text-[#64748b]">
                   Update basic bus details.
                 </p>
               </div>
@@ -2292,7 +2292,7 @@ function BusDetail() {
                   setBusFormError("");
                   setIsEditBusModalOpen(false);
                 }}
-                className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
+                className="grid h-9 w-9 place-items-center rounded-md text-[#64748b] transition duration-200 hover:bg-[#eceff7] hover:text-[#111827]"
                 aria-label="Close bus editor"
               >
                 <FontAwesomeIcon icon={faXmark} />
@@ -2302,38 +2302,38 @@ function BusDetail() {
             <div className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2">
               {/* Bus Number */}
               <div>
-                <label htmlFor="bus-code" className="mb-1 block text-sm font-semibold text-[#45516b]">Bus Number</label>
+                <label htmlFor="bus-code" className="mb-1 block text-sm font-semibold text-[#334155]">Bus Number</label>
                 <input id="bus-code" value={busDraft.code}
                   onChange={(e) => setBusDraft((p) => ({ ...p, code: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none" />
               </div>
               {/* Registration Number */}
               <div>
-                <label htmlFor="bus-reg" className="mb-1 block text-sm font-semibold text-[#45516b]">Registration Number</label>
+                <label htmlFor="bus-reg" className="mb-1 block text-sm font-semibold text-[#334155]">Registration Number</label>
                 <input id="bus-reg" value={busDraft.registrationNumber}
                   onChange={(e) => setBusDraft((p) => ({ ...p, registrationNumber: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none" />
               </div>
               {/* Seats */}
               <div>
-                <label htmlFor="bus-seats" className="mb-1 block text-sm font-semibold text-[#45516b]">Seats</label>
+                <label htmlFor="bus-seats" className="mb-1 block text-sm font-semibold text-[#334155]">Seats</label>
                 <input id="bus-seats" value={busDraft.seats}
                   onChange={(e) => setBusDraft((p) => ({ ...p, seats: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none" />
               </div>
               {/* Brand */}
               <div>
-                <label htmlFor="bus-brand" className="mb-1 block text-sm font-semibold text-[#45516b]">Brand</label>
+                <label htmlFor="bus-brand" className="mb-1 block text-sm font-semibold text-[#334155]">Brand</label>
                 <input id="bus-brand" value={busDraft.brand}
                   onChange={(e) => setBusDraft((p) => ({ ...p, brand: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none" />
               </div>
               {/* Bus Condition — dropdown with DB ENUM values */}
               <div>
-                <label htmlFor="bus-condition" className="mb-1 block text-sm font-semibold text-[#45516b]">Condition</label>
+                <label htmlFor="bus-condition" className="mb-1 block text-sm font-semibold text-[#334155]">Condition</label>
                 <select id="bus-condition" value={busDraft.condition}
                   onChange={(e) => setBusDraft((p) => ({ ...p, condition: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none">
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none">
                   <option value="">Select condition</option>
                   <option value="excellent">Excellent</option>
                   <option value="good">Good</option>
@@ -2343,10 +2343,10 @@ function BusDetail() {
               </div>
               {/* Bus Type — dropdown with DB ENUM values */}
               <div>
-                <label htmlFor="bus-type" className="mb-1 block text-sm font-semibold text-[#45516b]">Type</label>
+                <label htmlFor="bus-type" className="mb-1 block text-sm font-semibold text-[#334155]">Type</label>
                 <select id="bus-type" value={busDraft.type}
                   onChange={(e) => setBusDraft((p) => ({ ...p, type: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none">
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none">
                   <option value="">Select type</option>
                   <option value="highway">Highway</option>
                   <option value="long_distance">Long Distance</option>
@@ -2356,10 +2356,10 @@ function BusDetail() {
               </div>
               {/* Status */}
               <div>
-                <label htmlFor="bus-status" className="mb-1 block text-sm font-semibold text-[#45516b]">Status</label>
+                <label htmlFor="bus-status" className="mb-1 block text-sm font-semibold text-[#334155]">Status</label>
                 <select id="bus-status" value={busDraft.status}
                   onChange={(e) => setBusDraft((p) => ({ ...p, status: e.target.value as BusInfo["status"] }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none">
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none">
                   <option value="active">Active</option>
                   <option value="maintenance">Maintenance</option>
                   <option value="inactive">Inactive</option>
@@ -2367,14 +2367,14 @@ function BusDetail() {
               </div>
               {/* Route */}
               <div>
-                <label htmlFor="bus-route" className="mb-1 block text-sm font-semibold text-[#45516b]">Route</label>
+                <label htmlFor="bus-route" className="mb-1 block text-sm font-semibold text-[#334155]">Route</label>
                 <select id="bus-route" value={busDraft.routeId ?? ""}
                   onChange={(e) => {
                     const rid = e.target.value ? Number(e.target.value) : null;
                     const rName = routeOptions.find((r) => r.routeId === rid)?.routeName ?? "";
                     setBusDraft((p) => ({ ...p, routeId: rid, routeName: rName }));
                   }}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none">
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none">
                   <option value="">No route assigned</option>
                   {routeOptions.map((r) => (
                     <option key={r.routeId} value={r.routeId}>{r.routeName}</option>
@@ -2383,42 +2383,42 @@ function BusDetail() {
               </div>
               {/* Start Time */}
               <div>
-                <label htmlFor="bus-start-time" className="mb-1 block text-sm font-semibold text-[#45516b]">Start Time</label>
+                <label htmlFor="bus-start-time" className="mb-1 block text-sm font-semibold text-[#334155]">Start Time</label>
                 <input id="bus-start-time" type="time" value={busDraft.startTime}
                   onChange={(e) => setBusDraft((p) => ({ ...p, startTime: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none" />
               </div>
               {/* End Time */}
               <div>
-                <label htmlFor="bus-end-time" className="mb-1 block text-sm font-semibold text-[#45516b]">End Time</label>
+                <label htmlFor="bus-end-time" className="mb-1 block text-sm font-semibold text-[#334155]">End Time</label>
                 <input id="bus-end-time" type="time" value={busDraft.endTime}
                   onChange={(e) => setBusDraft((p) => ({ ...p, endTime: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none" />
               </div>
               {/* Return Start Time */}
               <div>
-                <label htmlFor="bus-return-start-time" className="mb-1 block text-sm font-semibold text-[#45516b]">Return Start Time</label>
+                <label htmlFor="bus-return-start-time" className="mb-1 block text-sm font-semibold text-[#334155]">Return Start Time</label>
                 <input id="bus-return-start-time" type="time" value={busDraft.returnStartTime}
                   onChange={(e) => setBusDraft((p) => ({ ...p, returnStartTime: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none" />
               </div>
               {/* Return End Time */}
               <div>
-                <label htmlFor="bus-return-end-time" className="mb-1 block text-sm font-semibold text-[#45516b]">Return End Time</label>
+                <label htmlFor="bus-return-end-time" className="mb-1 block text-sm font-semibold text-[#334155]">Return End Time</label>
                 <input id="bus-return-end-time" type="time" value={busDraft.returnEndTime}
                   onChange={(e) => setBusDraft((p) => ({ ...p, returnEndTime: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none" />
               </div>
               {/* Insurance Expiry Date */}
               <div>
-                <label htmlFor="bus-insurance" className="mb-1 block text-sm font-semibold text-[#45516b]">Insurance Expiry</label>
+                <label htmlFor="bus-insurance" className="mb-1 block text-sm font-semibold text-[#334155]">Insurance Expiry</label>
                 <input id="bus-insurance" type="date" value={busDraft.insuranceExp}
                   onChange={(e) => setBusDraft((p) => ({ ...p, insuranceExp: e.target.value }))}
-                  className="h-11 w-full rounded-lg border border-[#d7dde9] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none" />
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none" />
               </div>
             </div>
             </div>
-            <div className="flex items-center justify-end gap-3 border-t border-[#e1e5ef] px-6 py-4">
+            <div className="flex items-center justify-end gap-3 border-t border-[#e5e7eb] px-6 py-4">
               {busFormError ? (
                 <p className="mr-auto text-sm font-semibold text-[#d14343]">
                   {busFormError}
@@ -2437,7 +2437,7 @@ function BusDetail() {
                   setBusFormError("");
                   setIsEditBusModalOpen(false);
                 }}
-                className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Cancel
               </button>
@@ -2456,7 +2456,7 @@ function BusDetail() {
       {isEditLayoutModalOpen ? (
         <div className="fixed inset-0 z-50 bg-[#f6f7f9]">
           <div className="flex h-full flex-col">
-            <header className="border-b border-[#e2e8f0] bg-white px-5 py-4">
+            <header className="border-b border-[#e5e7eb] bg-white px-5 py-4">
               <div className="mx-auto flex w-full max-w-3xl items-center justify-between">
                 <button
                   type="button"
@@ -2473,7 +2473,7 @@ function BusDetail() {
                   <h2 className="text-lg font-bold text-[#111827]">
                     Edit Bus Layout
                   </h2>
-                  <p className="text-xs text-[#7f8ea3]">Bus {busDraft.code}</p>
+                  <p className="text-xs text-[#94a3b8]">Bus {busDraft.code}</p>
                 </div>
                 <button
                   type="button"
@@ -2489,7 +2489,7 @@ function BusDetail() {
             <div className="flex-1 overflow-y-auto px-5 py-4">
               <div className="mx-auto grid w-full max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
                 <section
-                  className="rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-sm mx-auto"
+                  className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-sm mx-auto"
                   style={{ maxWidth: `${previewMaxWidth}px` }}
                 >
                   <div className="mb-3 flex items-center justify-between">
@@ -2507,9 +2507,9 @@ function BusDetail() {
                     </div>
                   </div>
 
-                  <div className="relative rounded-xl border border-[#e9edf5] bg-[#fbfcff] p-4 md:p-5">
-                    <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#6b7280] shadow-sm">
-                      <span className="grid h-8 w-8 place-items-center rounded-full bg-[#f3f4f6] text-[#9ca3af]">
+                  <div className="relative rounded-xl border border-[#e5e7eb] bg-[#fbfcff] p-4 md:p-5">
+                    <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#64748b] shadow-sm">
+                      <span className="grid h-8 w-8 place-items-center rounded-full bg-[#f3f4f6] text-[#94a3b8]">
                         <FontAwesomeIcon icon={faCircleUser} />
                       </span>
                       Driver
@@ -2523,8 +2523,8 @@ function BusDetail() {
                       </div>
                     ) : null}
 
-                    <div className="pointer-events-none absolute bottom-6 left-1/2 top-16 w-px -translate-x-1/2 border-l border-dashed border-[#d9e0ee]" />
-                    <div className="pointer-events-none absolute left-1/2 top-[52%] -translate-x-1/2 rounded-full bg-[#f1f5f9] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#9ca3af]">
+                    <div className="pointer-events-none absolute bottom-6 left-1/2 top-16 w-px -translate-x-1/2 border-l border-dashed border-[#e5e7eb]" />
+                    <div className="pointer-events-none absolute left-1/2 top-[52%] -translate-x-1/2 rounded-full bg-[#f1f5f9] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">
                       Aisle
                     </div>
 
@@ -2536,7 +2536,7 @@ function BusDetail() {
                               key={`layout-row-last-${rowIndex + 1}`}
                               className="space-y-1"
                             >
-                              <p className="text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-[#9ca3af]">
+                              <p className="text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">
                                 Rear Bench
                               </p>
                               <div
@@ -2573,17 +2573,17 @@ function BusDetail() {
                   </div>
                 </section>
 
-                <aside className="rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-sm lg:sticky lg:top-4">
+                <aside className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-sm lg:sticky lg:top-4">
                   <h3 className="text-sm font-bold tracking-[0.04em] text-[#334155]">
                     Layout Controls
                   </h3>
-                  <p className="mt-1 text-xs text-[#7a8799]">
+                  <p className="mt-1 text-xs text-[#64748b]">
                     Set seat counts, then press OK to regenerate layout.
                   </p>
 
                   <div className="mt-4 space-y-3">
                     <label className="block">
-                      <span className="mb-1 block text-xs font-semibold text-[#4b5568]">
+                      <span className="mb-1 block text-xs font-semibold text-[#334155]">
                         Rows (front to back)
                       </span>
                       <input
@@ -2597,13 +2597,13 @@ function BusDetail() {
                             Number.parseInt(event.target.value || "0", 10),
                           )
                         }
-                        className="h-10 w-full rounded-lg border border-[#d6deec] bg-[#fbfcff] px-3 text-sm text-[#243244] outline-none focus:border-[#9db3ee]"
+                        className="h-10 w-full rounded-lg border border-[#d6dbe6] bg-[#fbfcff] px-3 text-sm text-[#111827] outline-none focus:border-[#9db3ee]"
                       />
                     </label>
 
                     <div className="grid grid-cols-2 gap-3">
                       <label className="block">
-                        <span className="mb-1 block text-xs font-semibold text-[#4b5568]">
+                        <span className="mb-1 block text-xs font-semibold text-[#334155]">
                           Left Seats / Row
                         </span>
                         <select
@@ -2614,7 +2614,7 @@ function BusDetail() {
                               Number.parseInt(event.target.value, 10),
                             )
                           }
-                          className="h-10 w-full rounded-lg border border-[#d6deec] bg-[#fbfcff] px-3 text-sm text-[#243244] outline-none focus:border-[#9db3ee]"
+                          className="h-10 w-full rounded-lg border border-[#d6dbe6] bg-[#fbfcff] px-3 text-sm text-[#111827] outline-none focus:border-[#9db3ee]"
                         >
                           <option value={1}>1</option>
                           <option value={2}>2</option>
@@ -2623,7 +2623,7 @@ function BusDetail() {
                       </label>
 
                       <label className="block">
-                        <span className="mb-1 block text-xs font-semibold text-[#4b5568]">
+                        <span className="mb-1 block text-xs font-semibold text-[#334155]">
                           Right Seats / Row
                         </span>
                         <select
@@ -2634,7 +2634,7 @@ function BusDetail() {
                               Number.parseInt(event.target.value, 10),
                             )
                           }
-                          className="h-10 w-full rounded-lg border border-[#d6deec] bg-[#fbfcff] px-3 text-sm text-[#243244] outline-none focus:border-[#9db3ee]"
+                          className="h-10 w-full rounded-lg border border-[#d6dbe6] bg-[#fbfcff] px-3 text-sm text-[#111827] outline-none focus:border-[#9db3ee]"
                         >
                           <option value={1}>1</option>
                           <option value={2}>2</option>
@@ -2644,7 +2644,7 @@ function BusDetail() {
                     </div>
 
                     <label className="block">
-                      <span className="mb-1 block text-xs font-semibold text-[#4b5568]">
+                      <span className="mb-1 block text-xs font-semibold text-[#334155]">
                         Rear Bench Seats
                       </span>
                       <select
@@ -2655,7 +2655,7 @@ function BusDetail() {
                             Number.parseInt(event.target.value, 10),
                           )
                         }
-                        className="h-10 w-full rounded-lg border border-[#d6deec] bg-[#fbfcff] px-3 text-sm text-[#243244] outline-none focus:border-[#9db3ee]"
+                        className="h-10 w-full rounded-lg border border-[#d6dbe6] bg-[#fbfcff] px-3 text-sm text-[#111827] outline-none focus:border-[#9db3ee]"
                       >
                         <option value={0}>0</option>
                         <option value={1}>1</option>
@@ -2674,7 +2674,7 @@ function BusDetail() {
                         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6c7f9a]">
                           Draft Total Seats
                         </p>
-                        <p className="mt-1 text-lg font-extrabold text-[#1f2937]">
+                        <p className="mt-1 text-lg font-extrabold text-[#111827]">
                           {draftLayoutSeatCount}
                         </p>
                       </div>
@@ -2712,7 +2712,7 @@ function BusDetail() {
 
                     {layoutDraftConfig.driverLeftSeats ? (
                       <label className="block">
-                        <span className="mb-1 block text-xs font-semibold text-[#4b5568]">
+                        <span className="mb-1 block text-xs font-semibold text-[#334155]">
                           Seats beside driver
                         </span>
                         <select
@@ -2723,7 +2723,7 @@ function BusDetail() {
                               Number.parseInt(event.target.value, 10),
                             )
                           }
-                          className="h-10 w-full rounded-lg border border-[#d6deec] bg-[#fbfcff] px-3 text-sm text-[#243244] outline-none focus:border-[#9db3ee]"
+                          className="h-10 w-full rounded-lg border border-[#d6dbe6] bg-[#fbfcff] px-3 text-sm text-[#111827] outline-none focus:border-[#9db3ee]"
                         >
                           <option value={1}>1</option>
                           <option value={2}>2</option>
@@ -2753,7 +2753,7 @@ function BusDetail() {
                           setIsEditLayoutModalOpen(false);
                           setIsEditBusModalOpen(true);
                         }}
-                        className="rounded-lg border border-[#d3d9e6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                        className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#e9edf7]"
                       >
                         Back
                       </button>
@@ -2807,7 +2807,7 @@ function BusDetail() {
       {isDeleteModalOpen ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-md rounded-2xl border border-[#f0d6d6] bg-[#fff7f7] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
-            <div className="border-b border-[#efdcdc] px-6 py-4">
+            <div className="border-b border-[#e5e7eb] px-6 py-4">
               <h2 className="text-sm font-extrabold text-[#8d1f1f]">
                 Delete Bus
               </h2>
@@ -2819,7 +2819,7 @@ function BusDetail() {
               <button
                 type="button"
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="rounded-lg border border-[#d3d9e6] bg-white px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#f5f7fc]"
+                className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#f5f7fc]"
               >
                 Cancel
               </button>

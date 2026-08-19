@@ -239,7 +239,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
-                className="mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#475569] transition hover:bg-[#f1f5f9] lg:hidden"
+                className="mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#334155] transition hover:bg-[#f1f5f9] lg:hidden"
                 aria-label="Open navigation menu"
               >
                 <FontAwesomeIcon icon={faBars} />
@@ -255,7 +255,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
                     <span
                       className={
                         isLast
-                          ? "truncate font-bold text-[#1e293b]"
+                          ? "truncate font-bold text-[#111827]"
                           : "hidden sm:inline"
                       }
                     >

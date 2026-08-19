@@ -257,24 +257,24 @@ function Analytics() {
     <section className="mx-auto w-full max-w-[1320px]">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="animate-dash-in text-base font-extrabold tracking-tight text-[#1f2737]">Dashboard</h1>
-          <p className="mt-1 text-sm text-[#7f899e]">
+          <h1 className="animate-dash-in text-base font-extrabold tracking-tight text-[#111827]">Dashboard</h1>
+          <p className="mt-1 text-sm text-[#64748b]">
             {lastRefreshedAt ? `Live data · refreshed at ${formatTime(lastRefreshedAt)}` : 'Loading live database data...'}
           </p>
         </div>
         <div className="animate-dash-in flex flex-wrap items-center gap-3">
-          <label className="inline-flex h-10 items-center rounded-lg border border-[#d6dbe6] bg-[#f7f8fc] px-3 text-sm font-medium text-[#5e6a82]">
+          <label className="inline-flex h-10 items-center rounded-lg border border-[#d6dbe6] bg-[#f7f8fc] px-3 text-sm font-medium text-[#64748b]">
             <select
               value={selectedRange}
               onChange={(event) => setSelectedRange(Number(event.target.value) as Range)}
-              className="bg-transparent pr-1 font-semibold text-[#2f394d] outline-none"
+              className="bg-transparent pr-1 font-semibold text-[#334155] outline-none"
             >
               <option value={7}>Last 7 Days</option>
               <option value={30}>Last 30 Days</option>
               <option value={90}>Last 90 Days</option>
             </select>
           </label>
-          <button type="button" onClick={() => void loadDashboard(true)} disabled={loading || refreshing} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 text-sm font-bold text-[#2f394d] disabled:opacity-60">
+          <button type="button" onClick={() => void loadDashboard(true)} disabled={loading || refreshing} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 text-sm font-bold text-[#334155] disabled:opacity-60">
             <FontAwesomeIcon icon={faArrowRotateRight} spin={refreshing} />
             Refresh
           </button>
@@ -301,19 +301,19 @@ function Analytics() {
         ].map((kpi) => (
           <article key={kpi.title} className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm">
             <div className="mb-2 flex items-start justify-between">
-              <p className="text-xs font-semibold text-[#758098]">{kpi.title}</p>
+              <p className="text-xs font-semibold text-[#64748b]">{kpi.title}</p>
               <div className={`grid h-7 w-7 place-items-center rounded-md text-xs ${kpi.iconWrap}`}><FontAwesomeIcon icon={kpi.icon} /></div>
             </div>
-            <p className="text-sm font-extrabold leading-none text-[#1f2737]">{loading ? '—' : kpi.value}</p>
-            <p className="mt-1.5 text-xs font-semibold text-[#7f899e]">From current database records</p>
+            <p className="text-sm font-extrabold leading-none text-[#111827]">{loading ? '—' : kpi.value}</p>
+            <p className="mt-1.5 text-xs font-semibold text-[#64748b]">From current database records</p>
           </article>
         ))}
       </section>
 
       <div className="mt-3 grid gap-3 xl:grid-cols-[1.58fr_1fr]">
         <article className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm">
-          <h2 className="text-sm font-bold text-[#1f2737]">Booking Trends</h2>
-          <p className="text-sm text-[#7f899e]">Bookings by route type from journey dates in the database</p>
+          <h2 className="text-sm font-bold text-[#111827]">Booking Trends</h2>
+          <p className="text-sm text-[#64748b]">Bookings by route type from journey dates in the database</p>
           <div className="mt-4 h-[240px] rounded-xl bg-[#fafbff] p-4">
             <svg viewBox="0 0 740 280" className="h-full w-full" role="img" aria-label="Live booking trend chart">
               {[30, 80, 130, 180, 230].map((y) => <line key={y} x1="60" y1={y} x2="705" y2={y} stroke={y === 230 ? '#d6dce8' : '#e4e8f1'} />)}
@@ -326,18 +326,18 @@ function Analytics() {
               {trend.labels.map((label, index) => label ? <text key={`${label}-${index}`} x={70 + (index * 630) / Math.max(1, trend.labels.length - 1)} y="265" textAnchor="middle" fontSize="11" fill="#7d879b">{label}</text> : null)}
             </svg>
           </div>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-5 text-sm font-semibold text-[#2d3950]">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-5 text-sm font-semibold text-[#334155]">
             {categoryOrder.map((category) => <div key={category} className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: categoryColors[category] }} />{category}</div>)}
           </div>
         </article>
 
         <article className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm">
-          <h2 className="text-sm font-bold text-[#1f2737]">Revenue by Category</h2>
-          <p className="text-sm text-[#7f899e]">Paid booking revenue from the database</p>
+          <h2 className="text-sm font-bold text-[#111827]">Revenue by Category</h2>
+          <p className="text-sm text-[#64748b]">Paid booking revenue from the database</p>
           <div className="mt-5 flex justify-center">
             <div className="rounded-xl border border-[#e5e7eb] bg-white px-5 py-2.5 text-center shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8994a8]">Total paid revenue</p>
-              <p className="mt-1 text-lg font-extrabold tracking-tight text-[#1f2737]">{formatAmount(revenueCategories.total)}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Total paid revenue</p>
+              <p className="mt-1 text-lg font-extrabold tracking-tight text-[#111827]">{formatAmount(revenueCategories.total)}</p>
             </div>
           </div>
           <div className="relative mx-auto mt-4 h-56 w-56">
@@ -369,27 +369,27 @@ function Analytics() {
             {hoveredCategory ? (() => {
               const selectedSlice = revenueSlices.find((slice) => slice.category === hoveredCategory)
               if (!selectedSlice) return null
-              return <div className="pointer-events-none absolute left-1/2 top-1/2 min-w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/80 bg-white/95 px-3 py-2 text-center shadow-lg backdrop-blur-sm"><p className="text-xs font-bold text-[#526078]">{selectedSlice.category}</p><p className="mt-0.5 text-sm font-extrabold text-[#1f2737]">{formatAmount(revenueCategories.totals[selectedSlice.category])}</p><p className="text-[11px] font-semibold text-[#8994a8]">{selectedSlice.percentage.toFixed(1)}% of revenue</p></div>
+              return <div className="pointer-events-none absolute left-1/2 top-1/2 min-w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/80 bg-white/95 px-3 py-2 text-center shadow-lg backdrop-blur-sm"><p className="text-xs font-bold text-[#64748b]">{selectedSlice.category}</p><p className="mt-0.5 text-sm font-extrabold text-[#111827]">{formatAmount(revenueCategories.totals[selectedSlice.category])}</p><p className="text-[11px] font-semibold text-[#94a3b8]">{selectedSlice.percentage.toFixed(1)}% of revenue</p></div>
             })() : null}
           </div>
           <div className="revenue-category-list mt-4 grid gap-3 sm:grid-cols-2">
             {categoryOrder.map((category) => {
               const percentage = revenueCategories.total ? (revenueCategories.totals[category] / revenueCategories.total) * 100 : 0
-              return <div key={category} className="rounded-lg bg-[#f4f6fa] px-3 py-3"><p className="text-sm text-[#7f899e]"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: categoryColors[category] }} />{category}</p><p className="text-sm font-semibold text-[#1f2737]">{percentage.toFixed(1)}% · {formatAmount(revenueCategories.totals[category])}</p></div>
+              return <div key={category} className="rounded-lg bg-[#f4f6fa] px-3 py-3"><p className="text-sm text-[#64748b]"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: categoryColors[category] }} />{category}</p><p className="text-sm font-semibold text-[#111827]">{percentage.toFixed(1)}% · {formatAmount(revenueCategories.totals[category])}</p></div>
             })}
           </div>
         </article>
       </div>
 
       <article className="mt-3 dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] shadow-sm">
-        <div className="flex items-center justify-between px-4 py-3"><h2 className="text-sm font-bold text-[#1f2737]">Recent Bookings</h2><button type="button" onClick={() => navigate('/dashboard/booking')} className="text-sm font-semibold text-[#2642a6]">View All</button></div>
+        <div className="flex items-center justify-between px-4 py-3"><h2 className="text-sm font-bold text-[#111827]">Recent Bookings</h2><button type="button" onClick={() => navigate('/dashboard/booking')} className="text-sm font-semibold text-[#2642a6]">View All</button></div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px]">
-            <thead><tr className="bg-[#f1f4fa] text-left text-sm text-[#616f88]"><th className="px-4 py-3 font-semibold">Booking ID</th><th className="px-4 py-3 font-semibold">Passenger</th><th className="px-4 py-3 font-semibold">Route</th><th className="px-4 py-3 font-semibold">Date & Time</th><th className="px-4 py-3 font-semibold">Amount</th><th className="px-4 py-3 font-semibold">Status</th></tr></thead>
+            <thead><tr className="bg-[#f1f4fa] text-left text-sm text-[#64748b]"><th className="px-4 py-3 font-semibold">Booking ID</th><th className="px-4 py-3 font-semibold">Passenger</th><th className="px-4 py-3 font-semibold">Route</th><th className="px-4 py-3 font-semibold">Date & Time</th><th className="px-4 py-3 font-semibold">Amount</th><th className="px-4 py-3 font-semibold">Status</th></tr></thead>
             <tbody>
-              {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-[#7d879b]">Loading bookings from the database...</td></tr> : null}
-              {!loading && !recentBookings.length ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-[#7d879b]">No bookings found.</td></tr> : null}
-              {!loading && recentBookings.map((booking) => <tr key={booking.bookingId} className="border-b border-[#e5e7eb] text-sm text-[#2a3448]"><td className="px-4 py-3 font-semibold text-[#2642a6]">{booking.bookingId}</td><td className="px-4 py-3">{booking.passengerName}</td><td className="px-4 py-3 text-[#7d879b]">{booking.route}</td><td className="px-4 py-3 text-[#7d879b]"><span className="inline-flex items-center gap-2"><FontAwesomeIcon icon={faCalendarDays} className="text-[#9ca3af]" />{formatDateTime(booking.journeyDate, booking.journeyTime)}</span></td><td className="px-4 py-3 font-semibold">{formatAmount(booking.amount)}</td><td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(booking.status)}`}>{booking.status || 'Unknown'}</span></td></tr>)}
+              {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-[#64748b]">Loading bookings from the database...</td></tr> : null}
+              {!loading && !recentBookings.length ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-[#64748b]">No bookings found.</td></tr> : null}
+              {!loading && recentBookings.map((booking) => <tr key={booking.bookingId} className="border-b border-[#e5e7eb] text-sm text-[#111827]"><td className="px-4 py-3 font-semibold text-[#2642a6]">{booking.bookingId}</td><td className="px-4 py-3">{booking.passengerName}</td><td className="px-4 py-3 text-[#64748b]">{booking.route}</td><td className="px-4 py-3 text-[#64748b]"><span className="inline-flex items-center gap-2"><FontAwesomeIcon icon={faCalendarDays} className="text-[#94a3b8]" />{formatDateTime(booking.journeyDate, booking.journeyTime)}</span></td><td className="px-4 py-3 font-semibold">{formatAmount(booking.amount)}</td><td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(booking.status)}`}>{booking.status || 'Unknown'}</span></td></tr>)}
             </tbody>
           </table>
         </div>

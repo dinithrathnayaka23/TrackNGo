@@ -45,7 +45,7 @@ export function priorityBadge(priority: string) {
 export function statusBadge(status: string) {
   if (status === 'Pending') return 'bg-[#fee2e2] text-[#dc2626]'
   if (status === 'Under Review') return 'bg-[#dbeafe] text-[#2563eb]'
-  if (status === 'Rejected') return 'bg-[#f3f4f6] text-[#6b7280]'
+  if (status === 'Rejected') return 'bg-[#f3f4f6] text-[#64748b]'
   return 'bg-[#dcfce7] text-[#047857]'
 }
 
@@ -420,7 +420,7 @@ function Complaints() {
               <p className="text-sm text-[#64748b]">Total Complaints</p>
               <p className="mt-1 text-2xl font-extrabold text-[#111827]">{TOTAL}</p>
             </div>
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f1f5f9] text-[#475569]">
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f1f5f9] text-[#334155]">
               <FontAwesomeIcon icon={faClipboardList} />
             </div>
           </article>
@@ -615,7 +615,7 @@ function Complaints() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-3.5 align-middle">
-                      <span className="inline-flex whitespace-nowrap rounded-md bg-[#f1f5f9] px-2.5 py-1 text-xs font-medium text-[#475569]">{complaint.type}</span>
+                      <span className="inline-flex whitespace-nowrap rounded-md bg-[#f1f5f9] px-2.5 py-1 text-xs font-medium text-[#334155]">{complaint.type}</span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-3.5 align-middle">
                       <div className="flex items-center gap-2">
@@ -625,7 +625,7 @@ function Complaints() {
                         <span className="whitespace-nowrap font-medium text-[#111827]">{complaint.passengerName}</span>
                       </div>
                     </td>
-                    <td className="truncate px-3 py-3.5 align-middle text-[#475569]" title={complaint.description}>{complaint.description}</td>
+                    <td className="truncate px-3 py-3.5 align-middle text-[#334155]" title={complaint.description}>{complaint.description}</td>
                     <td className="whitespace-nowrap px-3 py-3.5 align-middle font-mono text-xs font-semibold text-[#2642a6]">{complaint.bookingId}</td>
                     <td className="whitespace-nowrap px-3 py-3.5 align-middle">
                       <p className="whitespace-nowrap font-medium text-[#111827]">{complaint.busId}</p>
@@ -635,7 +635,7 @@ function Complaints() {
                       {complaint.hasImages ? (
                         <FontAwesomeIcon
                           icon={complaint.imageType === 'camera' ? faCamera : faImage}
-                          className="text-sm text-[#475569]"
+                          className="text-sm text-[#334155]"
                         />
                       ) : (
                         <span className="text-xs text-[#cbd5e1]">--</span>
@@ -646,7 +646,7 @@ function Complaints() {
                         {complaint.status}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3.5 align-middle text-[#475569]">{complaint.created}</td>
+                    <td className="whitespace-nowrap px-3 py-3.5 align-middle text-[#334155]">{complaint.created}</td>
                   </tr>
                 ))}
                 {!loading && !error && paginated.length === 0 && (
@@ -713,7 +713,7 @@ function Complaints() {
             <button
               type="button"
               onClick={closeDetailModal}
-              className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[#6b7280] transition hover:bg-[#f3f4f6] hover:text-[#374151]"
+              className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[#64748b] transition hover:bg-[#f3f4f6] hover:text-[#334155]"
             >
               <FontAwesomeIcon icon={faXmark} className="text-sm" />
             </button>
@@ -739,7 +739,7 @@ function Complaints() {
                 <div className="p-6">
                   <div className="rounded-xl border border-[#d6dbe6] bg-white p-5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="mr-3 text-[22px] font-extrabold tracking-tight text-[#1a2340]">
+                      <h2 className="mr-3 text-[22px] font-extrabold tracking-tight text-[#111827]">
                         {selectedComplaint.type}
                       </h2>
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${priorityBadge(selectedComplaint.priority)}`}>
@@ -752,36 +752,36 @@ function Complaints() {
 
                     <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[15px] text-[#334155]">
                       <p>
-                        <span className="font-semibold text-[#1a2340]">Passenger:</span> {selectedComplaint.passengerName}
+                        <span className="font-semibold text-[#111827]">Passenger:</span> {selectedComplaint.passengerName}
                       </p>
                       <p>
-                        <span className="font-semibold text-[#1a2340]">Contact Number:</span> {selectedComplaint.passengerPhoneNumber}
+                        <span className="font-semibold text-[#111827]">Contact Number:</span> {selectedComplaint.passengerPhoneNumber}
                       </p>
                     </div>
 
                     <div className="mt-5 rounded-lg border border-[#e5e7eb] bg-[#f8fafc] p-4">
                       <div className="mb-2 flex items-center gap-2">
                         <FontAwesomeIcon icon={faFileLines} className="text-sm text-[#f97316]" />
-                        <p className="text-xs font-bold uppercase tracking-widest text-[#6b7280]">Complaint Description</p>
+                        <p className="text-xs font-bold uppercase tracking-widest text-[#64748b]">Complaint Description</p>
                       </div>
                       <p className="text-[15px] leading-7 text-[#334155]">{selectedComplaint.description}</p>
                     </div>
 
                     <div className="mt-5 space-y-1.5 text-[15px] text-[#334155]">
                       <p>
-                        <span className="font-semibold text-[#1a2340]">Booking ID:</span> {selectedComplaint.bookingId}
+                        <span className="font-semibold text-[#111827]">Booking ID:</span> {selectedComplaint.bookingId}
                       </p>
                       <p>
-                        <span className="font-semibold text-[#1a2340]">Bus/Driver:</span> {selectedComplaint.busId} / {selectedComplaint.driverName}
+                        <span className="font-semibold text-[#111827]">Bus/Driver:</span> {selectedComplaint.busId} / {selectedComplaint.driverName}
                         {selectedComplaint.driverPhoneNumber !== '--' ? ` / ${selectedComplaint.driverPhoneNumber}` : ''}
                       </p>
                       <p>
-                        <span className="font-semibold text-[#1a2340]">Created:</span> {formatCreatedDate(selectedComplaint.createdAt)}
+                        <span className="font-semibold text-[#111827]">Created:</span> {formatCreatedDate(selectedComplaint.createdAt)}
                       </p>
                     </div>
 
                     <div className="mt-6">
-                      <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#6b7280]">Evidence Images</p>
+                      <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#64748b]">Evidence Images</p>
                       {selectedComplaint.images.length === 0 ? (
                         <div className="rounded-lg border border-dashed border-[#d6dbe6] bg-[#f8fafc] px-4 py-8 text-center text-sm text-[#94a3b8]">
                           No evidence images were attached to this complaint.
@@ -818,7 +818,7 @@ function Complaints() {
                     </div>
 
                     <div className="mt-6">
-                      <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#6b7280]">
+                      <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#64748b]">
                         Admin Response
                       </p>
                       <textarea
@@ -826,7 +826,7 @@ function Complaints() {
                         onChange={(event) => setAdminResponseDraft(event.target.value)}
                         placeholder="Write admin response here..."
                         rows={5}
-                        className="w-full resize-none rounded-lg border border-[#d6dbe6] bg-white px-4 py-3 text-sm text-[#1f2937] outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                        className="w-full resize-none rounded-lg border border-[#d6dbe6] bg-white px-4 py-3 text-sm text-[#111827] outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
                       />
                     </div>
 
@@ -834,7 +834,7 @@ function Complaints() {
                       <select
                         value={statusDraft}
                         onChange={(event) => setStatusDraft(event.target.value as ComplaintStatus)}
-                        className="min-w-[170px] rounded-lg border border-[#d6dbe6] bg-white px-4 py-2.5 text-sm font-semibold text-[#1a2340] outline-none transition focus:border-[#2642a6]"
+                        className="min-w-[170px] rounded-lg border border-[#d6dbe6] bg-white px-4 py-2.5 text-sm font-semibold text-[#111827] outline-none transition focus:border-[#2642a6]"
                       >
                         <option>Pending</option>
                         <option>Under Review</option>

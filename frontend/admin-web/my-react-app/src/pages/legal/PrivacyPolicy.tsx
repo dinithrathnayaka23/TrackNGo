@@ -7,10 +7,10 @@ function PrivacyPolicy() {
         <Link to="/login" className="text-sm font-semibold text-[#129a8f]">
           &larr; Back to Login
         </Link>
-        <h1 className="mt-4 text-2xl font-bold text-[#121b33]">Privacy Policy</h1>
-        <p className="mt-2 text-sm text-[#5b6476]">Last updated: {new Date().getFullYear()}</p>
+        <h1 className="mt-4 text-2xl font-bold text-[#111827]">Privacy Policy</h1>
+        <p className="mt-2 text-sm text-[#64748b]">Last updated: {new Date().getFullYear()}</p>
 
-        <div className="mt-6 space-y-5 text-sm leading-relaxed text-[#4d5564]">
+        <div className="mt-6 space-y-5 text-sm leading-relaxed text-[#334155]">
           <p>
             TrackNGo collects administrative account information such as your name, email address, and
             employee ID in order to authenticate access to the admin panel and attribute actions taken

@@ -105,9 +105,9 @@ function PassengerManagement() {
 
   return (
     <section className="mx-auto w-full max-w-[1320px]">
-      <button type="button" onClick={() => navigate('/dashboard/users')} className="mb-5 grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#475569] hover:bg-[#f1f5f9]"><FontAwesomeIcon icon={faArrowLeft} /></button>
+      <button type="button" onClick={() => navigate('/dashboard/users')} className="mb-5 grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#334155] hover:bg-[#f1f5f9]"><FontAwesomeIcon icon={faArrowLeft} /></button>
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div><h1 className="text-base font-extrabold tracking-tight text-[#111827]">Passenger Management</h1><p className="mt-1 text-sm font-semibold text-[#475569]">Total Passengers: <span className="text-[#0f172a]">{passengers.length}</span> | Active: <span className="text-[#10b981]">{activeCount}</span></p></div>
+        <div><h1 className="text-base font-extrabold tracking-tight text-[#111827]">Passenger Management</h1><p className="mt-1 text-sm font-semibold text-[#334155]">Total Passengers: <span className="text-[#111827]">{passengers.length}</span> | Active: <span className="text-[#10b981]">{activeCount}</span></p></div>
         <p className="text-sm text-[#64748b]">Live database records</p>
       </header>
       <article className="rounded-2xl border border-[#e5e7eb] bg-white p-4">
@@ -124,7 +124,7 @@ function PassengerManagement() {
               {loading && <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-[#64748b]"><FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />Loading passengers...</td></tr>}
               {!loading && error && <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-red-600">{error}</td></tr>}
               {!loading && !error && visible.length === 0 && <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-[#64748b]">No passengers match your filters.</td></tr>}
-              {!loading && !error && visible.map((passenger) => <tr key={passenger.id} className="border-b border-[#e5e7eb] text-sm hover:bg-[#f8faff]"><td className="px-6 py-4"><p className="font-semibold text-[#0f172a]">{passenger.name}</p><p className="text-xs text-[#64748b]">ID: {passenger.userId}</p></td><td className="px-6 py-4"><p className="text-[#334155]">{passenger.email}</p><p className="text-[#64748b]">{passenger.phone}</p></td><td className="px-6 py-4 font-semibold text-[#334155]">{formatDate(passenger.registeredDate)}</td><td className="px-6 py-4"><p className="text-[#334155]">{formatLastTrip(passenger.lastTripDate)}</p><p className="text-[#64748b]">{passenger.lastRoute}</p></td><td className="px-6 py-4"><span className={`rounded-full px-3 py-1 text-xs font-medium ${statusClass(passenger.status)}`}>{passenger.status}</span></td><td className="px-6 py-4 font-semibold text-[#0f172a]">{passenger.bookingsCount}</td></tr>)}
+              {!loading && !error && visible.map((passenger) => <tr key={passenger.id} className="border-b border-[#e5e7eb] text-sm hover:bg-[#f8faff]"><td className="px-6 py-4"><p className="font-semibold text-[#111827]">{passenger.name}</p><p className="text-xs text-[#64748b]">ID: {passenger.userId}</p></td><td className="px-6 py-4"><p className="text-[#334155]">{passenger.email}</p><p className="text-[#64748b]">{passenger.phone}</p></td><td className="px-6 py-4 font-semibold text-[#334155]">{formatDate(passenger.registeredDate)}</td><td className="px-6 py-4"><p className="text-[#334155]">{formatLastTrip(passenger.lastTripDate)}</p><p className="text-[#64748b]">{passenger.lastRoute}</p></td><td className="px-6 py-4"><span className={`rounded-full px-3 py-1 text-xs font-medium ${statusClass(passenger.status)}`}>{passenger.status}</span></td><td className="px-6 py-4 font-semibold text-[#111827]">{passenger.bookingsCount}</td></tr>)}
             </tbody>
           </table>
         </div>

@@ -223,8 +223,8 @@ function SummaryCard({
           <FontAwesomeIcon icon={icon} />
         </div>
         <div>
-          <p className="text-xs text-[#768096]">{title}</p>
-          <p className="text-sm font-extrabold text-[#1f2737]">{value}</p>
+          <p className="text-xs text-[#64748b]">{title}</p>
+          <p className="text-sm font-extrabold text-[#111827]">{value}</p>
         </div>
       </div>
     </article>
@@ -454,7 +454,7 @@ function Routes() {
     <>
       <div className="mx-auto max-w-7xl space-y-3">
             <div className="flex items-center justify-between">
-              <h1 className="animate-dash-in text-base font-extrabold tracking-tight text-[#1f2737]" style={{ animationDelay: '80ms' }}>
+              <h1 className="animate-dash-in text-base font-extrabold tracking-tight text-[#111827]" style={{ animationDelay: '80ms' }}>
                 Route Management
               </h1>
               <button
@@ -509,14 +509,14 @@ function Routes() {
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search by name, code..."
-                  className="h-12 min-w-[320px] rounded-xl border border-[#d6dbe6] bg-[#f8f9fd] px-4 text-sm text-[#2f394d] outline-none"
+                  className="h-12 min-w-[320px] rounded-xl border border-[#d6dbe6] bg-[#f8f9fd] px-4 text-sm text-[#334155] outline-none"
                 />
 
                 <div className="relative min-w-[190px]">
                   <select
                     value={statusFilter}
                     onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'inactive')}
-                    className="h-12 w-full appearance-none rounded-xl border border-[#d6dbe6] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#2f394d] outline-none"
+                    className="h-12 w-full appearance-none rounded-xl border border-[#d6dbe6] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#334155] outline-none"
                   >
                     <option value="all">Status: All</option>
                     <option value="active">Active</option>
@@ -524,7 +524,7 @@ function Routes() {
                   </select>
                   <FontAwesomeIcon
                     icon={faChevronDown}
-                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#69758d]"
+                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#64748b]"
                   />
                 </div>
 
@@ -532,7 +532,7 @@ function Routes() {
                   <select
                     value={busTypeFilter}
                     onChange={(event) => setBusTypeFilter(event.target.value as 'all' | 'high-way' | 'long-distance')}
-                    className="h-12 w-full appearance-none rounded-xl border border-[#d6dbe6] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#2f394d] outline-none"
+                    className="h-12 w-full appearance-none rounded-xl border border-[#d6dbe6] bg-[#f8f9fd] px-4 pr-10 text-sm text-[#334155] outline-none"
                   >
                     <option value="all">Bus Type: All</option>
                     <option value="high-way">High Way</option>
@@ -540,7 +540,7 @@ function Routes() {
                   </select>
                   <FontAwesomeIcon
                     icon={faChevronDown}
-                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#69758d]"
+                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#64748b]"
                   />
                 </div>
               </div>
@@ -553,7 +553,7 @@ function Routes() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1180px]">
                   <thead className="border-b border-[#e5e7eb] bg-[#f4f6fb] text-left">
-                    <tr className="text-xs uppercase tracking-wide text-[#6f7890]">
+                    <tr className="text-xs uppercase tracking-wide text-[#64748b]">
                       <th className="px-4 py-3">Route Name & Code</th>
                       <th className="px-4 py-3">Map Preview</th>
                       <th className="px-4 py-3">Details</th>
@@ -567,13 +567,13 @@ function Routes() {
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan={8} className="px-5 py-8 text-center text-sm font-semibold text-[#6f7890]">
+                        <td colSpan={8} className="px-5 py-8 text-center text-sm font-semibold text-[#64748b]">
                           Loading routes...
                         </td>
                       </tr>
                     ) : filteredRoutes.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-5 py-8 text-center text-sm font-semibold text-[#6f7890]">
+                        <td colSpan={8} className="px-5 py-8 text-center text-sm font-semibold text-[#64748b]">
                           No routes match the selected filters.
                         </td>
                       </tr>
@@ -581,12 +581,12 @@ function Routes() {
                       filteredRoutes.map((route) => (
                         <tr
                           key={route.id ?? route.code}
-                          className="border-b border-[#e5e7eb] text-[#1f2737] transition duration-200 hover:bg-[#f2f5fd]"
+                          className="border-b border-[#e5e7eb] text-[#111827] transition duration-200 hover:bg-[#f2f5fd]"
                         >
                           <td className="px-4 py-3">
                             <p className="text-sm font-extrabold">{route.name}</p>
-                            <p className="mt-1 text-xs text-[#748097]">
-                              <span className="rounded bg-[#eef2f8] px-2 py-0.5 font-semibold text-[#69758d]">{route.code}</span>
+                            <p className="mt-1 text-xs text-[#64748b]">
+                              <span className="rounded bg-[#eef2f8] px-2 py-0.5 font-semibold text-[#64748b]">{route.code}</span>
                               <span className="mx-1">*</span>
                               {route.type}
                             </p>
@@ -598,7 +598,7 @@ function Routes() {
                               onOpen={() => setMapPreviewRoute(route)}
                             />
                           </td>
-                          <td className="px-4 py-3 text-sm text-[#657089]">
+                          <td className="px-4 py-3 text-sm text-[#64748b]">
                             <p>
                               <FontAwesomeIcon icon={faRulerHorizontal} className="mr-1" />
                               {route.distance}
@@ -612,7 +612,7 @@ function Routes() {
                             <button
                               type="button"
                               onClick={() => setRouteStopsPreview(route)}
-                              className="inline-flex items-center gap-2 rounded-lg border border-[#d6dbe6] bg-[#f2f5fb] px-3 py-2 text-xs font-semibold text-[#31405d] transition duration-200 hover:bg-[#eaf0fb]"
+                              className="inline-flex items-center gap-2 rounded-lg border border-[#d6dbe6] bg-[#f2f5fb] px-3 py-2 text-xs font-semibold text-[#334155] transition duration-200 hover:bg-[#eaf0fb]"
                             >
                               <FontAwesomeIcon icon={faListOl} />
                               Click to view stops
@@ -622,26 +622,26 @@ function Routes() {
                             <FontAwesomeIcon icon={faBus} className="mr-1 text-sm" />
                             {route.activeBuses}
                           </td>
-                          <td className="px-4 py-3 text-sm font-extrabold text-[#1f2737]">{route.baseFare}</td>
+                          <td className="px-4 py-3 text-sm font-extrabold text-[#111827]">{route.baseFare}</td>
                           <td className="px-4 py-3">
                             <span
                               className={[
                                 'inline-flex rounded-full px-3 py-1 text-xs font-bold',
                                 route.status === 'Active'
                                   ? 'bg-[#dff6eb] text-[#11a765]'
-                                  : 'bg-[#eef0f4] text-[#6f798f]',
+                                  : 'bg-[#eef0f4] text-[#64748b]',
                               ].join(' ')}
                             >
                               {route.status}
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex justify-end gap-4 text-[#6f7890]">
+                            <div className="flex justify-end gap-4 text-[#64748b]">
                               <button
                                 type="button"
                                 aria-label={`Edit route ${route.name}`}
                                 onClick={() => handleEditRoute(route)}
-                                className="transition duration-200 hover:text-[#1f2737]"
+                                className="transition duration-200 hover:text-[#111827]"
                               >
                                 <FontAwesomeIcon icon={faPen} />
                               </button>
@@ -649,7 +649,7 @@ function Routes() {
                                 type="button"
                                 aria-label={`${route.status === 'Active' ? 'Suspend' : 'Activate'} route ${route.name}`}
                                 onClick={() => handleToggleSuspendRoute(route.id)}
-                                className="transition duration-200 hover:text-[#1f2737]"
+                                className="transition duration-200 hover:text-[#111827]"
                               >
                                 <FontAwesomeIcon icon={faBan} />
                               </button>
@@ -670,15 +670,15 @@ function Routes() {
                 </table>
               </div>
 
-              <div className="flex items-center justify-between border-t border-[#e5e7eb] px-4 py-3 text-sm text-[#667288]">
+              <div className="flex items-center justify-between border-t border-[#e5e7eb] px-4 py-3 text-sm text-[#64748b]">
                 <p>
                   Showing{' '}
-                  <span className="rounded-lg border border-[#d6dbe6] bg-[#f7f9fd] px-2 py-1 font-semibold text-[#2f394d]">{filteredRoutes.length}</span>{' '}
-                  of <span className="font-semibold text-[#2f394d]">{routesData.length} routes</span>
+                  <span className="rounded-lg border border-[#d6dbe6] bg-[#f7f9fd] px-2 py-1 font-semibold text-[#334155]">{filteredRoutes.length}</span>{' '}
+                  of <span className="font-semibold text-[#334155]">{routesData.length} routes</span>
                 </p>
 
                 <div className="flex items-center gap-4">
-                  <button type="button" aria-label="Previous page" className="text-[#6d778e] hover:text-[#23385f]">
+                  <button type="button" aria-label="Previous page" className="text-[#64748b] hover:text-[#23385f]">
                     <FontAwesomeIcon icon={faChevronLeft} />
                   </button>
                   <button
@@ -687,11 +687,11 @@ function Routes() {
                   >
                     1
                   </button>
-                  <button type="button" className="text-sm font-semibold text-[#627089] hover:text-[#2a3550]">2</button>
-                  <button type="button" className="text-sm font-semibold text-[#627089] hover:text-[#2a3550]">3</button>
+                  <button type="button" className="text-sm font-semibold text-[#64748b] hover:text-[#111827]">2</button>
+                  <button type="button" className="text-sm font-semibold text-[#64748b] hover:text-[#111827]">3</button>
                   <span>...</span>
-                  <button type="button" className="text-sm font-semibold text-[#627089] hover:text-[#2a3550]">15</button>
-                  <button type="button" aria-label="Next page" className="text-[#6d778e] hover:text-[#23385f]">
+                  <button type="button" className="text-sm font-semibold text-[#64748b] hover:text-[#111827]">15</button>
+                  <button type="button" aria-label="Next page" className="text-[#64748b] hover:text-[#23385f]">
                     <FontAwesomeIcon icon={faChevronRight} />
                   </button>
                 </div>
@@ -704,10 +704,10 @@ function Routes() {
           <div className="my-auto flex w-full max-w-3xl flex-col rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
             <div className="flex items-center justify-between border-b border-[#e5e7eb] px-4 py-3">
               <div>
-                <h2 className="text-sm font-extrabold text-[#1f2737]">
+                <h2 className="text-sm font-extrabold text-[#111827]">
                   {editingRouteId ? 'Edit Route' : 'Create New Route'}
                 </h2>
-                <p className="text-sm text-[#6d778e]">
+                <p className="text-sm text-[#64748b]">
                   {editingRouteId ? 'Update route data and save your changes.' : 'Add route data and save it to the table.'}
                 </p>
               </div>
@@ -719,7 +719,7 @@ function Routes() {
                   setCreateRouteError('')
                   resetRouteForm()
                 }}
-                className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
+                className="grid h-9 w-9 place-items-center rounded-md text-[#64748b] transition duration-200 hover:bg-[#eceff7] hover:text-[#111827]"
                 aria-label="Close create route modal"
               >
                 <FontAwesomeIcon icon={faXmark} />
@@ -729,7 +729,7 @@ function Routes() {
             <form id="route-form" onSubmit={handleCreateRoute} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="route-name">
+                  <label className="mb-1 block text-sm font-semibold text-[#334155]" htmlFor="route-name">
                     Route Name
                   </label>
                   <input
@@ -738,12 +738,12 @@ function Routes() {
                     value={newRoute.name}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, name: event.target.value }))}
                     placeholder="Colombo - Kurunegala"
-                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="route-code">
+                  <label className="mb-1 block text-sm font-semibold text-[#334155]" htmlFor="route-code">
                     Route Code
                   </label>
                   <input
@@ -751,19 +751,19 @@ function Routes() {
                     value={newRoute.code}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, code: event.target.value }))}
                     placeholder="e.g. RT-200"
-                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="route-type">
+                  <label className="mb-1 block text-sm font-semibold text-[#334155]" htmlFor="route-type">
                     Bus Type
                   </label>
                   <select
                     id="route-type"
                     value={newRoute.type}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, type: event.target.value }))}
-                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none"
                   >
                     <option value="High Way">High Way</option>
                     <option value="Long Distance">Long Distance</option>
@@ -771,7 +771,7 @@ function Routes() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="route-status">
+                  <label className="mb-1 block text-sm font-semibold text-[#334155]" htmlFor="route-status">
                     Status
                   </label>
                   <select
@@ -783,7 +783,7 @@ function Routes() {
                         status: event.target.value as RouteRow['status'],
                       }))
                     }
-                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none"
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -791,7 +791,7 @@ function Routes() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="route-distance">
+                  <label className="mb-1 block text-sm font-semibold text-[#334155]" htmlFor="route-distance">
                     Distance
                   </label>
                   <input
@@ -799,12 +799,12 @@ function Routes() {
                     value={newRoute.distance}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, distance: event.target.value }))}
                     placeholder="120 km"
-                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="route-duration">
+                  <label className="mb-1 block text-sm font-semibold text-[#334155]" htmlFor="route-duration">
                     Duration
                   </label>
                   <input
@@ -812,12 +812,12 @@ function Routes() {
                     value={newRoute.duration}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, duration: event.target.value }))}
                     placeholder="2h 35m"
-                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#45516b]">
+                  <label className="mb-1 block text-sm font-semibold text-[#334155]">
                     Stop Names (Priority Order)
                   </label>
                   <div className="space-y-2">
@@ -835,7 +835,7 @@ function Routes() {
                             }))
                           }}
                           placeholder={`Enter ${formatStopPriorityLabel(index)}`}
-                          className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                          className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none"
                         />
                         <button
                           type="button"
@@ -849,7 +849,7 @@ function Routes() {
                             }))
                           }}
                           disabled={newRoute.stops.length <= 2}
-                          className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#334155] transition duration-200 hover:bg-[#e9edf7] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Remove
                         </button>
@@ -863,7 +863,7 @@ function Routes() {
                           stops: [...prev.stops, ''],
                         }))
                       }
-                      className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                      className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-3 py-2 text-xs font-semibold text-[#334155] transition duration-200 hover:bg-[#e9edf7]"
                     >
                       + Add Next Stop
                     </button>
@@ -871,7 +871,7 @@ function Routes() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="route-active-buses">
+                  <label className="mb-1 block text-sm font-semibold text-[#334155]" htmlFor="route-active-buses">
                     Active Buses
                   </label>
                   <input
@@ -881,13 +881,13 @@ function Routes() {
                     value={newRoute.activeBuses}
                     onChange={(event) => setNewRoute((prev) => ({ ...prev, activeBuses: event.target.value }))}
                     placeholder="4"
-                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                    className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#45516b]" htmlFor="route-fare">
+                <label className="mb-1 block text-sm font-semibold text-[#334155]" htmlFor="route-fare">
                   Base Fare
                 </label>
                 <input
@@ -895,7 +895,7 @@ function Routes() {
                   value={newRoute.baseFare}
                   onChange={(event) => setNewRoute((prev) => ({ ...prev, baseFare: event.target.value }))}
                   placeholder="450"
-                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#273246] outline-none"
+                  className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none"
                 />
               </div>
 
@@ -913,7 +913,7 @@ function Routes() {
                   setCreateRouteError('')
                   resetRouteForm()
                 }}
-                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Cancel
               </button>
@@ -934,15 +934,15 @@ function Routes() {
           <div className="w-full max-w-lg rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
             <div className="flex items-center justify-between border-b border-[#e5e7eb] px-4 py-3">
               <div>
-                <h2 className="text-sm font-extrabold text-[#1f2737]">Route Stops</h2>
-                <p className="text-sm text-[#6d778e]">
+                <h2 className="text-sm font-extrabold text-[#111827]">Route Stops</h2>
+                <p className="text-sm text-[#64748b]">
                   {routeStopsPreview.name} ({routeStopsPreview.code})
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setRouteStopsPreview(null)}
-                className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
+                className="grid h-9 w-9 place-items-center rounded-md text-[#64748b] transition duration-200 hover:bg-[#eceff7] hover:text-[#111827]"
                 aria-label="Close route stops popup"
               >
                 <FontAwesomeIcon icon={faXmark} />
@@ -955,10 +955,10 @@ function Routes() {
                   key={`${routeStopsPreview.code}-popup-stop-${index}`}
                   className="rounded-lg border border-[#e5e7eb] bg-[#f9fafd] px-4 py-3"
                 >
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#6f7890]">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#64748b]">
                     {formatStopPriorityLabel(index)}
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-[#2f394d]">{stop}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#334155]">{stop}</p>
                 </div>
               ))}
             </div>
@@ -967,7 +967,7 @@ function Routes() {
               <button
                 type="button"
                 onClick={() => setRouteStopsPreview(null)}
-                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Close
               </button>
@@ -981,15 +981,15 @@ function Routes() {
           <div className="w-full max-w-lg rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
             <div className="flex items-center justify-between border-b border-[#e5e7eb] px-3 py-2">
               <div>
-                <h2 className="text-sm font-extrabold text-[#1f2737]">Route Location</h2>
-                <p className="text-xs text-[#6d778e]">
+                <h2 className="text-sm font-extrabold text-[#111827]">Route Location</h2>
+                <p className="text-xs text-[#64748b]">
                   {mapPreviewRoute.name} — Start: {mapPreviewRoute.stops[0] ?? 'N/A'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setMapPreviewRoute(null)}
-                className="grid h-9 w-9 place-items-center rounded-md text-[#6d778e] transition duration-200 hover:bg-[#eceff7] hover:text-[#1f2737]"
+                className="grid h-9 w-9 place-items-center rounded-md text-[#64748b] transition duration-200 hover:bg-[#eceff7] hover:text-[#111827]"
                 aria-label="Close map preview"
               >
                 <FontAwesomeIcon icon={faXmark} />
@@ -1004,7 +1004,7 @@ function Routes() {
               <button
                 type="button"
                 onClick={() => setMapPreviewRoute(null)}
-                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#e9edf7]"
+                className="rounded-lg border border-[#d6dbe6] bg-[#f3f6fc] px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#e9edf7]"
               >
                 Close
               </button>
@@ -1026,7 +1026,7 @@ function Routes() {
               <button
                 type="button"
                 onClick={cancelDeleteRoute}
-                className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#36425c] transition duration-200 hover:bg-[#f5f7fc]"
+                className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:bg-[#f5f7fc]"
               >
                 Cancel
               </button>

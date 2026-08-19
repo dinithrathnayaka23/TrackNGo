@@ -296,7 +296,7 @@ function Buses() {
             <p className="text-sm text-[#64748b]">Total Buses</p>
             <p className="mt-1 text-2xl font-extrabold text-[#111827]">{TOTAL}</p>
           </div>
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f1f5f9] text-[#475569]">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f1f5f9] text-[#334155]">
             <FontAwesomeIcon icon={faBus} />
           </div>
         </article>
@@ -441,7 +441,7 @@ function Buses() {
                 <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
                   acType === 'AC'
                     ? 'bg-[#dbeafe] text-[#2563eb]'
-                    : 'bg-[#f1f5f9] text-[#475569]'
+                    : 'bg-[#f1f5f9] text-[#334155]'
                 }`}>
                   {acType}
                 </span>
@@ -449,7 +449,7 @@ function Buses() {
               <p className="mt-0.5 text-sm text-[#64748b]">{bus.busBrand}</p>
 
               {/* Seat capacity display */}
-              <div className="mt-3 flex items-center gap-1.5 text-sm text-[#475569]">
+              <div className="mt-3 flex items-center gap-1.5 text-sm text-[#334155]">
                 <FontAwesomeIcon icon={faChair} className="text-xs text-[#94a3b8]" />
                 <span>{bus.seatCapacity} Seats</span>
               </div>
@@ -733,7 +733,7 @@ function Buses() {
                     className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                       form.amenities.includes(key)
                         ? 'bg-[#2642a6] text-white'
-                        : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'
+                        : 'bg-[#f1f5f9] text-[#334155] hover:bg-[#e2e8f0]'
                     }`}
                   >
                     {key === 'ac' ? 'AC' : key === 'wifi' ? 'WiFi' : key === 'charging_ports' ? 'Charging Ports' : key === 'entertainment' ? 'Entertainment' : key === 'cctv' ? 'CCTV' : 'Restroom'}

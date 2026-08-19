@@ -187,7 +187,7 @@ export default function AiAssistantPanel({
 
         <div className="h-[400px] overflow-y-auto bg-[#fafbfc] px-4 py-4">
           {messages.length === 0 ? (
-            <div className="flex items-center justify-center py-8 text-sm text-[#6b7280]">
+            <div className="flex items-center justify-center py-8 text-sm text-[#64748b]">
               No messages yet
             </div>
           ) : (
@@ -215,7 +215,7 @@ export default function AiAssistantPanel({
                       </div>
                       <div className="max-w-[80%] rounded-xl bg-white px-3 py-2 text-[#111827]">
                         <AssistantMessageContent content={msg.content} />
-                        <span className="mt-1 block text-xs text-[#9ca3af]">
+                        <span className="mt-1 block text-xs text-[#94a3b8]">
                           {msg.timestamp.toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
@@ -234,7 +234,7 @@ export default function AiAssistantPanel({
                       className="animate-spin text-xs"
                     />
                   </div>
-                  <div className="flex items-center gap-1 rounded-xl bg-white px-3 py-2 text-sm text-[#6b7280]">
+                  <div className="flex items-center gap-1 rounded-xl bg-white px-3 py-2 text-sm text-[#64748b]">
                     <span>AI is thinking</span>
                     <span className="animate-pulse">...</span>
                   </div>
@@ -257,7 +257,7 @@ export default function AiAssistantPanel({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}
-              className="flex-1 rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#9ca3af] focus:border-[#2642a6]"
+              className="flex-1 rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#94a3b8] focus:border-[#2642a6]"
             />
             <button
               type="submit"
@@ -268,7 +268,7 @@ export default function AiAssistantPanel({
               <FontAwesomeIcon icon={faPaperPlane} />
             </button>
           </div>
-          <p className="mt-2 text-xs text-[#6b7280]">
+          <p className="mt-2 text-xs text-[#64748b]">
             Try: "admin dashboard summary", "safety complaints", or "high priority complaints"
           </p>
         </form>

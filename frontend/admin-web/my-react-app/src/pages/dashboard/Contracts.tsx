@@ -266,7 +266,7 @@ function statusBadgeClass(status: ContractStatus) {
     case 'Pending':
       return 'bg-[#ede9fe] text-[#6d28d9]'
     default:
-      return 'bg-[#f1f5f9] text-[#475569]'
+      return 'bg-[#f1f5f9] text-[#334155]'
   }
 }
 
@@ -466,7 +466,7 @@ function ContractFormModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#e5e7eb] px-6 py-5">
           <div>
-            <h2 className="text-lg font-extrabold text-[#0f172a]">
+            <h2 className="text-lg font-extrabold text-[#111827]">
               {editContract ? 'Edit Contract' : 'New Contract'}
             </h2>
             <p className="mt-0.5 text-sm text-[#64748b]">
@@ -478,7 +478,7 @@ function ContractFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] text-[#475569] transition hover:bg-[#f1f5f9]"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] text-[#334155] transition hover:bg-[#f1f5f9]"
           >
             <FontAwesomeIcon icon={faXmark} />
           </button>
@@ -779,7 +779,7 @@ function Contracts() {
       <button
         type="button"
         onClick={() => navigate('/dashboard/corporate')}
-        className="mb-5 grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#475569] transition hover:bg-[#f1f5f9]"
+        className="mb-5 grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#334155] transition hover:bg-[#f1f5f9]"
       >
         <FontAwesomeIcon icon={faArrowLeft} />
       </button>
@@ -800,7 +800,7 @@ function Contracts() {
               type="button"
               onClick={() => setViewMode('table')}
               className={`px-3 py-2 text-sm font-semibold transition ${
-                viewMode === 'table' ? 'bg-[#2642a6] text-white' : 'text-[#475569] hover:bg-[#f1f5f9]'
+                viewMode === 'table' ? 'bg-[#2642a6] text-white' : 'text-[#334155] hover:bg-[#f1f5f9]'
               }`}
             >
               Table
@@ -809,7 +809,7 @@ function Contracts() {
               type="button"
               onClick={() => setViewMode('cards')}
               className={`px-3 py-2 text-sm font-semibold transition ${
-                viewMode === 'cards' ? 'bg-[#2642a6] text-white' : 'text-[#475569] hover:bg-[#f1f5f9]'
+                viewMode === 'cards' ? 'bg-[#2642a6] text-white' : 'text-[#334155] hover:bg-[#f1f5f9]'
               }`}
             >
               Cards
@@ -918,7 +918,7 @@ function Contracts() {
             <button
               type="button"
               onClick={clearFilters}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#d6dbe6] bg-white px-4 text-sm font-semibold text-[#475569] transition hover:bg-[#f8fafc]"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#d6dbe6] bg-white px-4 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
             >
               <FontAwesomeIcon icon={faRotateLeft} />
               Clear
@@ -1089,7 +1089,7 @@ function Contracts() {
                     {/* Company */}
                     <div className="flex items-center gap-2 border-t border-[#f1f5f9] px-5 py-3">
                       <FontAwesomeIcon icon={faBuilding} className="text-xs text-[#94a3b8]" />
-                      <span className="text-sm font-medium text-[#475569]">{contract.company}</span>
+                      <span className="text-sm font-medium text-[#334155]">{contract.company}</span>
                     </div>
 
                     {/* Details */}
@@ -1205,7 +1205,7 @@ function Contracts() {
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fee2e2]">
                 <FontAwesomeIcon icon={faTrash} className="text-lg text-[#dc2626]" />
               </div>
-              <h3 className="mt-4 text-base font-extrabold text-[#0f172a]">Delete Contract?</h3>
+              <h3 className="mt-4 text-base font-extrabold text-[#111827]">Delete Contract?</h3>
               <p className="mt-2 text-sm text-[#64748b]">
                 This will permanently remove the contract. This action cannot be undone.
               </p>

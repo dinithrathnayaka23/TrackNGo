@@ -70,7 +70,7 @@ function statusClass(value: string | null | undefined) {
   if (normalized === 'active' || normalized === 'paid') return 'bg-[#dcfce7] text-[#047857]'
   if (normalized === 'pending' || normalized === 'pending_verification') return 'bg-[#fef3c7] text-[#b45309]'
   if (normalized === 'overdue' || normalized === 'suspended' || normalized === 'cancelled') return 'bg-[#fee2e2] text-[#b91c1c]'
-  return 'bg-[#f1f5f9] text-[#475569]'
+  return 'bg-[#f1f5f9] text-[#334155]'
 }
 
 function ContractCard({ contract }: { contract: CorporateContract }) {
@@ -88,7 +88,7 @@ function ContractCard({ contract }: { contract: CorporateContract }) {
 
 function InvoiceTable({ invoices }: { invoices: CorporateInvoice[] }) {
   if (invoices.length === 0) return <p className="mt-4 text-sm text-[#64748b]">No invoices are recorded for this corporate account.</p>
-  return <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[680px] text-sm"><thead><tr className="border-b border-[#e5e7eb] text-left text-xs font-semibold text-[#64748b]"><th className="pb-3">Invoice</th><th className="pb-3">Contract</th><th className="pb-3">Date</th><th className="pb-3">Due date</th><th className="pb-3">Amount</th><th className="pb-3">Status</th></tr></thead><tbody>{invoices.map((invoice) => <tr key={`${invoice.contractId}-${invoice.invoiceNumber}`} className="border-b border-[#f1f5f9] last:border-0"><td className="py-3 font-semibold text-[#111827]">#{invoice.invoiceNumber}</td><td className="py-3 text-[#475569]">#{invoice.contractId}</td><td className="py-3 text-[#475569]">{formatDate(invoice.date)}</td><td className="py-3 text-[#475569]">{formatDate(invoice.dueDate)}</td><td className="py-3 font-semibold text-[#111827]">{formatCurrency(invoice.amount)}</td><td className="py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(invoice.status)}`}>{label(invoice.status)}</span></td></tr>)}</tbody></table></div>
+  return <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[680px] text-sm"><thead><tr className="border-b border-[#e5e7eb] text-left text-xs font-semibold text-[#64748b]"><th className="pb-3">Invoice</th><th className="pb-3">Contract</th><th className="pb-3">Date</th><th className="pb-3">Due date</th><th className="pb-3">Amount</th><th className="pb-3">Status</th></tr></thead><tbody>{invoices.map((invoice) => <tr key={`${invoice.contractId}-${invoice.invoiceNumber}`} className="border-b border-[#f1f5f9] last:border-0"><td className="py-3 font-semibold text-[#111827]">#{invoice.invoiceNumber}</td><td className="py-3 text-[#334155]">#{invoice.contractId}</td><td className="py-3 text-[#334155]">{formatDate(invoice.date)}</td><td className="py-3 text-[#334155]">{formatDate(invoice.dueDate)}</td><td className="py-3 font-semibold text-[#111827]">{formatCurrency(invoice.amount)}</td><td className="py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(invoice.status)}`}>{label(invoice.status)}</span></td></tr>)}</tbody></table></div>
 }
 
 function CorporateDetail() {

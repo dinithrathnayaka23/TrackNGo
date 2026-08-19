@@ -195,7 +195,7 @@ function SosAlertPopup() {
             type="button"
             onClick={() => setMinimized(true)}
             title="Minimize alert"
-            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[#6b7280] transition hover:bg-[#f3f4f6] hover:text-[#374151]"
+            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[#64748b] transition hover:bg-[#f3f4f6] hover:text-[#334155]"
           >
             <FontAwesomeIcon icon={faWindowMinimize} className="text-xs" />
           </button>
@@ -218,11 +218,11 @@ function SosAlertPopup() {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-xl font-extrabold tracking-tight text-[#1a2340]">
+                  <h2 className="text-xl font-extrabold tracking-tight text-[#111827]">
                     SOS ALERT - EMERGENCY
                     <span className="ml-1 inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
                   </h2>
-                  <p className="text-sm text-[#6b7280]">
+                  <p className="text-sm text-[#64748b]">
                     Triggered: {formatTime(alert.triggeredAt)} &middot; Signal:
                     Critical
                   </p>
@@ -244,7 +244,7 @@ function SosAlertPopup() {
                     allowFullScreen
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-[#9ca3af]">
+                  <div className="flex h-full items-center justify-center text-sm text-[#94a3b8]">
                     Location data unavailable
                   </div>
                 )}
@@ -253,10 +253,10 @@ function SosAlertPopup() {
                 {gps && (
                   <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between bg-gradient-to-t from-white/95 to-transparent px-4 pb-3 pt-8">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#6b7280]">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748b]">
                         Current GPS
                       </p>
-                      <p className="font-mono text-sm font-semibold text-[#1a2340]">
+                      <p className="font-mono text-sm font-semibold text-[#111827]">
                         {gps.lat.toFixed(4)}&deg; N, &nbsp;{gps.lng.toFixed(4)}
                         &deg; E
                       </p>
@@ -291,10 +291,10 @@ function SosAlertPopup() {
                       className="text-red-500 text-sm"
                     />
                   </div>
-                  <span className="text-xs font-semibold text-[#1a2340]">
+                  <span className="text-xs font-semibold text-[#111827]">
                     Ambulance
                   </span>
-                  <span className="text-[14px] text-[#9ca3af]">
+                  <span className="text-[14px] text-[#94a3b8]">
                     {emergencyNumbers.ambulance}
                   </span>
                 </a>
@@ -309,10 +309,10 @@ function SosAlertPopup() {
                       className="text-red-500 text-sm"
                     />
                   </div>
-                  <span className="text-xs font-semibold text-[#1a2340]">
+                  <span className="text-xs font-semibold text-[#111827]">
                     Police
                   </span>
-                  <span className="text-[14px] text-[#9ca3af]">
+                  <span className="text-[14px] text-[#94a3b8]">
                     {emergencyNumbers.police}
                   </span>
                 </a>
@@ -327,10 +327,10 @@ function SosAlertPopup() {
                       className="text-red-500 text-sm"
                     />
                   </div>
-                  <span className="text-xs font-semibold text-[#1a2340]">
+                  <span className="text-xs font-semibold text-[#111827]">
                     Fire Brigade
                   </span>
-                  <span className="text-[14px] text-[#9ca3af]">
+                  <span className="text-[14px] text-[#94a3b8]">
                     {emergencyNumbers.fireBrigade}
                   </span>
                 </a>
@@ -353,13 +353,13 @@ function SosAlertPopup() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-lg font-bold text-[#9ca3af]">
+                    <div className="flex h-full w-full items-center justify-center text-lg font-bold text-[#94a3b8]">
                       {alert.name?.charAt(0) || "?"}
                     </div>
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="truncate text-lg font-bold text-[#1a2340]">
+                  <h3 className="truncate text-lg font-bold text-[#111827]">
                     {topUserName.trim() || "Unknown"}
                   </h3>
                   <p className="text-sm font-semibold text-red-500">
@@ -373,10 +373,10 @@ function SosAlertPopup() {
 
               {/* SOS details summary */}
               <div className="mb-3 rounded-lg border border-[#e5e7eb] bg-[#fafafa] p-3">
-                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#6b7280]">
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#64748b]">
                   SOS Details
                 </p>
-                <div className="space-y-1 text-sm text-[#1a2340]">
+                <div className="space-y-1 text-sm text-[#111827]">
                   {isPassengerAlert ? (
                     <>
                       <p>
@@ -411,10 +411,10 @@ function SosAlertPopup() {
 
               {/* Call passenger */}
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm text-[#6b7280]">Call Passenger</span>
+                <span className="text-sm text-[#64748b]">Call Passenger</span>
                 <a
                   href={passengerMobile ? `tel:${passengerMobile}` : "#"}
-                  className={`flex items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold text-[#1a2340] shadow-sm transition ${passengerMobile ? "hover:bg-[#f9fafb]" : "pointer-events-none opacity-60"}`}
+                  className={`flex items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold text-[#111827] shadow-sm transition ${passengerMobile ? "hover:bg-[#f9fafb]" : "pointer-events-none opacity-60"}`}
                 >
                   <FontAwesomeIcon icon={faPhone} className="text-green-600" />
                   {passengerMobile || "N/A"}
@@ -423,12 +423,12 @@ function SosAlertPopup() {
 
               {/* Call driver */}
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm text-[#6b7280]">
+                <span className="text-sm text-[#64748b]">
                   {callDriverLabel}
                 </span>
                 <a
                   href={driverMobile ? `tel:${driverMobile}` : "#"}
-                  className={`flex items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold text-[#1a2340] shadow-sm transition ${driverMobile ? "hover:bg-[#f9fafb]" : "pointer-events-none opacity-60"}`}
+                  className={`flex items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold text-[#111827] shadow-sm transition ${driverMobile ? "hover:bg-[#f9fafb]" : "pointer-events-none opacity-60"}`}
                 >
                   <FontAwesomeIcon icon={faPhone} className="text-green-600" />
                   {driverMobile || "N/A"}
@@ -442,9 +442,9 @@ function SosAlertPopup() {
                     <div className="mb-2 flex items-center gap-2">
                       <FontAwesomeIcon
                         icon={faUserShield}
-                        className="text-xs text-[#6b7280]"
+                        className="text-xs text-[#64748b]"
                       />
-                      <p className="text-xs font-bold uppercase tracking-widest text-[#6b7280]">
+                      <p className="text-xs font-bold uppercase tracking-widest text-[#64748b]">
                         {isPassengerAlert
                           ? "Passenger Emergency Contacts"
                           : "Driver Emergency Contacts"}
@@ -457,22 +457,22 @@ function SosAlertPopup() {
                           className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm"
                         >
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-[#1a2340]">
+                            <p className="truncate text-sm font-semibold text-[#111827]">
                               {ec.name}
                             </p>
                             {ec.relationship ? (
-                              <p className="text-[11px] text-[#9ca3af]">
+                              <p className="text-[11px] text-[#94a3b8]">
                                 {ec.relationship}
                               </p>
                             ) : (
-                              <p className="text-[11px] text-[#9ca3af]">
+                              <p className="text-[11px] text-[#94a3b8]">
                                 Emergency contact
                               </p>
                             )}
                           </div>
                           <a
                             href={ec.teleNumber ? `tel:${ec.teleNumber}` : "#"}
-                            className={`flex items-center gap-1.5 rounded-md border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-semibold text-[#1a2340] transition ${ec.teleNumber ? "hover:bg-[#f0fdf4]" : "pointer-events-none opacity-60"}`}
+                            className={`flex items-center gap-1.5 rounded-md border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-semibold text-[#111827] transition ${ec.teleNumber ? "hover:bg-[#f0fdf4]" : "pointer-events-none opacity-60"}`}
                           >
                             <FontAwesomeIcon
                               icon={faPhone}
@@ -497,7 +497,7 @@ function SosAlertPopup() {
                     )
                   }
                   disabled={updatingStatus}
-                  className="flex-1 rounded-lg border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-semibold text-[#1a2340] shadow-sm transition hover:bg-[#f9fafb] disabled:opacity-50 appearance-none cursor-pointer"
+                  className="flex-1 rounded-lg border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-semibold text-[#111827] shadow-sm transition hover:bg-[#f9fafb] disabled:opacity-50 appearance-none cursor-pointer"
                 >
                   <option value="">Select Status</option>
                   <option value="resolve">Resolved</option>

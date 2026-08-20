@@ -68,15 +68,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
   },
   title: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#334155',
-    fontWeight: '700',
+    fontWeight: "600",
     textAlign: 'center',
   },
   detail: {
     fontSize: 10,
     color: '#64748B',
-    fontWeight: '600',
+    fontWeight: "600",
     textAlign: 'center',
   },
 });

@@ -8,7 +8,9 @@ import {
   Pressable,
   StyleSheet,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import type { ViewProps } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -49,6 +51,19 @@ function formatTime(value: number) {
  */
 function normalizeStopKey(value: string) {
   return value.trim().toLowerCase().replace(/[-\s]+/g, '');
+}
+
+/**
+ * FlatList wraps its row in a cell view that sizes to its content. Making that
+ * cell fill the list lets the flex spacers in the form share out any leftover
+ * height, instead of it all pooling beneath the last element.
+ */
+function FormCell({ children, style, ...rest }: ViewProps) {
+  return (
+    <View {...rest} style={[style, styles.formCell]}>
+      {children}
+    </View>
+  );
 }
 
 export default function SearchBusesScreen() {
@@ -299,6 +314,12 @@ export default function SearchBusesScreen() {
     setShowTimeModal(null);
   };
 
+  // The form is meant to fit without scrolling. Short screens give up some
+  // breathing room so everything still lands above the fold; taller phones
+  // keep the roomier spacing.
+  const { height: windowHeight } = useWindowDimensions();
+  const compact = windowHeight < 780;
+
   const startX = sliderWidth * range.start;
   const endX = sliderWidth * range.end;
 
@@ -309,25 +330,26 @@ export default function SearchBusesScreen() {
         keyExtractor={(item) => item.key}
         renderItem={() => (
           <>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={22} color="#111827" />
-        </Pressable>
-
-        {/* Personalized Greeting */}
-        <View style={styles.greetingBlock}>
-          <Text style={styles.greetingSub}>{greeting},</Text>
-          <Text style={styles.greetingMain}>{displayName}</Text>
+        {/* Back arrow and the personalised greeting share one header row, so
+            the search card starts higher up the screen. */}
+        <View style={[styles.headerRow, compact && styles.headerRowCompact]}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={22} color="#111827" />
+          </Pressable>
+          <View style={styles.greetingBlock}>
+            <Text style={styles.greetingSub}>{greeting},</Text>
+            <Text style={styles.greetingMain} numberOfLines={1}>
+              {displayName}
+            </Text>
+          </View>
         </View>
 
         {/* Main Search Card */}
-        <View style={styles.card}>
+        <View style={[styles.card, compact && styles.cardCompact]}>
           <View style={styles.cardHeader}>
             <View style={styles.cardTitleRow}>
               <Ionicons name="bus" size={18} color="#2F6BFF" />
               <Text style={styles.cardTitle}>Search Buses</Text>
-            </View>
-            <View style={styles.returnPill}>
-              <Text style={styles.returnText}>Return</Text>
             </View>
           </View>
 
@@ -422,7 +444,15 @@ export default function SearchBusesScreen() {
           </View>
         </View>
 
-        <View style={[styles.sectionHeader, { zIndex: 1 }]}>
+        <View style={styles.flexSpacer} />
+
+        <View
+          style={[
+            styles.sectionHeader,
+            compact && styles.sectionHeaderCompact,
+            { zIndex: 1 },
+          ]}
+        >
           <Text style={styles.sectionTitle}>Bus Type</Text>
           <Pressable onPress={() => setBusType('AC')}>
             <Text style={styles.sectionReset}>Reset</Text>
@@ -449,7 +479,11 @@ export default function SearchBusesScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.sectionHeader}>
+        <View style={styles.flexSpacer} />
+
+        <View
+          style={[styles.sectionHeader, compact && styles.sectionHeaderCompact]}
+        >
           <Text style={styles.sectionTitle}>Departure Time</Text>
           <View style={styles.timePill}>
             <Text style={styles.timePillText}>{formatTime(range.start)}  -  {formatTime(range.end)}</Text>
@@ -574,12 +608,21 @@ export default function SearchBusesScreen() {
           </Pressable>
         </View>
 
-        <Pressable onPress={handleSearch} style={styles.searchButton}>
+        <View style={styles.flexSpacer} />
+
+        <Pressable
+          onPress={handleSearch}
+          style={[styles.searchButton, compact && styles.searchButtonCompact]}
+        >
           <Text style={styles.searchButtonText}>Search Buses</Text>
         </Pressable>
           </>
         )}
-        contentContainerStyle={styles.container}
+        CellRendererComponent={FormCell}
+        contentContainerStyle={[
+          styles.container,
+          compact && styles.containerCompact,
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="always"
         scrollEnabled={!dragging}
@@ -720,9 +763,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F7F9',
   },
   container: {
+    flexGrow: 1,
     paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 20,
     backgroundColor: '#F6F7F9',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
   },
   backButton: {
     width: 36,
@@ -730,25 +780,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    marginBottom: 12,
   },
+  // Shrinks rather than pushing the row wider when the name is long.
   greetingBlock: {
-    marginBottom: 18,
+    flex: 1,
+    minWidth: 0,
   },
   greetingSub: {
     color: '#94A3B8',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   greetingMain: {
     color: '#1F2937',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
     shadowColor: '#111827',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.05,
@@ -761,7 +812,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   cardTitleRow: {
     flexDirection: 'row',
@@ -769,26 +820,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#2F6BFF',
-  },
-  returnPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: '#EAF1FF',
-  },
-  returnText: {
-    fontSize: 12,
-    color: '#2F6BFF',
-    fontWeight: '600',
   },
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   inputIcon: {
     width: 26,
@@ -806,47 +846,47 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   inputLabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#94A3B8',
-    fontWeight: '600',
+    fontWeight: "600",
   },
   inputValue: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#1F2937',
     paddingVertical: 0,
   },
   inputValueText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#1F2937',
   },
   verticalConnector: {
     width: 1,
-    height: 18,
+    height: 12,
     backgroundColor: '#E2E8F0',
     marginLeft: 12,
   },
   rowCards: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 10,
+    marginTop: 8,
   },
   smallCard: {
     flex: 1,
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
-    padding: 12,
+    padding: 10,
   },
   passengerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 6,
+    marginTop: 4,
   },
   passengerLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#64748B',
   },
   passengerControls: {
@@ -866,25 +906,51 @@ const styles = StyleSheet.create({
     width: 18,
     textAlign: 'center',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1F2937',
   },
+  formCell: {
+    flex: 1,
+  },
+  // Absorbs whatever height is left over once the form has laid out, so the
+  // gap is shared between sections rather than left sitting at the bottom.
+  // Collapses to nothing when the content already fills the screen.
+  flexSpacer: {
+    flex: 1,
+  },
+  containerCompact: {
+    paddingBottom: 12,
+  },
+  headerRowCompact: {
+    marginBottom: 8,
+  },
+  cardCompact: {
+    padding: 12,
+  },
+  sectionHeaderCompact: {
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  searchButtonCompact: {
+    marginTop: 10,
+    paddingVertical: 11,
+  },
   sectionHeader: {
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 14,
+    marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#1F2937',
   },
   sectionReset: {
     fontSize: 12,
     color: '#64748B',
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pillRow: {
     flexDirection: 'row',
@@ -897,7 +963,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
   },
@@ -907,7 +973,7 @@ const styles = StyleSheet.create({
   },
   typePillText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#94A3B8',
   },
   typePillTextActive: {
@@ -922,7 +988,7 @@ const styles = StyleSheet.create({
   timePillText: {
     color: '#2F6BFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   sliderWrap: {
     marginTop: 8,
@@ -976,8 +1042,8 @@ const styles = StyleSheet.create({
   },
   sliderTooltipText: {
     color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: "700",
   },
   presetRow: {
     flexDirection: 'row',
@@ -1002,7 +1068,7 @@ const styles = StyleSheet.create({
   },
   presetChipText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#94A3B8',
   },
   presetChipTextActive: {
@@ -1038,28 +1104,28 @@ const styles = StyleSheet.create({
   suggestionText: {
     fontSize: 13,
     color: '#1F2937',
-    fontWeight: '500',
+    fontWeight: "500",
   },
   timeMarks: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 6,
+    marginTop: 4,
   },
   timeMarkText: {
     fontSize: 11,
     color: '#9AA4B2',
   },
   searchButton: {
-    marginTop: 22,
+    marginTop: 14,
     backgroundColor: '#1474F2',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   searchButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,
@@ -1079,33 +1145,33 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: "700",
     color: '#1F2937',
   },
   modalDone: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#2F6BFF',
   },
   exactTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 14,
+    marginTop: 10,
     gap: 8,
   },
   exactTimeCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   exactTimeLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: "600",
     color: '#94A3B8',
     marginBottom: 4,
     textTransform: 'uppercase',
@@ -1118,8 +1184,8 @@ const styles = StyleSheet.create({
   },
   exactTimeValue: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "600",
     color: '#1F2937',
   },
   exactTimeDash: {
@@ -1128,7 +1194,7 @@ const styles = StyleSheet.create({
   exactTimeDashText: {
     fontSize: 16,
     color: '#94A3B8',
-    fontWeight: '600',
+    fontWeight: "600",
   },
   timeModalCard: {
     backgroundColor: '#FFFFFF',
@@ -1149,7 +1215,7 @@ const styles = StyleSheet.create({
   },
   timePickerLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#94A3B8',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1175,14 +1241,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: "700",
     color: '#1F2937',
     paddingVertical: 0,
   },
   timePickerSep: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1F2937',
     marginTop: 20,
   },

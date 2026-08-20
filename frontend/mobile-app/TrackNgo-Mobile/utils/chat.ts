@@ -58,6 +58,22 @@ export function getOtherParticipant(
       };
 }
 
+// Reads the unread counter belonging to the signed-in side of a conversation.
+// Both the chat list rows and the chat tab badge need this, so it lives here
+// rather than being re-derived at each call site.
+export function getConversationUnread(
+  conversation: ConversationDto,
+  userId: number,
+) {
+  if (conversation.participant1Id === userId) {
+    return conversation.participant1Unread ?? 0;
+  }
+  if (conversation.participant2Id === userId) {
+    return conversation.participant2Unread ?? 0;
+  }
+  return 0;
+}
+
 // Maps internal user-type values into readable labels for the UI.
 export function getRoleLabel(userType: SessionUser["userType"]) {
   if (userType === "CORPORATE_USER") {

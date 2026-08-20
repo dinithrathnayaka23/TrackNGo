@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   TouchableOpacity,
@@ -15,12 +15,14 @@ import { useSession } from "../../store/sessionStore";
 import { GOOGLE_MAPS_API_KEY } from "../../config/env";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 import { createTripBooking } from "../../services/tripBookingsApi";
-import { getRouteGeometry, type RouteGeometry } from "../../services/trackingApi";
 import { httpGet } from "../../services/http";
 
 // ─────────────────────────────────────────────────────────────
 // API CONFIG
 // ─────────────────────────────────────────────────────────────
+// Largest group a single private trip booking accepts.
+const MAX_PASSENGERS = 100;
+
 // ─────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────
@@ -352,7 +354,7 @@ function LocationInput({ placeholder, value, onChangeText, onSelect, error }: Lo
             onChangeText={handleChange}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            style={{ padding: 0, fontSize: 15, color: "#111827", fontWeight: "600" }}
+            style={{ padding: 0, fontSize: 16, color: "#111827", fontWeight: "600" }}
             placeholderTextColor="#A0AEC0"
             autoCorrect={false}
             autoCapitalize="words"
@@ -455,6 +457,7 @@ export default function BookATrip() {
   const [showReturnPicker, setShowReturnPicker] = useState(false);
   const [duration, setDuration] = useState<number>(3);
   const [passengers, setPassengers] = useState<number>(2);
+  const [passengersText, setPassengersText] = useState<string>("2");
   const [selectedRequirement, setSelectedRequirement] = useState<string | null>("AC");
 
   // ── Derived / computed ────────────────────────────────────
@@ -468,56 +471,6 @@ export default function BookATrip() {
   const [roadRouteCoordinates, setRoadRouteCoordinates] = useState<RouteCoordinate[]>([]);
   const [roadRouteLoading, setRoadRouteLoading] = useState(false);
   const roadRouteRequestRef = useRef(0);
-  const [busRoute, setBusRoute] = useState<RouteGeometry | null>(null);
-  const [busRouteLoading, setBusRouteLoading] = useState(false);
-  const busRouteRequestRef = useRef(0);
-
-  const busRouteCoordinates = useMemo(
-    () =>
-      [...(busRoute?.stops ?? [])]
-        .filter(
-          (stop) =>
-            typeof stop.latitude === "number" &&
-            typeof stop.longitude === "number" &&
-            Number.isFinite(stop.latitude) &&
-            Number.isFinite(stop.longitude),
-        )
-        .sort((a, b) => a.priority - b.priority)
-        .map((stop) => ({ latitude: stop.latitude!, longitude: stop.longitude! })),
-    [busRoute],
-  );
-
-  // Load the configured bus route after both Google places are resolved. The
-  // Google road route and this stop-to-stop bus route are drawn separately.
-  useEffect(() => {
-    const hasCoordinates =
-      typeof pickup?.latitude === "number" &&
-      typeof pickup?.longitude === "number" &&
-      typeof drop?.latitude === "number" &&
-      typeof drop?.longitude === "number";
-
-    if (!hasCoordinates || !pickup?.name || !drop?.name) {
-      busRouteRequestRef.current += 1;
-      setBusRoute(null);
-      setBusRouteLoading(false);
-      return;
-    }
-
-    const requestId = ++busRouteRequestRef.current;
-    setBusRouteLoading(true);
-
-    getRouteGeometry(pickup.name, drop.name)
-      .then((route) => {
-        if (requestId === busRouteRequestRef.current) setBusRoute(route);
-      })
-      .catch(() => {
-        if (requestId === busRouteRequestRef.current) setBusRoute(null);
-      })
-      .finally(() => {
-        if (requestId === busRouteRequestRef.current) setBusRouteLoading(false);
-      });
-  }, [pickup, drop]);
-
   // ── Zoom map to fit both markers when both locations are set ──
   useEffect(() => {
     const hasCoordinates = [pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude]
@@ -586,15 +539,6 @@ export default function BookATrip() {
   }, [pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude]);
 
   useEffect(() => {
-    if (!mapReady || busRouteCoordinates.length < 2) return;
-
-    mapRef.current?.fitToCoordinates(busRouteCoordinates, {
-      edgePadding: { top: 45, right: 45, bottom: 45, left: 45 },
-      animated: true,
-    });
-  }, [busRouteCoordinates, mapReady]);
-
-  useEffect(() => {
     if (!mapReady || roadRouteCoordinates.length < 2) return;
 
     mapRef.current?.fitToCoordinates(roadRouteCoordinates, {
@@ -645,6 +589,35 @@ export default function BookATrip() {
       !(returnDate && depart && returnDate < depart)
     );
   }, [pickup, drop, depart, returnDate, duration, passengers, selectedRequirement]);
+
+  // ── Passenger count ───────────────────────────────────────
+  // Typed rather than stepped: private trips are booked for whole groups, so
+  // reaching 40 or 50 by tapping "+" was impractical.
+  const handlePassengersChange = (value: string) => {
+    // Digits only. Three characters is enough for the 100 cap and stops a
+    // long paste from becoming a nonsense number.
+    const digitsOnly = value.replace(/[^0-9]/g, "").slice(0, 3);
+
+    if (!digitsOnly) {
+      // Allow the field to be emptied while typing; validation catches it if
+      // the passenger leaves it that way.
+      setPassengersText("");
+      setPassengers(0);
+      return;
+    }
+
+    const clamped = Math.min(Number(digitsOnly), MAX_PASSENGERS);
+    setPassengersText(String(clamped));
+    setPassengers(clamped);
+  };
+
+  // An empty field settles back to one passenger rather than staying blank.
+  const handlePassengersBlur = () => {
+    if (passengers < 1) {
+      setPassengers(1);
+      setPassengersText("1");
+    }
+  };
 
   // ── Form validation with error messages ───────────────────
   const validateForm = (): boolean => {
@@ -740,7 +713,7 @@ export default function BookATrip() {
         {/* ── Header ───────────────────────────────────── */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Ionicons name="chevron-back" size={22} onPress={() => router.back()} />
-          <Text style={{ fontSize: 18, fontWeight: "bold" }}>Book a Trip</Text>
+          <Text style={{ fontSize: 18, fontWeight: "700" }}>Book a Trip</Text>
           <View style={{ width: 20 }} />
         </View>
 
@@ -767,7 +740,7 @@ export default function BookATrip() {
         >
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
             <Ionicons name="map-outline" size={18} color="#2563EB" />
-            <Text style={{ fontWeight: "bold", marginLeft: 6 }}>Journey Details</Text>
+            <Text style={{ fontWeight: "700", marginLeft: 6 }}>Journey Details</Text>
           </View>
 
           {/* Pickup */}
@@ -829,7 +802,7 @@ export default function BookATrip() {
                   <Text style={{ fontSize: 10, color: "#64748B", fontWeight: "800", letterSpacing: 0.8 }}>DEPARTURE</Text>
                   <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="calendar" size={16} color="#2563EB" /></View>
                 </View>
-                <Text style={{ color: depart ? "#111827" : "#94A3B8", fontSize: 15, fontWeight: "700", marginTop: 13 }}>
+                <Text style={{ color: depart ? "#111827" : "#94A3B8", fontSize: 16, fontWeight: "700", marginTop: 13 }}>
                   {depart ? depart.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "Choose date"}
                 </Text>
                 <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>Tap to select</Text>
@@ -848,7 +821,7 @@ export default function BookATrip() {
                   <Text style={{ fontSize: 10, color: "#64748B", fontWeight: "800", letterSpacing: 0.8 }}>RETURN</Text>
                   <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="calendar-outline" size={16} color="#2563EB" /></View>
                 </View>
-                <Text style={{ color: returnDate ? "#111827" : "#94A3B8", fontSize: 15, fontWeight: "700", marginTop: 13 }}>
+                <Text style={{ color: returnDate ? "#111827" : "#94A3B8", fontSize: 16, fontWeight: "700", marginTop: 13 }}>
                   {returnDate ? returnDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "Choose date"}
                 </Text>
                 <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>Tap to select</Text>
@@ -862,11 +835,25 @@ export default function BookATrip() {
           <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
             <View style={{ flex: 1, backgroundColor: "#F8FAFF", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#E2E8F0", minHeight: 92 }}>
               <View style={{ flexDirection: "row", alignItems: "center" }}><Ionicons name="time-outline" size={16} color="#64748B" /><Text style={{ color: "#64748B", fontSize: 10, fontWeight: "800", letterSpacing: 0.8, marginLeft: 6 }}>DURATION</Text></View>
-              <Text style={{ color: "#111827", fontSize: 22, fontWeight: "800", marginTop: 12 }}>{duration} <Text style={{ color: "#64748B", fontSize: 13, fontWeight: "600" }}>days</Text></Text>
+              <Text style={{ color: "#111827", fontSize: 20, fontWeight: "800", marginTop: 12 }}>{duration} <Text style={{ color: "#64748B", fontSize: 13, fontWeight: "600" }}>days</Text></Text>
             </View>
             <View style={{ flex: 1, minWidth: 0, overflow: "hidden", backgroundColor: "#F8FAFF", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: errors.passengers ? "#DC2626" : "#E2E8F0", minHeight: 92 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", minWidth: 0 }}><View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center" }}><Ionicons name="people-outline" size={16} color="#64748B" /><Text numberOfLines={1} style={{ flexShrink: 1, color: "#64748B", fontSize: 10, fontWeight: "800", letterSpacing: 0.7, marginLeft: 6 }}>PASSENGERS</Text></View><Text style={{ flexShrink: 0, color: "#94A3B8", fontSize: 9, fontWeight: "700", marginLeft: 4 }}>100 max</Text></View>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 9 }}><TouchableOpacity style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 10, backgroundColor: passengers > 1 ? "#E7EEFF" : "#F1F5F9", alignItems: "center", justifyContent: "center" }} onPress={() => setPassengers((count) => Math.max(1, count - 1))}><Ionicons name="remove" size={16} color={passengers > 1 ? "#2563EB" : "#CBD5E1"} /></TouchableOpacity><Text style={{ width: 44, flexShrink: 0, textAlign: "center", includeFontPadding: false, color: "#111827", fontSize: 22, fontWeight: "800" }}>{passengers}</Text><TouchableOpacity style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 10, backgroundColor: passengers < 100 ? "#E7EEFF" : "#F1F5F9", alignItems: "center", justifyContent: "center" }} onPress={() => setPassengers((count) => Math.min(100, count + 1))}><Ionicons name="add" size={16} color={passengers < 100 ? "#2563EB" : "#CBD5E1"} /></TouchableOpacity></View>
+              <View style={{ flexDirection: "row", alignItems: "center", minWidth: 0 }}><View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center" }}><Ionicons name="people-outline" size={16} color="#64748B" /><Text numberOfLines={1} style={{ flexShrink: 1, color: "#64748B", fontSize: 10, fontWeight: "800", letterSpacing: 0.7, marginLeft: 6 }}>PASSENGERS</Text></View><Text style={{ flexShrink: 0, color: "#94A3B8", fontSize: 10, fontWeight: "700", marginLeft: 4 }}>{MAX_PASSENGERS} max</Text></View>
+              <View style={{ marginTop: 12 }}>
+                <TextInput
+                  value={passengersText}
+                  onChangeText={handlePassengersChange}
+                  onBlur={handlePassengersBlur}
+                  keyboardType="number-pad"
+                  inputMode="numeric"
+                  returnKeyType="done"
+                  maxLength={3}
+                  selectTextOnFocus
+                  placeholder="0"
+                  placeholderTextColor="#CBD5E1"
+                  style={{ padding: 0, includeFontPadding: false, color: "#111827", fontSize: 20, fontWeight: "800" }}
+                />
+              </View>
             </View>
           </View>
           {errors.passengers && <Text style={{ color: "#DC2626", fontSize: 11, marginTop: 4 }}>{errors.passengers}</Text>}
@@ -885,7 +872,7 @@ export default function BookATrip() {
         >
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
             <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="navigate-circle-outline" size={19} color="#2563EB" /></View>
-            <View style={{ marginLeft: 10 }}><Text style={{ fontWeight: "800", color: "#111827", fontSize: 15 }}>Route preview</Text><Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 2 }}>Your selected journey</Text></View>
+            <View style={{ marginLeft: 10 }}><Text style={{ fontWeight: "800", color: "#111827", fontSize: 16 }}>Route preview</Text><Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 2 }}>Your selected journey</Text></View>
             {pickup?.latitude && drop?.latitude && distance > 0 && (
               <View
                 style={{
@@ -935,33 +922,6 @@ export default function BookATrip() {
                 />
               )}
 
-              {/* Configured bus route through its saved route stops */}
-              {busRouteCoordinates.length > 1 && (
-                <Polyline
-                  coordinates={busRouteCoordinates}
-                  strokeColor="#F59E0B"
-                  strokeWidth={5}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-              )}
-              {busRoute?.stops
-                ?.filter(
-                  (stop) =>
-                    typeof stop.latitude === "number" &&
-                    typeof stop.longitude === "number",
-                )
-                .sort((a, b) => a.priority - b.priority)
-                .map((stop) => (
-                  <Marker
-                    key={`${busRoute.routeId}-${stop.priority}-${stop.name}`}
-                    coordinate={{ latitude: stop.latitude!, longitude: stop.longitude! }}
-                    title={stop.name}
-                    pinColor="#F59E0B"
-                    tracksViewChanges={false}
-                  />
-                ))}
-
               {/* Real road route for any two selected places in Sri Lanka */}
               {roadRouteCoordinates.length > 1 && (
                 <Polyline
@@ -995,18 +955,6 @@ export default function BookATrip() {
             )}
           </View>
 
-          {(busRouteLoading || busRoute) && (
-            <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
-              {busRouteLoading && <ActivityIndicator size="small" color="#F59E0B" />}
-              <View style={{ width: 18, height: 4, borderRadius: 2, backgroundColor: "#F59E0B", marginLeft: busRouteLoading ? 8 : 0, marginRight: 6 }} />
-              <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "600" }}>
-                {busRouteLoading
-                  ? "Loading the configured bus route..."
-                  : `${busRoute!.routeName} · ${busRouteCoordinates.length} stops`}
-              </Text>
-            </View>
-          )}
-
           {roadRouteLoading && (
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 8 }}>
               <ActivityIndicator size="small" color="#2563EB" />
@@ -1038,7 +986,7 @@ export default function BookATrip() {
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center" }}><Ionicons name="pricetag-outline" size={16} color="#16A34A" /><Text style={{ fontSize: 12, color: "#166534", fontWeight: "600", marginLeft: 6 }}>Estimated price</Text></View>
-              <Text style={{ flexShrink: 1, maxWidth: "48%", fontSize: 17, fontWeight: "800", color: "#166534", textAlign: "right" }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+              <Text style={{ flexShrink: 1, maxWidth: "48%", fontSize: 18, fontWeight: "800", color: "#166534", textAlign: "right" }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                 LKR {estimatedPrice.toLocaleString()}
               </Text>
             </View>
@@ -1047,7 +995,7 @@ export default function BookATrip() {
 
         {/* ── Requirements ──────────────────────────────── */}
         <View style={{ backgroundColor: "white", padding: 16, borderRadius: 18, marginTop: 14, zIndex: 1, borderWidth: 1, borderColor: "#EEF2F7" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><View style={{ flexDirection: "row", alignItems: "center" }}><View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="options-outline" size={18} color="#2563EB" /></View><View style={{ marginLeft: 10 }}><Text style={{ fontWeight: "800", color: "#111827", fontSize: 15 }}>Vehicle preference</Text><Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 2 }}>Choose what suits your group</Text></View></View><Ionicons name="chevron-down" size={18} color="#CBD5E1" /></View>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><View style={{ flexDirection: "row", alignItems: "center" }}><View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="options-outline" size={18} color="#2563EB" /></View><View style={{ marginLeft: 10 }}><Text style={{ fontWeight: "800", color: "#111827", fontSize: 16 }}>Vehicle preference</Text><Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 2 }}>Choose what suits your group</Text></View></View><Ionicons name="chevron-down" size={18} color="#CBD5E1" /></View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 14, gap: 8 }}>
             {["Standard", "AC", "Mini Bus"].map((req) => (
               <TouchableOpacity
@@ -1112,7 +1060,7 @@ export default function BookATrip() {
             <ActivityIndicator color="white" />
           ) : (
             <>
-              <Text style={{ color: "white", fontWeight: "bold", marginRight: 8 }}>Next Step</Text>
+              <Text style={{ color: "white", fontWeight: "700", marginRight: 8 }}>Next Step</Text>
               <Ionicons name="arrow-forward" size={18} color="white" />
             </>
           )}

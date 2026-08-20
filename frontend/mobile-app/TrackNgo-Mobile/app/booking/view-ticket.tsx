@@ -11,13 +11,14 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
+import { downloadTicketPdf, shareTicketPdf } from "../../utils/ticketPdf";
 import {
   getPastBookings,
   getUpcomingBookings,
   type BookingHistoryDto,
 } from "../../services/bookingsApi";
 import { getUserProfile } from "../../services/userProfileApi";
+import { formatBusTypeLabel } from "../../utils/busLabels";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text } from "../../utils/i18n";
 
@@ -58,15 +59,12 @@ function toUpperTrimmed(value?: string | null): string {
 
 function formatTicketTypeLabel(rawType?: string): string {
   const normalized = (rawType ?? "").toLowerCase().replace(/-/g, "_").trim();
+  // Ticket-specific wording; everything else falls back to the shared bus
+  // type label so the two never drift apart.
   if (!normalized) return "Bus Ticket";
   if (normalized === "highway") return "Highway Bus";
-  if (normalized === "long_distance") return "Long Distance";
   if (normalized === "trip_booking" || normalized === "trip") return "Trip Booking";
-  if (normalized === "corporate") return "Corporate";
-  return normalized
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  return formatBusTypeLabel(rawType);
 }
 
 function parsePrice(value?: string): number | null {
@@ -348,10 +346,13 @@ export default function ViewTicketScreen() {
             .meta-value { color: #0f172a; font-size: 22px; font-weight: 800; }
             .meta-value.small { font-size: 20px; }
             .price { text-align: center; color: #16a34a; font-size: 30px; font-weight: 900; margin: 8px 0 16px; }
-            .qr-wrap { border-radius: 16px; border: 1px solid #e2e8f0; background: #f8fafc; padding: 16px; text-align: center; }
-            .qr-wrap img { width: 170px; height: 170px; }
-            .scan { display: inline-block; margin-top: 10px; background: #0f172a; color: #fff; padding: 5px 14px; border-radius: 4px; font-size: 12px; font-weight: 800; letter-spacing: 1px; }
-            .scan-title { margin-top: 10px; color: #111827; font-size: 24px; font-weight: 800; }
+            .qr-section { border-top: 1px solid #edf2f7; border-bottom: 1px solid #edf2f7; padding: 18px 0; margin-bottom: 16px; text-align: center; }
+            .qr-frame { box-sizing: border-box; width: 270px; margin: 0 auto; border: 1px solid #dbe3ee; border-radius: 16px; background: #fff; padding: 22px 26px 14px; text-align: center; }
+            /* block + auto margins centres the QR whatever the print engine
+               does with inline images */
+            .qr-frame img { display: block; width: 170px; height: 170px; margin: 0 auto; }
+            .scan { display: inline-block; margin-top: 12px; background: #0b0f18; color: #fff; padding: 5px 12px; font-size: 12px; font-weight: 800; letter-spacing: 1px; }
+            .scan-title { margin-top: 14px; color: #172119; font-size: 22px; font-weight: 800; }
             .scan-sub { margin-top: 4px; color: #6b7280; font-size: 13px; }
             .footer { margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; justify-content: space-between; align-items: flex-end; }
             .footer-label { color: #94a3b8; font-size: 11px; font-weight: 700; }
@@ -389,9 +390,11 @@ export default function ViewTicketScreen() {
 
             <div class="price">${displayPrice}</div>
 
-            <div class="qr-wrap">
-              <img src="${qrImageUri}" alt="Ticket QR" />
-              <div class="scan">SCAN ME</div>
+            <div class="qr-section">
+              <div class="qr-frame">
+                <img src="${qrImageUri}" alt="Ticket QR" />
+                <div class="scan">SCAN ME</div>
+              </div>
               <div class="scan-title">Scan at boarding</div>
               <div class="scan-sub">Show this QR code to the driver</div>
             </div>
@@ -430,17 +433,8 @@ export default function ViewTicketScreen() {
 
   const handleShare = useCallback(async () => {
     try {
-      const canShare = await Sharing.isAvailableAsync();
-      if (!canShare) {
-        Alert.alert("Unavailable", "Sharing is not available on this device.");
-        return;
-      }
       const pdfUri = await buildTicketPdf();
-      await Sharing.shareAsync(pdfUri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Share your TrackNGo bus ticket",
-        UTI: "com.adobe.pdf",
-      });
+      await shareTicketPdf(pdfUri, "Share your TrackNGo bus ticket");
     } catch (error) {
       console.error("[ViewTicket] share failed", error);
       Alert.alert("Error", "Could not share this ticket right now.");
@@ -450,16 +444,12 @@ export default function ViewTicketScreen() {
   const handleDownload = useCallback(async () => {
     try {
       const pdfUri = await buildTicketPdf();
-      await Sharing.shareAsync(pdfUri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Save your TrackNGo bus ticket",
-        UTI: "com.adobe.pdf",
-      });
+      await downloadTicketPdf(pdfUri, `TrackNGo-Ticket-${ticketReference}.pdf`);
     } catch (error) {
       console.error("[ViewTicket] download failed", error);
       Alert.alert("Error", "Could not generate the ticket PDF. Please try again.");
     }
-  }, [buildTicketPdf]);
+  }, [buildTicketPdf, ticketReference]);
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -617,9 +607,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 35 / 2,
+    fontSize: 18,
     lineHeight: 22,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#111827",
   },
   ticketCard: {
@@ -645,7 +635,7 @@ const styles = StyleSheet.create({
   },
   typeChipText: {
     color: "#266ddc",
-    fontSize: 20 / 2,
+    fontSize: 11,
     fontWeight: "700",
   },
   busIconWrap: {
@@ -657,13 +647,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ticketRefLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: "#6b7a90",
     marginBottom: 3,
   },
   ticketRefValue: {
-    fontSize: 31 / 2,
+    fontSize: 20,
     fontWeight: "800",
     color: "#1d6fe7",
     marginBottom: 10,
@@ -679,13 +669,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeMetaLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#7f90a8",
-    fontWeight: "700",
+    fontWeight: "600",
     marginBottom: 3,
   },
   routeCity: {
-    fontSize: 39 / 2,
+    fontSize: 20,
     lineHeight: 22,
     fontWeight: "800",
     color: "#111827",
@@ -706,21 +696,21 @@ const styles = StyleSheet.create({
     paddingLeft: 6,
   },
   metaLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#8b9cb4",
-    fontWeight: "700",
+    fontWeight: "600",
     marginBottom: 4,
   },
   metaValue: {
-    fontSize: 30 / 2,
+    fontSize: 20,
     lineHeight: 20,
     color: "#111827",
     fontWeight: "800",
   },
   fareText: {
     textAlign: "center",
-    fontSize: 18 + 10 / 2,
-    fontWeight: "900",
+    fontSize: 24,
+    fontWeight: "800",
     color: "#0ea538",
     marginTop: 2,
     marginBottom: 10,
@@ -785,20 +775,20 @@ const styles = StyleSheet.create({
   },
   scanBadgeText: {
     color: "#ffffff",
-    fontSize: 30 / 3,
-    fontWeight: "900",
+    fontSize: 10,
+    fontWeight: "800",
     letterSpacing: 1,
   },
   scanTitle: {
     marginTop: 12,
-    fontSize: 33 / 2,
+    fontSize: 16,
     fontWeight: "800",
     color: "#172119",
   },
   scanSubtitle: {
     marginTop: 3,
     color: "#6b7280",
-    fontSize: 22 / 2,
+    fontSize: 11,
   },
   passengerRow: {
     flexDirection: "row",
@@ -807,14 +797,14 @@ const styles = StyleSheet.create({
   },
   footerLabel: {
     color: "#8fa0b8",
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "600",
     marginBottom: 5,
   },
   footerValue: {
     color: "#111827",
-    fontSize: 29 / 2,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
   },
   statusWrap: {
     alignItems: "flex-end",
@@ -831,8 +821,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: {
-    fontSize: 30 / 2,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "700",
   },
   downloadButton: {
     marginTop: 18,
@@ -852,8 +842,8 @@ const styles = StyleSheet.create({
   },
   downloadButtonText: {
     color: "#ffffff",
-    fontSize: 28 / 2,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "700",
   },
   noteCard: {
     marginTop: 22,
@@ -873,13 +863,13 @@ const styles = StyleSheet.create({
   },
   noteTitle: {
     color: "#b45309",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "800",
   },
   noteBody: {
     color: "#c2410c",
-    fontSize: 17 / 1.5,
-    lineHeight: 24,
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: "500",
   },
 });

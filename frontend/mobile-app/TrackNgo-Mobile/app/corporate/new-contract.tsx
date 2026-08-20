@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   backBtn: { width: 32, alignItems: "flex-start" },
-  headerTitle: { fontSize: 17, fontWeight: "700", color: "#1E293B" },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#1E293B" },
   downloadBtn: { width: 32, alignItems: "flex-end" },
 
   progressContainer: {
@@ -862,7 +862,7 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     fontSize: 14,
     color: '#1E293B',
-    fontWeight: '500',
+    fontWeight: "500",
   },
 
   // Step 2 Bus Selection
@@ -910,14 +910,14 @@ const styles = StyleSheet.create({
   busName: { fontSize: 16, fontWeight: "700", color: "#1E293B", flex: 1 },
   capacityRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   busCapacity: { fontSize: 14, fontWeight: "700", color: "#64748B" },
-  capacityLabel: { fontSize: 10, color: "#94A3B8" },
+  capacityLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8" },
   busBottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   amenitiesRow: { flexDirection: "row", gap: 12 },
   amenityItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   amenityText: { fontSize: 11, color: "#64748B" },
   selectBusBtn: { backgroundColor: "#067BF9", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 },
   selectBusBtnActive: { backgroundColor: "#1D4ED8" },
-  selectBusBtnText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
+  selectBusBtnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
 
   // Step 3
   servicesCard: {
@@ -946,8 +946,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inReviewText: { color: "#2563EB", fontSize: 12, fontWeight: "600" },
-  proposalLabel: { fontSize: 13, color: "#64748B", fontWeight: "600", marginBottom: 8 },
-  proposalAmount: { fontSize: 36, fontWeight: "800", color: "#0F172A" },
+  proposalLabel: { fontSize: 11, color: "#64748B", fontWeight: "600", marginBottom: 8 },
+  proposalAmount: { fontSize: 28, fontWeight: "800", color: "#0F172A" },
 
   summaryCard: {
     backgroundColor: "#FFFFFF",
@@ -971,7 +971,7 @@ const styles = StyleSheet.create({
   mockPath1: { position: "absolute", top: 10, left: 20, width: 2, height: 20, backgroundColor: "#067BF9" },
   mockPath2: { position: "absolute", top: 30, left: 20, width: 20, height: 2, backgroundColor: "#EF4444" },
   summarySubLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8", textTransform: "uppercase", marginBottom: 4 },
-  summaryRouteText: { fontSize: 15, fontWeight: "700", color: "#1E293B" },
+  summaryRouteText: { fontSize: 16, fontWeight: "700", color: "#1E293B" },
   statsRow: { flexDirection: "row", gap: 12 },
   statBox: {
     flex: 1,
@@ -995,7 +995,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     gap: 8,
   },
-  acceptBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  acceptBtnText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
   rejectBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1007,7 +1007,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 8,
   },
-  rejectBtnText: { color: "#EF4444", fontSize: 15, fontWeight: "700" },
+  rejectBtnText: { color: "#EF4444", fontSize: 14, fontWeight: "700" },
 
   // Footer next
   footer: {
@@ -1029,7 +1029,7 @@ const styles = StyleSheet.create({
   nextBtnDisabled: {
     backgroundColor: "#CBD5E1",
   },
-  nextBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  nextBtnText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
 
   // ─── Negotiation Screen Styles ────────────────────────────────────────────
   negoHeroCard: {
@@ -1056,7 +1056,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   negoHeroTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "800",
     color: "#0F172A",
     marginBottom: 8,
@@ -1087,8 +1087,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   negoSectionLabel: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "600",
     color: "#94A3B8",
     textTransform: "uppercase",
     letterSpacing: 0.8,
@@ -1113,7 +1113,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E2E8F0",
   },
   negoAdminInfo: { flex: 1 },
-  negoAdminName: { fontSize: 15, fontWeight: "700", color: "#0F172A" },
+  negoAdminName: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
   negoAdminRole: { fontSize: 12, color: "#64748B", marginTop: 2 },
   negoAdminPhone: { fontSize: 13, fontWeight: "600", color: "#10B981" },
   negoActionRow: {
@@ -1167,7 +1167,7 @@ const styles = StyleSheet.create({
   },
   negoSummaryDivider: { height: 1, backgroundColor: "#F1F5F9", marginHorizontal: 14 },
   negoSummaryRowLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8", marginBottom: 3 },
-  negoSummaryRowValue: { fontSize: 14, fontWeight: "700", color: "#0F172A" },
+  negoSummaryRowValue: { fontSize: 13, fontWeight: "600", color: "#0F172A" },
   negoSummaryRowMeta: { fontSize: 12, color: "#64748B", marginTop: 2 },
   negoTimeline: {
     backgroundColor: "#FFFFFF",

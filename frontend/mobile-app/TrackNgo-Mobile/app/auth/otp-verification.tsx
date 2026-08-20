@@ -286,18 +286,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "800",
     color: "#1F2937",
     marginBottom: 12,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 13, fontWeight: "500",
     color: "#2F6BFF",
     marginBottom: 4,
   },
   destination: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     color: "#1F2937",
     textAlign: "center",
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     backgroundColor: "#FFFFFF",
     textAlign: "center",
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
     color: "#1F2937",
   },
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   },
   verifyBtnText: {
     color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: "700",
   },
 });

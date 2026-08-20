@@ -304,14 +304,14 @@ function createStyles(theme: any, bottomInset: number) {
       minWidth: 0,
     },
     title: {
-      fontSize: 15,
+      fontSize: 16,
       color: theme.text,
-      fontWeight: '800',
+      fontWeight: "700",
     },
     subtitle: {
-      fontSize: 11,
+      fontSize: 13,
       color: theme.secondaryText,
-      fontWeight: '700',
+      fontWeight: "500",
       marginTop: 2,
     },
     loadingPill: {
@@ -327,9 +327,9 @@ function createStyles(theme: any, bottomInset: number) {
       backgroundColor: theme.card,
     },
     loadingText: {
-      fontSize: 12,
+      fontSize: 13,
       color: theme.text,
-      fontWeight: '700',
+      fontWeight: "500",
     },
     errorPill: {
       position: 'absolute',
@@ -351,7 +351,7 @@ function createStyles(theme: any, bottomInset: number) {
       minWidth: 0,
       fontSize: 12,
       color: '#B91C1C',
-      fontWeight: '700',
+      fontWeight: "600",
     },
     bottomPanel: {
       paddingHorizontal: 16,
@@ -373,15 +373,15 @@ function createStyles(theme: any, bottomInset: number) {
       minWidth: 0,
     },
     routeLabel: {
-      fontSize: 10,
+      fontSize: 11,
       color: theme.secondaryText,
-      fontWeight: '800',
+      fontWeight: "600",
       textTransform: 'uppercase',
     },
     routeName: {
-      fontSize: 15,
+      fontSize: 16,
       color: theme.text,
-      fontWeight: '800',
+      fontWeight: "800",
       marginTop: 3,
     },
     mappedBadge: {
@@ -391,9 +391,9 @@ function createStyles(theme: any, bottomInset: number) {
       backgroundColor: '#EAF2FF',
     },
     mappedBadgeText: {
-      fontSize: 10,
+      fontSize: 11,
       color: '#0066FF',
-      fontWeight: '800',
+      fontWeight: "700",
     },
     stopStrip: {
       gap: 8,
@@ -417,18 +417,18 @@ function createStyles(theme: any, bottomInset: number) {
       backgroundColor: '#0066FF',
       color: '#FFFFFF',
       fontSize: 10,
-      fontWeight: '800',
+      fontWeight: "800",
       marginBottom: 7,
     },
     stopName: {
       fontSize: 12,
       color: theme.text,
-      fontWeight: '800',
+      fontWeight: "800",
     },
     stopMeta: {
       fontSize: 10,
       color: theme.secondaryText,
-      fontWeight: '700',
+      fontWeight: "700",
       marginTop: 2,
     },
     primaryButton: {
@@ -443,7 +443,7 @@ function createStyles(theme: any, bottomInset: number) {
     primaryButtonText: {
       fontSize: 14,
       color: '#FFFFFF',
-      fontWeight: '800',
+      fontWeight: "700",
     },
   });
 }

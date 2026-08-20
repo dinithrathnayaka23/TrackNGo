@@ -132,6 +132,27 @@ async function fetchChatJson<T>(
   return response.json() as Promise<T>
 }
 
+// Reads the unread counter belonging to the support-admin side of a conversation.
+export function getSupportUnread(conversation: ConversationDto) {
+  if (conversation.participant1Id === SUPPORT_ADMIN_ID) {
+    return conversation.participant1Unread ?? 0
+  }
+  if (conversation.participant2Id === SUPPORT_ADMIN_ID) {
+    return conversation.participant2Unread ?? 0
+  }
+  return 0
+}
+
+// Totals unread support messages across the inbox, for the sidebar chat badge.
+export async function fetchSupportUnreadTotal() {
+  const response = await fetchSupportConversations({ page: 0, size: 50 })
+  const conversations = Array.isArray(response?.content) ? response.content : []
+  return conversations.reduce(
+    (sum, conversation) => sum + getSupportUnread(conversation),
+    0,
+  )
+}
+
 // Loads the admin support inbox conversations shown in the left-hand chat list.
 export async function fetchSupportConversations(params: {
   page?: number

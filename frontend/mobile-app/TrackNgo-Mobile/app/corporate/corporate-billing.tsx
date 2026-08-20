@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E8EDF3",
   },
-  headerTitle: { fontSize: 22, fontWeight: "800", color: "#0F172A", letterSpacing: -0.3 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A", letterSpacing: -0.3 },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 12 },
 
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     borderRadius: 50, backgroundColor: "rgba(255,255,255,0.06)",
   },
   balanceLabel: {
-    fontSize: 11, fontWeight: "700", color: "rgba(255,255,255,0.75)",
+    fontSize: 11, fontWeight: "600", color: "rgba(255,255,255,0.75)",
     letterSpacing: 1.2, marginBottom: 6,
   },
   balanceAmount: {
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center",
     justifyContent: "space-between", marginBottom: 12,
   },
-  sectionTitle: { fontSize: 17, fontWeight: "700", color: "#0F172A" },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
   sectionAction: { fontSize: 13, fontWeight: "600", color: "#2F6BFF" },
   seeAllRow: { flexDirection: "row", alignItems: "center", gap: 2 },
 
@@ -521,9 +521,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF", borderRadius: 14, borderWidth: 1,
     borderColor: "#E8EDF3", alignItems: "center", paddingVertical: 32, gap: 8,
   },
-  emptyText: { fontSize: 13, color: "#94A3B8", fontWeight: "600" },
+  emptyText: { fontSize: 14, color: "#94A3B8", fontWeight: "600" },
   emptySubText: {
-    fontSize: 12, color: "#CBD5E1", textAlign: "center", paddingHorizontal: 24,
+    fontSize: 12, fontWeight: "500", color: "#CBD5E1", textAlign: "center", paddingHorizontal: 24,
   },
 
   // Stats
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     shadowColor: "#0F172A", shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
-  statValue: { fontSize: 22, fontWeight: "800", color: "#10B981", marginBottom: 4 },
+  statValue: { fontSize: 16, fontWeight: "800", color: "#10B981", marginBottom: 4 },
   statLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8" },
 
 });

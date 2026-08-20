@@ -69,8 +69,8 @@ const styles = StyleSheet.create({
   },
   // Title text styling
   title: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: 24,
+    fontWeight: "800",
     color: "#111827",
   },
   // Link/button text styling with blue color and underline

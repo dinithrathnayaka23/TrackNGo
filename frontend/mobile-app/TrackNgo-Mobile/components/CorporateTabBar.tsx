@@ -2,6 +2,10 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import {
+  formatUnreadBadge,
+  useUnreadChatCount,
+} from "../hooks/useUnreadChatCount";
 
 /**
  * Bottom navigation shared by every corporate screen. It used to be copy-pasted
@@ -63,6 +67,10 @@ const TABS: TabDefinition[] = [
 
 export function CorporateTabBar({ active }: { active: CorporateTab }) {
   const router = useRouter();
+  // Corporate users share the passenger inbox, so the badge is driven by the
+  // same hook the passenger tab bar uses.
+  const unreadChatCount = useUnreadChatCount();
+  const chatBadge = formatUnreadBadge(unreadChatCount);
 
   return (
     <View style={styles.tabBar}>
@@ -77,11 +85,18 @@ export function CorporateTabBar({ active }: { active: CorporateTab }) {
               if (!isActive) router.push(tab.href as never);
             }}
           >
-            <Ionicons
-              name={isActive ? tab.activeIcon : tab.icon}
-              size={22}
-              color={isActive ? "#067BF9" : "#64748B"}
-            />
+            <View>
+              <Ionicons
+                name={isActive ? tab.activeIcon : tab.icon}
+                size={22}
+                color={isActive ? "#067BF9" : "#64748B"}
+              />
+              {tab.key === "chat" && chatBadge ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{chatBadge}</Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
               {tab.label}
             </Text>
@@ -102,6 +117,20 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center", gap: 3 },
+  // Sits over the icon the way the native tab-bar badge does on the other tabs.
+  badge: {
+    position: "absolute",
+    top: -5,
+    left: 12,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: "#2F6BFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: { fontSize: 10, fontWeight: "800", color: "#FFFFFF" },
   tabLabel: { fontSize: 11, fontWeight: "600", color: "#64748B", marginTop: 2 },
   tabLabelActive: { color: "#067BF9" },
 });

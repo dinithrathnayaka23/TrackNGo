@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "800",
     color: "#1F2937",
     textAlign: "center",
@@ -319,8 +319,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   stepLabel: {
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "600",
     color: "#2F6BFF",
   },
   stepName: {
@@ -343,13 +343,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#2F6BFF",
   },
   heading: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "800",
     color: "#1F2937",
     lineHeight: 36,
   },
   label: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     color: "#374151",
     marginBottom: 8,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     right: 10,
   },
   typeLabel: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: "600",
     color: "#6B7280",
     marginTop: 8,
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: "#1F2937",
   },
   eyeBtn: {
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   codeText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
     color: "#1F2937",
   },
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: 12, fontWeight: "600",
     color: "#EF4444",
     marginBottom: 4,
   },
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
   },
   nextBtnText: {
     color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: "700",
   },
   loginRow: {

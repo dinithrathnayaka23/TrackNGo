@@ -554,10 +554,10 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E8EDF3",
   },
   backBtn: { width: 32, alignItems: "flex-start" },
-  headerTitle: { fontSize: 17, fontWeight: "700", color: "#0F172A" },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
 
   centered: { flexGrow: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 24 },
-  errorText: { fontSize: 13, color: "#94A3B8", fontWeight: "600", textAlign: "center" },
+  errorText: { fontSize: 12, color: "#94A3B8", fontWeight: "600", textAlign: "center" },
 
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12 },
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
   heroRouteRow: { flexDirection: "row", alignItems: "center", marginBottom: 18 },
   heroRouteCity: { fontSize: 14, fontWeight: "600", color: "rgba(255,255,255,0.92)", flexShrink: 1 },
   heroAmountLabel: {
-    fontSize: 10, fontWeight: "700", color: "rgba(255,255,255,0.7)",
+    fontSize: 11, fontWeight: "600", color: "rgba(255,255,255,0.7)",
     letterSpacing: 1.2, marginBottom: 4,
   },
   heroAmount: { fontSize: 28, fontWeight: "800", color: "#FFFFFF", letterSpacing: -0.5, marginBottom: 18 },
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 },
-  cardTitle: { fontSize: 15, fontWeight: "700", color: "#0F172A" },
+  cardTitle: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
   divider: { height: 1, backgroundColor: "#F1F5F9", marginVertical: 12 },
 
   // Info rows
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 10, backgroundColor: "#F1F5F9",
     alignItems: "center", justifyContent: "center",
   },
-  infoLabel: { fontSize: 10, fontWeight: "700", color: "#94A3B8", letterSpacing: 0.6, marginBottom: 2 },
+  infoLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8", letterSpacing: 0.6, marginBottom: 2 },
   infoValue: { fontSize: 13, fontWeight: "600", color: "#1E293B" },
 
   // Shift
@@ -640,8 +640,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12, paddingHorizontal: 12, alignItems: "center",
   },
   shiftArrow: { paddingHorizontal: 10 },
-  shiftLabel: { fontSize: 9, fontWeight: "700", color: "#94A3B8", letterSpacing: 0.7, marginBottom: 4 },
-  shiftValue: { fontSize: 15, fontWeight: "800", color: "#0F172A" },
+  shiftLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8", letterSpacing: 0.7, marginBottom: 4 },
+  shiftValue: { fontSize: 13, fontWeight: "600", color: "#0F172A" },
 
   // Bus
   busHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -679,8 +679,8 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: "#F8FAFC", borderRadius: 12,
     paddingVertical: 12, paddingHorizontal: 8, alignItems: "center",
   },
-  statValue: { fontSize: 13, fontWeight: "800", color: "#1E293B", marginBottom: 4, textAlign: "center" },
-  statLabel: { fontSize: 10, fontWeight: "600", color: "#94A3B8" },
+  statValue: { fontSize: 16, fontWeight: "800", color: "#1E293B", marginBottom: 4, textAlign: "center" },
+  statLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8" },
   invoiceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   invoiceRef: { fontSize: 13, fontWeight: "700", color: "#1E293B", marginBottom: 3 },
   invoiceDate: { fontSize: 11, color: "#94A3B8", fontWeight: "500" },
@@ -688,8 +688,8 @@ const styles = StyleSheet.create({
 
   // Empty
   emptyBlock: { alignItems: "center", paddingVertical: 18, gap: 5 },
-  emptyText: { fontSize: 13, color: "#94A3B8", fontWeight: "600" },
-  emptySubText: { fontSize: 11, color: "#CBD5E1", textAlign: "center", paddingHorizontal: 20 },
+  emptyText: { fontSize: 14, color: "#94A3B8", fontWeight: "600" },
+  emptySubText: { fontSize: 12, fontWeight: "500", color: "#CBD5E1", textAlign: "center", paddingHorizontal: 20 },
 
   // Action
   billingBtn: {

@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getSeatLayout, getBookedSeats, getBlockedSeats, type SeatLayoutRow } from '../../services/bookingFlowApi';
 import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { formatBusTypeLabel } from '../../utils/busLabels';
 import { LocalizedText as Text } from '../../utils/i18n';
 
 type SeatStatus = 'available' | 'selected' | 'booked' | 'blocked';
@@ -136,7 +137,9 @@ export default function SeatSelectionScreen() {
               </Text>
             </View>
             <View style={styles.summaryPill}>
-              <Text style={styles.summaryPillText}>{busType}</Text>
+              <Text style={styles.summaryPillText}>
+                {formatBusTypeLabel(busType)}
+              </Text>
             </View>
           </View>
 
@@ -357,8 +360,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: "700",
     color: '#111827',
   },
   headerSpacer: {
@@ -390,7 +393,7 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1F2937',
   },
   summarySub: {
@@ -406,7 +409,7 @@ const styles = StyleSheet.create({
   },
   summaryPillText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#2F6BFF',
   },
   toggleRow: {
@@ -424,8 +427,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   toggleLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: "600",
     color: '#1F2937',
   },
   legendRow: {
@@ -489,7 +492,7 @@ const styles = StyleSheet.create({
   },
   seatHeaderText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#94A3B8',
   },
   seatRow: {
@@ -528,7 +531,7 @@ const styles = StyleSheet.create({
   },
   seatText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#1F2937',
   },
   seatTextInverse: {
@@ -560,12 +563,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   bottomLabel: {
-    fontSize: 11,
+    fontSize: 11, fontWeight: "600",
     color: '#94A3B8',
   },
   bottomValue: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: "600",
     color: '#1F2937',
     marginTop: 4,
   },
@@ -573,8 +576,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   bottomPriceValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: "600",
     color: '#2F6BFF',
     marginTop: 4,
   },
@@ -593,7 +596,7 @@ const styles = StyleSheet.create({
   },
   payButtonText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#FFFFFF',
   },
 });

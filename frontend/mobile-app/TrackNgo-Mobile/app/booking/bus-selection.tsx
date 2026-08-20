@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { searchBuses, type BusSearchResult } from '../../services/bookingFlowApi';
 import { getBusRouteLabel, getBusRouteWithSuffix } from '../../utils/routeDisplay';
+import { formatBusTypeLabel } from '../../utils/busLabels';
 import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
 import { LocalizedText as Text } from '../../utils/i18n';
 
@@ -183,7 +184,9 @@ export default function BusSelectionScreen() {
                 </View>
                 <View>
                   <Text style={styles.busId}>{bus.busNumber}</Text>
-                  <Text style={styles.busType}>{bus.busBrand}  •  {bus.busType}</Text>
+                  <Text style={styles.busType}>
+                    {bus.busBrand}  •  {formatBusTypeLabel(bus.busType)}
+                  </Text>
                   {busRouteLabel ? (
                     <Text style={styles.routeLabel}>{busRouteLabel}</Text>
                   ) : null}
@@ -295,8 +298,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: "700",
     color: '#111827',
   },
   headerSpacer: {
@@ -328,7 +331,7 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1F2937',
   },
   summarySub: {
@@ -338,7 +341,7 @@ const styles = StyleSheet.create({
   },
   summaryEdit: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#2F6BFF',
   },
   busCard: {
@@ -372,7 +375,7 @@ const styles = StyleSheet.create({
   },
   busId: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1F2937',
   },
   busType: {
@@ -380,9 +383,9 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   routeLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#2F6BFF',
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 2,
   },
   ratingPill: {
@@ -396,7 +399,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#F59E0B',
   },
   timeRow: {
@@ -405,8 +408,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   timeText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#1F2937',
   },
   timeSub: {
@@ -446,12 +449,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   priceLabel: {
-    fontSize: 10,
+    fontSize: 11, fontWeight: "600",
     color: '#94A3B8',
   },
   priceText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#2F6BFF',
   },
   bottomRight: {
@@ -471,7 +474,7 @@ const styles = StyleSheet.create({
   },
   seatsText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   seatsTextAlert: {
     color: '#EF4444',
@@ -487,7 +490,7 @@ const styles = StyleSheet.create({
   },
   selectButtonText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

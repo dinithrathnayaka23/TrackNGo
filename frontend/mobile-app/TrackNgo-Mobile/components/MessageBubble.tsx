@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   voiceTime: {
-    fontSize: 10.5,
+    fontSize: 10,
   },
   voiceTick: {
     fontSize: 11,
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
   },
   locationOpenLabel: {
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   locationOpenLabelOut: {
     color: "rgba(255,255,255,0.65)",

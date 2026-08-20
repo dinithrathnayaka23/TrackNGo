@@ -213,8 +213,8 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   label: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: "600",
     color: '#94A3B8',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#111827',
     backgroundColor: 'transparent',
     paddingHorizontal: 0,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   loadingText: {
-    fontSize: 12,
+    fontSize: 13, fontWeight: "500",
     color: '#64748B',
   },
   suggestionRow: {

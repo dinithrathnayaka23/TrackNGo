@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   // Type scale mirrors the corporate screens: 17/700 header, 14/700 row title,
   // 13 for section labels and states, 12/500 body, 11/500 meta.
   headerTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
     color: "#1F2937",
     textAlign: "center",
@@ -535,8 +535,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "600",
     color: "#94A3B8",
   },
   markRead: {

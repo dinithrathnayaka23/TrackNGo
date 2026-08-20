@@ -543,8 +543,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: "700",
     color: '#1F2937',
   },
   headerSpacer: {
@@ -565,8 +565,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: "600",
     color: '#1F2937',
   },
   scrollContent: {
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   },
   avatarFallbackText: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
     color: '#475569',
   },
   chatBody: {
@@ -610,8 +610,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   chatTitle: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#1F2937',
   },
   previewRow: {
@@ -623,8 +623,8 @@ const styles = StyleSheet.create({
   chatSubtitle: {
     flex: 1,
     minWidth: 0,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: "500",
     color: '#8A94A6',
   },
   chatMeta: {
@@ -634,8 +634,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chatTime: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: "500",
     color: '#94A3B8',
   },
   unreadBadge: {
@@ -648,8 +648,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   unreadBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: "700",
     color: '#FFFFFF',
   },
   centered: {
@@ -663,13 +663,13 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     color: '#6C8195',
-    fontSize: 14,
+    fontSize: 14, fontWeight: "600",
   },
   errorText: {
     textAlign: 'center',
     color: '#D9534F',
     marginBottom: 12,
-    fontSize: 14,
+    fontSize: 12, fontWeight: "600",
   },
   retryButton: {
     backgroundColor: '#1A73E8',
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
   },
   retryText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
 

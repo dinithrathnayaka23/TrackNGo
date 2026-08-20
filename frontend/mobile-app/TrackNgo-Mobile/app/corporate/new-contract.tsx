@@ -20,10 +20,63 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSession } from "../../store/sessionStore";
-import { createCorporateContract, getCorporateContracts } from "../../services/corporateApi";
-import { API_BASE_URL as ENV_API_BASE_URL } from "../../config/env";
+import {
+  createCorporateContract,
+  getCorporateContracts,
+  estimateContractPricing,
+  formatAmount,
+  type ShiftType,
+  type WorkingDays,
+  type BusType,
+  type ShiftLeg,
+} from "../../services/corporateApi";
+import GooglePlaceField, { type PlaceValue } from "../../components/GooglePlaceField";
 
-const API_BASE_URL = `${ENV_API_BASE_URL}/api`;
+// ─── Road-distance helper (same OSRM approach used in BookATrip.tsx) ─────────
+// Avoids Google Directions billing: any two selected locations get a real
+// road-distance figure, which feeds directly into the standard fare formula.
+type Coord = { latitude: number; longitude: number };
+
+function haversineKm(a: Coord, b: Coord): number {
+  const R = 6371;
+  const dLat = (b.latitude - a.latitude) * (Math.PI / 180);
+  const dLon = (b.longitude - a.longitude) * (Math.PI / 180);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.latitude * (Math.PI / 180)) *
+      Math.cos(b.latitude * (Math.PI / 180)) *
+      Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+type RoadRoute = { distanceKm: number; durationMinutes: number };
+
+// Fallback average speed when OSRM is unreachable — used only to keep the
+// pickup/drop-off time estimate roughly sane, not for pricing (pricing always
+// uses the real OSRM distance when available).
+const FALLBACK_AVERAGE_KMH = 35;
+
+async function getRoadRoute(start: Coord, end: Coord): Promise<RoadRoute> {
+  try {
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${start.longitude},${start.latitude};${end.longitude},${end.latitude}` +
+      "?overview=false&steps=false";
+    const response = await fetch(url);
+    const payload = await response.json();
+    const route = payload?.routes?.[0];
+    if (payload.code === "Ok" && Number(route?.distance) > 0) {
+      return {
+        distanceKm: Math.round((Number(route.distance) / 1000) * 10) / 10,
+        durationMinutes: Math.max(1, Math.round(Number(route.duration) / 60)),
+      };
+    }
+  } catch {
+    // Fall through to the straight-line estimate below.
+  }
+  const distanceKm = Math.round(haversineKm(start, end) * 10) / 10;
+  return { distanceKm, durationMinutes: Math.max(1, Math.round((distanceKm / FALLBACK_AVERAGE_KMH) * 60)) };
+}
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
 
@@ -85,28 +138,46 @@ export default function NewContractScreen() {
   const [step, setStep] = useState(initStep);
   const [submitting, setSubmitting] = useState(false);
 
-  // 🔹 Location State (Mirrors BookATrip.tsx)
-  const [startLocationQuery, setStartLocationQuery] = useState("");
-  const [destinationQuery, setDestinationQuery] = useState("");
-  const [startLocationObj, setStartLocationObj] = useState<any>(null);
-  const [destinationObj, setDestinationObj] = useState<any>(null);
-  const [startLocationResults, setStartLocationResults] = useState<any[]>([]);
-  const [destinationResults, setDestinationResults] = useState<any[]>([]);
-  const [loadingSearch, setLoadingSearch] = useState(false);
-
   // 🔹 Other Form State
   const [employees, setEmployees] = useState("");
-  
+
+  // 🔹 Shift & Service Options
+  const [shiftType, setShiftType] = useState<ShiftType>("both");
+  const [workingDays, setWorkingDays] = useState<WorkingDays>("weekdays");
+  const [busType, setBusType] = useState<BusType>("standard");
+
+  // 🔹 Route State — place-accurate Google Places selections per shift leg
+  const [morningPickup, setMorningPickup] = useState<PlaceValue>(null);
+  const [morningDropoff, setMorningDropoff] = useState<PlaceValue>(null);
+  const [eveningPickup, setEveningPickup] = useState<PlaceValue>(null);
+  const [eveningDropoff, setEveningDropoff] = useState<PlaceValue>(null);
+  // When both shifts run, the evening commute is usually the morning route
+  // reversed — but the company may run a different route home, so this is a
+  // convenience default the user can turn off to pick evening locations independently.
+  const [sameAsMorningReversed, setSameAsMorningReversed] = useState(true);
+
   // 🔹 Date & Time State
   const [startDateObj, setStartDateObj] = useState<Date | null>(null);
   const [endDateObj, setEndDateObj] = useState<Date | null>(null);
-  const [startTimeObj, setStartTimeObj] = useState<Date | null>(null);
-  const [endTimeObj, setEndTimeObj] = useState<Date | null>(null);
+  const [morningPickupObj, setMorningPickupObj] = useState<Date | null>(null);
+  const [morningDropoffObj, setMorningDropoffObj] = useState<Date | null>(null);
+  const [eveningPickupObj, setEveningPickupObj] = useState<Date | null>(null);
+  const [eveningDropoffObj, setEveningDropoffObj] = useState<Date | null>(null);
 
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showMorningDropoffPicker, setShowMorningDropoffPicker] = useState(false);
+  const [showEveningPickupPicker, setShowEveningPickupPicker] = useState(false);
+
+  // 🔹 Distance & Pricing State
+  const [morningDistanceKm, setMorningDistanceKm] = useState<number | null>(null);
+  const [eveningDistanceKm, setEveningDistanceKm] = useState<number | null>(null);
+  const [morningDurationMin, setMorningDurationMin] = useState<number | null>(null);
+  const [eveningDurationMin, setEveningDurationMin] = useState<number | null>(null);
+  const [morningDistanceLoading, setMorningDistanceLoading] = useState(false);
+  const [eveningDistanceLoading, setEveningDistanceLoading] = useState(false);
+  const [liveEstimate, setLiveEstimate] = useState<number | null>(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
 
   const [selectedBusId, setSelectedBusId] = useState<number | null>(null);
 
@@ -114,6 +185,7 @@ export default function NewContractScreen() {
   const [contractId, setContractId] = useState<number | null>(initContractId);
   const [contractStatus, setContractStatus] = useState<string>("pending");
   const [submittingContract, setSubmittingContract] = useState(false);
+  const [createdContract, setCreatedContract] = useState<{ billingAmount: number } | null>(null);
 
   // Load existing contract details if jumping into negotiation
   useEffect(() => {
@@ -121,13 +193,30 @@ export default function NewContractScreen() {
       getCorporateContracts(currentUser.userId).then((contracts) => {
         const current = contracts.find(c => c.contractId === initContractId);
         if (current) {
-          setStartLocationObj({ name: current.startingLocation });
-          setDestinationObj({ name: current.destination });
-          setStartTimeObj(new Date(`1970-01-01T${current.startShiftTime}`));
-          setEndTimeObj(new Date(`1970-01-01T${current.endShiftTime}`));
+          setShiftType(current.shiftType || "both");
+          setWorkingDays(current.workingDays || "weekdays");
+          setBusType(current.busType || "standard");
+          setSameAsMorningReversed(false);
+
+          const applyLeg = (
+            leg: typeof current.morningPickup,
+            setPlace: (p: PlaceValue) => void,
+            setTime: (d: Date) => void,
+          ) => {
+            if (!leg) return;
+            setPlace({ name: leg.location, latitude: leg.latitude, longitude: leg.longitude });
+            if (leg.time) setTime(new Date(`1970-01-01T${leg.time}`));
+          };
+          applyLeg(current.morningPickup, setMorningPickup, setMorningPickupObj);
+          applyLeg(current.morningDropoff, setMorningDropoff, setMorningDropoffObj);
+          applyLeg(current.eveningPickup, setEveningPickup, setEveningPickupObj);
+          applyLeg(current.eveningDropoff, setEveningDropoff, setEveningDropoffObj);
+          setMorningDistanceKm(current.morningDistanceKm ?? null);
+          setEveningDistanceKm(current.eveningDistanceKm ?? null);
+
           setSelectedBusId(current.busId || null);
           setContractStatus(current.status);
-          setEmployees("N/A"); // Default fallback, as it's not saved in DB
+          setEmployees(current.employeeCount ? String(current.employeeCount) : "");
           setStartDateObj(new Date(current.startDate));
           setEndDateObj(new Date(current.endDate));
         }
@@ -147,12 +236,27 @@ export default function NewContractScreen() {
 
   // Derived
   const selectedBus = LUXURY_BUSES.find((b) => b.id === selectedBusId);
-  const monthlyAmount = selectedBus ? selectedBus.fee / 12 : 120000;
+  const monthlyAmount = createdContract?.billingAmount ?? liveEstimate ?? 0;
+
+  const needsMorning = shiftType === "morning" || shiftType === "both";
+  const needsEvening = shiftType === "evening" || shiftType === "both";
+  const useSameEveningRoute = shiftType === "both" && sameAsMorningReversed;
+
+  const morningLegsFilled = !needsMorning || !!(morningPickup && morningDropoff && morningPickupObj && morningDropoffObj);
+  const eveningLegsFilled =
+    !needsEvening ||
+    (useSameEveningRoute
+      ? !!(morningDropoff && morningPickup && eveningPickupObj && eveningDropoffObj)
+      : !!(eveningPickup && eveningDropoff && eveningPickupObj && eveningDropoffObj));
+  const shiftDetailsFilled = morningLegsFilled && eveningLegsFilled;
+
+  const morningDistanceReady = !needsMorning || !!morningDistanceKm;
+  const eveningDistanceReady = !needsEvening || !!eveningDistanceKm;
 
   // Per-step validation — button turns blue only when all required fields are filled
   const isStepValid =
     step === 1
-      ? !!(startLocationObj && destinationObj && employees && startTimeObj && endTimeObj && startDateObj && endDateObj)
+      ? !!(employees && shiftDetailsFilled && morningDistanceReady && eveningDistanceReady && startDateObj && endDateObj)
       : step === 2
       ? !!selectedBusId
       : true; // Step 3 (negotiation) always shows footer; Accept Offer has its own logic
@@ -174,64 +278,125 @@ export default function NewContractScreen() {
     return () => clearInterval(interval);
   }, [step, contractId, currentUser]);
 
-  // ─── Location Search Logic ───
+  // ─── "Same as morning, reversed" convenience for the evening route ───
   useEffect(() => {
-    const search = async (query: string, setResults: (data: any[]) => void, selectedItem: any) => {
-      if (selectedItem && selectedItem.name === query) {
-        setResults([]);
-        return;
-      }
-      if (query.length < 3) {
-        setResults([]);
-        return;
-      }
-      try {
-        setLoadingSearch(true);
-        const response = await fetch(`${API_BASE_URL}/locations/search?query=${query}`);
-        const data = await response.json();
-        setResults(data);
-      } catch (error) {
-        console.error("Search failed:", error);
-      } finally {
-        setLoadingSearch(false);
-      }
-    };
+    if (!useSameEveningRoute) return;
+    setEveningPickup(morningDropoff);
+    setEveningDropoff(morningPickup);
+  }, [useSameEveningRoute, morningPickup, morningDropoff]);
 
-    const timer = setTimeout(() => search(startLocationQuery, setStartLocationResults, startLocationObj), 300);
-    return () => clearTimeout(timer);
-  }, [startLocationQuery, startLocationObj]);
+  // ─── Auto-calculate real road distance + travel time for each active shift's route ───
+  useEffect(() => {
+    if (!needsMorning || !morningPickup?.latitude || !morningDropoff?.latitude) {
+      setMorningDistanceKm(null);
+      setMorningDurationMin(null);
+      return;
+    }
+    let cancelled = false;
+    setMorningDistanceLoading(true);
+    getRoadRoute(
+      { latitude: morningPickup.latitude, longitude: morningPickup.longitude },
+      { latitude: morningDropoff.latitude, longitude: morningDropoff.longitude },
+    )
+      .then(({ distanceKm, durationMinutes }) => {
+        if (cancelled) return;
+        setMorningDistanceKm(distanceKm);
+        setMorningDurationMin(durationMinutes);
+      })
+      .finally(() => { if (!cancelled) setMorningDistanceLoading(false); });
+    return () => { cancelled = true; };
+  }, [needsMorning, morningPickup, morningDropoff]);
 
   useEffect(() => {
-    const search = async (query: string, setResults: (data: any[]) => void, selectedItem: any) => {
-      if (selectedItem && selectedItem.name === query) {
-        setResults([]);
-        return;
-      }
-      if (query.length < 3) {
-        setResults([]);
-        return;
-      }
-      try {
-        setLoadingSearch(true);
-        const response = await fetch(`${API_BASE_URL}/locations/search?query=${query}`);
-        const data = await response.json();
-        setResults(data);
-      } catch (error) {
-        console.error("Search failed:", error);
-      } finally {
-        setLoadingSearch(false);
-      }
-    };
+    if (!needsEvening) {
+      setEveningDistanceKm(null);
+      setEveningDurationMin(null);
+      return;
+    }
+    if (useSameEveningRoute) {
+      // Same route, opposite direction — distance and travel time are identical either way.
+      setEveningDistanceKm(morningDistanceKm);
+      setEveningDurationMin(morningDurationMin);
+      return;
+    }
+    if (!eveningPickup?.latitude || !eveningDropoff?.latitude) {
+      setEveningDistanceKm(null);
+      setEveningDurationMin(null);
+      return;
+    }
+    let cancelled = false;
+    setEveningDistanceLoading(true);
+    getRoadRoute(
+      { latitude: eveningPickup.latitude, longitude: eveningPickup.longitude },
+      { latitude: eveningDropoff.latitude, longitude: eveningDropoff.longitude },
+    )
+      .then(({ distanceKm, durationMinutes }) => {
+        if (cancelled) return;
+        setEveningDistanceKm(distanceKm);
+        setEveningDurationMin(durationMinutes);
+      })
+      .finally(() => { if (!cancelled) setEveningDistanceLoading(false); });
+    return () => { cancelled = true; };
+  }, [needsEvening, useSameEveningRoute, morningDistanceKm, morningDurationMin, eveningPickup, eveningDropoff]);
 
-    const timer = setTimeout(() => search(destinationQuery, setDestinationResults, destinationObj), 300);
-    return () => clearTimeout(timer);
-  }, [destinationQuery, destinationObj]);
+  // ─── Morning shift: user sets the required arrival (drop-off) time; pickup
+  // time is derived by subtracting the estimated journey duration, since we
+  // can't guarantee an exact pickup time without knowing how long the trip takes. ───
+  useEffect(() => {
+    if (!needsMorning || !morningDropoffObj || morningDurationMin == null) {
+      if (needsMorning && !morningDropoffObj) setMorningPickupObj(null);
+      return;
+    }
+    setMorningPickupObj(new Date(morningDropoffObj.getTime() - morningDurationMin * 60000));
+  }, [needsMorning, morningDropoffObj, morningDurationMin]);
+
+  // ─── Evening shift: user sets the departure (pickup) time; drop-off time is
+  // derived by adding the estimated journey duration. ───
+  useEffect(() => {
+    if (!needsEvening || !eveningPickupObj || eveningDurationMin == null) {
+      if (needsEvening && !eveningPickupObj) setEveningDropoffObj(null);
+      return;
+    }
+    setEveningDropoffObj(new Date(eveningPickupObj.getTime() + eveningDurationMin * 60000));
+  }, [needsEvening, eveningPickupObj, eveningDurationMin]);
+
+  // ─── Live monthly-billing estimate from the backend's standard formula ───
+  useEffect(() => {
+    const employeeCount = parseInt(employees, 10);
+    if (!employeeCount || employeeCount <= 0 || !morningDistanceReady || !eveningDistanceReady) {
+      setLiveEstimate(null);
+      return;
+    }
+    if (!needsMorning && !needsEvening) {
+      setLiveEstimate(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setEstimateLoading(true);
+      estimateContractPricing({ morningDistanceKm, eveningDistanceKm, employeeCount, shiftType, workingDays, busType })
+        .then((amount) => { if (!cancelled) setLiveEstimate(amount); })
+        .catch(() => { if (!cancelled) setLiveEstimate(null); })
+        .finally(() => { if (!cancelled) setEstimateLoading(false); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [morningDistanceKm, eveningDistanceKm, employees, shiftType, workingDays, busType]);
 
   // ─── Step Management ───
+  const formatApiTime = (dt: Date) => dt.toTimeString().split(' ')[0];
+  const buildLeg = (place: PlaceValue, time: Date | null): ShiftLeg | null =>
+    place && time
+      ? { location: place.name, latitude: place.latitude, longitude: place.longitude, time: formatApiTime(time) }
+      : null;
+
   const handleNext = async () => {
     if (step === 1) {
-      if (!startLocationObj || !destinationObj || !employees || !startTimeObj || !endTimeObj || !startDateObj || !endDateObj) {
-        Alert.alert("Missing Fields", "Please fill in all details, making sure to select locations from the dropdown list.");
+      if (!employees || !shiftDetailsFilled || !startDateObj || !endDateObj) {
+        Alert.alert("Missing Fields", "Please fill in all details, making sure to select places from the search results and set your shift times.");
+        return;
+      }
+      if (!morningDistanceReady || !eveningDistanceReady) {
+        Alert.alert("Distance Unavailable", "Could not calculate the route distance yet. Please re-select your pickup and drop-off places.");
         return;
       }
       if (startDateObj && endDateObj && endDateObj < startDateObj) {
@@ -245,18 +410,23 @@ export default function NewContractScreen() {
         return;
       }
       // Submit contract to backend when entering negotiation
-      if (!currentUser || !startLocationObj || !destinationObj || !startTimeObj || !endTimeObj || !startDateObj || !endDateObj) return;
+      if (!currentUser || !startDateObj || !endDateObj) return;
       setSubmittingContract(true);
       try {
         const formatApiDate = (dt: Date) => dt.toISOString().split('T')[0];
-        const formatApiTime = (dt: Date) => dt.toTimeString().split(' ')[0];
+        const routeName = (needsMorning ? morningPickup?.name : eveningPickup?.name) ?? "Corporate Route";
         const created = await createCorporateContract({
-          contractName: `${startLocationObj.name} to ${destinationObj.name} Contract`,
-          startingLocation: startLocationObj.name,
-          destination: destinationObj.name,
-          startShiftTime: formatApiTime(startTimeObj),
-          endShiftTime: formatApiTime(endTimeObj),
-          billingAmount: monthlyAmount,
+          contractName: `${routeName} Corporate Contract`,
+          shiftType,
+          morningPickup: needsMorning ? buildLeg(morningPickup, morningPickupObj) : null,
+          morningDropoff: needsMorning ? buildLeg(morningDropoff, morningDropoffObj) : null,
+          morningDistanceKm: needsMorning ? morningDistanceKm : null,
+          eveningPickup: needsEvening ? buildLeg(useSameEveningRoute ? morningDropoff : eveningPickup, eveningPickupObj) : null,
+          eveningDropoff: needsEvening ? buildLeg(useSameEveningRoute ? morningPickup : eveningDropoff, eveningDropoffObj) : null,
+          eveningDistanceKm: needsEvening ? eveningDistanceKm : null,
+          employeeCount: parseInt(employees, 10) || 0,
+          workingDays,
+          busType,
           startDate: formatApiDate(startDateObj),
           endDate: formatApiDate(endDateObj),
           corporateUserId: currentUser.userId,
@@ -265,6 +435,7 @@ export default function NewContractScreen() {
         // Backend returns the created contract. If null (older backend), fetch the latest one.
         let resolvedId: number | null = created?.contractId ?? null;
         let resolvedStatus: string = created?.status ?? "pending";
+        let resolvedBilling: number = created?.billingAmount ?? liveEstimate ?? 0;
 
         if (!resolvedId) {
           // Fallback: fetch the latest contract for this user
@@ -273,14 +444,17 @@ export default function NewContractScreen() {
             const latest = allContracts[0]; // ordered by created_at DESC
             resolvedId = latest.contractId;
             resolvedStatus = latest.status;
+            resolvedBilling = latest.billingAmount;
           }
         }
 
         setContractId(resolvedId);
         setContractStatus(resolvedStatus);
+        setCreatedContract({ billingAmount: resolvedBilling });
         setStep(3);
       } catch (err) {
-        Alert.alert("Submission Error", "Failed to submit contract request. Please try again.");
+        const message = err instanceof Error ? err.message : "Failed to submit contract request. Please try again.";
+        Alert.alert("Submission Error", message);
         console.error(err);
       } finally {
         setSubmittingContract(false);
@@ -310,46 +484,160 @@ export default function NewContractScreen() {
 
 
   // ─── UI Helpers ───
-  const renderCityDropdown = (query: string, setQuery: (t: string) => void, results: any[], setResults: (data: any[]) => void, setSelected: (item: any) => void, selectedItem: any, icon: keyof typeof Ionicons.glyphMap, placeholder: string) => (
-    <View style={{ marginBottom: 16, zIndex: results.length > 0 ? 100 : 1 }}>
-      <View style={styles.inputWrapper}>
-        <Ionicons name={icon} size={20} color="#067BF9" style={styles.inputIcon} />
-        <TextInput
-          style={styles.textInput}
-          placeholder={placeholder}
-          value={query}
-          onChangeText={(text) => { setQuery(text); setSelected(null); }}
-          placeholderTextColor="#94A3B8"
-        />
+  const renderTimeField = (
+    label: string,
+    value: Date | null,
+    setValue: (d: Date) => void,
+    show: boolean,
+    setShow: (b: boolean) => void,
+  ) => (
+    <View style={{ flex: 1 }}>
+      <Text style={styles.inputLabelOutside}>{label}</Text>
+      <View style={[styles.inputWrapper, { marginBottom: 0 }]}>
+        <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }} onPress={() => setShow(true)}>
+          <Text style={[styles.textInput, { color: value ? '#1E293B' : '#94A3B8' }]}>
+            {value ? value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+          </Text>
+          <Ionicons name="time-outline" size={18} color="#64748B" />
+        </TouchableOpacity>
+        {show && <DateTimePicker value={value || new Date()} mode="time" display="default" onChange={(e, d) => { setShow(false); if (d) setValue(d); }} />}
       </View>
-      {loadingSearch && query.length >= 3 && <ActivityIndicator size="small" color="#2F6BFF" style={{ marginTop: 4, alignSelf: 'flex-start' }} />}
-      {query.length >= 3 && results.length === 0 && !loadingSearch && !selectedItem && <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Searching for locations...</Text>}
-      {query.length >= 3 && results.length > 0 && (
-        <View style={styles.dropdownContainer}>
-          <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-            {results.map((item) => (
-              <TouchableOpacity key={item.id} style={styles.dropdownItem} onPress={() => { setSelected(item); setQuery(item.name); setResults([]); }}>
-                <Text style={styles.dropdownItemText}>{item.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
     </View>
   );
+
+  const renderComputedTimeField = (label: string, value: Date | null, loading: boolean) => (
+    <View style={{ flex: 1 }}>
+      <Text style={styles.inputLabelOutside}>{label}</Text>
+      <View style={[styles.inputWrapper, styles.computedTimeWrapper]}>
+        {loading ? (
+          <ActivityIndicator size="small" color="#067BF9" />
+        ) : (
+          <Text style={[styles.textInput, { color: value ? '#1E293B' : '#94A3B8' }]}>
+            {value ? value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+          </Text>
+        )}
+        <Ionicons name="calculator-outline" size={16} color="#94A3B8" />
+      </View>
+    </View>
+  );
+
+  const describeShiftSummary = () => {
+    const fmt = (d: Date | null) => d ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--";
+    const parts: string[] = [];
+    if (needsMorning) parts.push(`Morning ${fmt(morningPickupObj)}–${fmt(morningDropoffObj)}`);
+    if (needsEvening) parts.push(`Evening ${fmt(eveningPickupObj)}–${fmt(eveningDropoffObj)}`);
+    return parts.join("  •  ");
+  };
+
+  const describeRoutes = () => {
+    const parts: string[] = [];
+    if (needsMorning && morningPickup && morningDropoff) {
+      parts.push(`${morningPickup.name} → ${morningDropoff.name}`);
+    }
+    if (needsEvening) {
+      const pickup = useSameEveningRoute ? morningDropoff : eveningPickup;
+      const dropoff = useSameEveningRoute ? morningPickup : eveningDropoff;
+      if (pickup && dropoff) parts.push(`${pickup.name} → ${dropoff.name}`);
+    }
+    return parts.length > 0 ? parts.join("  •  ") : "Route not set";
+  };
 
   // ─── Render Steps ─────────────────────────────────────────────────────────────
 
   const renderStep1 = () => (
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Logistics Details</Text>
-      <Text style={styles.stepSubtitle}>Step 1 of 4: Set up your initial route and employee capacity details.</Text>
+      <Text style={styles.stepSubtitle}>Step 1 of 4: Choose your service and set up each shift's route.</Text>
 
-      <Text style={styles.inputLabelOutside}>Route Start Point</Text>
-      {renderCityDropdown(startLocationQuery, setStartLocationQuery, startLocationResults, setStartLocationResults, setStartLocationObj, startLocationObj, "location", "Type or select start point")}
+      <Text style={styles.inputLabelOutside}>Service Required For</Text>
+      <View style={[styles.row, { gap: 8, marginBottom: 20 }]}>
+        {([
+          { key: "morning", label: "Morning Only", icon: "sunny-outline" },
+          { key: "evening", label: "Evening Only", icon: "moon-outline" },
+          { key: "both", label: "Both Shifts", icon: "swap-vertical-outline" },
+        ] as const).map((opt) => (
+          <TouchableOpacity
+            key={opt.key}
+            style={[styles.shiftChip, shiftType === opt.key && styles.shiftChipActive]}
+            onPress={() => setShiftType(opt.key)}
+          >
+            <Ionicons name={opt.icon as any} size={16} color={shiftType === opt.key ? "#FFFFFF" : "#1E293B"} />
+            <Text style={[styles.shiftChipText, shiftType === opt.key && styles.shiftChipTextActive]}>{opt.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      <Text style={styles.inputLabelOutside}>Destination</Text>
-      {renderCityDropdown(destinationQuery, setDestinationQuery, destinationResults, setDestinationResults, setDestinationObj, destinationObj, "flag", "Type or select destination")}
+      {needsMorning && (
+        <View style={styles.routeSection}>
+          <Text style={styles.routeSectionTitle}>Morning Shift Route</Text>
+          <GooglePlaceField label="Pickup Location" placeholder="Search employee pickup point..." value={morningPickup} onChange={setMorningPickup} icon="location" />
+          <GooglePlaceField label="Drop-off Location" placeholder="Search office / drop-off point..." value={morningDropoff} onChange={setMorningDropoff} icon="flag" />
+          <View style={[styles.row, { marginBottom: 4, gap: 12 }]}>
+            {renderTimeField("Required Arrival Time", morningDropoffObj, setMorningDropoffObj, showMorningDropoffPicker, setShowMorningDropoffPicker)}
+            {renderComputedTimeField("Estimated Pickup Time", morningPickupObj, morningDistanceLoading)}
+          </View>
+          <Text style={styles.computedHint}>
+            Pickup time is calculated automatically from the estimated journey duration — we can't guarantee an exact pickup time, only the required arrival.
+          </Text>
+          {(morningDistanceLoading || morningDistanceKm) && (
+            <View style={styles.distancePill}>
+              <Ionicons name="navigate-outline" size={14} color="#067BF9" />
+              <Text style={styles.distancePillText}>
+                {morningDistanceLoading ? "Calculating route distance..." : `Morning route: ${morningDistanceKm} km`}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {needsEvening && (
+        <View style={styles.routeSection}>
+          <Text style={styles.routeSectionTitle}>Evening Shift Route</Text>
+
+          {shiftType === "both" && (
+            <TouchableOpacity style={styles.acToggleRow} onPress={() => setSameAsMorningReversed(!sameAsMorningReversed)}>
+              <View style={styles.acToggleLeft}>
+                <Ionicons name="swap-horizontal-outline" size={18} color="#067BF9" />
+                <Text style={styles.acToggleLabel}>Same route as morning, reversed</Text>
+              </View>
+              <View style={[styles.checkbox, sameAsMorningReversed && styles.checkboxActive]}>
+                {sameAsMorningReversed && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+              </View>
+            </TouchableOpacity>
+          )}
+          <View style={{ marginBottom: 12 }} />
+
+          {useSameEveningRoute ? (
+            <View style={styles.reversedRouteBox}>
+              <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+              <Text style={styles.reversedRouteText}>
+                Pickup at {morningDropoff?.name ?? "the morning drop-off point"}, drop-off at {morningPickup?.name ?? "the morning pickup point"}.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <GooglePlaceField label="Pickup Location" placeholder="Search employee pickup point..." value={eveningPickup} onChange={setEveningPickup} icon="location" />
+              <GooglePlaceField label="Drop-off Location" placeholder="Search drop-off point..." value={eveningDropoff} onChange={setEveningDropoff} icon="flag" />
+            </>
+          )}
+
+          <View style={[styles.row, { marginBottom: 4, gap: 12 }]}>
+            {renderTimeField("Departure (Pickup) Time", eveningPickupObj, setEveningPickupObj, showEveningPickupPicker, setShowEveningPickupPicker)}
+            {renderComputedTimeField("Estimated Drop-off Time", eveningDropoffObj, eveningDistanceLoading)}
+          </View>
+          <Text style={styles.computedHint}>
+            Drop-off time is calculated automatically from the estimated journey duration.
+          </Text>
+          {(eveningDistanceLoading || eveningDistanceKm) && (
+            <View style={styles.distancePill}>
+              <Ionicons name="navigate-outline" size={14} color="#067BF9" />
+              <Text style={styles.distancePillText}>
+                {eveningDistanceLoading ? "Calculating route distance..." : `Evening route: ${eveningDistanceKm} km`}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       <Text style={styles.inputLabelOutside}>Estimated Employees</Text>
       <View style={[styles.inputWrapper, { marginBottom: 20 }]}>
@@ -363,29 +651,53 @@ export default function NewContractScreen() {
         />
       </View>
 
-      <Text style={styles.inputLabelOutside}>Shift Timings</Text>
-      <View style={styles.row}>
-        <View style={[styles.inputWrapper, { flex: 1, marginBottom: 0 }]}>
-          <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }} onPress={() => setShowStartTimePicker(true)}>
-            <Text style={[styles.textInput, { color: startTimeObj ? '#1E293B' : '#94A3B8' }]}>
-              {startTimeObj ? startTimeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Start Time"}
-            </Text>
-            <Ionicons name="time-outline" size={20} color="#64748B" />
+      <Text style={styles.inputLabelOutside}>Bus Type</Text>
+      <View style={[styles.row, { gap: 8, marginBottom: 20 }]}>
+        {([
+          { key: "standard", label: "Standard" },
+          { key: "ac", label: "AC" },
+          { key: "mini", label: "Mini Bus" },
+        ] as const).map((opt) => (
+          <TouchableOpacity
+            key={opt.key}
+            style={[styles.shiftChip, busType === opt.key && styles.shiftChipActive]}
+            onPress={() => setBusType(opt.key)}
+          >
+            <Text style={[styles.shiftChipText, busType === opt.key && styles.shiftChipTextActive]}>{opt.label}</Text>
           </TouchableOpacity>
-          {showStartTimePicker && <DateTimePicker value={startTimeObj || new Date()} mode="time" display="default" onChange={(e, d) => { setShowStartTimePicker(false); if (d) setStartTimeObj(d); }} />}
-        </View>
-        <View style={{ width: 12 }} />
-        <View style={[styles.inputWrapper, { flex: 1, marginBottom: 0 }]}>
-          <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }} onPress={() => setShowEndTimePicker(true)}>
-            <Text style={[styles.textInput, { color: endTimeObj ? '#1E293B' : '#94A3B8' }]}>
-              {endTimeObj ? endTimeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "End Time"}
-            </Text>
-            <Ionicons name="time-outline" size={20} color="#64748B" />
-          </TouchableOpacity>
-          {showEndTimePicker && <DateTimePicker value={endTimeObj || new Date()} mode="time" display="default" onChange={(e, d) => { setShowEndTimePicker(false); if (d) setEndTimeObj(d); }} />}
-        </View>
+        ))}
       </View>
-      <View style={{ marginBottom: 20 }} />
+
+      <Text style={styles.inputLabelOutside}>Working Days</Text>
+      <View style={[styles.row, { gap: 8, marginBottom: 20 }]}>
+        <TouchableOpacity
+          style={[styles.shiftChip, { flex: 1 }, workingDays === "weekdays" && styles.shiftChipActive]}
+          onPress={() => setWorkingDays("weekdays")}
+        >
+          <Text style={[styles.shiftChipText, workingDays === "weekdays" && styles.shiftChipTextActive]}>Weekdays (Mon–Fri)</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.shiftChip, { flex: 1 }, workingDays === "all_days" && styles.shiftChipActive]}
+          onPress={() => setWorkingDays("all_days")}
+        >
+          <Text style={[styles.shiftChipText, workingDays === "all_days" && styles.shiftChipTextActive]}>All Days</Text>
+        </TouchableOpacity>
+      </View>
+
+      {(estimateLoading || liveEstimate) && (
+        <View style={styles.estimateCard}>
+          <Text style={styles.estimateLabel}>Estimated Monthly Billing</Text>
+          {estimateLoading ? (
+            <ActivityIndicator size="small" color="#067BF9" />
+          ) : (
+            <Text style={styles.estimateAmount}>{formatAmount(liveEstimate || 0)}</Text>
+          )}
+          <Text style={styles.estimateHint}>
+            Based on distance × shift count × working days. Final pricing may be negotiated with admin.
+          </Text>
+        </View>
+      )}
+      <View style={{ marginBottom: 8 }} />
 
       <Text style={styles.inputLabelOutside}>Contract Duration</Text>
       <View style={styles.row}>
@@ -548,12 +860,8 @@ export default function NewContractScreen() {
             </View>
             <View>
               <Text style={styles.negoSummaryRowLabel}>Route & Schedule</Text>
-              <Text style={styles.negoSummaryRowValue}>
-                {startLocationObj?.name} ↔ {destinationObj?.name}
-              </Text>
-              <Text style={styles.negoSummaryRowMeta}>
-                {startTimeObj?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {endTimeObj?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Shift
-              </Text>
+              <Text style={styles.negoSummaryRowValue}>{describeRoutes()}</Text>
+              <Text style={styles.negoSummaryRowMeta}>{describeShiftSummary()}</Text>
             </View>
           </View>
           <View style={styles.negoSummaryDivider} />
@@ -574,6 +882,16 @@ export default function NewContractScreen() {
             <View>
               <Text style={styles.negoSummaryRowLabel}>Employees</Text>
               <Text style={styles.negoSummaryRowValue}>{employees}</Text>
+            </View>
+          </View>
+          <View style={styles.negoSummaryDivider} />
+          <View style={styles.negoSummaryRow}>
+            <View style={styles.negoSummaryIcon}>
+              <Ionicons name="cash-outline" size={18} color="#64748B" />
+            </View>
+            <View>
+              <Text style={styles.negoSummaryRowLabel}>Monthly Billing</Text>
+              <Text style={styles.negoSummaryRowValue}>{formatAmount(monthlyAmount)}</Text>
             </View>
           </View>
         </View>
@@ -654,9 +972,7 @@ export default function NewContractScreen() {
           </View>
           <View style={{ flex: 1, marginLeft: 16 }}>
             <Text style={styles.summarySubLabel}>Primary Route</Text>
-            <Text style={styles.summaryRouteText}>
-              {startLocationObj?.name || "Downtown"} to {destinationObj?.name || "Corporate Park"}
-            </Text>
+            <Text style={styles.summaryRouteText}>{describeRoutes()}</Text>
           </View>
         </View>
 
@@ -839,31 +1155,101 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 10 },
   textInput: { flex: 1, fontSize: 14, color: "#1E293B" },
   row: { flexDirection: "row" },
-  
-  // Dropdown for search
-  dropdownContainer: {
-    marginTop: 4,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+
+  // Shift type / working days chips
+  shiftChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: '#067BF9',
-    position: 'absolute',
-    top: 50,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    elevation: 5, // for android shadow
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    flex: 1,
   },
-  dropdownItem: {
+  shiftChipActive: { backgroundColor: "#067BF9", borderColor: "#067BF9" },
+  shiftChipText: { fontSize: 12, fontWeight: "700", color: "#1E293B" },
+  shiftChipTextActive: { color: "#FFFFFF" },
+
+  routeSection: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
+  },
+  routeSectionTitle: { fontSize: 13, fontWeight: "800", color: "#067BF9", marginBottom: 12 },
+  reversedRouteBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 10,
     padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    marginBottom: 16,
   },
-  dropdownItemText: {
-    fontSize: 14,
-    color: '#1E293B',
-    fontWeight: '500',
+  reversedRouteText: { flex: 1, fontSize: 12, color: "#475569", lineHeight: 17 },
+  computedTimeWrapper: {
+    backgroundColor: "#F1F5F9",
+    borderStyle: "dashed",
+    justifyContent: "space-between",
   },
+  computedHint: { fontSize: 11, color: "#94A3B8", marginBottom: 12, lineHeight: 15 },
+
+  acToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  acToggleLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  acToggleLabel: { fontSize: 13, fontWeight: "600", color: "#1E293B" },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxActive: { backgroundColor: "#067BF9", borderColor: "#067BF9" },
+
+  distancePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    backgroundColor: "#EFF6FF",
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  distancePillText: { fontSize: 12, fontWeight: "600", color: "#1D4ED8" },
+
+  estimateCard: {
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  estimateLabel: { fontSize: 11, fontWeight: "700", color: "#166534", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
+  estimateAmount: { fontSize: 22, fontWeight: "800", color: "#0F172A", marginBottom: 6 },
+  estimateHint: { fontSize: 11, color: "#4B5563", textAlign: "center", lineHeight: 15 },
+
 
   // Step 2 Bus Selection
   searchBox: {

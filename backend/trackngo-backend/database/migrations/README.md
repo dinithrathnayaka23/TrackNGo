@@ -44,6 +44,13 @@ concurrency guard: only one trip booking can hold a bus on any day. The
 application locks the bus row, checks the full date range, and releases the
 reservation when a trip is cancelled or completed.
 
+Before deploying the corporate morning/evening shift booking and standard
+pricing changes, run `V12__corporate_contract_shifts.sql`. It adds shift
+type, morning/evening pickup and drop-off times, employee count, working
+days, distance and AC-requirement columns to `corporate_contract`, and
+backfills existing rows from the legacy single shift window so historical
+contracts keep meaningful start/end times.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

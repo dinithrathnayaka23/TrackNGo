@@ -43,14 +43,36 @@ export interface CorporateProfileDto {
 }
 
 export type ContractStatus = "pending" | "active" | "expired" | "cancelled";
+export type ShiftType = "morning" | "evening" | "both";
+export type WorkingDays = "weekdays" | "all_days";
+export type BusType = "standard" | "ac" | "mini";
+
+/** One pickup or drop-off point: a Google Places result plus the shift time. */
+export interface ShiftLeg {
+  location: string;
+  latitude: number;
+  longitude: number;
+  time: string; // "HH:MM:SS"
+}
 
 export interface CorporateContract {
   contractId: number;
   contractName: string;
   startingLocation: string;
   destination: string;
+  shiftType: ShiftType;
   startShiftTime: string;   // "HH:MM:SS"
   endShiftTime: string;     // "HH:MM:SS"
+  morningPickup: ShiftLeg | null;
+  morningDropoff: ShiftLeg | null;
+  morningDistanceKm: number | null;
+  eveningPickup: ShiftLeg | null;
+  eveningDropoff: ShiftLeg | null;
+  eveningDistanceKm: number | null;
+  employeeCount: number;
+  workingDays: WorkingDays;
+  busType: BusType;
+  distanceKm: number | null;
   status: ContractStatus;
   billingAmount: number;
   startDate: string;        // "YYYY-MM-DD"
@@ -100,14 +122,45 @@ export interface CorporateContractDetail extends CorporateContract {
 
 export interface CreateContractRequest {
   contractName: string;
-  startingLocation: string;
-  destination: string;
-  startShiftTime: string;
-  endShiftTime: string;
-  billingAmount: number;
+  shiftType: ShiftType;
+  morningPickup: ShiftLeg | null;
+  morningDropoff: ShiftLeg | null;
+  morningDistanceKm: number | null;
+  eveningPickup: ShiftLeg | null;
+  eveningDropoff: ShiftLeg | null;
+  eveningDistanceKm: number | null;
+  employeeCount: number;
+  workingDays: WorkingDays;
+  busType: BusType;
   startDate: string;
   endDate: string;
   corporateUserId: number;
+}
+
+export interface PricingEstimateRequest {
+  morningDistanceKm: number | null;
+  eveningDistanceKm: number | null;
+  employeeCount: number;
+  shiftType: ShiftType;
+  workingDays: WorkingDays;
+  busType: BusType;
+}
+
+/**
+ * Live preview of the standard monthly billing amount, computed server-side
+ * from each shift's real road distance, employee-driven bus size and bus
+ * type surcharge.
+ * POST /api/corporate/contracts/estimate
+ */
+export async function estimateContractPricing(
+  request: PricingEstimateRequest,
+): Promise<number> {
+  const res = await httpPost<ApiResponse<number>>(
+    "/api/corporate/contracts/estimate",
+    undefined,
+    request,
+  );
+  return res.data ?? 0;
 }
 
 /* ── Profile ──────────────────────────────────────────────────────── */
@@ -179,6 +232,9 @@ export async function createCorporateContract(
     undefined,
     request,
   );
+  if (!res.success || !res.data) {
+    throw new Error(res.message || "Failed to create contract.");
+  }
   return res.data;
 }
 

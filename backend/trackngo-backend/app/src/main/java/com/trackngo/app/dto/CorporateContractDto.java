@@ -3,6 +3,7 @@ package com.trackngo.app.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 public record CorporateContractDto(
         Long contractId,
@@ -23,11 +24,13 @@ public record CorporateContractDto(
         String busType,
         BigDecimal distanceKm,
         String status,
+        String finalizedAt,
         BigDecimal billingAmount,
         LocalDate startDate,
         LocalDate endDate,
         String createdAt,
         Long corporateUserId,
-        Long busId
+        Long busId,
+        List<Long> busIds
 ) {
 }

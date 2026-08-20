@@ -20,7 +20,7 @@ const navItems = [
     to: '/dashboard/users',
     label: 'Users',
     icon: faUsers,
-    activeOn: ['/dashboard/users', '/dashboard/passenger', '/dashboard/driver', '/dashboard/corporate', '/dashboard/users/corporate-users'],
+    activeOn: ['/dashboard/users', '/dashboard/passenger', '/dashboard/driver', '/dashboard/corporate', '/dashboard/users/corporate-users', '/dashboard/corporate/contracts', '/dashboard/corporate/pricing-settings'],
   },
   { to: '/dashboard/buses', label: 'Buses', icon: faBus, activeOn: ['/dashboard/buses'] },
   { to: '/dashboard/routes', label: 'Routes', icon: faLocationDot },

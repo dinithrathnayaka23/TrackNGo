@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -23,12 +24,16 @@ import { useSession } from "../../store/sessionStore";
 import {
   createCorporateContract,
   getCorporateContracts,
-  estimateContractPricing,
+  getAvailableCorporateBuses,
+  finalizeCorporateContract,
   formatAmount,
+  parseBusAmenities,
   type ShiftType,
   type WorkingDays,
   type BusType,
   type ShiftLeg,
+  type ContractBus,
+  type CorporateContract,
 } from "../../services/corporateApi";
 import GooglePlaceField, { type PlaceValue } from "../../components/GooglePlaceField";
 
@@ -78,6 +83,24 @@ async function getRoadRoute(start: Coord, end: Coord): Promise<RoadRoute> {
   return { distanceKm, durationMinutes: Math.max(1, Math.round((distanceKm / FALLBACK_AVERAGE_KMH) * 60)) };
 }
 
+// ─── Contract term rules: at least a week's notice, a one-month minimum term,
+// and a one-year maximum before the company needs to renew. ───
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+function addMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  result.setMonth(result.getMonth() + months);
+  return result;
+}
+function addYears(date: Date, years: number): Date {
+  const result = new Date(date);
+  result.setFullYear(result.getFullYear() + years);
+  return result;
+}
+
 // ─── Entrance animation hook ──────────────────────────────────────────────────
 
 function useFadeSlide(delay: number, trigger: number = 0) {
@@ -95,35 +118,6 @@ function useFadeSlide(delay: number, trigger: number = 0) {
 
   return { opacity, translateY };
 }
-
-// ─── Mock Data for Buses ─────────────────────────────────────────────────────
-
-const LUXURY_BUSES = [
-  {
-    id: 1,
-    name: "Executive Voyager X1",
-    capacity: 40,
-    image: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&q=80",
-    amenities: ["Wi-Fi", "Full AC", "Charger"],
-    fee: 150000,
-  },
-  {
-    id: 2,
-    name: "Urban Shuttle Pro",
-    capacity: 28,
-    image: "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=800&q=80",
-    amenities: ["Wi-Fi", "Full AC"],
-    fee: 90000,
-  },
-  {
-    id: 3,
-    name: "Premium Coach XL",
-    capacity: 28,
-    image: "https://images.unsplash.com/photo-1464219789935-c2d9d9aba644?w=800&q=80",
-    amenities: ["Entertainment"],
-    fee: 110000,
-  },
-];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -176,16 +170,20 @@ export default function NewContractScreen() {
   const [eveningDurationMin, setEveningDurationMin] = useState<number | null>(null);
   const [morningDistanceLoading, setMorningDistanceLoading] = useState(false);
   const [eveningDistanceLoading, setEveningDistanceLoading] = useState(false);
-  const [liveEstimate, setLiveEstimate] = useState<number | null>(null);
-  const [estimateLoading, setEstimateLoading] = useState(false);
 
-  const [selectedBusId, setSelectedBusId] = useState<number | null>(null);
+  // 🔹 Bus Selection State
+  const [availableBuses, setAvailableBuses] = useState<ContractBus[]>([]);
+  const [busesLoading, setBusesLoading] = useState(false);
+  const [busesError, setBusesError] = useState<string | null>(null);
+  const [selectedBusIds, setSelectedBusIds] = useState<number[]>([]);
+  const [busSearch, setBusSearch] = useState("");
+  const [busSort, setBusSort] = useState<"seats_desc" | "seats_asc">("seats_desc");
 
   // 🔹 Negotiation / Contract Submission State
   const [contractId, setContractId] = useState<number | null>(initContractId);
   const [contractStatus, setContractStatus] = useState<string>("pending");
   const [submittingContract, setSubmittingContract] = useState(false);
-  const [createdContract, setCreatedContract] = useState<{ billingAmount: number } | null>(null);
+  const [createdContract, setCreatedContract] = useState<CorporateContract | null>(null);
 
   // Load existing contract details if jumping into negotiation
   useEffect(() => {
@@ -214,11 +212,12 @@ export default function NewContractScreen() {
           setMorningDistanceKm(current.morningDistanceKm ?? null);
           setEveningDistanceKm(current.eveningDistanceKm ?? null);
 
-          setSelectedBusId(current.busId || null);
+          setSelectedBusIds(current.busIds && current.busIds.length > 0 ? current.busIds : current.busId ? [current.busId] : []);
           setContractStatus(current.status);
           setEmployees(current.employeeCount ? String(current.employeeCount) : "");
           setStartDateObj(new Date(current.startDate));
           setEndDateObj(new Date(current.endDate));
+          setCreatedContract(current);
         }
       });
     }
@@ -235,8 +234,11 @@ export default function NewContractScreen() {
   const anim = useFadeSlide(0, step);
 
   // Derived
-  const selectedBus = LUXURY_BUSES.find((b) => b.id === selectedBusId);
-  const monthlyAmount = createdContract?.billingAmount ?? liveEstimate ?? 0;
+  const selectedBuses = availableBuses.filter((b) => selectedBusIds.includes(b.busId));
+  const selectedSeats = selectedBuses.reduce((sum, b) => sum + (b.seatCapacity ?? 0), 0);
+  const neededSeats = parseInt(employees, 10) || 0;
+  const seatsFulfilled = neededSeats > 0 && selectedSeats >= neededSeats;
+  const monthlyAmount = createdContract?.billingAmount ?? 0;
 
   const needsMorning = shiftType === "morning" || shiftType === "both";
   const needsEvening = shiftType === "evening" || shiftType === "both";
@@ -253,13 +255,52 @@ export default function NewContractScreen() {
   const morningDistanceReady = !needsMorning || !!morningDistanceKm;
   const eveningDistanceReady = !needsEvening || !!eveningDistanceKm;
 
+  // Contract term bounds: at least a week's notice, one-month minimum, one-year maximum.
+  const earliestStartDate = addDays(new Date(), 7);
+  const minEndDate = addMonths(startDateObj || earliestStartDate, 1);
+  const maxEndDate = addYears(startDateObj || earliestStartDate, 1);
+
   // Per-step validation — button turns blue only when all required fields are filled
   const isStepValid =
     step === 1
       ? !!(employees && shiftDetailsFilled && morningDistanceReady && eveningDistanceReady && startDateObj && endDateObj)
       : step === 2
-      ? !!selectedBusId
+      ? seatsFulfilled
       : true; // Step 3 (negotiation) always shows footer; Accept Offer has its own logic
+
+  // ─── Clear a previously-picked end date if it falls outside the new term bounds ───
+  useEffect(() => {
+    if (!startDateObj || !endDateObj) return;
+    const min = addMonths(startDateObj, 1);
+    const max = addYears(startDateObj, 1);
+    if (endDateObj < min || endDateObj > max) {
+      setEndDateObj(null);
+    }
+  }, [startDateObj]);
+
+  // ─── Fetch buses free for the contract's whole term when entering Step 2 ───
+  const loadAvailableBuses = useCallback(() => {
+    if (!startDateObj || !endDateObj) return;
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    setBusesLoading(true);
+    setBusesError(null);
+    getAvailableCorporateBuses(fmt(startDateObj), fmt(endDateObj))
+      .then((buses) => setAvailableBuses(buses))
+      .catch(() => setBusesError("Could not load available buses. Please try again."))
+      .finally(() => setBusesLoading(false));
+  }, [startDateObj, endDateObj]);
+
+  useEffect(() => {
+    if (step === 2) loadAvailableBuses();
+  }, [step, loadAvailableBuses]);
+
+  // Drop any previously-selected bus that is no longer in the available list
+  // (e.g. the user went back and changed the contract dates).
+  useEffect(() => {
+    if (availableBuses.length === 0) return;
+    const availableIds = new Set(availableBuses.map((b) => b.busId));
+    setSelectedBusIds((prev) => prev.filter((id) => availableIds.has(id)));
+  }, [availableBuses]);
 
   // ─── Polling: check contract approval status while on step 3 ───
   useEffect(() => {
@@ -360,28 +401,6 @@ export default function NewContractScreen() {
     setEveningDropoffObj(new Date(eveningPickupObj.getTime() + eveningDurationMin * 60000));
   }, [needsEvening, eveningPickupObj, eveningDurationMin]);
 
-  // ─── Live monthly-billing estimate from the backend's standard formula ───
-  useEffect(() => {
-    const employeeCount = parseInt(employees, 10);
-    if (!employeeCount || employeeCount <= 0 || !morningDistanceReady || !eveningDistanceReady) {
-      setLiveEstimate(null);
-      return;
-    }
-    if (!needsMorning && !needsEvening) {
-      setLiveEstimate(null);
-      return;
-    }
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      setEstimateLoading(true);
-      estimateContractPricing({ morningDistanceKm, eveningDistanceKm, employeeCount, shiftType, workingDays, busType })
-        .then((amount) => { if (!cancelled) setLiveEstimate(amount); })
-        .catch(() => { if (!cancelled) setLiveEstimate(null); })
-        .finally(() => { if (!cancelled) setEstimateLoading(false); });
-    }, 300);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [morningDistanceKm, eveningDistanceKm, employees, shiftType, workingDays, busType]);
-
   // ─── Step Management ───
   const formatApiTime = (dt: Date) => dt.toTimeString().split(' ')[0];
   const buildLeg = (place: PlaceValue, time: Date | null): ShiftLeg | null =>
@@ -399,14 +418,26 @@ export default function NewContractScreen() {
         Alert.alert("Distance Unavailable", "Could not calculate the route distance yet. Please re-select your pickup and drop-off places.");
         return;
       }
-      if (startDateObj && endDateObj && endDateObj < startDateObj) {
-        Alert.alert("Invalid Dates", "End Date cannot be before Start Date.");
+      if (startDateObj < earliestStartDate) {
+        Alert.alert("Invalid Start Date", "The contract start date must be at least one week from today.");
+        return;
+      }
+      if (endDateObj < minEndDate) {
+        Alert.alert("Invalid Contract Term", "The contract term must be at least one month.");
+        return;
+      }
+      if (endDateObj > maxEndDate) {
+        Alert.alert("Invalid Contract Term", "The contract term cannot exceed one year — you'll need to renew after a year.");
         return;
       }
       setStep(2);
     } else if (step === 2) {
-      if (!selectedBusId) {
-        Alert.alert("Selection Required", "Please choose a bus.");
+      if (selectedBusIds.length === 0) {
+        Alert.alert("Selection Required", "Please choose at least one bus.");
+        return;
+      }
+      if (!seatsFulfilled) {
+        Alert.alert("Not Enough Seats", `Selected buses seat ${selectedSeats}, but ${neededSeats} employees need transport. Select more buses.`);
         return;
       }
       // Submit contract to backend when entering negotiation
@@ -427,30 +458,26 @@ export default function NewContractScreen() {
           employeeCount: parseInt(employees, 10) || 0,
           workingDays,
           busType,
+          busIds: selectedBusIds,
           startDate: formatApiDate(startDateObj),
           endDate: formatApiDate(endDateObj),
           corporateUserId: currentUser.userId,
         });
 
         // Backend returns the created contract. If null (older backend), fetch the latest one.
-        let resolvedId: number | null = created?.contractId ?? null;
-        let resolvedStatus: string = created?.status ?? "pending";
-        let resolvedBilling: number = created?.billingAmount ?? liveEstimate ?? 0;
+        let resolvedContract: CorporateContract | null = created ?? null;
 
-        if (!resolvedId) {
+        if (!resolvedContract) {
           // Fallback: fetch the latest contract for this user
           const allContracts = await getCorporateContracts(currentUser.userId);
           if (allContracts.length > 0) {
-            const latest = allContracts[0]; // ordered by created_at DESC
-            resolvedId = latest.contractId;
-            resolvedStatus = latest.status;
-            resolvedBilling = latest.billingAmount;
+            resolvedContract = allContracts[0]; // ordered by created_at DESC
           }
         }
 
-        setContractId(resolvedId);
-        setContractStatus(resolvedStatus);
-        setCreatedContract({ billingAmount: resolvedBilling });
+        setContractId(resolvedContract?.contractId ?? null);
+        setContractStatus(resolvedContract?.status ?? "pending");
+        setCreatedContract(resolvedContract);
         setStep(3);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to submit contract request. Please try again.";
@@ -462,7 +489,26 @@ export default function NewContractScreen() {
     }
   };
 
+  // Once the contract is submitted (step 3+), it already exists on the
+  // server as "pending" — going back into the wizard would let the user
+  // re-submit and create a duplicate contract. Instead, "back" exits the
+  // flow (with confirmation) rather than un-submitting anything.
+  const confirmLeaveNegotiation = () => {
+    Alert.alert(
+      "Leave this request?",
+      "Your contract has already been submitted and is pending admin approval. You can check its status anytime from your contracts list.",
+      [
+        { text: "Stay", style: "cancel" },
+        { text: "Leave", style: "destructive", onPress: () => router.back() },
+      ],
+    );
+  };
+
   const handleBack = () => {
+    if (step === 3) {
+      confirmLeaveNegotiation();
+      return;
+    }
     if (step > 1) {
       setStep(step - 1);
     } else {
@@ -470,15 +516,44 @@ export default function NewContractScreen() {
     }
   };
 
-  const handleAccept = () => {
-    // Step 4 final acceptance — navigate back to contract list
-    Alert.alert("Success", "Contract has been accepted!", [
-      { text: "OK", onPress: () => router.back() },
-    ]);
+  // Mirror the same rules for the Android hardware/gesture back action.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (step === 3) {
+        confirmLeaveNegotiation();
+        return true;
+      }
+      if (step > 1) {
+        setStep((s) => s - 1);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [step]);
+
+  const handleAccept = async () => {
+    if (!contractId || !currentUser) return;
+    setSubmitting(true);
+    try {
+      await finalizeCorporateContract(contractId, currentUser.userId);
+      Alert.alert("Success", "Contract has been accepted! It's now active in your contracts list.", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to finalize contract. Please try again.";
+      Alert.alert("Error", message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleAcceptOffer = () => {
-    // Move from Negotiation → Contract Proposal
+    // Move from Negotiation → Contract Proposal — only once admin has approved.
+    if (contractStatus !== "active") {
+      Alert.alert("Not Yet Approved", "This contract is still awaiting admin approval.");
+      return;
+    }
     setStep(4);
   };
 
@@ -540,6 +615,12 @@ export default function NewContractScreen() {
       if (pickup && dropoff) parts.push(`${pickup.name} → ${dropoff.name}`);
     }
     return parts.length > 0 ? parts.join("  •  ") : "Route not set";
+  };
+
+  const busTypeDisplayLabel = (type: BusType | undefined) => {
+    if (type === "ac") return "AC (+25% surcharge)";
+    if (type === "mini") return "Mini Bus (+flat surcharge)";
+    return "Standard";
   };
 
   // ─── Render Steps ─────────────────────────────────────────────────────────────
@@ -651,23 +732,6 @@ export default function NewContractScreen() {
         />
       </View>
 
-      <Text style={styles.inputLabelOutside}>Bus Type</Text>
-      <View style={[styles.row, { gap: 8, marginBottom: 20 }]}>
-        {([
-          { key: "standard", label: "Standard" },
-          { key: "ac", label: "AC" },
-          { key: "mini", label: "Mini Bus" },
-        ] as const).map((opt) => (
-          <TouchableOpacity
-            key={opt.key}
-            style={[styles.shiftChip, busType === opt.key && styles.shiftChipActive]}
-            onPress={() => setBusType(opt.key)}
-          >
-            <Text style={[styles.shiftChipText, busType === opt.key && styles.shiftChipTextActive]}>{opt.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       <Text style={styles.inputLabelOutside}>Working Days</Text>
       <View style={[styles.row, { gap: 8, marginBottom: 20 }]}>
         <TouchableOpacity
@@ -684,22 +748,10 @@ export default function NewContractScreen() {
         </TouchableOpacity>
       </View>
 
-      {(estimateLoading || liveEstimate) && (
-        <View style={styles.estimateCard}>
-          <Text style={styles.estimateLabel}>Estimated Monthly Billing</Text>
-          {estimateLoading ? (
-            <ActivityIndicator size="small" color="#067BF9" />
-          ) : (
-            <Text style={styles.estimateAmount}>{formatAmount(liveEstimate || 0)}</Text>
-          )}
-          <Text style={styles.estimateHint}>
-            Based on distance × shift count × working days. Final pricing may be negotiated with admin.
-          </Text>
-        </View>
-      )}
-      <View style={{ marginBottom: 8 }} />
-
       <Text style={styles.inputLabelOutside}>Contract Duration</Text>
+      <Text style={styles.computedHint}>
+        Start date must be at least one week from today. Contracts run 1 month to 1 year — renew after a year.
+      </Text>
       <View style={styles.row}>
         <View style={[styles.inputWrapper, { flex: 1 }]}>
           <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }} onPress={() => setShowStartDatePicker(true)}>
@@ -708,99 +760,195 @@ export default function NewContractScreen() {
             </Text>
             <Ionicons name="calendar-outline" size={20} color="#64748B" />
           </TouchableOpacity>
-          {showStartDatePicker && <DateTimePicker value={startDateObj || new Date()} mode="date" display="default" minimumDate={new Date()} onChange={(e, d) => { setShowStartDatePicker(false); if (d) setStartDateObj(d); }} />}
+          {showStartDatePicker && <DateTimePicker value={startDateObj || earliestStartDate} mode="date" display="default" minimumDate={earliestStartDate} onChange={(e, d) => { setShowStartDatePicker(false); if (d) setStartDateObj(d); }} />}
         </View>
         <View style={{ width: 12 }} />
         <View style={[styles.inputWrapper, { flex: 1 }]}>
-          <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }} onPress={() => setShowEndDatePicker(true)}>
+          <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }} onPress={() => startDateObj && setShowEndDatePicker(true)}>
             <Text style={[styles.textInput, { color: endDateObj ? '#1E293B' : '#94A3B8' }]}>
-              {endDateObj ? endDateObj.toLocaleDateString() : "End Date"}
+              {endDateObj ? endDateObj.toLocaleDateString() : startDateObj ? "End Date" : "Pick start date first"}
             </Text>
             <Ionicons name="calendar-outline" size={20} color="#64748B" />
           </TouchableOpacity>
-          {showEndDatePicker && <DateTimePicker value={endDateObj || startDateObj || new Date()} mode="date" display="default" minimumDate={startDateObj || new Date()} onChange={(e, d) => { setShowEndDatePicker(false); if (d) setEndDateObj(d); }} />}
+          {showEndDatePicker && <DateTimePicker value={endDateObj || minEndDate} mode="date" display="default" minimumDate={minEndDate} maximumDate={maxEndDate} onChange={(e, d) => { setShowEndDatePicker(false); if (d) setEndDateObj(d); }} />}
         </View>
       </View>
     </View>
   );
 
+  const amenityIcon = (key: string): keyof typeof Ionicons.glyphMap => {
+    switch (key.toLowerCase()) {
+      case "ac": return "snow";
+      case "wifi": return "wifi";
+      case "charging_ports": case "charger": return "battery-charging";
+      case "entertainment": case "tv": return "tv-outline";
+      default: return "checkmark-circle-outline";
+    }
+  };
+  const amenityLabel = (key: string) =>
+    key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const toggleBusSelection = (busId: number) => {
+    setSelectedBusIds((prev) =>
+      prev.includes(busId) ? prev.filter((id) => id !== busId) : [...prev, busId]
+    );
+  };
+
+  const busMatchesType = (bus: ContractBus, type: BusType) => {
+    const isMini = (bus.busBrand ?? "").toLowerCase().includes("rosa");
+    const isAc = parseBusAmenities(bus.amenities).some((a) => a.toLowerCase() === "ac");
+    if (type === "mini") return isMini;
+    if (type === "ac") return isAc && !isMini;
+    return !isMini && !isAc;
+  };
+
+  const filteredBuses = availableBuses
+    .filter((bus) => {
+      if (!busMatchesType(bus, busType)) return false;
+      if (busSearch.trim().length > 0) {
+        const q = busSearch.trim().toLowerCase();
+        const haystack = `${bus.busNumber ?? ""} ${bus.busBrand ?? ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const diff = (a.seatCapacity ?? 0) - (b.seatCapacity ?? 0);
+      return busSort === "seats_desc" ? -diff : diff;
+    });
+
   const renderStep2 = () => (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Choose your Bus</Text>
-      <Text style={styles.stepSubtitle}>Select a luxury bus model for your corporate contract.</Text>
+      <Text style={styles.stepTitle}>Choose your Bus(es)</Text>
+      <Text style={styles.stepSubtitle}>
+        Only buses free for your entire contract term are shown. Select as many as needed to cover your headcount.
+      </Text>
+
+      <View style={[styles.seatsSummaryCard, seatsFulfilled && styles.seatsSummaryCardDone]}>
+        <Ionicons name={seatsFulfilled ? "checkmark-circle" : "people-outline"} size={20} color={seatsFulfilled ? "#10B981" : "#067BF9"} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.seatsSummaryText}>
+            {selectedSeats} / {neededSeats || 0} seats selected
+          </Text>
+          <Text style={styles.seatsSummarySub}>
+            {seatsFulfilled ? "Enough seats for your employee count" : `Select more buses to cover ${Math.max(0, neededSeats - selectedSeats)} more seats`}
+          </Text>
+        </View>
+      </View>
 
       <View style={styles.searchBox}>
-        <Ionicons name="search" size={20} color="#000" style={{ marginRight: 8 }} />
+        <Ionicons name="search" size={18} color="#64748B" style={{ marginRight: 8 }} />
         <TextInput
           style={styles.textInput}
-          placeholder="Search luxury buses or capacity"
-          placeholderTextColor="#64748B"
+          placeholder="Search bus number or brand"
+          placeholderTextColor="#94A3B8"
+          value={busSearch}
+          onChangeText={setBusSearch}
         />
       </View>
 
-      <View style={styles.filterRow}>
-        <View style={styles.filterChipActive}>
-          <Text style={styles.filterChipTextActive}>All Buses</Text>
-        </View>
-        <View style={styles.filterChip}>
-          <Text style={styles.filterChipText}>Luxury</Text>
-          <Ionicons name="chevron-down" size={14} color="#1E293B" style={{ marginLeft: 4 }} />
-        </View>
-        <View style={styles.filterChip}>
-          <Text style={styles.filterChipText}>30-50 Seats</Text>
-          <Ionicons name="chevron-down" size={14} color="#1E293B" style={{ marginLeft: 4 }} />
-        </View>
+      <Text style={styles.inputLabelOutside}>Bus Type</Text>
+      <View style={[styles.row, { gap: 8, marginBottom: 16 }]}>
+        {([
+          { key: "standard", label: "Standard" },
+          { key: "ac", label: "AC" },
+          { key: "mini", label: "Mini Bus" },
+        ] as const).map((opt) => (
+          <TouchableOpacity
+            key={opt.key}
+            style={[styles.shiftChip, busType === opt.key && styles.shiftChipActive]}
+            onPress={() => setBusType(opt.key)}
+          >
+            <Text style={[styles.shiftChipText, busType === opt.key && styles.shiftChipTextActive]}>{opt.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <Text style={styles.availableText}>Available Fleets ({LUXURY_BUSES.length})</Text>
-
-      {LUXURY_BUSES.map((bus) => (
-        <View
-          key={bus.id}
-          style={[
-            styles.busCard,
-            selectedBusId === bus.id && styles.busCardSelected,
-          ]}
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={styles.filterChip}
+          onPress={() => setBusSort(busSort === "seats_desc" ? "seats_asc" : "seats_desc")}
         >
-          <Image source={{ uri: bus.image }} style={styles.busImage} />
-          <View style={styles.busInfo}>
-            <View style={styles.busTopRow}>
-              <Text style={styles.busName}>{bus.name}</Text>
-              <View style={{ alignItems: "center" }}>
-                <View style={styles.capacityRow}>
-                  <MaterialCommunityIcons name="wheelchair-accessibility" size={14} color="#64748B" />
-                  <Text style={styles.busCapacity}>{bus.capacity}</Text>
-                </View>
-                <Text style={styles.capacityLabel}>Capacity</Text>
-              </View>
-            </View>
+          <Text style={styles.filterChipText}>Seats: {busSort === "seats_desc" ? "High to Low" : "Low to High"}</Text>
+          <Ionicons name={busSort === "seats_desc" ? "arrow-down" : "arrow-up"} size={12} color="#1E293B" style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
+      </View>
 
-            <View style={styles.busBottomRow}>
-              <View style={styles.amenitiesRow}>
-                {bus.amenities.map((amenity, i) => (
-                  <View key={i} style={styles.amenityItem}>
-                    <Ionicons
-                      name={amenity === "Wi-Fi" ? "wifi" : amenity === "Full AC" ? "snow" : "battery-charging"}
-                      size={14}
-                      color="#64748B"
-                    />
-                    <Text style={styles.amenityText}>{amenity}</Text>
-                  </View>
-                ))}
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.selectBusBtn,
-                  selectedBusId === bus.id && styles.selectBusBtnActive,
-                ]}
-                onPress={() => setSelectedBusId(bus.id)}
-              >
-                <Text style={styles.selectBusBtnText}>Select</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+      <Text style={styles.availableText}>Available Fleet ({filteredBuses.length})</Text>
+
+      {busesLoading ? (
+        <View style={styles.busStateBox}>
+          <ActivityIndicator size="small" color="#067BF9" />
+          <Text style={styles.busStateText}>Finding buses available for your dates...</Text>
         </View>
-      ))}
+      ) : busesError ? (
+        <View style={styles.busStateBox}>
+          <Ionicons name="warning-outline" size={28} color="#94A3B8" />
+          <Text style={styles.busStateText}>{busesError}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={loadAvailableBuses}>
+            <Ionicons name="refresh" size={14} color="#067BF9" />
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : filteredBuses.length === 0 ? (
+        <View style={styles.busStateBox}>
+          <Ionicons name="bus-outline" size={28} color="#94A3B8" />
+          <Text style={styles.busStateText}>No buses available</Text>
+          <Text style={[styles.busStateText, { fontSize: 11, marginTop: 2 }]}>
+            {availableBuses.length === 0
+              ? "No corporate buses are free for your entire contract term."
+              : "No buses of this type match your filters right now."}
+          </Text>
+        </View>
+      ) : (
+        filteredBuses.map((bus) => {
+          const isSelected = selectedBusIds.includes(bus.busId);
+          const amenities = parseBusAmenities(bus.amenities);
+          return (
+            <TouchableOpacity
+              key={bus.busId}
+              activeOpacity={0.85}
+              style={[styles.busCard, isSelected && styles.busCardSelected]}
+              onPress={() => toggleBusSelection(bus.busId)}
+            >
+              <View style={styles.busInfo}>
+                <View style={styles.busTopRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.busName}>{bus.busBrand || "Bus"} · {bus.busNumber}</Text>
+                    {bus.busCondition && (
+                      <Text style={styles.busConditionText}>{amenityLabel(bus.busCondition)} condition</Text>
+                    )}
+                  </View>
+                  <View style={{ alignItems: "center" }}>
+                    <View style={styles.capacityRow}>
+                      <MaterialCommunityIcons name="seat-passenger" size={14} color="#64748B" />
+                      <Text style={styles.busCapacity}>{bus.seatCapacity ?? "—"}</Text>
+                    </View>
+                    <Text style={styles.capacityLabel}>Seats</Text>
+                  </View>
+                </View>
+
+                <View style={styles.busBottomRow}>
+                  <View style={styles.amenitiesRow}>
+                    {amenities.length > 0 ? amenities.map((amenity, i) => (
+                      <View key={i} style={styles.amenityItem}>
+                        <Ionicons name={amenityIcon(amenity)} size={14} color="#64748B" />
+                        <Text style={styles.amenityText}>{amenityLabel(amenity)}</Text>
+                      </View>
+                    )) : <Text style={styles.amenityText}>Standard fit-out</Text>}
+                  </View>
+                  <View style={[styles.selectBusBtn, isSelected && styles.selectBusBtnActive]}>
+                    <Ionicons name={isSelected ? "checkmark" : "add"} size={14} color={isSelected ? "#FFFFFF" : "#067BF9"} />
+                    <Text style={[styles.selectBusBtnText, !isSelected && { color: "#067BF9" }]}>
+                      {isSelected ? "Added" : "Add"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      )}
     </View>
   );
 
@@ -870,8 +1018,10 @@ export default function NewContractScreen() {
               <Ionicons name="bus" size={18} color="#64748B" />
             </View>
             <View>
-              <Text style={styles.negoSummaryRowLabel}>Selected Bus</Text>
-              <Text style={styles.negoSummaryRowValue}>{selectedBus?.name} ({selectedBus?.capacity} Pax)</Text>
+              <Text style={styles.negoSummaryRowLabel}>{selectedBuses.length > 1 ? "Selected Buses" : "Selected Bus"}</Text>
+              <Text style={styles.negoSummaryRowValue}>
+                {selectedBuses.map((b) => b.busNumber).join(", ")} ({selectedSeats} seats)
+              </Text>
             </View>
           </View>
           <View style={styles.negoSummaryDivider} />
@@ -885,15 +1035,37 @@ export default function NewContractScreen() {
             </View>
           </View>
           <View style={styles.negoSummaryDivider} />
-          <View style={styles.negoSummaryRow}>
-            <View style={styles.negoSummaryIcon}>
-              <Ionicons name="cash-outline" size={18} color="#64748B" />
-            </View>
-            <View>
-              <Text style={styles.negoSummaryRowLabel}>Monthly Billing</Text>
-              <Text style={styles.negoSummaryRowValue}>{formatAmount(monthlyAmount)}</Text>
-            </View>
+        </View>
+
+        {/* Pricing Breakdown */}
+        <Text style={styles.negoSectionLabel}>Estimated Monthly Bill</Text>
+        <View style={styles.pricingCard}>
+          <Text style={styles.pricingTotal}>{formatAmount(monthlyAmount)}</Text>
+          <Text style={styles.pricingTotalSub}>per month, billed while the contract is active</Text>
+          <View style={styles.pricingDivider} />
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingRowLabel}>One-way distance</Text>
+            <Text style={styles.pricingRowValue}>{createdContract?.distanceKm ?? "—"} km</Text>
           </View>
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingRowLabel}>Trips per working day</Text>
+            <Text style={styles.pricingRowValue}>{createdContract?.shiftType === "both" ? "2 (morning + evening)" : "1"}</Text>
+          </View>
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingRowLabel}>Bus size rate</Text>
+            <Text style={styles.pricingRowValue}>{(createdContract?.employeeCount ?? 0) <= 20 ? "Small bus rate" : "Large bus rate"}</Text>
+          </View>
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingRowLabel}>Bus type</Text>
+            <Text style={styles.pricingRowValue}>{busTypeDisplayLabel(createdContract?.busType)}</Text>
+          </View>
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingRowLabel}>Working days / month</Text>
+            <Text style={styles.pricingRowValue}>{createdContract?.workingDays === "all_days" ? "30 (all days)" : "22 (weekdays)"}</Text>
+          </View>
+          <Text style={styles.pricingHint}>
+            Monthly bill = rate per km × distance × trips per day × working days/month, with a surcharge for AC or Mini buses. Rates are set by TrackNGo admin and this figure may still be adjusted during negotiation.
+          </Text>
         </View>
 
         {/* Progress Timeline */}
@@ -1067,14 +1239,17 @@ export default function NewContractScreen() {
       {step < 4 && (
         <View style={styles.footer}>
           {step === 3 ? (
-            // Negotiation step: Accept Final Offer button
+            // Negotiation step: only actionable once admin has approved.
             <TouchableOpacity
-              style={styles.nextBtn}
+              style={[styles.nextBtn, contractStatus !== "active" && styles.nextBtnDisabled]}
               onPress={handleAcceptOffer}
-              activeOpacity={0.8}
+              activeOpacity={contractStatus === "active" ? 0.8 : 1}
+              disabled={contractStatus !== "active"}
             >
               <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.nextBtnText}>Accept Final Offer</Text>
+              <Text style={styles.nextBtnText}>
+                {contractStatus === "active" ? "Accept Final Offer" : "Waiting for Admin Approval"}
+              </Text>
             </TouchableOpacity>
           ) : (
             // Normal Next Step button
@@ -1237,19 +1412,6 @@ const styles = StyleSheet.create({
   },
   distancePillText: { fontSize: 12, fontWeight: "600", color: "#1D4ED8" },
 
-  estimateCard: {
-    backgroundColor: "#F0FDF4",
-    borderWidth: 1,
-    borderColor: "#BBF7D0",
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  estimateLabel: { fontSize: 11, fontWeight: "700", color: "#166534", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
-  estimateAmount: { fontSize: 22, fontWeight: "800", color: "#0F172A", marginBottom: 6 },
-  estimateHint: { fontSize: 11, color: "#4B5563", textAlign: "center", lineHeight: 15 },
-
 
   // Step 2 Bus Selection
   searchBox: {
@@ -1263,6 +1425,8 @@ const styles = StyleSheet.create({
   },
   filterRow: { flexDirection: "row", gap: 10, marginBottom: 24 },
   filterChipActive: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#BFDBFE",
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -1281,6 +1445,42 @@ const styles = StyleSheet.create({
   },
   filterChipText: { color: "#1E293B", fontSize: 12, fontWeight: "600" },
   availableText: { fontSize: 12, fontWeight: "700", color: "#64748B", marginBottom: 12 },
+
+  seatsSummaryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  seatsSummaryCardDone: { backgroundColor: "#F0FDF4", borderColor: "#BBF7D0" },
+  seatsSummaryText: { fontSize: 15, fontWeight: "800", color: "#0F172A" },
+  seatsSummarySub: { fontSize: 11, color: "#64748B", marginTop: 2 },
+
+  busStateBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 40,
+  },
+  busStateText: { fontSize: 13, color: "#64748B", textAlign: "center", paddingHorizontal: 20 },
+  retryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  retryBtnText: { color: "#067BF9", fontSize: 12, fontWeight: "700" },
+
   busCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
@@ -1290,19 +1490,29 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   busCardSelected: { borderColor: "#067BF9", borderWidth: 2 },
-  busImage: { width: "100%", height: 160, backgroundColor: "#E2E8F0" },
   busInfo: { padding: 16 },
   busTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 },
   busName: { fontSize: 16, fontWeight: "700", color: "#1E293B", flex: 1 },
+  busConditionText: { fontSize: 11, color: "#94A3B8", marginTop: 2, textTransform: "capitalize" },
   capacityRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   busCapacity: { fontSize: 14, fontWeight: "700", color: "#64748B" },
   capacityLabel: { fontSize: 10, color: "#94A3B8" },
   busBottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  amenitiesRow: { flexDirection: "row", gap: 12 },
+  amenitiesRow: { flexDirection: "row", gap: 12, flexWrap: "wrap", flex: 1 },
   amenityItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   amenityText: { fontSize: 11, color: "#64748B" },
-  selectBusBtn: { backgroundColor: "#067BF9", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 },
-  selectBusBtnActive: { backgroundColor: "#1D4ED8" },
+  selectBusBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  selectBusBtnActive: { backgroundColor: "#067BF9", borderColor: "#067BF9" },
   selectBusBtnText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
 
   // Step 3
@@ -1555,6 +1765,23 @@ const styles = StyleSheet.create({
   negoSummaryRowLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8", marginBottom: 3 },
   negoSummaryRowValue: { fontSize: 14, fontWeight: "700", color: "#0F172A" },
   negoSummaryRowMeta: { fontSize: 12, color: "#64748B", marginTop: 2 },
+
+  pricingCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 24,
+  },
+  pricingTotal: { fontSize: 28, fontWeight: "800", color: "#0F172A", textAlign: "center" },
+  pricingTotalSub: { fontSize: 12, color: "#94A3B8", textAlign: "center", marginTop: 2, marginBottom: 14 },
+  pricingDivider: { height: 1, backgroundColor: "#F1F5F9", marginBottom: 10 },
+  pricingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
+  pricingRowLabel: { fontSize: 13, color: "#64748B" },
+  pricingRowValue: { fontSize: 13, fontWeight: "700", color: "#1E293B" },
+  pricingHint: { fontSize: 11, color: "#94A3B8", lineHeight: 16, marginTop: 12 },
+
   negoTimeline: {
     backgroundColor: "#FFFFFF",
     borderRadius: 14,

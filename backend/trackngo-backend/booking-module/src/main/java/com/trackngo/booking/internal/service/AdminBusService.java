@@ -148,8 +148,8 @@ public class AdminBusService {
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement(
                     "INSERT INTO bus (bus_number, bus_brand, seat_capacity, bus_type, bus_condition, " +
-                    "status, amenities, start_time, end_time, registration_number, insurance_exp_date, " +
-                    "driver_id, route_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "status, amenities, start_time, end_time, return_start_time, return_end_time, " +
+                    "registration_number, insurance_exp_date, driver_id, route_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, req.busNumber());

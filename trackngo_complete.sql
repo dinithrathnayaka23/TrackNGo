@@ -481,6 +481,7 @@ CREATE TABLE corporate_contract (
     bus_type ENUM('standard', 'ac', 'mini') NOT NULL DEFAULT 'standard',
     distance_km DECIMAL(6, 2) NULL,
     status ENUM('pending', 'active', 'expired', 'cancelled') DEFAULT 'pending',
+    finalized_at TIMESTAMP NULL,
     billing_amount DECIMAL(10, 2) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
@@ -643,6 +644,31 @@ CREATE TABLE corporate_invoices (
     INDEX idx_status (status),
     INDEX idx_date (date DESC),
     INDEX idx_due_date (due_date)
+);
+
+CREATE TABLE corporate_contract_bus (
+    contract_id BIGINT NOT NULL,
+    bus_id BIGINT NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (contract_id, bus_id),
+    FOREIGN KEY (contract_id) REFERENCES corporate_contract(contract_id) ON DELETE CASCADE,
+    FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,
+    INDEX idx_bus (bus_id)
+);
+
+CREATE TABLE corporate_pricing_settings (
+    id TINYINT PRIMARY KEY DEFAULT 1,
+    small_bus_rate_per_km DECIMAL(10, 2) NOT NULL DEFAULT 250.00,
+    large_bus_rate_per_km DECIMAL(10, 2) NOT NULL DEFAULT 400.00,
+    small_bus_max_employees INT NOT NULL DEFAULT 20,
+    ac_surcharge_percent DECIMAL(5, 2) NOT NULL DEFAULT 25.00,
+    mini_bus_flat_surcharge DECIMAL(10, 2) NOT NULL DEFAULT 1500.00,
+    weekdays_per_month INT NOT NULL DEFAULT 22,
+    all_days_per_month INT NOT NULL DEFAULT 30,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_corporate_pricing_settings_single_row CHECK (id = 1)
 );
 
 

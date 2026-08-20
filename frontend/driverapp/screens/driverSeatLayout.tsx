@@ -803,8 +803,8 @@ function createStyles(theme: any, width: number) {
     justifyContent: 'center',
   },
   tripNumber: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: theme.text,
   },
   routeContainer: {
@@ -816,7 +816,7 @@ function createStyles(theme: any, width: number) {
   routeText: {
     fontSize: 11,
     color: theme.secondaryText,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   tripDetailsSection: {
     flexDirection: 'row',
@@ -836,19 +836,19 @@ function createStyles(theme: any, width: number) {
   detailLabel: {
     fontSize: 11,
     color: theme.secondaryText,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 6,
   },
   detailValue: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "600",
     color: theme.text,
   },
   detailSubtitle: {
     fontSize: 11,
     color: theme.secondaryText,
     marginTop: 4,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   statusCard: {
     justifyContent: 'center',
@@ -863,7 +863,7 @@ function createStyles(theme: any, width: number) {
   statusText: {
     color: '#FFF',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "700",
   },
   statusIndicators: {
     flexDirection: 'row',
@@ -887,7 +887,7 @@ function createStyles(theme: any, width: number) {
   indicatorText: {
     fontSize: 11,
     color: theme.secondaryText,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   seatLayoutSection: {
     paddingHorizontal: 16,
@@ -908,11 +908,11 @@ function createStyles(theme: any, width: number) {
     borderColor: theme.border,
   },
   driverLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: theme.secondaryText,
     marginTop: 6,
     marginRight:10,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   seatsContainer: {
     gap: 8,
@@ -962,9 +962,9 @@ function createStyles(theme: any, width: number) {
     gap: 3,
   },
   seatLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#FFF',
-    fontWeight: '700',
+    fontWeight: "600",
   },
   passengerDetailsSection: {
     marginHorizontal: 16,
@@ -988,7 +988,7 @@ function createStyles(theme: any, width: number) {
   },
   passengerInitials: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#0066FF',
   },
   passengerInfo: {
@@ -996,14 +996,14 @@ function createStyles(theme: any, width: number) {
   },
   passengerName: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: theme.text,
   },
   seatInfo: {
     fontSize: 11,
     color: theme.secondaryText,
     marginTop: 2,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   locationSection: {
     marginHorizontal: 16,
@@ -1032,21 +1032,21 @@ function createStyles(theme: any, width: number) {
     flex: 1,
   },
   locationLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: theme.secondaryText,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   locationName: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: theme.text,
   },
   locationTime: {
     fontSize: 10,
     color: theme.secondaryText,
     marginTop: 2,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   specialRequestsSection: {
     marginHorizontal: 16,
@@ -1057,8 +1057,8 @@ function createStyles(theme: any, width: number) {
     borderRadius: 8,
   },
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: "700",
     color: theme.secondaryText,
     marginBottom: 8,
   },
@@ -1070,7 +1070,7 @@ function createStyles(theme: any, width: number) {
   requestText: {
     fontSize: 12,
     color: theme.text,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   actionButtonsSection: {
     flexDirection: 'row',
@@ -1093,8 +1093,8 @@ function createStyles(theme: any, width: number) {
   },
   callButtonText: {
     color: '#FFF',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "700",
   },
   messageButton: {
     flex: 1,
@@ -1111,8 +1111,8 @@ function createStyles(theme: any, width: number) {
   },
   messageButtonText: {
     color: theme.text,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "700",
   },
   boardButton: {
     marginHorizontal: 16,
@@ -1127,8 +1127,8 @@ function createStyles(theme: any, width: number) {
   },
   boardButtonText: {
     color: '#FFF',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "700",
   },
   spacer: {
     height: 80,
@@ -1140,13 +1140,13 @@ function createStyles(theme: any, width: number) {
     gap: 16,
   },
   loadingText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: "500",
     marginTop: 12,
   },
   errorText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: "600",
     textAlign: 'center',
     marginTop: 12,
     marginHorizontal: 32,
@@ -1160,12 +1160,12 @@ function createStyles(theme: any, width: number) {
   },
   retryButtonText: {
     color: '#FFF',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "700",
   },
   noSeatsText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     textAlign: 'center',
     paddingVertical: 20,
   },

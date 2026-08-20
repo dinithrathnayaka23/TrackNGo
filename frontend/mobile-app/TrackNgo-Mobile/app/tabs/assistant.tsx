@@ -150,6 +150,12 @@ export default function AssistantScreen() {
   }, [language]);
 
   const canSend = input.trim().length > 0 && !loading;
+  // The starter prompts are an empty-state affordance. Once the passenger has
+  // asked something of their own they know how to use the assistant, so the
+  // chips stop earning their space and are dropped from the conversation.
+  const hasStartedConversation = messages.some(
+    (message) => message.role === "user",
+  );
   const bottomInset = keyboardVisible ? 0 : insets.bottom;
   const keyboardLift =
     Platform.OS === "android" && keyboardVisible
@@ -259,21 +265,23 @@ export default function AssistantScreen() {
           </View>
         </View>
 
-        <View style={styles.quickWrap}>
-          {quickPrompts.map((prompt) => {
-            const label = language === "si" ? prompt.si : prompt.en;
-            return (
-            <Pressable
-              key={prompt.en}
-              disabled={loading}
-              onPress={() => sendMessage(prompt.en)}
-              style={styles.quickChip}
-            >
-              <Text style={styles.quickText}>{label}</Text>
-            </Pressable>
-            );
-          })}
-        </View>
+        {!hasStartedConversation && (
+          <View style={styles.quickWrap}>
+            {quickPrompts.map((prompt) => {
+              const label = language === "si" ? prompt.si : prompt.en;
+              return (
+                <Pressable
+                  key={prompt.en}
+                  disabled={loading}
+                  onPress={() => sendMessage(prompt.en)}
+                  style={styles.quickChip}
+                >
+                  <Text style={styles.quickText}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
         <FlatList
           ref={listRef}
@@ -375,12 +383,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#18212F",
   },
   subtitle: {
     marginTop: 3,
-    fontSize: 12,
+    fontSize: 13, fontWeight: "500",
     color: "#667085",
   },
   quickWrap: {

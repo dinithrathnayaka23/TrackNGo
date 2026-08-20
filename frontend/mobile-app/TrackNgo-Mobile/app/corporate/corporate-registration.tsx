@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
     color: "#0D141C",
   },
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   label: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     color: "#0D141C",
     marginBottom: 6,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     borderColor: "#CEDBE9",
     borderRadius: 8,
     paddingHorizontal: 14,
-    fontSize: 16,
+    fontSize: 14,
     color: "#000000",
   },
   inputError: {
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#EF4444",
-    fontSize: 11,
+    fontSize: 12, fontWeight: "600",
     marginTop: 4,
   },
   divider: {
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   },
   registerBtnText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
   },
   // Modal Styles

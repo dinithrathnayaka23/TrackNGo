@@ -451,7 +451,7 @@ const BookingCard = React.memo(function BookingCard({
               </Text>
             </Pressable>
             <Pressable style={styles.secondaryActionBtn} onPress={handleRate}>
-              <Ionicons name="star" size={15} color="#475569" />
+              <Ionicons name="star" size={15} color="#F59E0B" />
               <Text style={styles.secondaryActionText} numberOfLines={1}>
                 Rate
               </Text>
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
-  headerTitle: { fontSize: 17, fontWeight: "700", color: "#1F2937" },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#1F2937" },
 
   tabRow: {
     flexDirection: "row",
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: "#2F6BFF" },
 
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
-  emptyText: { fontSize: 14, color: "#94A3B8", fontWeight: "500" },
+  emptyText: { fontSize: 14, color: "#94A3B8", fontWeight: "600" },
 
   bookingList: { flex: 1 },
   listContent: { paddingHorizontal: 20, paddingBottom: 32, gap: 14 },
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   },
   routeCol: { flex: 1 },
   routeColEnd: { flex: 1, alignItems: "flex-end" },
-  locationLabel: { fontSize: 11, color: "#94A3B8", marginBottom: 2 },
+  locationLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8", marginBottom: 2 },
   locationValue: { fontSize: 14, fontWeight: "600", color: "#1F2937" },
   arrowWrap: {
     flexDirection: "row",
@@ -602,8 +602,8 @@ const styles = StyleSheet.create({
     width: "45%",
   },
   detailTextWrap: { marginLeft: 6 },
-  detailLabel: { fontSize: 10, color: "#94A3B8" },
-  detailValue: { fontSize: 12, fontWeight: "600", color: "#334155" },
+  detailLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8" },
+  detailValue: { fontSize: 13, fontWeight: "600", color: "#334155" },
 
   priceRow: {
     flexDirection: "row",
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#E9EDF3",
   },
-  priceLabel: { fontSize: 12, color: "#64748B" },
+  priceLabel: { fontSize: 11, fontWeight: "600", color: "#64748B" },
   priceValue: { fontSize: 16, fontWeight: "700", color: "#1F2937" },
 
   actionRow: {
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 6,
   },
-  primaryBtnText: { fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
+  primaryBtnText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
   trackBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -657,7 +657,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     gap: 5,
   },
-  trackBtnText: { fontSize: 13, fontWeight: "600", color: "#2F6BFF" },
+  trackBtnText: { fontSize: 14, fontWeight: "700", color: "#2F6BFF" },
   cancelBtn: {
     alignItems: "center",
     justifyContent: "center",

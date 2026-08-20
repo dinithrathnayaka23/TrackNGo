@@ -1,5 +1,6 @@
 import {
   applyStatusUpdates,
+  getConversationUnread,
   formatConversationPreview,
   getOtherParticipant,
   getParticipantTitle,
@@ -18,6 +19,27 @@ describe("chat utils", () => {
     });
 
     expect(result).toEqual({ userId: 22, userType: "DRIVER" });
+  });
+
+  /** Verifies the chat tab badge reads the counter for the signed-in side. */
+  it("getConversationUnread picks the counter for the signed-in participant", () => {
+    const conversation = buildConversation({
+      participant1Unread: 3,
+      participant2Unread: 7,
+    });
+
+    expect(getConversationUnread(conversation, 15)).toBe(3);
+    expect(getConversationUnread(conversation, 22)).toBe(7);
+  });
+
+  /** Verifies an unrelated user never inherits somebody else's unread badge. */
+  it("getConversationUnread returns zero for a non-participant", () => {
+    const conversation = buildConversation({
+      participant1Unread: 3,
+      participant2Unread: 7,
+    });
+
+    expect(getConversationUnread(conversation, 999)).toBe(0);
   });
 
   /** Verifies that participant titles prefer profile data and admin-special handling. */

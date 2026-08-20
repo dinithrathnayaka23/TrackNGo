@@ -378,8 +378,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: "700",
     color: '#111827',
     marginBottom: 6,
   },
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   },
   stripeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#94A3B8',
   },
   /* Amount */
@@ -399,20 +399,20 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   amountLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: "600",
     color: '#2563EB',
     marginBottom: 4,
   },
   amountValue: {
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: "800",
     color: '#111827',
   },
   discountText: {
     marginTop: 6,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#16A34A',
   },
   /* Trip Summary Card */
@@ -430,14 +430,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   summaryLabel: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: "600",
     color: '#64748B',
     width: 80,
   },
   summaryValue: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: "600",
     color: '#111827',
     flex: 1,
     textAlign: 'right',
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   },
   methodsText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     color: '#2563EB',
   },
   /* Bottom */
@@ -489,8 +489,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   payButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "700",
     color: '#FFFFFF',
   },
   cancelButton: {
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#EF4444',
   },
   /* WebView */
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   webViewTitle: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#111827',
   },
   webViewLoading: {
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: 13, fontWeight: "500",
     color: '#64748B',
   },
   /* Processing */
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
   },
   processingText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#111827',
   },
 });

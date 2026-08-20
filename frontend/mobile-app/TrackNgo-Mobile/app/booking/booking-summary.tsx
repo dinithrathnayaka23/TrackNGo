@@ -16,6 +16,7 @@ import { PromotionQuoteResult, quotePromotion } from '../../services/bookingFlow
 import { useSession } from '../../store/sessionStore';
 import { getUserProfile } from '../../services/userProfileApi';
 import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { formatBusTypeLabel } from '../../utils/busLabels';
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from '../../utils/i18n';
 
 /**
@@ -221,7 +222,7 @@ export default function BookingSummaryScreen() {
             <View style={styles.divider} />
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Bus Condition</Text>
-              <Text style={styles.detailValue}>{busType}</Text>
+              <Text style={styles.detailValue}>{formatBusTypeLabel(busType)}</Text>
             </View>
           </View>
 
@@ -399,8 +400,6 @@ export default function BookingSummaryScreen() {
               <Text style={styles.termsLink}>Privacy Policy</Text> and Operator Rules.
             </Text>
           </Pressable>
-
-          <View style={{ height: 100 }} />
         </ScrollView>
 
         {/* Bottom CTA */}
@@ -490,8 +489,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   routeLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: "600",
     color: '#94A3B8',
     letterSpacing: 1,
     marginBottom: 4,
@@ -503,7 +502,7 @@ const styles = StyleSheet.create({
   },
   routeCity: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#111827',
   },
   routeMetaRow: {
@@ -514,7 +513,7 @@ const styles = StyleSheet.create({
   },
   routeDateText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#1474F2',
   },
   durationPill: {
@@ -530,7 +529,7 @@ const styles = StyleSheet.create({
   },
   durationText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#1474F2',
   },
   busImage: {
@@ -540,7 +539,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#111827',
     marginTop: 8,
   },
@@ -560,12 +559,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   detailLabel: {
-    fontSize: 13,
+    fontSize: 11, fontWeight: "600",
     color: '#94A3B8',
   },
   detailValue: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#111827',
   },
   divider: {
@@ -573,7 +572,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9EDF3',
   },
   cardInnerLabel: {
-    fontSize: 12,
+    fontSize: 11, fontWeight: "600",
     color: '#94A3B8',
     marginBottom: 8,
   },
@@ -592,11 +591,11 @@ const styles = StyleSheet.create({
   },
   seatChipText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1474F2',
   },
   fieldLabel: {
-    fontSize: 12,
+    fontSize: 12, fontWeight: "600",
     color: '#94A3B8',
     marginTop: 12,
     marginBottom: 6,
@@ -615,7 +614,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#EF4444',
-    fontSize: 12,
+    fontSize: 12, fontWeight: "600",
     marginTop: 2,
     marginLeft: 4,
   },
@@ -668,7 +667,7 @@ const styles = StyleSheet.create({
   },
   paymentMethodTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#111827',
   },
   paymentMethodSub: {
@@ -689,7 +688,7 @@ const styles = StyleSheet.create({
   },
   visaText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     color: '#FFFFFF',
     letterSpacing: 1,
   },
@@ -729,7 +728,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 13,
+    fontSize: 14,
     color: '#111827',
   },
   promoButton: {
@@ -744,13 +743,13 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   promoButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "700",
     color: '#FFFFFF',
   },
   promoMessage: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 10,
   },
   promoMessageSuccess: {
@@ -765,22 +764,22 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   costLabel: {
-    fontSize: 13,
+    fontSize: 11, fontWeight: "600",
     color: '#111827',
   },
   costValue: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#111827',
   },
   totalLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: "600",
     color: '#111827',
   },
   totalValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#111827',
   },
   noteCard: {
@@ -796,11 +795,11 @@ const styles = StyleSheet.create({
   },
   noteTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1474F2',
   },
   noteText: {
-    fontSize: 12,
+    fontSize: 11, fontWeight: "500",
     color: '#64748B',
     lineHeight: 18,
   },
@@ -831,7 +830,7 @@ const styles = StyleSheet.create({
   },
   termsLink: {
     color: '#1474F2',
-    fontWeight: '600',
+    fontWeight: "600",
   },
   bottomBar: {
     backgroundColor: '#FFFFFF',
@@ -853,13 +852,13 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   ctaButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "700",
     color: '#FFFFFF',
   },
   ctaButtonPrice: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#FFFFFF',
   },
 });

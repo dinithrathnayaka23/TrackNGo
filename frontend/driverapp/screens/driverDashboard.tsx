@@ -1055,7 +1055,7 @@ function createStyles({
       minWidth: 0,
     },
     greetingTitle: {
-      fontSize: isSmallPhone ? 14 : 15,
+      fontSize: isSmallPhone ? 14 : 16,
       fontWeight: "700",
       color: theme.text,
       letterSpacing: 0,
@@ -1116,7 +1116,7 @@ function createStyles({
       gap: 12,
     },
     sectionLabel: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: "600",
       color: theme.text,
       flexShrink: 1,
@@ -1137,7 +1137,7 @@ function createStyles({
       backgroundColor: "#0066FF",
     },
     earningsAmount: {
-      fontSize: isSmallPhone ? 22 : 26,
+      fontSize: isSmallPhone ? 20 : 24,
       fontWeight: "700",
       color: theme.text,
       marginVertical: 8,
@@ -1160,7 +1160,7 @@ function createStyles({
       marginBottom: 12,
     },
     sectionTitle: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: "700",
       color: theme.text,
     },
@@ -1223,9 +1223,9 @@ function createStyles({
       borderRadius: 20,
     },
     mapOpenButtonText: {
-      fontSize: 11,
+      fontSize: 13,
       color: "#FFFFFF",
-      fontWeight: "700",
+      fontWeight: "600",
     },
     inTransitBadge: {
       position: "absolute",
@@ -1260,7 +1260,7 @@ function createStyles({
       minWidth: 0,
     },
     routeText: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: "700",
       color: theme.text,
       marginBottom: 4,
@@ -1320,7 +1320,7 @@ function createStyles({
       marginBottom: 4,
     },
     stopNumberText: {
-      fontSize: 8,
+      fontSize: 10,
       color: "#FFFFFF",
       fontWeight: "800",
     },
@@ -1331,7 +1331,7 @@ function createStyles({
       textAlign: "center",
     },
     stopEta: {
-      fontSize: 9,
+      fontSize: 10,
       color: theme.secondaryText,
       fontWeight: "700",
       marginTop: 2,
@@ -1356,7 +1356,7 @@ function createStyles({
       gap: 6,
     },
     etaLabel: {
-      fontSize: 10,
+      fontSize: 11,
       color: "#999",
       fontWeight: "600",
     },
@@ -1398,8 +1398,8 @@ function createStyles({
       alignItems: "center",
     },
     detailsButtonText: {
-      fontSize: 13,
-      fontWeight: "600",
+      fontSize: 14,
+      fontWeight: "700",
       color: "#0066FF",
       marginLeft: 6,
     },
@@ -1414,8 +1414,8 @@ function createStyles({
       alignItems: "center",
     },
     navigateButtonText: {
-      fontSize: 13,
-      fontWeight: "600",
+      fontSize: 14,
+      fontWeight: "700",
       color: "#FFF",
       marginLeft: 6,
     },
@@ -1449,7 +1449,7 @@ function createStyles({
       marginBottom: 8,
     },
     statNumber: {
-      fontSize: 22,
+      fontSize: 20,
       fontWeight: "700",
       color: theme.text,
       marginVertical: 4,

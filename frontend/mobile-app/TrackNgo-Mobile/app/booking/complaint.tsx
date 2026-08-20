@@ -529,8 +529,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "700",
     color: "#1F2937",
   },
   headerSpacer: {
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#64748B",
     marginBottom: 8,
     marginLeft: 2,
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 12,
+    fontSize: 14,
     lineHeight: 18,
     color: "#111827",
     marginBottom: 16,
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   helperText: {
-    fontSize: 11,
+    fontSize: 11, fontWeight: "500",
     color: "#94A3B8",
     marginBottom: 22,
     marginLeft: 2,
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   statusText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
   },
   statusPendingText: {
@@ -783,8 +783,8 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   adminResponseLabel: {
-    fontSize: 10,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "600",
     color: "#94A3B8",
     marginBottom: 5,
     textTransform: "uppercase",

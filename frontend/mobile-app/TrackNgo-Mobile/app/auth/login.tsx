@@ -338,13 +338,13 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   title: {
-    fontSize: 26,
-    fontWeight: "700",
+    fontSize: 24,
+    fontWeight: "800",
     color: "#1F2937",
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13, fontWeight: "500",
     color: "#6B7280",
     textAlign: "center",
     lineHeight: 20,
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     color: "#374151",
   },
@@ -379,14 +379,14 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: "#1F2937",
   },
   eyeBtn: {
     padding: 4,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: 12, fontWeight: "600",
     color: "#EF4444",
   },
   row: {
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   },
   loginBtnText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
   },
   dividerRow: {
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E5E7EB",
   },
   dividerLabel: {
-    fontSize: 13,
+    fontSize: 11, fontWeight: "600",
     color: "#9CA3AF",
   },
   oauthRow: {
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
   },
   oauthBtnText: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#374151",
   },
   signupRow: {

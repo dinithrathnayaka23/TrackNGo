@@ -581,12 +581,12 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: "600",
     color: "#64748B",
   },
   infoValue: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
     color: "#1E293B",
     textAlign: "right",
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
   modalScroll: { padding: 20, paddingBottom: 40, gap: 16 },
   fieldContainer: {},
-  fieldLabel: { fontSize: 13, fontWeight: "600", color: "#64748B", marginBottom: 6, marginLeft: 2 },
+  fieldLabel: { fontSize: 12, fontWeight: "600", color: "#64748B", marginBottom: 6, marginLeft: 2 },
   inputWrapperEdit: {
     flexDirection: "row",
     alignItems: "center",
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#CBD5E1",
   },
-  input: { flex: 1, paddingVertical: 14, fontSize: 15, color: "#1E293B", fontWeight: "500" },
+  input: { flex: 1, paddingVertical: 14, fontSize: 14, color: "#1E293B", fontWeight: "500" },
   modalFooter: {
     padding: 20,
     backgroundColor: "#FFFFFF",
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
   },
-  saveBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  saveBtnText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
 
   // Dropdown Modal Styles
   dropdownModalOverlay: {

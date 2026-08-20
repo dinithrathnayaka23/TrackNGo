@@ -635,15 +635,15 @@ function createStyles({
       marginRight: 8,
     },
     headerTitle: {
-      fontSize: isSmallPhone ? 16 : 17,
-      fontWeight: '700',
+      fontSize: isSmallPhone ? 16 : 18,
+      fontWeight: "700",
       color: theme.text,
     },
     headerSubtitle: {
-      fontSize: 11,
+      fontSize: 12,
       color: theme.secondaryText,
       marginTop: 2,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     notificationDot: {
       position: 'absolute',
@@ -673,13 +673,13 @@ function createStyles({
       flexDirection: 'column',
     },
     cardLabel: {
-      fontSize: 12,
+      fontSize: 11,
       color: theme.text,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     earningsAmount: {
-      fontSize: isSmallPhone ? 22 : 26,
-      fontWeight: '700',
+      fontSize: isSmallPhone ? 20 : 24,
+      fontWeight: "700",
       color: theme.text,
       marginVertical: 8,
       letterSpacing: -0.5,
@@ -694,13 +694,13 @@ function createStyles({
     },
     percentageText: {
       fontSize: 11,
-      fontWeight: '700',
+      fontWeight: "700",
       color: '#22C55E',
       marginLeft: 4,
     },
     earningsAmountTotal: {
-      fontSize: isSmallPhone ? 24 : 30,
-      fontWeight: '700',
+      fontSize: isSmallPhone ? 24 : 28,
+      fontWeight: "700",
       color: theme.text,
       marginBottom: 8,
       letterSpacing: -0.5,
@@ -708,7 +708,7 @@ function createStyles({
     updatedText: {
       fontSize: 11,
       color: '#999',
-      fontWeight: '500',
+      fontWeight: "500",
     },
     weeklySection: {
       marginHorizontal: horizontalPadding,
@@ -733,18 +733,18 @@ function createStyles({
     },
     weeklyTitle: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       color: theme.text,
     },
     weeklySubtitle: {
       fontSize: 11,
       color: '#999',
       marginTop: 2,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     weeklyAmount: {
-      fontSize: 15,
-      fontWeight: '700',
+      fontSize: 16,
+      fontWeight: "700",
       color: theme.text,
       flexShrink: 0,
     },
@@ -761,9 +761,9 @@ function createStyles({
       width: isSmallPhone ? 32 : 38,
     },
     yAxisLabel: {
-      fontSize: 9,
+      fontSize: 11,
       color: '#999',
-      fontWeight: '600',
+      fontWeight: "600",
     },
     barsContainer: {
       flex: 1,
@@ -788,9 +788,9 @@ function createStyles({
       borderRadius: 3,
     },
     dayLabel: {
-      fontSize: 10,
+      fontSize: 11,
       color: '#666',
-      fontWeight: '600',
+      fontWeight: "600",
     },
     viewAllLink: {
       alignSelf: 'flex-end',
@@ -798,7 +798,7 @@ function createStyles({
     viewAllText: {
       fontSize: 12,
       color: '#0066FF',
-      fontWeight: '600',
+      fontWeight: "600",
     },
     earningsListSection: {
       marginHorizontal: horizontalPadding,
@@ -822,7 +822,7 @@ function createStyles({
     retryText: {
       color: '#0066FF',
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       marginTop: 4,
     },
     earningItemContainer: {
@@ -845,14 +845,14 @@ function createStyles({
     },
     routeText: {
       fontSize: 13,
-      fontWeight: '700',
+      fontWeight: "700",
       color: theme.text,
     },
     dateTimeText: {
       fontSize: 11,
       color: '#999',
       marginTop: 4,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     earningRightContainer: {
       alignItems: 'flex-end',
@@ -865,7 +865,7 @@ function createStyles({
     },
     earningAmount: {
       fontSize: 13,
-      fontWeight: '700',
+      fontWeight: "700",
       color: theme.text,
     },
     netEarningsBadge: {
@@ -878,7 +878,7 @@ function createStyles({
     netEarningsText: {
       fontSize: 10,
       color: '#22C55E',
-      fontWeight: '600',
+      fontWeight: "600",
     },
     receiptLink: {
       flexDirection: 'row',
@@ -890,7 +890,7 @@ function createStyles({
     receiptLinkText: {
       fontSize: 12,
       color: '#0066FF',
-      fontWeight: '600',
+      fontWeight: "600",
       marginRight: 4,
     },
     exportButton: {
@@ -907,8 +907,8 @@ function createStyles({
       alignItems: 'center',
     },
     exportButtonText: {
-      fontSize: 13,
-      fontWeight: '700',
+      fontSize: 14,
+      fontWeight: "700",
       color: '#fff',
       marginLeft: 8,
     },
@@ -934,7 +934,7 @@ function createStyles({
 
     receiptTitle: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 16,
       textAlign: 'center',
       color: '#0066FF',
@@ -947,14 +947,14 @@ function createStyles({
     },
 
     receiptLabel: {
-      fontSize: 12,
+      fontSize: 11,
       color: theme.secondaryText,
-      fontWeight: '600',
+      fontWeight: "600",
     },
 
     receiptValue: {
-      fontSize: 12,
-      fontWeight: '700',
+      fontSize: 13,
+      fontWeight: "600",
       color: theme.text,
     },
 
@@ -968,7 +968,7 @@ function createStyles({
 
     amountText: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       color: '#0066FF',
     },
 
@@ -982,7 +982,7 @@ function createStyles({
 
     closeText: {
       color: '#FFF',
-      fontWeight: '700',
+      fontWeight: "700",
     },
 
     weeklyModal: {
@@ -994,7 +994,7 @@ function createStyles({
 
 weeklyTitleModal: {
   fontSize: 18,
-  fontWeight: '700',
+  fontWeight: "700",
   color: '#0066FF',
   textAlign: 'center',
 },
@@ -1017,13 +1017,13 @@ weekRow: {
 
 weekDay: {
   fontSize: 13,
-  fontWeight: '600',
+  fontWeight: "600",
   color: theme.text,
 },
 
 weekAmount: {
   fontSize: 13,
-  fontWeight: '700',
+  fontWeight: "700",
   color: '#0066FF',
 },
 
@@ -1037,7 +1037,7 @@ weekTotalBox: {
 
 weekTotalText: {
   fontSize: 14,
-  fontWeight: '700',
+  fontWeight: "700",
   color: '#0066FF',
 },
       });

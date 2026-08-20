@@ -23,7 +23,13 @@ import {
   type UserProfile,
 } from '../../../services/chatAdminService'
 
-vi.mock('../../../services/chatAdminService', () => ({
+// Only the network calls are stubbed; pure helpers such as getSupportUnread
+// keep their real implementation so the page renders the counts it would in
+// production.
+vi.mock('../../../services/chatAdminService', async () => ({
+  ...(await vi.importActual<typeof import('../../../services/chatAdminService')>(
+    '../../../services/chatAdminService',
+  )),
   fetchChatUserProfile: vi.fn(),
   fetchConversationMessages: vi.fn(),
   fetchPresenceSnapshot: vi.fn(),

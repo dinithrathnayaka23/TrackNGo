@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     right: 8,
   },
   brand: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: "800",
     color: "#1F2937",
     letterSpacing: -0.5,

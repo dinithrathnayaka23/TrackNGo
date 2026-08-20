@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E8EDF3",
   },
-  headerTitle: { fontSize: 22, fontWeight: "800", color: "#0F172A", letterSpacing: -0.3 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A", letterSpacing: -0.3 },
   logoMark: {
     width: 34,
     height: 34,
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 14,
   },
-  heroLabel: { flex: 1, fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
+  heroLabel: { flex: 1, fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
   heroChevron: { marginLeft: 8 },
 
   // Section
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  sectionTitle: { fontSize: 17, fontWeight: "700", color: "#0F172A" },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
   runningBadge: { flexDirection: "row", alignItems: "center", gap: 5 },
   runningDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#10B981" },
   runningText: { fontSize: 11, fontWeight: "700", color: "#10B981", letterSpacing: 0.5 },
@@ -544,17 +544,17 @@ const styles = StyleSheet.create({
   routeBadgeText: { fontSize: 10, fontWeight: "700", color: "#067BF9", letterSpacing: 0.8 },
   statusBadge: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3 },
   statusDot: { width: 5, height: 5, borderRadius: 3 },
-  statusText: { fontSize: 11, fontWeight: "600" },
+  statusText: { fontSize: 11, fontWeight: "700" },
   menuBtn: { marginLeft: "auto", width: 20, alignItems: "flex-end" },
   routeRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  routeCity: { fontSize: 17, fontWeight: "700", color: "#0F172A", flex: 1 },
+  routeCity: { fontSize: 18, fontWeight: "700", color: "#0F172A", flex: 1 },
   routeArrow: { marginHorizontal: 6 },
   contractName: { fontSize: 12, color: "#64748B", fontWeight: "500", marginBottom: 6 },
   shiftRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 12 },
   shiftText: { fontSize: 12, color: "#94A3B8", fontWeight: "500" },
   datesRow: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#F1F5F9", paddingTop: 12, gap: 24 },
   dateDivider: { width: 1, height: 30, backgroundColor: "#E8EDF3", marginHorizontal: 4 },
-  dateLabel: { fontSize: 10, fontWeight: "600", color: "#94A3B8", letterSpacing: 0.6, marginBottom: 3 },
+  dateLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8", letterSpacing: 0.6, marginBottom: 3 },
   dateValue: { fontSize: 13, fontWeight: "600", color: "#1E293B" },
 
   // Empty state
@@ -568,8 +568,8 @@ const styles = StyleSheet.create({
     borderColor: "#E8EDF3",
     gap: 6,
   },
-  emptyText: { fontSize: 13, color: "#94A3B8", fontWeight: "600" },
-  emptySubText: { fontSize: 12, color: "#CBD5E1", textAlign: "center", paddingHorizontal: 20 },
+  emptyText: { fontSize: 14, color: "#94A3B8", fontWeight: "600" },
+  emptySubText: { fontSize: 12, fontWeight: "500", color: "#CBD5E1", textAlign: "center", paddingHorizontal: 20 },
 
   // History
   historyCard: {

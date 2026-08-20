@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
   // 17/700 header, 14/700 row title, 13 for search and states, 12/500 body,
   // 11/500 meta.
   headerTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
     color: "#1F2937",
   },
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "500",
     color: "#1F2937",
   },
@@ -1054,14 +1054,14 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: "center",
     color: "#6C8195",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   errorText: {
     textAlign: "center",
     color: "#D9534F",
     marginBottom: 12,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
   },
   retryButton: {

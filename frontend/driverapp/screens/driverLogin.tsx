@@ -215,14 +215,14 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#000',
     textAlign: 'center',
     marginBottom: 5,
   },
   appName: {
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: "500",
     color: '#999',
     textAlign: 'center',
     marginBottom: 40,
@@ -231,8 +231,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: "600",
     color: '#000',
     marginBottom: 10,
     marginTop: 5,
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   forgotPasswordLink: {
     fontSize: 14,
     color: '#0066FF',
-    fontWeight: '500',
+    fontWeight: "500",
   },
   loginButton: {
     backgroundColor: '#0066FF',
@@ -311,8 +311,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   loginButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "700",
     color: '#FFF',
   },
   dividerContainer: {
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     fontSize: 12,
     color: '#999',
-    fontWeight: '500',
+    fontWeight: "500",
   },
   socialButtonsContainer: {
     flexDirection: 'row',
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   },
   socialButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "700",
     color: '#000',
   },
 });

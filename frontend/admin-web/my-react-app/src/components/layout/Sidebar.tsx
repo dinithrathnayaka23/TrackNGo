@@ -14,6 +14,7 @@ import {
   faUsers,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
+import { useUnreadSupportCount } from '../../hooks/useUnreadSupportCount'
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: faChartSimple },
   {
@@ -28,7 +29,7 @@ const navItems = [
   { to: '/dashboard/promotions', label: 'Promotions', icon: faPercent },
   { to: '/dashboard/complaints', label: 'Complaints', icon: faTriangleExclamation },
   { to: '/dashboard/analytics', label: 'Analytics', icon: faChartColumn },
-  { to: '/dashboard/chat', label: 'Chat', icon: faComment },
+  { to: '/dashboard/chat', label: 'Chat', icon: faComment, badge: 'support-chat' },
   { to: '/dashboard/settings', label: 'Settings', icon: faGear },
 ]
 
@@ -40,6 +41,7 @@ type SidebarProps = {
 
 function Sidebar({ mobileOpen = false, onMobileClose, onLogout }: SidebarProps) {
   const location = useLocation()
+  const unreadChatCount = useUnreadSupportCount()
 
   const linkClasses = (isActive: boolean) =>
     `flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition duration-200 ${
@@ -84,6 +86,11 @@ function Sidebar({ mobileOpen = false, onMobileClose, onLogout }: SidebarProps) 
             >
               <FontAwesomeIcon icon={item.icon} className="text-sm" />
               <span>{item.label}</span>
+              {item.badge === 'support-chat' && unreadChatCount > 0 ? (
+                <span className="ml-auto min-w-5 rounded-full bg-[#f24f4f] px-1.5 text-center text-[10px] font-extrabold leading-5 text-white">
+                  {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                </span>
+              ) : null}
             </NavLink>
           ))}
         </nav>

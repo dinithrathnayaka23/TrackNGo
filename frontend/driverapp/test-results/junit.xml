@@ -1,67 +1,73 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="31" failures="0" errors="0" time="27.653">
-  <testsuite name="geometry helpers" errors="0" failures="0" skipped="0" timestamp="2026-08-15T04:54:12" time="7.893" tests="31">
-    <testcase classname="geometry helpers" name="measures 0.001 degrees of latitude as about 111 metres" time="0.002">
+<testsuites name="jest tests" tests="33" failures="0" errors="0" time="30.61">
+  <testsuite name="driver notification helpers" errors="0" failures="0" skipped="0" timestamp="2026-08-19T10:29:50" time="18.307" tests="2">
+    <testcase classname="driver notification helpers" name="groups recent timestamps into the expected sections" time="0.018">
+    </testcase>
+    <testcase classname="driver notification helpers" name="formats relative time for recent activity" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="geometry helpers" errors="0" failures="0" skipped="0" timestamp="2026-08-19T10:29:50" time="18.37" tests="31">
+    <testcase classname="geometry helpers" name="measures 0.001 degrees of latitude as about 111 metres" time="0.02">
     </testcase>
     <testcase classname="geometry helpers" name="returns zero distance for the same point" time="0.001">
     </testcase>
-    <testcase classname="geometry helpers" name="reports due north as 0 degrees and due east as 90" time="0">
+    <testcase classname="geometry helpers" name="reports due north as 0 degrees and due east as 90" time="0.002">
     </testcase>
-    <testcase classname="accuracyPercent" name="scores a pinpoint fix at 100 and the cut-off at 0" time="0">
+    <testcase classname="accuracyPercent" name="scores a pinpoint fix at 100 and the cut-off at 0" time="0.003">
     </testcase>
     <testcase classname="accuracyPercent" name="scores an unreported accuracy as 50" time="0.001">
     </testcase>
-    <testcase classname="accuracyPercent" name="falls monotonically as the accuracy radius grows" time="0">
+    <testcase classname="accuracyPercent" name="falls monotonically as the accuracy radius grows" time="0.001">
     </testcase>
     <testcase classname="accuracyPercent" name="matches the server&apos;s score for a 10 metre fix" time="0.001">
     </testcase>
-    <testcase classname="accuracyPercent" name="bands the score into a label a driver can read at a glance" time="0">
+    <testcase classname="accuracyPercent" name="bands the score into a label a driver can read at a glance" time="0.001">
     </testcase>
-    <testcase classname="GpsSmoother" name="passes the first fix through untouched" time="0.001">
+    <testcase classname="GpsSmoother" name="passes the first fix through untouched" time="0.002">
     </testcase>
-    <testcase classname="GpsSmoother" name="damps scatter around a parked bus" time="0">
+    <testcase classname="GpsSmoother" name="damps scatter around a parked bus" time="0.001">
     </testcase>
     <testcase classname="GpsSmoother" name="keeps up with a bus at speed instead of trailing behind it" time="0.001">
     </testcase>
-    <testcase classname="GpsSmoother" name="starts fresh after a reset" time="0">
+    <testcase classname="GpsSmoother" name="starts fresh after a reset" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="publishes the first usable fix with a quality score" time="0.001">
+    <testcase classname="GpsTracker" name="publishes the first usable fix with a quality score" time="0.002">
     </testcase>
-    <testcase classname="GpsTracker" name="rejects a fix that is less precise than the cut-off" time="0">
+    <testcase classname="GpsTracker" name="rejects a fix that is less precise than the cut-off" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="rejects the no-fix (0, 0) placeholder" time="0">
+    <testcase classname="GpsTracker" name="rejects the no-fix (0, 0) placeholder" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="rejects coordinates outside the valid range" time="0">
+    <testcase classname="GpsTracker" name="rejects coordinates outside the valid range" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="rejects a cached reading the OS replays long after it was taken" time="0">
+    <testcase classname="GpsTracker" name="rejects a cached reading the OS replays long after it was taken" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="rejects a fix that teleports the bus faster than it can drive" time="0">
+    <testcase classname="GpsTracker" name="rejects a fix that teleports the bus faster than it can drive" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="keeps the last good fix when a bad one is rejected" time="0">
+    <testcase classname="GpsTracker" name="keeps the last good fix when a bad one is rejected" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="rejects a delayed fix older than the one already published" time="0">
+    <testcase classname="GpsTracker" name="rejects a delayed fix older than the one already published" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="does not republish while the bus sits still" time="0.001">
+    <testcase classname="GpsTracker" name="does not republish while the bus sits still" time="0">
     </testcase>
     <testcase classname="GpsTracker" name="still sends a heartbeat while parked so the fix never goes stale" time="0">
     </testcase>
-    <testcase classname="GpsTracker" name="publishes again once the bus has genuinely moved" time="0">
+    <testcase classname="GpsTracker" name="publishes again once the bus has genuinely moved" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="keeps the device speed when the device reports one" time="0">
+    <testcase classname="GpsTracker" name="keeps the device speed when the device reports one" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="derives speed from movement when the device reports none" time="0">
+    <testcase classname="GpsTracker" name="derives speed from movement when the device reports none" time="0.001">
     </testcase>
-    <testcase classname="GpsTracker" name="derives a northward heading when the device reports none" time="0">
+    <testcase classname="GpsTracker" name="derives a northward heading when the device reports none" time="0.001">
     </testcase>
     <testcase classname="GpsTracker" name="holds the last heading rather than spinning while parked" time="0">
     </testcase>
-    <testcase classname="GpsTracker" name="offers a heartbeat once the OS has gone quiet" time="0">
+    <testcase classname="GpsTracker" name="offers a heartbeat once the OS has gone quiet" time="0.001">
     </testcase>
     <testcase classname="GpsTracker" name="does not offer a heartbeat straight after a real publish" time="0">
     </testcase>
     <testcase classname="GpsTracker" name="has no heartbeat to offer before the first fix" time="0">
     </testcase>
-    <testcase classname="GpsTracker" name="clears its history on reset" time="0">
+    <testcase classname="GpsTracker" name="clears its history on reset" time="0.001">
     </testcase>
   </testsuite>
 </testsuites>

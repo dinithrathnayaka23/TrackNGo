@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#FFFFFF",
   },
-  redBadgeText: { fontSize: 9, fontWeight: "800", color: "#FFFFFF" },
+  redBadgeText: { fontSize: 10, fontWeight: "800", color: "#FFFFFF" },
   logoutBtn: { padding: 6 },
 
   scrollView: { flex: 1 },
@@ -495,13 +495,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cardTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "700",
     color: "#FFFFFF",
     marginBottom: 8,
   },
   cardSubtitle: {
-    fontSize: 13,
+    fontSize: 13, fontWeight: "500",
     color: "rgba(255,255,255,0.85)",
     lineHeight: 18,
     marginBottom: 20,
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   overviewCardLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: "#64748B",
     marginLeft: 6,
@@ -558,8 +558,8 @@ const styles = StyleSheet.create({
   },
   cardChevron: { marginLeft: "auto" },
   overviewCardValue: {
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
     color: "#1E293B",
     marginBottom: 4,
   },
@@ -573,8 +573,8 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
   },
   spendLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  spendLabel: { fontSize: 13, fontWeight: "600", color: "#64748B", marginLeft: 8 },
-  spendValue: { fontSize: 20, fontWeight: "700", color: "#1E293B" },
+  spendLabel: { fontSize: 11, fontWeight: "600", color: "#64748B", marginLeft: 8 },
+  spendValue: { fontSize: 20, fontWeight: "800", color: "#1E293B" },
   spendHint: { fontSize: 11, fontWeight: "500", color: "#94A3B8", marginTop: 4 },
 
   // Empty state
@@ -611,13 +611,13 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "600",
     color: "#1E293B",
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: 12, fontWeight: "500",
     color: "#64748B",
     textAlign: "center",
     lineHeight: 18,

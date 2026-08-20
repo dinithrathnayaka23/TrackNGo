@@ -278,7 +278,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
             style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#0066FF', borderRadius: 8 }}
             onPress={fetchDriverProfile}
           >
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>{t('common.retry')}</Text>
+            <Text style={{ color: 'white', fontWeight: "700" }}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -875,8 +875,8 @@ function createStyles({
     headerTitle: {
       flex: 1,
       textAlign: 'center',
-      fontSize: isSmallPhone ? 15 : 16,
-      fontWeight: '700',
+      fontSize: isSmallPhone ? 16 : 18,
+      fontWeight: "700",
       color: theme.text,
       paddingHorizontal: 8,
     },
@@ -905,8 +905,8 @@ function createStyles({
       right: 0,
     },
     profileName: {
-      fontSize: 17,
-      fontWeight: '700',
+      fontSize: 18,
+      fontWeight: "700",
       color: theme.text,
       marginBottom: 4,
       maxWidth: '80%',
@@ -914,7 +914,7 @@ function createStyles({
     profileId: {
       fontSize: 11,
       color: '#999',
-      fontWeight: '500',
+      fontWeight: "500",
     },
     card: {
       marginHorizontal: horizontalPadding,
@@ -924,8 +924,8 @@ function createStyles({
       borderRadius: 12,
     },
     sectionTitle: {
-      fontSize: 13,
-      fontWeight: '700',
+      fontSize: 16,
+      fontWeight: "700",
       color: theme.text,
       marginBottom: 14,
     },
@@ -937,8 +937,8 @@ function createStyles({
       marginBottom: 12,
     },
     completionPercent: {
-      fontSize: 15,
-      fontWeight: '700',
+      fontSize: 16,
+      fontWeight: "700",
       color: '#0066FF',
     },
     progressBar: {
@@ -957,7 +957,7 @@ function createStyles({
       fontSize: 11,
       color: '#999',
       marginBottom: 12,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     completionTabs: {
       flexDirection: 'row',
@@ -981,12 +981,12 @@ function createStyles({
     },
     completionTabText: {
       fontSize: 10,
-      fontWeight: '600',
+      fontWeight: "600",
       color: '#666',
     },
     activeCompletionTabText: {
       color: '#0066FF',
-      fontWeight: '700',
+      fontWeight: "700",
     },
     detailItem: {
       flexDirection: 'row',
@@ -1013,14 +1013,14 @@ function createStyles({
       minWidth: 0,
     },
     detailLabel: {
-      fontSize: 10,
+      fontSize: 11,
       color: '#999',
-      fontWeight: '600',
+      fontWeight: "600",
       marginBottom: 2,
     },
     detailValue: {
-      fontSize: 12,
-      fontWeight: '600',
+      fontSize: 13,
+      fontWeight: "600",
       color: theme.text,
     },
     expiryContainer: {
@@ -1036,8 +1036,8 @@ function createStyles({
       borderRadius: 3,
     },
     validText: {
-      fontSize: 9,
-      fontWeight: '700',
+      fontSize: 10,
+      fontWeight: "700",
       color: '#22C55E',
     },
     validBadgeStyle:{
@@ -1050,8 +1050,8 @@ function createStyles({
       borderRadius: 3,
     },
     expiredText: {
-      fontSize: 9,
-      fontWeight: '700',
+      fontSize: 10,
+      fontWeight: "700",
       color: '#DC2626',
     },
     assignmentItem: {
@@ -1067,13 +1067,13 @@ function createStyles({
       minWidth: 0,
     },
     assignmentValue: {
-      fontSize: 12,
-      fontWeight: '600',
+      fontSize: 13,
+      fontWeight: "600",
       color: theme.text,
     },
     routeCode: {
       fontSize: 10,
-      fontWeight: '700',
+      fontWeight: "700",
       color: '#999',
       flexShrink: 0,
     },
@@ -1084,8 +1084,8 @@ function createStyles({
     },
     rowButtonText: {
       flex: 1,
-      fontSize: 13,
-      fontWeight: '600',
+      fontSize: 14,
+      fontWeight: "700",
       color: theme.text,
       minWidth: 0,
     },
@@ -1094,15 +1094,15 @@ function createStyles({
       minWidth: 0,
     },
     settingLabel: {
-      fontSize: 13,
-      fontWeight: '600',
+      fontSize: 14,
+      fontWeight: "600",
       color: theme.text,
     },
     settingValue: {
-      fontSize: 10,
+      fontSize: 13,
       color: '#999',
       marginTop: 2,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     switchRow: {
       flexDirection: 'row',
@@ -1125,15 +1125,15 @@ function createStyles({
       minWidth: 0,
     },
     switchLabel: {
-      fontSize: 13,
-      fontWeight: '600',
+      fontSize: 14,
+      fontWeight: "600",
       color: theme.text,
     },
     switchDescription: {
       fontSize: 10,
       color: '#999',
       marginTop: 2,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     supportItem: {
       flexDirection: 'row',
@@ -1159,7 +1159,7 @@ function createStyles({
     },
     logoutText: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       color: '#FFF',
     },
     profileImage: {
@@ -1205,7 +1205,7 @@ function createStyles({
     cancelPasswordText: {
       color: theme.secondaryText,
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       padding: 8,
     },
     savePasswordButton: {
@@ -1217,7 +1217,7 @@ function createStyles({
     savePasswordText: {
       color: '#FFF',
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     modalOverlay: {
     flex: 1,
@@ -1235,7 +1235,7 @@ function createStyles({
 
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: theme.text,
     textAlign: 'center',
   },
@@ -1246,8 +1246,8 @@ function createStyles({
   },
 
   languageText: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: "600",
     color: theme.text,
   },
   modalFooter: {
@@ -1257,8 +1257,8 @@ function createStyles({
   },
 
   okText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#0066FF',
     paddingVertical: 8,
     paddingHorizontal: 12,

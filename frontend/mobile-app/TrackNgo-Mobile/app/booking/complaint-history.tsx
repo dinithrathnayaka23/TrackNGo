@@ -228,16 +228,16 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   headerTitle: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "700",
     color: "#1F2937",
   },
   headerSpacer: {
     width: 24,
   },
   subtitle: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "500",
     color: "#64748B",
     paddingHorizontal: 14,
     marginTop: 6,
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     borderColor: "#E6ECF3",
   },
   emptyText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "600",
     color: "#64748B",
   },
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   statusText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
   },
   pendingText: {
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     color: "#6B7280",
   },
   cardTitle: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "700",
     color: "#1F2937",
     marginBottom: 6,
@@ -338,8 +338,8 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   adminResponseLabel: {
-    fontSize: 10,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "600",
     color: "#94A3B8",
     marginBottom: 5,
     textTransform: "uppercase",

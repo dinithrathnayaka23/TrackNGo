@@ -15,6 +15,7 @@ import { getBusDetails, type BusDetailResult } from '../../services/bookingFlowA
 import { getBusImage } from '../../utils/busImage';
 import { resolveAssetUrl } from '../../utils/media';
 import { getBusRouteLabel, getBusRouteWithSuffix, getJourneyRouteStops } from '../../utils/routeDisplay';
+import { formatBusTypeLabel } from '../../utils/busLabels';
 import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
 import { LocalizedText as Text } from '../../utils/i18n';
 
@@ -110,7 +111,7 @@ export default function BusDetailsScreen() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#94A3B8' }}>Bus details not available.</Text>
           <Pressable onPress={() => router.back()} style={{ marginTop: 12 }}>
-            <Text style={{ color: '#2F6BFF', fontWeight: '700' }}>Go Back</Text>
+            <Text style={{ color: '#2F6BFF', fontWeight: "700" }}>Go Back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -152,7 +153,9 @@ export default function BusDetailsScreen() {
           })()}
           <View style={styles.busInfo}>
             <View style={styles.busText}>
-              <Text style={styles.busType}>{details.busBrand} • {details.busType}</Text>
+              <Text style={styles.busType}>
+                {details.busBrand} • {formatBusTypeLabel(details.busType)}
+              </Text>
               <Text style={styles.busId}>{details.busNumber}</Text>
               {busRouteLabel ? (
                 <Text style={styles.busRoute}>{busRouteLabel}</Text>
@@ -347,8 +350,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: "700",
     color: '#111827',
   },
   headerSpacer: {
@@ -380,12 +383,12 @@ const styles = StyleSheet.create({
   },
   busType: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#2F6BFF',
   },
   busId: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1F2937',
   },
   busRoute: {
@@ -393,9 +396,9 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   routeLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#2F6BFF',
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 2,
   },
   busBadge: {
@@ -420,8 +423,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   timeText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#1F2937',
   },
   timeSub: {
@@ -452,8 +455,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2E8F0',
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#1F2937',
     marginTop: 4,
   },
@@ -499,7 +502,7 @@ const styles = StyleSheet.create({
   },
   routeName: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1F2937',
   },
   routeSub: {
@@ -518,7 +521,7 @@ const styles = StyleSheet.create({
   routeMetaText: {
     fontSize: 12,
     color: '#64748B',
-    fontWeight: '600',
+    fontWeight: "600",
   },
   vehicleCard: {
     backgroundColor: '#FFFFFF',
@@ -531,8 +534,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   vehicleLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: "600",
     color: '#94A3B8',
     marginBottom: 10,
   },
@@ -546,7 +549,7 @@ const styles = StyleSheet.create({
   },
   amenityText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#94A3B8',
   },
   vehicleFooter: {
@@ -561,7 +564,7 @@ const styles = StyleSheet.create({
   },
   viewLayout: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#2F6BFF',
   },
   driverCard: {
@@ -592,7 +595,7 @@ const styles = StyleSheet.create({
   },
   driverName: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1F2937',
   },
   driverSub: {
@@ -611,7 +614,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#F59E0B',
   },
   bookButton: {
@@ -624,7 +627,7 @@ const styles = StyleSheet.create({
   bookButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   bookSubText: {
     color: '#DBEAFE',

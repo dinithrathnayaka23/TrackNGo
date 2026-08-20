@@ -36,6 +36,7 @@ import {
   updateUserSettings,
 } from "../../services/profileSettingsApi";
 import type { UserProfile } from "../../types/chat";
+import { ProfileAvatarPlaceholder } from "../../components/ProfileAvatarPlaceholder";
 import {
   beginTwoFactorSetup,
   disableTwoFactor,
@@ -46,6 +47,7 @@ import { clearTrustedDeviceToken, saveTrustedDeviceToken } from "../../services/
 
 const TOKEN_KEY = "trackngo.auth.token";
 const BLUE = "#2378E8";
+const AVATAR_SIZE = 112;
 
 const profileCopy = {
   en: {
@@ -85,11 +87,6 @@ const profileCopy = {
     supportLegal: "Support & Legal",
     terms: "Terms & Conditions",
     termsHint: "View our terms and conditions",
-    notifications: "Notifications",
-    push: "Push Notifications",
-    sms: "SMS Alerts",
-    emailUpdates: "Email Updates",
-    bookingUpdates: "Booking Updates",
     logout: "Log Out",
     loggingOut: "Logging out...",
     unavailable: "Profile information is unavailable.",
@@ -166,11 +163,6 @@ const profileCopy = {
     supportLegal: "සහාය සහ නීතිමය තොරතුරු",
     terms: "නියමයන් සහ කොන්දේසි",
     termsHint: "අපගේ නියමයන් සහ කොන්දේසි බලන්න",
-    notifications: "දැනුම්දීම්",
-    push: "යෙදුම් දැනුම්දීම්",
-    sms: "SMS දැනුම්දීම්",
-    emailUpdates: "විද්‍යුත් තැපැල් යාවත්කාලීන",
-    bookingUpdates: "වෙන්කිරීම් යාවත්කාලීන",
     logout: "ඉවත් වන්න",
     loggingOut: "ඉවත් වෙමින්...",
     unavailable: "පැතිකඩ තොරතුරු ලබාගත නොහැක.",
@@ -272,6 +264,9 @@ export default function PassengerProfileScreen() {
   const { currentUser, clearCurrentUser } = useSession();
   const { setLanguage: setAppLanguage } = useLanguage();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  // Remembers the photo URL that failed to load rather than a plain boolean,
+  // so uploading a replacement clears the failure by itself.
+  const [failedPhotoUri, setFailedPhotoUri] = useState<string | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -518,7 +513,9 @@ export default function PassengerProfileScreen() {
   }
 
   const photoUri = resolveProfilePhoto(profile.profilePhoto);
-  const initials = profile.fullName?.trim().slice(0, 1).toUpperCase() || "P";
+  // A stored photo that will not load is treated the same as no photo at all,
+  // matching how the admin web profile falls back to its placeholder.
+  const showAvatarPlaceholder = !photoUri || photoUri === failedPhotoUri;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -530,7 +527,17 @@ export default function PassengerProfileScreen() {
         </View>
         <View style={styles.identity}>
           <View style={styles.avatarWrap}>
-            {photoUri ? <Image source={{ uri: photoUri }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.initials}>{initials}</Text></View>}
+            {showAvatarPlaceholder ? (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <ProfileAvatarPlaceholder size={AVATAR_SIZE} />
+              </View>
+            ) : (
+              <Image
+                source={{ uri: photoUri! }}
+                style={styles.avatar}
+                onError={() => setFailedPhotoUri(photoUri)}
+              />
+            )}
             <Pressable style={styles.photoButton} onPress={() => void pickPhoto()} disabled={saving}><Ionicons name="pencil" size={17} color="#FFFFFF" /></Pressable>
           </View>
           <Text style={styles.name}>{profile.fullName || copy.passenger}</Text>
@@ -567,14 +574,6 @@ export default function PassengerProfileScreen() {
             value={copy.termsHint}
             onPress={() => Alert.alert(copy.termsTitle, copy.termsMessage)}
           />
-        </View>
-
-        <Text style={styles.sectionTitle}>{copy.notifications}</Text>
-        <View style={styles.card}>
-          <ToggleRow title={copy.push} value={settings.pushNotifications} onValueChange={(value) => void setSetting("pushNotifications", value)} />
-          <ToggleRow title={copy.sms} value={settings.smsAlerts} onValueChange={(value) => void setSetting("smsAlerts", value)} />
-          <ToggleRow title={copy.emailUpdates} value={settings.emailUpdates} onValueChange={(value) => void setSetting("emailUpdates", value)} />
-          <ToggleRow title={copy.bookingUpdates} value={settings.bookingUpdates} onValueChange={(value) => void setSetting("bookingUpdates", value)} />
         </View>
 
         <Pressable style={styles.logoutButton} onPress={handleLogout} disabled={loggingOut}>
@@ -658,45 +657,44 @@ const styles = StyleSheet.create({
   loadingScreen: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" },
   content: { paddingHorizontal: 16, paddingBottom: 32 },
   header: { height: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  headerTitle: { fontSize: 19, fontWeight: "700", color: "#111827" },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
   headerSpacer: { width: 25 },
   identity: { alignItems: "center", paddingTop: 8, paddingBottom: 20 },
   avatarWrap: { position: "relative", marginBottom: 12 },
-  avatar: { width: 112, height: 112, borderRadius: 56 },
-  avatarFallback: { alignItems: "center", justifyContent: "center", backgroundColor: "#DBEAFE" },
-  initials: { fontSize: 40, fontWeight: "700", color: BLUE },
+  avatar: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 },
+  avatarFallback: { alignItems: "center", justifyContent: "center", overflow: "hidden" },
   photoButton: { position: "absolute", right: -4, bottom: 7, width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: BLUE, borderWidth: 2, borderColor: "#FFFFFF" },
-  name: { fontSize: 25, fontWeight: "700", color: "#111827" },
+  name: { fontSize: 24, fontWeight: "700", color: "#111827" },
   userId: { marginTop: 2, fontSize: 14, color: "#737B87" },
   completionCard: { padding: 16, borderWidth: 1, borderColor: "#E2E4E8", borderRadius: 12, marginBottom: 28 },
   completionTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  cardTitle: { fontSize: 15, fontWeight: "700", color: "#1B2433" },
-  completionValue: { fontSize: 15, fontWeight: "700", color: BLUE },
+  cardTitle: { fontSize: 16, fontWeight: "700", color: "#1B2433" },
+  completionValue: { fontSize: 13, fontWeight: "600", color: BLUE },
   progressTrack: { height: 8, borderRadius: 4, backgroundColor: "#EEF0F4", marginTop: 14, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 4, backgroundColor: BLUE },
-  helperText: { marginTop: 12, fontSize: 13, color: "#737B87" },
-  sectionTitle: { marginBottom: 10, marginLeft: 2, fontSize: 15, fontWeight: "700", color: "#717987" },
+  helperText: { marginTop: 12, fontSize: 11, fontWeight: "500", color: "#737B87" },
+  sectionTitle: { marginBottom: 10, marginLeft: 2, fontSize: 16, fontWeight: "700", color: "#717987" },
   card: { borderWidth: 1, borderColor: "#E2E4E8", borderRadius: 12, overflow: "hidden", marginBottom: 26 },
   detailRow: { minHeight: 72, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#EEF0F2" },
   detailIcon: { width: 40, height: 40, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: "#F1F2F4" },
   detailText: { flex: 1, marginLeft: 16 },
-  detailLabel: { fontSize: 13, color: "#7B828D", marginBottom: 3 },
-  detailValue: { fontSize: 15, fontWeight: "600", color: "#4B4E54" },
+  detailLabel: { fontSize: 11, fontWeight: "600", color: "#7B828D", marginBottom: 3 },
+  detailValue: { fontSize: 13, fontWeight: "600", color: "#4B4E54" },
   toggleRow: { minHeight: 70, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#EEF0F2" },
   toggleText: { flex: 1, paddingVertical: 12 },
   toggleTitle: { fontSize: 16, color: "#1B2433", fontWeight: "500" },
   toggleSubtitle: { marginTop: 4, fontSize: 12, color: "#7B828D" },
-  emptyText: { fontSize: 16, color: "#697386", marginBottom: 16 },
+  emptyText: { fontSize: 14, fontWeight: "600", color: "#697386", marginBottom: 16 },
   retryButton: { borderRadius: 8, backgroundColor: BLUE, paddingHorizontal: 22, paddingVertical: 11 },
   retryText: { color: "#FFFFFF", fontWeight: "700" },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" },
   modalCard: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
   twoFactorModalCard: { maxHeight: "92%", backgroundColor: "#FFFFFF", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
-  modalTitle: { fontSize: 20, fontWeight: "700", color: "#111827", marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 16 },
   twoFactorInstructions: { fontSize: 14, lineHeight: 21, color: "#5E6673", marginBottom: 14 },
   qrWrap: { alignSelf: "center", padding: 12, marginBottom: 14, borderRadius: 12, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0" },
-  secretLabel: { fontSize: 12, color: "#7B828D", marginBottom: 4 },
-  secretValue: { padding: 10, borderRadius: 8, backgroundColor: "#F1F5F9", color: "#1B2433", fontSize: 14, letterSpacing: 1, fontWeight: "700" },
+  secretLabel: { fontSize: 11, fontWeight: "600", color: "#7B828D", marginBottom: 4 },
+  secretValue: { padding: 10, borderRadius: 8, backgroundColor: "#F1F5F9", color: "#1B2433", fontSize: 13, letterSpacing: 1, fontWeight: "600" },
   twoFactorHint: { marginTop: 8, marginBottom: 12, fontSize: 12, lineHeight: 18, color: "#7B828D" },
   input: { height: 48, borderWidth: 1, borderColor: "#D9DDE4", borderRadius: 9, paddingHorizontal: 13, marginBottom: 12, color: "#111827" },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 4 },
@@ -707,5 +705,5 @@ const styles = StyleSheet.create({
   languageOption: { minHeight: 52, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#EEF0F2" },
   languageText: { fontSize: 16, color: "#1B2433" },
   logoutButton: { minHeight: 52, marginTop: 2, marginBottom: 8, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#E53935" },
-  logoutButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  logoutButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
 });

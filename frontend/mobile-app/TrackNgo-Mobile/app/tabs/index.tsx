@@ -16,6 +16,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -125,6 +126,33 @@ function parseJourneyDateTime(date: string, time: string): Date {
 /**
  * Transforms API DTO into a format suitable for the dashboard UI
  */
+/**
+ * Identity of the rendered booking list. Background polls compare against this
+ * so an unchanged response does not replace state, which would re-render the
+ * dashboard and restart the journey-expiry timer every few seconds.
+ */
+function recentBookingsSignature(bookings: DashboardRecentBooking[]) {
+  return bookings
+    .map((booking) =>
+      [
+        booking.id,
+        booking.busNumber,
+        booking.busType,
+        booking.badge,
+        booking.from,
+        booking.to,
+        booking.dateLabel,
+        booking.timeLabel,
+        booking.base,
+        booking.journeyAt.getTime(),
+        booking.journeyDate,
+        booking.journeyTime,
+        booking.paymentStatus ?? "",
+      ].join("|"),
+    )
+    .join("~");
+}
+
 function toDashboardRecentBooking(
   dto: RecentBookingDto,
 ): DashboardRecentBooking {
@@ -193,9 +221,11 @@ function useEntranceAnimation(delay: number) {
 function PressScale({
   children,
   onPress,
+  style,
 }: {
   children: React.ReactNode;
   onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -216,6 +246,7 @@ function PressScale({
 
   return (
     <Pressable
+      style={style}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -243,6 +274,8 @@ export default function HomeScreen() {
     DashboardRecentBooking[]
   >([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
+  // Distinguishes the first load from the 5s background polls.
+  const hasLoadedRecentRef = useRef(false);
   const [now, setNow] = useState(() => new Date());
   const [displayName, setDisplayName] = useState("User");
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
@@ -278,19 +311,39 @@ export default function HomeScreen() {
       setRecentBookings([]);
       setLoadingRecent(false);
       setNow(new Date());
+      hasLoadedRecentRef.current = false;
       return;
     }
 
-    try {
+    // Only the very first load shows a placeholder. The 5s background poll
+    // refreshes in place, so the section no longer collapses to a loading
+    // line and pushes the cards around twice every cycle.
+    const isFirstLoad = !hasLoadedRecentRef.current;
+    if (isFirstLoad) {
       setLoadingRecent(true);
+    }
+
+    try {
       const data = await getRecentUpcomingBookings(currentUser.userId);
+      const next = data.map(toDashboardRecentBooking);
       setNow(new Date());
-      setRecentBookings(data.map(toDashboardRecentBooking));
+      setRecentBookings((previous) =>
+        recentBookingsSignature(previous) === recentBookingsSignature(next)
+          ? previous
+          : next,
+      );
+      hasLoadedRecentRef.current = true;
     } catch (error) {
       console.error("[HomeScreen] Failed to load recent bookings", error);
-      setRecentBookings([]);
+      // A dropped poll is not an empty booking list. Keep whatever is already
+      // on screen rather than flashing "No upcoming bookings found".
+      if (isFirstLoad) {
+        setRecentBookings([]);
+      }
     } finally {
-      setLoadingRecent(false);
+      if (isFirstLoad) {
+        setLoadingRecent(false);
+      }
     }
   }, [currentUser]);
 
@@ -566,8 +619,8 @@ export default function HomeScreen() {
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                 </View>
                 <View style={styles.tripEndpoint}>
-                  <Text style={styles.tripLabel}>To</Text>
-                  <Text style={styles.tripValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{booking.to}</Text>
+                  <Text style={[styles.tripLabel, styles.tripTextEnd]}>To</Text>
+                  <Text style={[styles.tripValue, styles.tripTextEnd]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{booking.to}</Text>
                 </View>
               </View>
 
@@ -579,6 +632,7 @@ export default function HomeScreen() {
                   {booking.busType === "trip_booking" &&
                   !["success", "paid"].includes(String(booking.paymentStatus ?? "").toLowerCase()) ? (
                     <PressScale
+                      style={styles.actionButton}
                       onPress={() => {
                         const tripId = booking.id.replace("BK-", "");
                         router.push({
@@ -618,6 +672,7 @@ export default function HomeScreen() {
                   ) : (
                     <>
                       <PressScale
+                        style={styles.actionButton}
                         onPress={() =>
                           router.push({
                             pathname: "/map/live-map",
@@ -650,6 +705,7 @@ export default function HomeScreen() {
                         </View>
                       </PressScale>
                       <PressScale
+                        style={styles.actionButton}
                         onPress={() =>
                           router.push({
                             pathname: "/booking/view-ticket",
@@ -800,7 +856,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   actionLabel: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "600",
     color: "#1F2937",
     textAlign: "center",
@@ -809,7 +865,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     color: "#1F2937",
   },
@@ -846,9 +902,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.18)",
   },
   badgeText: {
-    fontSize: 10.5,
+    fontSize: 11,
     color: "#FFFFFF",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   refText: {
     fontSize: 11,
@@ -868,13 +924,20 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  // The destination reads against the right edge so the row runs
+  // origin -> arrow -> destination across the full card width. This aligns the
+  // glyphs rather than the box, so adjustsFontSizeToFit keeps a width to
+  // shrink long city names into.
+  tripTextEnd: {
+    textAlign: "right",
+  },
   tripLabel: {
-    fontSize: 10.5,
+    fontSize: 11, fontWeight: "600",
     color: "rgba(255,255,255,0.75)",
   },
   tripValue: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#FFFFFF",
     minWidth: 0,
     flexShrink: 1,
@@ -905,14 +968,18 @@ const styles = StyleSheet.create({
   },
   cardActions: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
-    justifyContent: "flex-start",
     alignItems: "center",
+  },
+  // Each action takes an equal share of the row, so two buttons split it in
+  // half and a single button spans the card rather than sitting off to one side.
+  actionButton: {
+    flex: 1,
   },
   smallButton: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 10,
@@ -921,7 +988,9 @@ const styles = StyleSheet.create({
     height: 28,
   },
   smallButtonText: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
 });

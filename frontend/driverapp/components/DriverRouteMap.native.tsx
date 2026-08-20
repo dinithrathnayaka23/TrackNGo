@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   stateText: {
     fontSize: 12,
     color: '#64748B',
-    fontWeight: '700',
+    fontWeight: "700",
   },
   stopPin: {
     width: 28,

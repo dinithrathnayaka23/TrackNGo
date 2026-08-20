@@ -371,8 +371,8 @@ function createStyles(theme: {
       justifyContent: "center",
     },
     headerTitle: {
-      fontSize: 16,
-      fontWeight: "800",
+      fontSize: 18,
+      fontWeight: "700",
       color: theme.text,
       textAlign: "center",
     },
@@ -398,8 +398,8 @@ function createStyles(theme: {
       backgroundColor: "#0066FF",
     },
     tabButtonText: {
-      fontSize: 12,
-      fontWeight: "700",
+      fontSize: 13,
+      fontWeight: "600",
       color: theme.secondaryText,
     },
     tabButtonTextActive: {
@@ -489,8 +489,8 @@ function createStyles(theme: {
       borderRadius: 999,
     },
     priorityBadgeText: {
-      fontSize: 10,
-      fontWeight: "800",
+      fontSize: 11,
+      fontWeight: "700",
     },
     statusBadge: {
       paddingHorizontal: 8,
@@ -499,8 +499,8 @@ function createStyles(theme: {
       backgroundColor: theme.border,
     },
     statusBadgeText: {
-      fontSize: 10,
-      fontWeight: "800",
+      fontSize: 11,
+      fontWeight: "700",
       color: theme.text,
     },
     adminResponseBox: {
@@ -510,8 +510,8 @@ function createStyles(theme: {
       gap: 4,
     },
     adminResponseLabel: {
-      fontSize: 10,
-      fontWeight: "800",
+      fontSize: 11,
+      fontWeight: "600",
       color: theme.secondaryText,
       textTransform: "uppercase",
     },

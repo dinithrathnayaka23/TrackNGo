@@ -90,12 +90,11 @@ public class GlobalExceptionHandler {
                     .body(ApiResponse.fail("A record with the same unique value already exists."));
         }
 
-        String message = ex.getMessage();
-        if (message == null || message.isBlank()) {
-            message = ex.getClass().getSimpleName();
-        }
+        // Never echo the raw exception message back to the client - it can leak
+        // internal details (SQL, table/column names, stack traces, file paths).
+        // The full exception is already logged above for diagnosis.
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.fail("Unexpected error: " + message));
+                .body(ApiResponse.fail("Something went wrong on our end. Please try again in a moment."));
     }
 
     private String getRootCauseMessage(Throwable ex) {

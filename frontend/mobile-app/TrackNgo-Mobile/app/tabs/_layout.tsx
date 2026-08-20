@@ -1,10 +1,13 @@
 import { Tabs } from "expo-router";
+import { StyleSheet } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../../utils/i18n";
+import { formatUnreadBadge, useUnreadChatCount } from "../../hooks/useUnreadChatCount";
 
 export default function TabLayout() {
   const { t } = useLanguage();
+  const unreadChatCount = useUnreadChatCount();
 
   return (
     <Tabs
@@ -34,6 +37,8 @@ export default function TabLayout() {
         name="chat"
         options={{
           title: t("Chat"),
+          tabBarBadge: formatUnreadBadge(unreadChatCount),
+          tabBarBadgeStyle: styles.chatBadge,
           tabBarIcon: ({ color }) => (
             <Ionicons size={22} name="chatbubble-ellipses" color={color} />
           ),
@@ -58,3 +63,12 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  chatBadge: {
+    backgroundColor: "#2F6BFF",
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+});

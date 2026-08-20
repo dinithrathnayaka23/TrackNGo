@@ -289,10 +289,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
-  headerTitle: { fontSize: 17, fontWeight: "700", color: "#1F2937" },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#1F2937" },
 
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32 },
-  errorText: { fontSize: 14, color: "#64748B", fontWeight: "500", textAlign: "center" },
+  errorText: { fontSize: 12, color: "#64748B", fontWeight: "600", textAlign: "center" },
 
   content: { paddingHorizontal: 20, paddingBottom: 32, gap: 16 },
 
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   routeRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  routeText: { fontSize: 15, fontWeight: "700", color: "#1F2937", flexShrink: 1 },
+  routeText: { fontSize: 16, fontWeight: "700", color: "#1F2937", flexShrink: 1 },
   tripMetaRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   tripMetaText: { fontSize: 12, color: "#94A3B8", fontWeight: "500" },
 
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
 
   sectionLabel: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#64748B",
     marginLeft: 2,
   },
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
     color: "#111827",
     borderWidth: 1,

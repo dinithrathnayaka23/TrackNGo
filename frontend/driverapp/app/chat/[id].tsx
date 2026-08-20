@@ -1152,18 +1152,18 @@ const styles = StyleSheet.create({
   },
   headerAvatarFallbackText: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: "800",
     color: '#475569',
   },
   headerTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: "700",
     color: '#1F2937',
   },
   headerStatusText: {
     marginTop: 2,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#94A3B8',
   },
   headerSpacer: {
@@ -1189,7 +1189,7 @@ const styles = StyleSheet.create({
   },
   dayText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#8A94A6',
   },
   messageRow: {
@@ -1210,7 +1210,7 @@ const styles = StyleSheet.create({
   },
   avatarFallbackText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     color: '#475569',
   },
   bubbleLeft: {
@@ -1225,13 +1225,13 @@ const styles = StyleSheet.create({
   },
   bubbleLeftText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#4B5563',
   },
   timeLeft: {
     marginTop: 4,
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#9AA4B2',
   },
   bubbleRight: {
@@ -1244,7 +1244,7 @@ const styles = StyleSheet.create({
   },
   bubbleRightText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#FFFFFF',
   },
   deletedText: {
@@ -1259,7 +1259,7 @@ const styles = StyleSheet.create({
   },
   timeRight: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#9AA4B2',
   },
   voiceBubble: {
@@ -1321,7 +1321,7 @@ const styles = StyleSheet.create({
   voiceTime: {
     marginTop: 2,
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#788598',
   },
   voiceTimeOutgoing: {
@@ -1432,12 +1432,12 @@ const styles = StyleSheet.create({
   },
   locationFooterTitle: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#465468',
   },
   locationFooterCoords: {
-    fontSize: 9,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: "700",
     color: '#465468',
   },
   centered: {
@@ -1452,7 +1452,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#D9534F',
     marginBottom: 12,
-    fontSize: 14,
+    fontSize: 12, fontWeight: "600",
   },
   retryButton: {
     backgroundColor: '#1A73E8',
@@ -1462,12 +1462,12 @@ const styles = StyleSheet.create({
   },
   retryText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: "600",
   },
   emptyText: {
     textAlign: 'center',
     color: '#6C8195',
-    fontSize: 14,
+    fontSize: 14, fontWeight: "600",
   },
   composerArea: {
     paddingHorizontal: 12,
@@ -1504,7 +1504,7 @@ const styles = StyleSheet.create({
   },
   recordingTitle: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
     color: '#B42318',
   },
   recordingMeta: {
@@ -1515,7 +1515,7 @@ const styles = StyleSheet.create({
   },
   recordingTime: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
     color: '#64748B',
   },
   recordingWave: {
@@ -1565,8 +1565,8 @@ const styles = StyleSheet.create({
   },
   inputText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: "600",
     color: '#1F2937',
   },
   sendButton: {
@@ -1603,15 +1603,15 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   attachmentTitle: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: "800",
     color: '#1F2937',
   },
   attachmentSubtitle: {
     marginTop: 3,
     marginBottom: 10,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#8A94A6',
   },
   attachmentOption: {
@@ -1624,7 +1624,7 @@ const styles = StyleSheet.create({
   },
   attachmentOptionText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#1F2937',
   },
   attachmentCancel: {
@@ -1637,7 +1637,7 @@ const styles = StyleSheet.create({
   },
   attachmentCancelText: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: "800",
     color: '#B42318',
   },
   viewerBackdrop: {

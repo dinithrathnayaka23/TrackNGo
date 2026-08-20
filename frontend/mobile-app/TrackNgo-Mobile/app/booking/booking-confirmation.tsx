@@ -11,7 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
+import { downloadTicketPdf, shareTicketPdf } from '../../utils/ticketPdf';
 import { LocalizedText as Text } from '../../utils/i18n';
 
 /*
@@ -175,35 +175,22 @@ export default function BookingConfirmationScreen() {
     return uri;
   }, [bookingId, from, to, date, depart, seats, totalPrice, params.busNumber, params.transactionId, getQrBase64]);
 
-  /** Download — generate a PDF ticket and let the user save it */
+  /** Download — writes the ticket PDF into a folder the passenger chooses. */
   const handleDownload = useCallback(async () => {
     try {
       const pdfUri = await generateTicketPdf();
-      await Sharing.shareAsync(pdfUri, {
-        mimeType: 'application/pdf',
-        dialogTitle: 'Save your TrackNGo bus ticket',
-        UTI: 'com.adobe.pdf',
-      });
+      await downloadTicketPdf(pdfUri, `TrackNGo-Ticket-${bookingId}.pdf`);
     } catch (e: any) {
       console.error('Download error:', e);
       Alert.alert('Error', 'Could not generate the ticket PDF. Please try again.');
     }
-  }, [generateTicketPdf]);
+  }, [generateTicketPdf, bookingId]);
 
   /** Share — generate a PDF ticket and share via system share sheet */
   const handleShare = useCallback(async () => {
     try {
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (!isAvailable) {
-        Alert.alert('Sharing unavailable', 'Sharing is not available on this device.');
-        return;
-      }
       const pdfUri = await generateTicketPdf();
-      await Sharing.shareAsync(pdfUri, {
-        mimeType: 'application/pdf',
-        dialogTitle: 'Share your TrackNGo bus ticket',
-        UTI: 'com.adobe.pdf',
-      });
+      await shareTicketPdf(pdfUri, 'Share your TrackNGo bus ticket');
     } catch (e: any) {
       console.error('Share error:', e);
       Alert.alert('Error', 'Could not share the ticket. Please try again.');
@@ -255,7 +242,7 @@ export default function BookingConfirmationScreen() {
             {/* Inline ticket summary snippet */}
             <View style={styles.ticketInfo}>
               <Text style={styles.ticketRoute}>{from}  →  {to}</Text>
-              {params.routeName ? <Text style={[styles.ticketMeta, { color: '#1474F2', fontWeight: '700', fontSize: 12 }]}>{params.routeName}</Text> : null}
+              {params.routeName ? <Text style={[styles.ticketMeta, { color: '#1474F2', fontWeight: "700", fontSize: 12 }]}>{params.routeName}</Text> : null}
               <Text style={styles.ticketMeta}>{date}  •  {depart}   |   Seats: {seats.replace(/,/g, ', ')}</Text>
               <Text style={styles.ticketMeta}>Booking #{bookingId}   •   LKR {totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
             </View>
@@ -322,8 +309,6 @@ export default function BookingConfirmationScreen() {
               <Text style={styles.actionBtnText}>Share</Text>
             </Pressable>
           </View>
-
-          <View style={{ height: 100 }} />
         </ScrollView>
 
         {/* Navigation Return to Home */}
@@ -359,8 +344,8 @@ const styles = StyleSheet.create({
   },
   /* Header */
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: "700",
     color: '#111827',
     marginBottom: 24,
   },
@@ -384,13 +369,13 @@ const styles = StyleSheet.create({
   },
   confirmedTitle: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: "800",
     color: '#111827',
     marginBottom: 6,
   },
   bookingIdText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: '#22C55E',
     marginBottom: 24,
   },
@@ -428,13 +413,13 @@ const styles = StyleSheet.create({
   },
   scanBadgeText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     color: '#FFFFFF',
     letterSpacing: 2,
   },
   scanTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#111827',
     marginTop: 14,
     marginBottom: 4,
@@ -452,8 +437,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   ticketRoute: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "700",
     color: '#111827',
     marginBottom: 4,
   },
@@ -494,15 +479,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: "600",
     color: '#94A3B8',
     letterSpacing: 1,
     marginBottom: 4,
   },
   detailValueBold: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     color: '#111827',
   },
   routeRow: {
@@ -519,15 +504,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   paidLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: "600",
     color: '#94A3B8',
     letterSpacing: 1,
     marginBottom: 4,
   },
   paidValue: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: "700",
     color: '#22C55E',
   },
   /* Actions */
@@ -542,9 +527,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#374151',
-    fontWeight: '500',
+    fontWeight: "600",
   },
   /* Bottom */
   bottomBar: {
@@ -560,8 +545,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   doneButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: "700",
     color: '#FFFFFF',
   },
 });

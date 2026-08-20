@@ -361,7 +361,7 @@ function ViewContractModal({
 
             <div className="rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">Monthly Value</p>
-              <p className="mt-2 text-xl font-extrabold text-[#047857]">{formatCurrency(contract.monthly)}</p>
+              <p className="mt-2 text-2xl font-extrabold text-[#047857]">{formatCurrency(contract.monthly)}</p>
               <p className="text-xs text-[#64748b]">Total: {formatCurrency(contract.totalValue)}</p>
             </div>
 
@@ -828,7 +828,7 @@ function Contracts() {
             <FontAwesomeIcon icon={faFilter} />
             Filter
             {activeFilters && (
-              <span className="grid h-4 w-4 place-items-center rounded-full bg-[#2642a6] text-[10px] text-white">
+              <span className="grid h-4 w-4 place-items-center rounded-full bg-[#2642a6] text-2xs text-white">
                 •
               </span>
             )}
@@ -1205,7 +1205,7 @@ function Contracts() {
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fee2e2]">
                 <FontAwesomeIcon icon={faTrash} className="text-lg text-[#dc2626]" />
               </div>
-              <h3 className="mt-4 text-base font-extrabold text-[#111827]">Delete Contract?</h3>
+              <h3 className="mt-4 text-sm font-bold text-[#111827]">Delete Contract?</h3>
               <p className="mt-2 text-sm text-[#64748b]">
                 This will permanently remove the contract. This action cannot be undone.
               </p>

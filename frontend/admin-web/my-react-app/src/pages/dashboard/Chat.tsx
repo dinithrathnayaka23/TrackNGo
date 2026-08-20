@@ -333,9 +333,9 @@ function LocationPreview({ latitude, longitude }: { latitude: number; longitude:
           </svg>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-2 bg-[#dde5f0] px-2.5 py-2 text-[10px] font-semibold text-[#334155]">
+      <div className="flex items-center justify-between gap-2 bg-[#dde5f0] px-2.5 py-2 text-2xs font-semibold text-[#334155]">
         <span>Shared location</span>
-        <span className="whitespace-nowrap text-[9px]">
+        <span className="whitespace-nowrap text-2xs">
           {latitude.toFixed(5)}, {longitude.toFixed(5)}
         </span>
       </div>
@@ -1224,13 +1224,13 @@ function Chat() {
       </style>
       <section className="flex w-[390px] min-w-[320px] flex-col border-r border-[#e5e7eb] bg-[#f7f9fc]">
         <div className="px-4 py-4">
-          <div className="flex h-11 items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3">
+          <div className="flex items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
             <FontAwesomeIcon icon={faMagnifyingGlass} className="text-sm text-[#94a3b8]" />
             <input
               type="text"
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
-              className="min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-[#111827] outline-none placeholder:text-[#94a3b8]"
+              className="min-w-0 flex-1 bg-transparent text-sm text-[#111827] outline-none placeholder:text-[#94a3b8]"
               placeholder="Search messages..."
             />
           </div>
@@ -1238,9 +1238,9 @@ function Chat() {
 
         <div className="chat-scrollbar-hidden min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-5">
           {loadingConversations ? (
-            <p className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-4 text-[13px] font-semibold text-[#64748b]">Loading chats...</p>
+            <p className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-4 text-sm font-semibold text-[#64748b]">Loading chats...</p>
           ) : filteredConversations.length === 0 ? (
-            <p className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-4 text-[13px] text-[#64748b]">
+            <p className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-4 text-sm text-[#64748b]">
               No support chats found.
             </p>
           ) : (
@@ -1279,10 +1279,10 @@ function Chat() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-[13px] font-extrabold leading-5 text-[#111827]">
+                      <p className="truncate text-sm font-extrabold leading-5 text-[#111827]">
                         {getParticipantDisplayTitle(other.userId, other.userType, profile)}
                       </p>
-                      <span className="whitespace-nowrap text-[10px] font-semibold text-[#94a3b8]">
+                      <span className="whitespace-nowrap text-2xs font-semibold text-[#94a3b8]">
                         {formatDay(conversation.lastMessageTimestamp) === 'Today'
                           ? formatTime(conversation.lastMessageTimestamp)
                           : formatDay(conversation.lastMessageTimestamp)}
@@ -1290,15 +1290,15 @@ function Chat() {
                     </div>
                     <p
                       className={[
-                        'mt-2 truncate text-[11px]',
-                        isTyping || unread > 0 ? 'font-extrabold text-[#1a73e8]' : 'font-semibold text-[#94a3b8]',
+                        'mt-2 truncate text-xs',
+                        isTyping || unread > 0 ? 'font-extrabold text-[#2642a6]' : 'font-semibold text-[#94a3b8]',
                       ].join(' ')}
                     >
                       {isTyping ? 'typing...' : previewText(conversation)}
                     </p>
                   </div>
                   {unread > 0 ? (
-                    <span className="grid min-w-5 place-items-center rounded-full bg-[#1a73e8] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    <span className="grid min-w-5 place-items-center rounded-full bg-[#2642a6] px-1.5 py-0.5 text-2xs font-bold text-white">
                       {unread}
                     </span>
                   ) : null}
@@ -1330,13 +1330,13 @@ function Chat() {
                 ) : null}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-[14px] font-extrabold leading-5 text-[#111827]">
+                <p className="truncate text-sm font-extrabold leading-5 text-[#111827]">
                   {getParticipantDisplayTitle(activeParticipant.userId, activeParticipant.userType, activeProfile)}
                 </p>
                 <p
                   className={[
-                    'mt-1 text-[11px] font-semibold',
-                    activeParticipantTyping ? 'text-[#1a73e8]' : onlineByUserId[activeParticipant.userId] ? 'text-[#22c55e]' : 'text-[#94a3b8]',
+                    'mt-1 text-xs font-semibold',
+                    activeParticipantTyping ? 'text-[#2642a6]' : onlineByUserId[activeParticipant.userId] ? 'text-[#22c55e]' : 'text-[#94a3b8]',
                   ].join(' ')}
                 >
                   {activeParticipantTyping
@@ -1363,16 +1363,16 @@ function Chat() {
         <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-0">
           <div ref={messagesContainerRef} className="chat-scrollbar-hidden min-h-0 flex-1 space-y-4 overflow-y-auto pr-2 pt-3">
             {loadingMessages ? (
-              <p className="text-[13px] font-semibold text-[#64748b]">Loading messages...</p>
+              <p className="text-sm font-semibold text-[#64748b]">Loading messages...</p>
             ) : messageItems.length === 0 ? (
-              <p className="text-[13px] font-semibold text-[#64748b]">No messages yet.</p>
+              <p className="text-sm font-semibold text-[#64748b]">No messages yet.</p>
             ) : (
               messageItems.map((item) => {
                 if (item.type === 'date') {
                   return (
                     <div key={item.key} className="flex justify-center">
                       <div className="rounded-xl bg-[#e9eef7] px-3.5 py-1">
-                        <span className="text-[11px] font-bold text-[#94a3b8]">{item.label}</span>
+                        <span className="text-xs font-bold text-[#94a3b8]">{item.label}</span>
                       </div>
                     </div>
                   )
@@ -1400,7 +1400,7 @@ function Chat() {
                   >
                     <div className={mine ? 'flex justify-end' : 'flex items-end gap-2'}>
                       {showRowAvatar ? (
-                        <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[#dde5f0] text-[10px] font-extrabold text-[#334155]">
+                        <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[#dde5f0] text-2xs font-extrabold text-[#334155]">
                           {resolveAssetUrl(activeProfile?.profilePhoto) ? (
                             <img
                               src={resolveAssetUrl(activeProfile?.profilePhoto) ?? ''}
@@ -1418,7 +1418,7 @@ function Chat() {
                             isImage || isVoice || isLocation
                               ? ''
                               : mine
-                                ? 'inline-block rounded-[14px] rounded-tr bg-[#1a73e8] px-3 py-2.5 text-white'
+                                ? 'inline-block rounded-[14px] rounded-tr bg-[#2642a6] px-3 py-2.5 text-white'
                                 : 'inline-block rounded-[14px] rounded-tl border border-[#e5e7eb] bg-white px-3 py-2.5 text-[#334155]',
                             isDeleted ? 'italic opacity-75' : '',
                           ].join(' ')}
@@ -1434,7 +1434,7 @@ function Chat() {
                           }}
                         >
                           {isDeleted ? (
-                            <p className="text-[12px] font-semibold leading-relaxed">Message deleted</p>
+                            <p className="text-xs font-semibold leading-relaxed">Message deleted</p>
                           ) : isImage ? (
                             <a
                               href={imageUrl}
@@ -1461,7 +1461,7 @@ function Chat() {
                             <div
                               className={[
                                 'inline-flex max-w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2.5 shadow-[0_8px_18px_rgba(15,23,42,0.10)]',
-                                mine ? 'bg-[#1a73e8] text-white' : 'border border-[#e5e7eb] bg-white text-[#111827]',
+                                mine ? 'bg-[#2642a6] text-white' : 'border border-[#e5e7eb] bg-white text-[#111827]',
                               ].join(' ')}
                             >
                               <button
@@ -1469,7 +1469,7 @@ function Chat() {
                                 onClick={() => toggleVoicePlayback(item.key)}
                                 className={[
                                   'grid h-8 w-8 shrink-0 place-items-center rounded-full transition',
-                                  mine ? 'bg-white/15 text-white hover:bg-white/25' : 'bg-[#e7eef8] text-[#1a73e8] hover:bg-[#d9e7fb]',
+                                  mine ? 'bg-white/15 text-white hover:bg-white/25' : 'bg-[#e7eef8] text-[#2642a6] hover:bg-[#d9e7fb]',
                                 ].join(' ')}
                                 aria-label={audioPlaying ? 'Pause voice message' : 'Play voice message'}
                               >
@@ -1489,7 +1489,7 @@ function Chat() {
                                     />
                                   ))}
                                 </div>
-                                <p className={['mt-1 text-[11px] font-semibold', mine ? 'text-white/75' : 'text-[#64748b]'].join(' ')}>
+                                <p className={['mt-1 text-xs font-semibold', mine ? 'text-white/75' : 'text-[#64748b]'].join(' ')}>
                                   {formatDuration(voiceDuration)}
                                 </p>
                               </div>
@@ -1514,14 +1514,14 @@ function Chat() {
                               />
                             </div>
                           ) : (
-                            <p className="whitespace-pre-wrap break-words text-[12px] font-semibold leading-relaxed">
+                            <p className="whitespace-pre-wrap break-words text-xs font-semibold leading-relaxed">
                               {message.content || ' '}
                             </p>
                           )}
                         </div>
                         <div
                           className={[
-                            'mt-1 flex min-h-4 items-center gap-1 text-[10px] font-semibold text-[#94a3b8]',
+                            'mt-1 flex min-h-4 items-center gap-1 text-2xs font-semibold text-[#94a3b8]',
                             mine ? 'justify-end pr-1' : 'justify-start pl-1',
                           ].join(' ')}
                         >
@@ -1549,7 +1549,7 @@ function Chat() {
             <button
               type="button"
               onClick={() => void handleDeleteMessage(deleteMenu.message)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-bold text-[#b42318] hover:bg-[#fff5f5]"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-[#b42318] hover:bg-[#fff5f5]"
             >
               <FontAwesomeIcon icon={faTrash} />
               Delete
@@ -1566,9 +1566,9 @@ function Chat() {
                   <FontAwesomeIcon icon={faMicrophone} className="relative text-xs" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-extrabold text-[#b42318]">Recording voice</p>
+                  <p className="text-xs font-extrabold text-[#b42318]">Recording voice</p>
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="text-[11px] font-bold text-[#64748b]">{formatDuration(recordingElapsed)}</span>
+                    <span className="text-xs font-bold text-[#64748b]">{formatDuration(recordingElapsed)}</span>
                     <div className="flex h-4 items-center gap-0.5">
                       {WAVEFORM_BARS.slice(0, 12).map((height, index) => (
                         <span
@@ -1604,12 +1604,12 @@ function Chat() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={!activeConversation || sending || recordingActive || recordingBusy}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#e5e7eb] bg-white text-[#64748b] transition hover:text-[#1a73e8] disabled:opacity-40"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#e5e7eb] bg-white text-[#64748b] transition hover:text-[#2642a6] disabled:opacity-40"
               aria-label="Attach media"
             >
               <FontAwesomeIcon icon={faPlus} />
             </button>
-            <div className="flex h-10 min-w-0 flex-1 items-center rounded-full border border-[#e5e7eb] bg-white px-3">
+            <div className="flex h-10 min-w-0 flex-1 items-center rounded-full border border-[#d6dbe6] bg-white px-4 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
             <input
               type="text"
               value={draftMessage}
@@ -1617,7 +1617,7 @@ function Chat() {
               onKeyDown={onComposerEnter}
               placeholder={recordingActive ? 'Recording voice...' : 'Type a message...'}
               disabled={!activeConversation || sending || recordingActive}
-              className="min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-[#111827] outline-none placeholder:text-[#94a3b8] disabled:opacity-50"
+              className="min-w-0 flex-1 bg-transparent text-sm text-[#111827] outline-none placeholder:text-[#94a3b8] disabled:opacity-50"
             />
             </div>
             <button
@@ -1626,7 +1626,7 @@ function Chat() {
               disabled={!activeConversation || sending || recordingBusy}
               className={[
                 'grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm text-white transition disabled:opacity-50',
-                recordingActive ? 'bg-[#ef4444] hover:bg-[#dc2626]' : 'bg-[#1a73e8] hover:bg-[#1764cf]',
+                recordingActive ? 'bg-[#ef4444] hover:bg-[#dc2626]' : 'bg-[#2642a6] hover:bg-[#203b96]',
               ].join(' ')}
               aria-label={recordingActive ? 'Stop and send recording' : draftMessage.trim() ? 'Send message' : 'Record voice'}
             >

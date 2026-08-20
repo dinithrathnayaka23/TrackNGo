@@ -254,8 +254,8 @@ function Analytics() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-[1320px]">
-      <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
+    <section className="mx-auto w-full max-w-7xl space-y-5">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="animate-dash-in text-xl font-extrabold tracking-tight text-[#111827]">Dashboard</h1>
           <p className="mt-1 text-sm text-[#64748b]">
@@ -263,7 +263,7 @@ function Analytics() {
           </p>
         </div>
         <div className="animate-dash-in flex flex-wrap items-center gap-3">
-          <label className="inline-flex h-10 items-center rounded-lg border border-[#d6dbe6] bg-[#f7f8fc] px-3 text-sm font-medium text-[#64748b]">
+          <label className="inline-flex h-10 items-center rounded-lg border border-[#d6dbe6] bg-white px-3 text-sm font-semibold text-[#64748b]">
             <select
               value={selectedRange}
               onChange={(event) => setSelectedRange(Number(event.target.value) as Range)}
@@ -274,11 +274,11 @@ function Analytics() {
               <option value={90}>Last 90 Days</option>
             </select>
           </label>
-          <button type="button" onClick={() => void loadDashboard(true)} disabled={loading || refreshing} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 text-sm font-bold text-[#334155] disabled:opacity-60">
+          <button type="button" onClick={() => void loadDashboard(true)} disabled={loading || refreshing} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9] disabled:opacity-60">
             <FontAwesomeIcon icon={faArrowRotateRight} spin={refreshing} />
             Refresh
           </button>
-          <button type="button" onClick={handleExport} disabled={!recentBookings.length} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#2642a6] px-4 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={handleExport} disabled={!recentBookings.length} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#2642a6] px-4 text-sm font-semibold text-white transition duration-200 hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60">
             <FontAwesomeIcon icon={faDownload} />
             Export
           </button>
@@ -286,35 +286,35 @@ function Analytics() {
       </header>
 
       {error ? (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f3caca] bg-[#fff5f5] px-4 py-3 text-sm text-[#b42318]">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f3caca] bg-[#fff5f5] px-4 py-3 text-sm text-[#b42318]">
           <span>{error}</span>
-          <button type="button" onClick={() => void loadDashboard(true)} className="font-bold underline">Try again</button>
+          <button type="button" onClick={() => void loadDashboard(true)} className="font-semibold underline">Try again</button>
         </div>
       ) : null}
 
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { title: 'Total Users', value: users.length.toLocaleString(), icon: faUsers, iconWrap: 'bg-[#e8eeff] text-[#2f4fb5]' },
           { title: 'Active Bookings', value: activeBookings.toLocaleString(), icon: faTicketSimple, iconWrap: 'bg-[#e6f7ee] text-[#1aa56e]' },
           { title: 'Monthly Revenue', value: formatAmount(monthlyRevenue), icon: faMoneyBillWave, iconWrap: 'bg-[#e6f7ee] text-[#1aa56e]' },
           { title: 'Pending Complaints', value: pendingComplaints.toLocaleString(), icon: faCircleExclamation, iconWrap: 'bg-[#fff2e3] text-[#e68d10]' },
         ].map((kpi) => (
-          <article key={kpi.title} className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm">
-            <div className="mb-2 flex items-start justify-between">
-              <p className="text-xs font-semibold text-[#64748b]">{kpi.title}</p>
-              <div className={`grid h-7 w-7 place-items-center rounded-md text-xs ${kpi.iconWrap}`}><FontAwesomeIcon icon={kpi.icon} /></div>
+          <article key={kpi.title} className="animate-dash-in flex items-center justify-between rounded-xl border border-[#e5e7eb] bg-white px-5 py-4">
+            <div>
+              <p className="text-sm text-[#64748b] font-semibold">{kpi.title}</p>
+              <p className="mt-1 text-2xl font-extrabold text-[#111827]">{loading ? '—' : kpi.value}</p>
+              <p className="mt-1 text-xs text-[#94a3b8]">From current database records</p>
             </div>
-            <p className="text-sm font-extrabold leading-none text-[#111827]">{loading ? '—' : kpi.value}</p>
-            <p className="mt-1.5 text-xs font-semibold text-[#64748b]">From current database records</p>
+            <div className={`grid h-10 w-10 place-items-center rounded-lg ${kpi.iconWrap}`}><FontAwesomeIcon icon={kpi.icon} /></div>
           </article>
         ))}
       </section>
 
-      <div className="mt-3 grid gap-3 xl:grid-cols-[1.58fr_1fr]">
-        <article className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm">
-          <h2 className="text-sm font-bold text-[#111827]">Booking Trends</h2>
+      <div className="grid gap-4 xl:grid-cols-[1.58fr_1fr]">
+        <article className="animate-dash-in rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.05)]">
+          <h2 className="text-base font-bold text-[#111827]">Booking Trends</h2>
           <p className="text-sm text-[#64748b]">Bookings by route type from journey dates in the database</p>
-          <div className="mt-4 h-[240px] rounded-xl bg-[#fafbff] p-4">
+          <div className="mt-4 h-[240px] rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">
             <svg viewBox="0 0 740 280" className="h-full w-full" role="img" aria-label="Live booking trend chart">
               {[30, 80, 130, 180, 230].map((y) => <line key={y} x1="60" y1={y} x2="705" y2={y} stroke={y === 230 ? '#d6dce8' : '#e4e8f1'} />)}
               {categoryOrder.map((category) => <polyline key={category} fill="none" stroke={categoryColors[category]} strokeWidth="2.2" points={trendPoints(trend.series[category])} />)}
@@ -331,12 +331,12 @@ function Analytics() {
           </div>
         </article>
 
-        <article className="dashboard-card animate-dash-in rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] p-4 shadow-sm">
-          <h2 className="text-sm font-bold text-[#111827]">Revenue by Category</h2>
+        <article className="animate-dash-in rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.05)]">
+          <h2 className="text-base font-bold text-[#111827]">Revenue by Category</h2>
           <p className="text-sm text-[#64748b]">Paid booking revenue from the database</p>
           <div className="mt-5 flex justify-center">
-            <div className="rounded-xl border border-[#e5e7eb] bg-white px-5 py-2.5 text-center shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Total paid revenue</p>
+            <div className="rounded-xl border border-[#e5e7eb] bg-[#f8fafc] px-5 py-2.5 text-center">
+              <p className="text-xs font-semibold uppercase text-[#94a3b8] tracking-wide">Total paid revenue</p>
               <p className="mt-1 text-lg font-extrabold tracking-tight text-[#111827]">{formatAmount(revenueCategories.total)}</p>
             </div>
           </div>
@@ -348,7 +348,7 @@ function Analytics() {
                   key={slice.category}
                   d={pieSlicePath(slice.startPercent, slice.percentage)}
                   fill={categoryColors[slice.category]}
-                  stroke="#f7f8fc"
+                  stroke="#ffffff"
                   strokeWidth="2"
                   tabIndex={0}
                   aria-label={`${slice.category}: ${slice.percentage.toFixed(1)}%, ${formatAmount(revenueCategories.totals[slice.category])}`}
@@ -369,7 +369,7 @@ function Analytics() {
             {hoveredCategory ? (() => {
               const selectedSlice = revenueSlices.find((slice) => slice.category === hoveredCategory)
               if (!selectedSlice) return null
-              return <div className="pointer-events-none absolute left-1/2 top-1/2 min-w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/80 bg-white/95 px-3 py-2 text-center shadow-lg backdrop-blur-sm"><p className="text-xs font-bold text-[#64748b]">{selectedSlice.category}</p><p className="mt-0.5 text-sm font-extrabold text-[#111827]">{formatAmount(revenueCategories.totals[selectedSlice.category])}</p><p className="text-[11px] font-semibold text-[#94a3b8]">{selectedSlice.percentage.toFixed(1)}% of revenue</p></div>
+              return <div className="pointer-events-none absolute left-1/2 top-1/2 min-w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/80 bg-white/95 px-3 py-2 text-center shadow-lg backdrop-blur-sm"><p className="text-xs font-bold text-[#64748b]">{selectedSlice.category}</p><p className="mt-0.5 text-sm font-extrabold text-[#111827]">{formatAmount(revenueCategories.totals[selectedSlice.category])}</p><p className="text-xs font-semibold text-[#94a3b8]">{selectedSlice.percentage.toFixed(1)}% of revenue</p></div>
             })() : null}
           </div>
           <div className="revenue-category-list mt-4 grid gap-3 sm:grid-cols-2">
@@ -381,15 +381,15 @@ function Analytics() {
         </article>
       </div>
 
-      <article className="mt-3 dashboard-card animate-dash-in overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f7f8fc] shadow-sm">
-        <div className="flex items-center justify-between px-4 py-3"><h2 className="text-sm font-bold text-[#111827]">Recent Bookings</h2><button type="button" onClick={() => navigate('/dashboard/booking')} className="text-sm font-semibold text-[#2642a6]">View All</button></div>
+      <article className="animate-dash-in overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.05)]">
+        <div className="flex items-center justify-between px-4 py-3"><h2 className="text-base font-bold text-[#111827]">Recent Bookings</h2><button type="button" onClick={() => navigate('/dashboard/booking')} className="text-sm font-semibold text-[#2642a6]">View All</button></div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px]">
-            <thead><tr className="bg-[#f1f4fa] text-left text-sm text-[#64748b]"><th className="px-4 py-3 font-semibold">Booking ID</th><th className="px-4 py-3 font-semibold">Passenger</th><th className="px-4 py-3 font-semibold">Route</th><th className="px-4 py-3 font-semibold">Date & Time</th><th className="px-4 py-3 font-semibold">Amount</th><th className="px-4 py-3 font-semibold">Status</th></tr></thead>
+            <thead><tr className="bg-[#f1f4fa] text-left text-xs font-semibold uppercase tracking-wide text-[#64748b]"><th className="px-4 py-3">Booking ID</th><th className="px-4 py-3">Passenger</th><th className="px-4 py-3">Route</th><th className="px-4 py-3">Date & Time</th><th className="px-4 py-3">Amount</th><th className="px-4 py-3">Status</th></tr></thead>
             <tbody>
               {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-[#64748b]">Loading bookings from the database...</td></tr> : null}
               {!loading && !recentBookings.length ? <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-[#64748b]">No bookings found.</td></tr> : null}
-              {!loading && recentBookings.map((booking) => <tr key={booking.bookingId} className="border-b border-[#e5e7eb] text-sm text-[#111827]"><td className="px-4 py-3 font-semibold text-[#2642a6]">{booking.bookingId}</td><td className="px-4 py-3">{booking.passengerName}</td><td className="px-4 py-3 text-[#64748b]">{booking.route}</td><td className="px-4 py-3 text-[#64748b]"><span className="inline-flex items-center gap-2"><FontAwesomeIcon icon={faCalendarDays} className="text-[#94a3b8]" />{formatDateTime(booking.journeyDate, booking.journeyTime)}</span></td><td className="px-4 py-3 font-semibold">{formatAmount(booking.amount)}</td><td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(booking.status)}`}>{booking.status || 'Unknown'}</span></td></tr>)}
+              {!loading && recentBookings.map((booking) => <tr key={booking.bookingId} className="border-b border-[#e5e7eb] text-sm text-[#111827]"><td className="px-4 py-3 font-semibold text-[#2642a6]">{booking.bookingId}</td><td className="px-4 py-3">{booking.passengerName}</td><td className="px-4 py-3 text-[#64748b]">{booking.route}</td><td className="px-4 py-3 text-[#64748b]"><span className="inline-flex items-center gap-2"><FontAwesomeIcon icon={faCalendarDays} className="text-[#94a3b8]" />{formatDateTime(booking.journeyDate, booking.journeyTime)}</span></td><td className="px-4 py-3 font-semibold">{formatAmount(booking.amount)}</td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${statusClass(booking.status)}`}>{booking.status || 'Unknown'}</span></td></tr>)}
             </tbody>
           </table>
         </div>

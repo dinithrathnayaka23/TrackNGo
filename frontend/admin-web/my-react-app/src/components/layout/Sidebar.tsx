@@ -44,7 +44,7 @@ function Sidebar({ mobileOpen = false, onMobileClose, onLogout }: SidebarProps) 
   const unreadChatCount = useUnreadSupportCount()
 
   const linkClasses = (isActive: boolean) =>
-    `flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition duration-200 ${
+    `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition duration-200 ${
       isActive ? 'bg-[#2642a6] text-white shadow-[0_8px_16px_rgba(23,38,96,0.35)]' : 'text-[#d6dded] hover:bg-[#243456]'
     }`
 
@@ -87,7 +87,7 @@ function Sidebar({ mobileOpen = false, onMobileClose, onLogout }: SidebarProps) 
               <FontAwesomeIcon icon={item.icon} className="text-sm" />
               <span>{item.label}</span>
               {item.badge === 'support-chat' && unreadChatCount > 0 ? (
-                <span className="ml-auto min-w-5 rounded-full bg-[#f24f4f] px-1.5 text-center text-[10px] font-extrabold leading-5 text-white">
+                <span className="ml-auto min-w-5 rounded-full bg-[#f24f4f] px-1.5 text-center text-2xs font-extrabold leading-5 text-white">
                   {unreadChatCount > 99 ? '99+' : unreadChatCount}
                 </span>
               ) : null}

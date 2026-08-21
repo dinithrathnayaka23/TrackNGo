@@ -9,6 +9,8 @@ import Chat from '../pages/dashboard/Chat'
 import Complaints from '../pages/dashboard/Complaints'
 import Corporate from '../pages/dashboard/Corporate'
 import CorporateDetail from '../pages/dashboard/CorporateDetail'
+import Contracts from '../pages/dashboard/Contracts'
+import CorporatePricingSettings from '../pages/dashboard/CorporatePricingSettings'
 import RoutesPage from '../pages/dashboard/RoutesPage'
 import Settings from '../pages/dashboard/Settings'
 import Profile from '../pages/dashboard/Profile'
@@ -31,6 +33,8 @@ function DashboardRoutes() {
         <Route path="passenger" element={<Passenger />} />
         <Route path="driver" element={<Driver />} />
         <Route path="corporate" element={<Corporate />} />
+        <Route path="corporate/contracts" element={<Contracts />} />
+        <Route path="corporate/pricing-settings" element={<CorporatePricingSettings />} />
         <Route path="corporate/:id" element={<CorporateDetail />} />
         <Route path="users/corporate-users" element={<Users />} />
         <Route path="cooperate" element={<Navigate to="/dashboard/corporate" replace />} />

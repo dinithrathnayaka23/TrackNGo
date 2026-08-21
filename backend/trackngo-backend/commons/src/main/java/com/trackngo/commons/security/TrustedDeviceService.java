@@ -33,7 +33,7 @@ public class TrustedDeviceService {
                     token_hash CHAR(64) NOT NULL UNIQUE,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     last_used_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    expires_at TIMESTAMP NOT NULL,
+                    expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     revoked_at TIMESTAMP NULL,
                     CONSTRAINT fk_trusted_2fa_device_user FOREIGN KEY (user_id)
                         REFERENCES `user`(user_id) ON DELETE CASCADE,

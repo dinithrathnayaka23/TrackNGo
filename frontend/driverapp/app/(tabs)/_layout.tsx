@@ -52,13 +52,18 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#0066FF',
-        tabBarInactiveTintColor: darkMode ? '#888' : '#999',
         headerShown: false,
+        tabBarHideOnKeyboard: true,
+        tabBarActiveTintColor: '#2F6BFF',
+        tabBarInactiveTintColor: darkMode ? '#888' : '#9AA4B2',
         tabBarButton: HapticTab,
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
         tabBarStyle: {
-          backgroundColor: darkMode ? '#1E1E1E' : '#fff',
-          borderTopColor: darkMode ? '#333' : '#f0f0f0',
+          height: 62,
+          paddingTop: 6,
+          paddingBottom: 6,
+          backgroundColor: darkMode ? '#1E1E1E' : '#FFFFFF',
+          borderTopColor: darkMode ? '#333' : '#E9EDF3',
           borderTopWidth: 1,
         },
       }}
@@ -97,7 +102,7 @@ export default function TabLayout() {
           title: t("tabs.chat"),
           tabBarBadge: unreadTotal > 0 ? (unreadTotal > 99 ? '99+' : unreadTotal) : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: '#0066FF',
+            backgroundColor: '#2F6BFF',
             color: '#FFFFFF',
             fontSize: 10,
             fontWeight: "800",

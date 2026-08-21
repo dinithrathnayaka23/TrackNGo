@@ -8,6 +8,7 @@ import com.trackngo.app.dto.CorporateContractDto;
 import com.trackngo.app.dto.CorporateInvoiceDto;
 import com.trackngo.app.dto.CorporatePricingEstimateRequest;
 import com.trackngo.app.dto.CorporatePricingSettingsDto;
+import com.trackngo.app.dto.CorporateAdvancePaymentDto;
 import com.trackngo.app.service.CorporatePricingService;
 import com.trackngo.app.service.CorporateService;
 import com.trackngo.commons.ApiResponse;
@@ -75,6 +76,29 @@ public class CorporateController {
         try {
             CorporateContractDto finalized = corporateService.finalizeContract(contractId, userId);
             return ApiResponse.ok("Contract finalized successfully", finalized);
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/advance-payment")
+    public ApiResponse<CorporateContractDto> processAdvancePayment(
+            @PathVariable("contractId") Long contractId,
+            @RequestBody CorporateAdvancePaymentDto request) {
+        try {
+            CorporateContractDto updated = corporateService.processAdvancePayment(contractId, request);
+            return ApiResponse.ok("Advance payment processed successfully", updated);
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/waive-advance-payment")
+    public ApiResponse<CorporateContractDto> waiveAdvancePayment(
+            @PathVariable("contractId") Long contractId) {
+        try {
+            CorporateContractDto updated = corporateService.waiveAdvancePayment(contractId);
+            return ApiResponse.ok("Advance payment waived successfully", updated);
         } catch (IllegalStateException | IllegalArgumentException ex) {
             return ApiResponse.fail(ex.getMessage());
         }

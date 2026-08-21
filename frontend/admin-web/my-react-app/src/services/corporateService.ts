@@ -83,6 +83,9 @@ export type AdminContractSummary = {
   createdAt: string | null
   corporateUserId: number
   busCount: number
+  advanceAmount: number | null
+  advancePaymentStatus: 'pending' | 'paid' | 'waived' | 'refunded'
+  advancePaidAt: string | null
 }
 
 /** Full detail behind the admin "View" modal, including per-shift routes and assigned buses. */
@@ -98,6 +101,7 @@ export type CorporateContractDetail = CorporateContract & {
   workingDays: 'weekdays' | 'all_days'
   busType: 'standard' | 'ac' | 'mini'
   distanceKm: number | null
+  finalizedAt: string | null
   companyName: string | null
   contactPersonName: string | null
   contactPhone: string | null
@@ -107,6 +111,9 @@ export type CorporateContractDetail = CorporateContract & {
   totalBilled: number
   totalPaid: number
   outstandingAmount: number
+  advanceAmount: number | null
+  advancePaymentStatus: 'pending' | 'paid' | 'waived' | 'refunded'
+  advancePaidAt: string | null
 }
 
 type ApiResponse<T> = {
@@ -169,6 +176,14 @@ export function fetchAllCorporateContracts(status?: string) {
 /** Full detail for one contract — route legs, assigned buses, invoices. */
 export function fetchCorporateContractDetail(contractId: number) {
   return request<CorporateContractDetail>(`/api/corporate/contracts/${contractId}`)
+}
+
+export function finalizeCorporateContract(contractId: number) {
+  return request<CorporateContract>(`/api/corporate/contracts/${contractId}/finalize`, { method: 'PUT' })
+}
+
+export function waiveAdvanceDeposit(contractId: number) {
+  return request<CorporateContract>(`/api/corporate/contracts/${contractId}/waive-advance-payment`, { method: 'POST' })
 }
 
 /** Approve, reject, cancel or expire a contract. */

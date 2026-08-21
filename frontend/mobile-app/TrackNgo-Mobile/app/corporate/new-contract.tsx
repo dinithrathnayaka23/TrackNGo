@@ -37,7 +37,10 @@ import {
 } from "../../services/corporateApi";
 import GooglePlaceField, { type PlaceValue } from "../../components/GooglePlaceField";
 import { createConversation } from "../../services/chatApi";
-import { ADMIN_SUPPORT_USER_ID } from "../../config/env";
+import { ADMIN_SUPPORT_USER_ID, API_BASE_URL } from "../../config/env";
+import { WebView } from "react-native-webview";
+import { createStripeCheckoutSession, getStripeSessionStatus } from "../../services/bookingFlowApi";
+import { payAdvanceDeposit } from "../../services/corporateApi";
 
 // ─── Road-distance helper (same OSRM approach used in BookATrip.tsx) ─────────
 // Avoids Google Directions billing: any two selected locations get a real
@@ -186,6 +189,12 @@ export default function NewContractScreen() {
   const [contractStatus, setContractStatus] = useState<string>("pending");
   const [submittingContract, setSubmittingContract] = useState(false);
   const [createdContract, setCreatedContract] = useState<CorporateContract | null>(null);
+
+  // 🔹 Advance Payment (Stripe) State
+  const [showWebView, setShowWebView] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState("");
+  const [sessionId, setSessionId] = useState("");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
 
   // Load existing contract details if jumping into negotiation
   useEffect(() => {
@@ -534,20 +543,84 @@ export default function NewContractScreen() {
     return () => sub.remove();
   }, [step]);
 
-  const handleAccept = async () => {
+  const handlePayDeposit = async () => {
     if (!contractId || !currentUser) return;
     setSubmitting(true);
     try {
-      await finalizeCorporateContract(contractId, currentUser.userId);
-      Alert.alert("Success", "Contract has been accepted! It's now active in your contracts list.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to finalize contract. Please try again.";
-      Alert.alert("Error", message);
+      const orderId = `CORP-ADV-${contractId}-${Date.now()}`;
+      const result = await createStripeCheckoutSession({
+        orderId,
+        amount: monthlyAmount,
+        currency: 'LKR',
+        itemName: `Advance Deposit: ${contractName}`,
+        itemDescription: `Corporate Contract ID: ${contractId}`,
+        email: currentUser.email || 'corporate@trackngo.lk',
+        successUrl: `${API_BASE_URL}/api/booking-flow/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${API_BASE_URL}/api/booking-flow/stripe/cancel?session_id={CHECKOUT_SESSION_ID}`,
+      });
+      setSessionId(result.sessionId);
+      setCheckoutUrl(result.url);
+      setShowWebView(true);
+    } catch (err: any) {
+      console.error("[Stripe] Failed to create checkout session", err);
+      Alert.alert("Payment Error", "Could not initialize payment. Please try again.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const completePayment = useCallback(async () => {
+    setShowWebView(false);
+    setPaymentProcessing(true);
+    try {
+      const status = await getStripeSessionStatus(sessionId);
+      if (status.paymentStatus !== 'paid') {
+        Alert.alert("Payment Incomplete", "Payment was not completed. Please try again.");
+        setPaymentProcessing(false);
+        return;
+      }
+      
+      // Pay deposit
+      await payAdvanceDeposit(contractId!, {
+        transactionId: status.paymentIntentId,
+        paymentMethod: 'stripe',
+        amount: monthlyAmount,
+      });
+
+      // Finalize contract
+      await finalizeCorporateContract(contractId!, currentUser!.userId);
+      
+      Alert.alert("Success", "Deposit paid and contract is now active!", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    } catch (e: any) {
+      console.error("[Stripe] Advance payment failed", e);
+      Alert.alert("Error", e.message || "Failed to finalize contract after payment.");
+    } finally {
+      setPaymentProcessing(false);
+    }
+  }, [sessionId, contractId, monthlyAmount, currentUser, router]);
+
+  const handleWebViewNavigation = (navState: any) => {
+    const url = navState.url;
+    if (url.includes('/api/booking-flow/stripe/success')) {
+      completePayment();
+    } else if (url.includes('/api/booking-flow/stripe/cancel')) {
+      setShowWebView(false);
+      Alert.alert("Cancelled", "Advance deposit payment was cancelled.");
+    }
+  };
+
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'completed') {
+        completePayment();
+      } else if (data.type === 'cancelled') {
+        setShowWebView(false);
+        Alert.alert("Cancelled", "Advance deposit payment was cancelled.");
+      }
+    } catch (e) {}
   };
 
   const handleAcceptOffer = () => {
@@ -1193,18 +1266,37 @@ export default function NewContractScreen() {
         </View>
       </View>
 
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryHeaderRow}>
+          <Ionicons name="card" size={20} color="#067BF9" />
+          <Text style={styles.summaryTitle}>Advance Deposit</Text>
+        </View>
+        <View style={{ height: 12 }} />
+        <View style={styles.pricingRow}>
+          <Text style={styles.pricingRowLabel}>Monthly billing</Text>
+          <Text style={styles.pricingRowValue}>Rs. {monthlyAmount.toLocaleString()}</Text>
+        </View>
+        <View style={styles.pricingRow}>
+          <Text style={styles.pricingRowLabel}>Advance deposit (1 month)</Text>
+          <Text style={[styles.pricingRowValue, { color: "#067BF9" }]}>Rs. {monthlyAmount.toLocaleString()}</Text>
+        </View>
+        <Text style={styles.pricingHint}>
+          Refundable on contract expiry. Must be paid to activate the contract.
+        </Text>
+      </View>
+
       <View style={{ height: 20 }} />
       <TouchableOpacity
         style={styles.acceptBtn}
-        onPress={handleAccept}
+        onPress={handlePayDeposit}
         disabled={submitting}
       >
         {submitting ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
           <>
-            <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-            <Text style={styles.acceptBtnText}>Accept Contract</Text>
+            <Ionicons name="card" size={20} color="#FFFFFF" />
+            <Text style={styles.acceptBtnText}>Pay Deposit & Accept</Text>
           </>
         )}
       </TouchableOpacity>
@@ -1215,6 +1307,36 @@ export default function NewContractScreen() {
       </TouchableOpacity>
     </View>
   );
+
+  if (showWebView && checkoutUrl) {
+    return (
+      <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+        <View style={styles.webViewHeader}>
+          <TouchableOpacity
+            style={styles.webViewCloseBtn}
+            onPress={() => setShowWebView(false)}
+          >
+            <Ionicons name="close" size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <Text style={styles.webViewTitle}>Stripe Checkout</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <WebView
+          source={{ uri: checkoutUrl }}
+          style={{ flex: 1 }}
+          onNavigationStateChange={handleWebViewNavigation}
+          onMessage={handleWebViewMessage}
+          startInLoadingState={true}
+          renderLoading={() => (
+            <View style={styles.webViewLoading}>
+              <ActivityIndicator size="large" color="#067BF9" />
+              <Text style={styles.loadingText}>Loading Stripe...</Text>
+            </View>
+          )}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
@@ -1397,6 +1519,31 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   computedHint: { fontSize: 11, color: "#94A3B8", marginBottom: 12, lineHeight: 15 },
+
+  // WebView (Stripe) Styles
+  webViewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    height: 56,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  webViewCloseBtn: { width: 40, alignItems: "flex-start" },
+  webViewTitle: { fontSize: 16, fontWeight: "700", color: "#1E293B" },
+  webViewLoading: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  loadingText: { marginTop: 12, fontSize: 14, color: "#64748B" },
 
   acToggleRow: {
     flexDirection: "row",

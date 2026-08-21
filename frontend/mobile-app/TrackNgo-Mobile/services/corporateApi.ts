@@ -83,6 +83,9 @@ export interface CorporateContract {
   corporateUserId: number;
   busId: number | null;
   busIds: number[] | null;
+  advanceAmount: number | null;
+  advancePaymentStatus: 'pending' | 'paid' | 'waived' | 'refunded';
+  advancePaidAt: string | null;
 }
 
 export type InvoiceStatus = "pending" | "paid" | "overdue" | "cancelled";
@@ -346,6 +349,21 @@ export async function getCorporateInvoices(
     console.warn("[CorporateApi] getCorporateInvoices failed:", err);
     return [];
   }
+}
+
+export async function payAdvanceDeposit(
+  contractId: number,
+  payload: { transactionId: string; paymentMethod: string; amount: number }
+): Promise<CorporateContract> {
+  const res = await httpPost<ApiResponse<CorporateContract>>(
+    `/api/corporate/contracts/${contractId}/advance-payment`,
+    undefined,
+    payload
+  );
+  if (!res.success || !res.data) {
+    throw new Error(res.message || "Failed to process advance payment.");
+  }
+  return res.data;
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────── */

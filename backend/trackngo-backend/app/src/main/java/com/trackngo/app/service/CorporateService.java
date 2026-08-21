@@ -5,6 +5,7 @@ import com.trackngo.app.dto.ContractBusDto;
 import com.trackngo.app.dto.CorporateContractDetailDto;
 import com.trackngo.app.dto.CorporateContractDto;
 import com.trackngo.app.dto.CorporateInvoiceDto;
+import com.trackngo.app.dto.CorporateAdvancePaymentDto;
 import com.trackngo.app.dto.ShiftLegDto;
 import com.trackngo.notification.api.NotificationService;
 import com.trackngo.notification.api.dto.NotificationDto;
@@ -114,6 +115,7 @@ public class CorporateService {
                 c.employee_count, c.working_days, c.bus_type, c.distance_km,
                 c.status, c.finalized_at, c.billing_amount,
                 c.start_date, c.end_date, c.created_at, c.corporate_user_id, c.bus_id,
+                c.advance_amount, c.advance_payment_status, c.advance_paid_at,
                 cu.company_name, cu.contact_person_name, cu.contact_phone
             FROM corporate_contract c
             LEFT JOIN corporate_user cu ON cu.corporate_user_id = c.corporate_user_id
@@ -416,7 +418,10 @@ public class CorporateService {
                     invoices,
                     totalBilled,
                     totalPaid,
-                    outstanding
+                    outstanding,
+                    rs.getBigDecimal("advance_amount"),
+                    rs.getString("advance_payment_status"),
+                    rs.getString("advance_paid_at")
             );
         }, contractId);
 
@@ -732,12 +737,67 @@ public class CorporateService {
         }
         if ("active".equals(normalized)) {
             requireNoBusConflicts(contractId);
+            jdbcTemplate.update("UPDATE corporate_contract SET status = ?, advance_amount = billing_amount, advance_payment_status = 'pending' WHERE contract_id = ?", normalized, contractId);
+        } else {
+            jdbcTemplate.update("UPDATE corporate_contract SET status = ? WHERE contract_id = ?", normalized, contractId);
         }
-
-        jdbcTemplate.update("UPDATE corporate_contract SET status = ? WHERE contract_id = ?", normalized, contractId);
 
         Long corporateUserId = ((Number) row.get("corporate_user_id")).longValue();
         notifyStatusChange(contractId, corporateUserId, (String) row.get("contract_name"), normalized);
+
+        return jdbcTemplate.queryForObject(
+                "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
+                (rs, rowNum) -> mapContract(rs), contractId);
+    }
+
+    public CorporateContractDto processAdvancePayment(Long contractId, CorporateAdvancePaymentDto paymentDto) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT advance_amount, advance_payment_status FROM corporate_contract WHERE contract_id = ?",
+                contractId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("Contract not found.");
+        }
+        Map<String, Object> row = rows.get(0);
+        String advanceStatus = (String) row.get("advance_payment_status");
+        if ("paid".equalsIgnoreCase(advanceStatus)) {
+            throw new IllegalStateException("Advance deposit is already paid.");
+        }
+        if ("waived".equalsIgnoreCase(advanceStatus)) {
+            throw new IllegalStateException("Advance deposit is already waived.");
+        }
+        BigDecimal advanceAmount = (BigDecimal) row.get("advance_amount");
+        if (advanceAmount != null && paymentDto.amount().compareTo(advanceAmount) != 0) {
+            throw new IllegalArgumentException("Payment amount does not match the required advance deposit.");
+        }
+        
+        jdbcTemplate.update(
+                "UPDATE corporate_contract SET advance_payment_status = 'paid', advance_paid_at = CURRENT_TIMESTAMP, advance_transaction_id = ? WHERE contract_id = ?",
+                paymentDto.transactionId(), contractId);
+
+        return jdbcTemplate.queryForObject(
+                "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
+                (rs, rowNum) -> mapContract(rs), contractId);
+    }
+
+    public CorporateContractDto waiveAdvancePayment(Long contractId) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT advance_payment_status FROM corporate_contract WHERE contract_id = ?",
+                contractId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("Contract not found.");
+        }
+        Map<String, Object> row = rows.get(0);
+        String advanceStatus = (String) row.get("advance_payment_status");
+        if ("paid".equalsIgnoreCase(advanceStatus)) {
+            throw new IllegalStateException("Advance deposit is already paid.");
+        }
+        if ("waived".equalsIgnoreCase(advanceStatus)) {
+            throw new IllegalStateException("Advance deposit is already waived.");
+        }
+        
+        jdbcTemplate.update(
+                "UPDATE corporate_contract SET advance_payment_status = 'waived', advance_paid_at = CURRENT_TIMESTAMP, advance_transaction_id = 'WAIVED' WHERE contract_id = ?",
+                contractId);
 
         return jdbcTemplate.queryForObject(
                 "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
@@ -754,7 +814,7 @@ public class CorporateService {
      */
     public CorporateContractDto finalizeContract(Long contractId, Long corporateUserId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT status, finalized_at, corporate_user_id FROM corporate_contract WHERE contract_id = ?",
+                "SELECT status, finalized_at, corporate_user_id, advance_payment_status FROM corporate_contract WHERE contract_id = ?",
                 contractId);
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("Contract not found.");
@@ -767,6 +827,10 @@ public class CorporateService {
         String status = (String) row.get("status");
         if (!"active".equalsIgnoreCase(status)) {
             throw new IllegalStateException("This contract must be approved by admin before it can be finalized.");
+        }
+        String advanceStatus = (String) row.get("advance_payment_status");
+        if (!"paid".equalsIgnoreCase(advanceStatus) && !"waived".equalsIgnoreCase(advanceStatus)) {
+            throw new IllegalStateException("Advance deposit must be paid before finalizing the contract.");
         }
         if (row.get("finalized_at") != null) {
             throw new IllegalStateException("This contract has already been finalized.");

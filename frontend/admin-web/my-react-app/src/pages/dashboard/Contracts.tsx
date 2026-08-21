@@ -31,6 +31,7 @@ import {
   fetchAllCorporateContracts,
   fetchCorporateContractDetail,
   updateContractStatus,
+  waiveAdvanceDeposit,
   type AdminContractSummary,
   type CorporateContractDetail,
 } from '../../services/corporateService'
@@ -254,6 +255,17 @@ function ViewContractModal({
               </div>
 
               <div className="rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">Advance Deposit</p>
+                <p className="mt-2 text-xl font-extrabold text-[#047857]">
+                  {detail.advanceAmount ? formatCurrency(detail.advanceAmount) : '—'}
+                </p>
+                <p className="text-xs text-[#64748b]">
+                  Status: <span className="font-semibold capitalize">{detail.advancePaymentStatus.replace('_', ' ')}</span>
+                  {detail.advancePaidAt && ` on ${formatDate(detail.advancePaidAt)}`}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">Contract Term</p>
                 <p className="mt-2 text-sm font-semibold text-[#111827]">
                   {formatDate(detail.startDate)} → {formatDate(detail.endDate)}
@@ -464,6 +476,22 @@ function Contracts() {
     }
   }
 
+  const handleWaiveDeposit = async (contract: AdminContractSummary) => {
+    if (!window.confirm(`Are you sure you want to waive the advance deposit for "${contract.contractName}"?`)) return
+    setActionBusyId(contract.contractId)
+    try {
+      await waiveAdvanceDeposit(contract.contractId)
+      setContracts((cur) =>
+        cur.map((c) => (c.contractId === contract.contractId ? { ...c, advancePaymentStatus: 'waived' } : c))
+      )
+      setToastMessage(`Waived deposit for "${contract.contractName}".`)
+    } catch (err) {
+      setToastMessage(err instanceof Error ? err.message : 'Failed to waive deposit.')
+    } finally {
+      setActionBusyId(null)
+    }
+  }
+
   const renderActions = (contract: AdminContractSummary, compact?: boolean) => {
     const busy = actionBusyId === contract.contractId
     const btnBase = compact
@@ -500,6 +528,17 @@ function Contracts() {
               <FontAwesomeIcon icon={faThumbsDown} className="text-xs" />
             </button>
           </>
+        )}
+        {contract.status === 'active' && contract.advancePaymentStatus === 'pending' && (
+          <button
+            type="button"
+            title="Waive Deposit"
+            disabled={busy}
+            onClick={() => handleWaiveDeposit(contract)}
+            className={`${btnBase} border-[#e5e7eb] text-[#0369a1] hover:border-[#0369a1] hover:bg-[#f0f9ff] disabled:opacity-50`}
+          >
+            <FontAwesomeIcon icon={faCheckCircle} className="text-xs" />
+          </button>
         )}
         {contract.status === 'active' && (
           <button
@@ -703,6 +742,7 @@ function Contracts() {
                         <th className="px-5 py-3.5">Shift</th>
                         <th className="px-5 py-3.5">Employees</th>
                         <th className="px-5 py-3.5">Status</th>
+                        <th className="px-5 py-3.5">Deposit</th>
                         <th className="px-5 py-3.5">Buses</th>
                         <th className="px-5 py-3.5">Term</th>
                         <th className="px-5 py-3.5">Monthly</th>
@@ -738,6 +778,21 @@ function Contracts() {
                                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
                                 {statusLabel(contract.status)}
                               </span>
+                            </td>
+                            <td className="px-5 py-4">
+                              {contract.advancePaymentStatus === 'paid' ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                                  Paid
+                                </span>
+                              ) : contract.advancePaymentStatus === 'waived' ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
+                                  Waived
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                                  Pending
+                                </span>
+                              )}
                             </td>
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-1.5 text-[#334155]">
@@ -833,6 +888,24 @@ function Contracts() {
                           <div className="bg-white px-4 py-3">
                             <p className="text-xs text-[#94a3b8]">Monthly</p>
                             <p className="mt-0.5 text-sm font-bold text-[#047857]">{formatCurrency(contract.billingAmount)}</p>
+                          </div>
+                          <div className="bg-white px-4 py-3 col-span-2">
+                            <p className="text-xs text-[#94a3b8]">Advance Deposit</p>
+                            <div className="mt-0.5 flex items-center gap-2">
+                              {contract.advancePaymentStatus === 'paid' ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                                  Paid
+                                </span>
+                              ) : contract.advancePaymentStatus === 'waived' ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
+                                  Waived
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                                  Pending
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="bg-white px-4 py-3">
                             <p className="text-xs text-[#94a3b8]">Valid Until</p>

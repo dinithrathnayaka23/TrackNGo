@@ -76,8 +76,7 @@ public class UserProfileService {
                     clean(rs.getString("address")),
                     clean(rs.getString("business_registration_number")),
                     clean(rs.getString("industry")),
-                    mapUserType(rs.getString("user_type"))
-            );
+                    mapUserType(rs.getString("user_type")));
         }, userId);
     }
 
@@ -85,8 +84,7 @@ public class UserProfileService {
     public UserProfileDto updateProfile(Long userId, UpdateUserProfileRequest request) {
         Map<String, Object> current = jdbcTemplate.queryForMap(
                 "SELECT email, user_type FROM `user` WHERE user_id = ?",
-                userId
-        );
+                userId);
         ensureCanModifyProfile(userId, String.valueOf(current.get("user_type")));
 
         String email = clean(request.email());
@@ -98,8 +96,7 @@ public class UserProfileService {
                 "SELECT COUNT(*) FROM `user` WHERE LOWER(email) = LOWER(?) AND user_id <> ?",
                 Integer.class,
                 email,
-                userId
-        );
+                userId);
         if (duplicate != null && duplicate > 0) {
             throw new BusinessException("That email address is already in use.");
         }
@@ -110,8 +107,7 @@ public class UserProfileService {
                 name[0],
                 name[1],
                 email,
-                userId
-        );
+                userId);
 
         String userType = String.valueOf(current.get("user_type")).toLowerCase(Locale.ROOT);
         String phone = clean(request.phoneNumber());
@@ -120,24 +116,21 @@ public class UserProfileService {
                 case "passenger" -> jdbcTemplate.update(
                         "UPDATE passenger SET mobile_number = ? WHERE passenger_id = ?",
                         phone,
-                        userId
-                );
+                        userId);
                 case "driver" -> jdbcTemplate.update(
                         "UPDATE driver SET phone_number = ? WHERE driver_id = ?",
                         phone,
-                        userId
-                );
+                        userId);
                 case "corporate" -> jdbcTemplate.update(
                         "UPDATE corporate_user SET contact_phone = ? WHERE corporate_user_id = ?",
                         phone,
-                        userId
-                );
+                        userId);
                 case "admin" -> jdbcTemplate.update(
                         "UPDATE admin SET phone_number = ? WHERE admin_id = ?",
                         phone,
-                        userId
-                );
-                default -> { }
+                        userId);
+                default -> {
+                }
             }
         }
 
@@ -145,21 +138,18 @@ public class UserProfileService {
             switch (userType) {
                 case "passenger" -> jdbcTemplate.update(
                         "UPDATE passenger SET profile_photo = ? WHERE passenger_id = ?",
-                        clean(request.profilePhoto()), userId
-                );
+                        clean(request.profilePhoto()), userId);
                 case "driver" -> jdbcTemplate.update(
                         "UPDATE driver SET profile_photo = ? WHERE driver_id = ?",
-                        clean(request.profilePhoto()), userId
-                );
+                        clean(request.profilePhoto()), userId);
                 case "corporate" -> jdbcTemplate.update(
                         "UPDATE corporate_user SET profile_photo = ? WHERE corporate_user_id = ?",
-                        clean(request.profilePhoto()), userId
-                );
+                        clean(request.profilePhoto()), userId);
                 case "admin" -> jdbcTemplate.update(
                         "UPDATE admin SET profile_photo = ? WHERE admin_id = ?",
-                        clean(request.profilePhoto()), userId
-                );
-                default -> { }
+                        clean(request.profilePhoto()), userId);
+                default -> {
+                }
             }
         }
 
@@ -177,8 +167,7 @@ public class UserProfileService {
 
         Map<String, Object> user = jdbcTemplate.queryForMap(
                 "SELECT email, password FROM `user` WHERE user_id = ?",
-                userId
-        );
+                userId);
         if (!authentication.getName().equalsIgnoreCase(String.valueOf(user.get("email")))) {
             throw new BusinessException("You can only change your own password.");
         }
@@ -199,20 +188,19 @@ public class UserProfileService {
         jdbcTemplate.update(
                 "UPDATE `user` SET password = ? WHERE user_id = ?",
                 passwordEncoder.encode(newPassword),
-                userId
-        );
+                userId);
     }
 
     private String[] splitName(String value) {
         String fullName = clean(value);
         if (fullName == null) {
-            return new String[]{"", ""};
+            return new String[] { "", "" };
         }
         int separator = fullName.indexOf(' ');
         if (separator < 0) {
-            return new String[]{fullName, ""};
+            return new String[] { fullName, "" };
         }
-        return new String[]{
+        return new String[] {
                 fullName.substring(0, separator).trim(),
                 fullName.substring(separator + 1).trim()
         };
@@ -273,7 +261,8 @@ public class UserProfileService {
             throw new BusinessException("You can only update your own profile.");
         }
         if ("driver".equalsIgnoreCase(userType)) {
-            throw new BusinessException("Driver profile details are managed by an administrator. Only password changes are allowed.");
+            throw new BusinessException(
+                    "Driver profile details are managed by an administrator. Only password changes are allowed.");
         }
     }
 }

@@ -569,7 +569,7 @@ export default function NewContractScreen() {
     setShow: (b: boolean) => void,
   ) => (
     <View style={{ flex: 1 }}>
-      <Text style={styles.inputLabelOutside}>{label}</Text>
+      <Text style={[styles.inputLabelOutside, styles.timeFieldLabel]} numberOfLines={2}>{label}</Text>
       <View style={[styles.inputWrapper, { marginBottom: 0 }]}>
         <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }} onPress={() => setShow(true)}>
           <Text style={[styles.textInput, { color: value ? '#1E293B' : '#94A3B8' }]}>
@@ -584,7 +584,7 @@ export default function NewContractScreen() {
 
   const renderComputedTimeField = (label: string, value: Date | null, loading: boolean) => (
     <View style={{ flex: 1 }}>
-      <Text style={styles.inputLabelOutside}>{label}</Text>
+      <Text style={[styles.inputLabelOutside, styles.timeFieldLabel]} numberOfLines={2}>{label}</Text>
       <View style={[styles.inputWrapper, styles.computedTimeWrapper]}>
         {loading ? (
           <ActivityIndicator size="small" color="#067BF9" />
@@ -1339,6 +1339,9 @@ const styles = StyleSheet.create({
 
   // Form Step 1
   inputLabelOutside: { fontSize: 13, fontWeight: "700", color: "#1E293B", marginBottom: 8, marginTop: 4 },
+  // Reserves two lines of height so paired time-field labels of different
+  // lengths don't push one input box lower than the other in the row.
+  timeFieldLabel: { minHeight: 34, lineHeight: 17 },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",

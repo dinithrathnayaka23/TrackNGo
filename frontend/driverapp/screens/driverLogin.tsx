@@ -154,7 +154,7 @@ export default function DriverLoginScreen() {   //default finction because we ar
             >
               <View style={[styles.checkBox, rememberMe && styles.checkBoxChecked]}>
                 {rememberMe && (  
-                  <MaterialCommunityIcons name="check" size={16} color="#E0E0E0" />
+                  <MaterialCommunityIcons name="check" size={16} color="#E2E8F0" />
                 )}
               </View>
               <Text style={styles.rememberText}>Remember me</Text>
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 16,
-    backgroundColor: '#0066FF',
+    backgroundColor: '#2F6BFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#FFF',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E2E8F0',
     marginBottom: 20,
     paddingLeft: 14,
     paddingRight: 10,
@@ -278,13 +278,13 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
   checkBoxChecked: {
-    backgroundColor: '#0066FF',
+    backgroundColor: '#2F6BFF',
   },
   rememberText: {
     fontSize: 14,
@@ -292,16 +292,16 @@ const styles = StyleSheet.create({
   },
   forgotPasswordLink: {
     fontSize: 14,
-    color: '#0066FF',
+    color: '#2F6BFF',
     fontWeight: "500",
   },
   loginButton: {
-    backgroundColor: '#0066FF',
+    backgroundColor: '#2F6BFF',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#0066FF',
+    shadowColor: '#2F6BFF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#E2E8F0',
   },
   dividerText: {
     marginHorizontal: 12,
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E2E8F0',
     backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',

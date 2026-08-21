@@ -606,11 +606,11 @@ export default function DriverDashboardScreen() {
     : t("dashboard.noPassengerData");
 
   const theme = {
-    background: darkMode ? "#111" : "#F5F5F5",
+    background: darkMode ? "#111" : "#F1F5F9",
     card: darkMode ? "#1E1E1E" : "#FFF",
     text: darkMode ? "#FFF" : "#000",
     secondaryText: darkMode ? "#AAA" : "#666",
-    border: darkMode ? "#333" : "#E0E0E0",
+    border: darkMode ? "#333" : "#E2E8F0",
   };
 
   const styles = useMemo(
@@ -677,7 +677,7 @@ export default function DriverDashboardScreen() {
                   <MaterialCommunityIcons
                     name="account"
                     size={isSmallPhone ? 24 : 28}
-                    color="#0066FF"
+                    color="#2F6BFF"
                   />
                 )}
               </TouchableOpacity>
@@ -723,7 +723,7 @@ export default function DriverDashboardScreen() {
                     key={i}
                     name="star"
                     size={18}
-                    color={i <= roundedRating ? "#FFD700" : "#D3D3D3"} // Yellow for filled stars, gray for empty stars
+                    color={i <= roundedRating ? "#F59E0B" : "#CBD5E1"} // Yellow for filled stars, gray for empty stars
                   />
                 ),
               )}
@@ -761,7 +761,7 @@ export default function DriverDashboardScreen() {
               <MaterialCommunityIcons
                 name="trending-up"
                 size={16}
-                color={earningsGrowth >= 0 ? "#00AA00" : "#DC2626"}
+                color={earningsGrowth >= 0 ? "#22C55E" : "#DC2626"}
               />
               <Text style={styles.growthText}>{earningsGrowthLabel}</Text>
             </View>
@@ -928,7 +928,7 @@ export default function DriverDashboardScreen() {
                 ]}
                 onPress={handleDetails}
               >
-                <MaterialCommunityIcons name="eye" size={20} color="#0066FF" />
+                <MaterialCommunityIcons name="eye" size={20} color="#2F6BFF" />
                 <Text style={styles.detailsButtonText}>{t("dashboard.details")}</Text>
               </TouchableOpacity>
 
@@ -960,7 +960,7 @@ export default function DriverDashboardScreen() {
                   <MaterialCommunityIcons
                     name="check-circle"
                     size={24}
-                    color="#00AA00"
+                    color="#22C55E"
                   />
                 </View>
                 <Text style={styles.statNumber}>3</Text>
@@ -978,7 +978,7 @@ export default function DriverDashboardScreen() {
                   <MaterialCommunityIcons
                     name="check-circle"
                     size={24}
-                    color="#0066FF"
+                    color="#2F6BFF"
                   />
                 </View>
                 <Text style={styles.statNumber}>5</Text>
@@ -1039,7 +1039,7 @@ function createStyles({
       width: isSmallPhone ? 42 : 48,
       height: isSmallPhone ? 42 : 48,
       borderRadius: 999,
-      backgroundColor: "#E3F2FD",
+      backgroundColor: "#EAF2FF",
       justifyContent: "center",
       alignItems: "center",
       marginRight: 12,
@@ -1083,7 +1083,7 @@ function createStyles({
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: "#0066FF",
+      backgroundColor: "#2F6BFF",
     },
     ratingContainer: {
       flexDirection: "row",
@@ -1134,7 +1134,7 @@ function createStyles({
       width: 9,
       height: 9,
       borderRadius: 5,
-      backgroundColor: "#0066FF",
+      backgroundColor: "#2F6BFF",
     },
     earningsAmount: {
       fontSize: isSmallPhone ? 20 : 24,
@@ -1149,7 +1149,7 @@ function createStyles({
     },
     growthText: {
       fontSize: 11,
-      color: "#00AA00",
+      color: "#22C55E",
       fontWeight: "600",
       marginLeft: 6,
     },
@@ -1174,7 +1174,7 @@ function createStyles({
       borderWidth: 1,
     },
     liveStatusPillActive: {
-      backgroundColor: "#ECFDF3",
+      backgroundColor: "#DCFCE7",
       borderColor: "#BBF7D0",
     },
     liveStatusPillInactive: {
@@ -1208,7 +1208,7 @@ function createStyles({
       marginBottom: 16,
       height: mapHeight,
       position: "relative",
-      backgroundColor: "#E0E7FF",
+      backgroundColor: "#EAF2FF",
     },
     mapOpenButton: {
       position: "absolute",
@@ -1217,7 +1217,7 @@ function createStyles({
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      backgroundColor: "#0066FF",
+      backgroundColor: "#2F6BFF",
       paddingHorizontal: 11,
       paddingVertical: 6,
       borderRadius: 20,
@@ -1308,13 +1308,13 @@ function createStyles({
       borderColor: "#86EFAC",
     },
     stopChipEnd: {
-      borderColor: "#FCA5A5",
+      borderColor: "#EF4444",
     },
     stopNumber: {
       width: 16,
       height: 16,
       borderRadius: 8,
-      backgroundColor: "#0066FF",
+      backgroundColor: "#2F6BFF",
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 4,
@@ -1363,7 +1363,7 @@ function createStyles({
     etaTime: {
       fontSize: 13,
       fontWeight: "700",
-      color: "#0066FF",
+      color: "#2F6BFF",
     },
     passengerContainer: {
       flexDirection: "row",
@@ -1393,14 +1393,14 @@ function createStyles({
       paddingHorizontal: 14,
       borderRadius: 12,
       borderWidth: 1.5,
-      borderColor: "#0066FF",
+      borderColor: "#2F6BFF",
       justifyContent: "center",
       alignItems: "center",
     },
     detailsButtonText: {
       fontSize: 14,
       fontWeight: "700",
-      color: "#0066FF",
+      color: "#2F6BFF",
       marginLeft: 6,
     },
     navigateButton: {
@@ -1409,7 +1409,7 @@ function createStyles({
       paddingVertical: 12,
       paddingHorizontal: 14,
       borderRadius: 12,
-      backgroundColor: "#0066FF",
+      backgroundColor: "#2F6BFF",
       justifyContent: "center",
       alignItems: "center",
     },

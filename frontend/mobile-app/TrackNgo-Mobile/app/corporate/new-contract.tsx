@@ -1481,7 +1481,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   seatsSummaryCardDone: { backgroundColor: "#F0FDF4", borderColor: "#BBF7D0" },
-  seatsSummaryText: { fontSize: 15, fontWeight: "800", color: "#0F172A" },
+  seatsSummaryText: { fontSize: 14, fontWeight: "800", color: "#0F172A" },
   seatsSummarySub: { fontSize: 11, color: "#64748B", marginTop: 2 },
 
   busStateBox: {

@@ -134,8 +134,8 @@ public class UserSettingsService {
 
     private String normalizeLanguage(String language) {
         String normalized = language == null ? "en" : language.trim().toLowerCase(Locale.ROOT);
-        if (!normalized.equals("en") && !normalized.equals("si")) {
-            throw new IllegalArgumentException("Language must be 'en' or 'si'");
+        if (!normalized.equals("en") && !normalized.equals("si") && !normalized.equals("ta")) {
+            throw new IllegalArgumentException("Language must be 'en', 'si' or 'ta'");
         }
         return normalized;
     }

@@ -72,6 +72,12 @@ active) apart from "the corporate user confirmed the final offer" — a
 contract stays in the Pending Contracts list as "Request Approved" until
 finalized, then moves to Active Contracts.
 
+Before deploying Tamil as a passenger language option, run
+`V16__user_language_preference_tamil.sql`. It widens `user.language_preference`
+from `ENUM('en', 'si')` to `ENUM('en', 'si', 'ta')` — without it, saving
+`ta` from the profile settings screen fails with a database error because
+MySQL rejects enum values outside the declared set.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

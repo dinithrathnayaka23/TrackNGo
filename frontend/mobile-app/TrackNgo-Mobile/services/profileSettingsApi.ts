@@ -3,7 +3,7 @@ import { httpGet, httpPost, httpPut } from "./http";
 
 const TOKEN_KEY = "trackngo.auth.token";
 
-export type ProfileLanguage = "en" | "si";
+export type ProfileLanguage = "en" | "si" | "ta";
 
 export interface UserSettings {
   userId: number;
@@ -23,9 +23,10 @@ interface ApiResponse<T> {
 }
 
 function normalizeSettings(settings: UserSettings): UserSettings {
+  const normalizedLanguage = String(settings.language).trim().toLowerCase();
   return {
     ...settings,
-    language: String(settings.language).trim().toLowerCase() === "si" ? "si" : "en",
+    language: normalizedLanguage === "si" || normalizedLanguage === "ta" ? normalizedLanguage : "en",
   };
 }
 

@@ -43,21 +43,46 @@ export interface CorporateProfileDto {
 }
 
 export type ContractStatus = "pending" | "active" | "expired" | "cancelled";
+export type ShiftType = "morning" | "evening" | "both";
+export type WorkingDays = "weekdays" | "all_days";
+export type BusType = "standard" | "ac" | "mini";
+
+/** One pickup or drop-off point: a Google Places result plus the shift time. */
+export interface ShiftLeg {
+  location: string;
+  latitude: number;
+  longitude: number;
+  time: string; // "HH:MM:SS"
+}
 
 export interface CorporateContract {
   contractId: number;
   contractName: string;
   startingLocation: string;
   destination: string;
+  shiftType: ShiftType;
   startShiftTime: string;   // "HH:MM:SS"
   endShiftTime: string;     // "HH:MM:SS"
+  morningPickup: ShiftLeg | null;
+  morningDropoff: ShiftLeg | null;
+  morningDistanceKm: number | null;
+  eveningPickup: ShiftLeg | null;
+  eveningDropoff: ShiftLeg | null;
+  eveningDistanceKm: number | null;
+  employeeCount: number;
+  workingDays: WorkingDays;
+  busType: BusType;
+  distanceKm: number | null;
   status: ContractStatus;
+  /** Set once the corporate user confirms the final offer after admin approval. */
+  finalizedAt: string | null;
   billingAmount: number;
   startDate: string;        // "YYYY-MM-DD"
   endDate: string;          // "YYYY-MM-DD"
   createdAt: string;
   corporateUserId: number;
   busId: number | null;
+  busIds: number[] | null;
 }
 
 export type InvoiceStatus = "pending" | "paid" | "overdue" | "cancelled";
@@ -92,6 +117,7 @@ export interface CorporateContractDetail extends CorporateContract {
   contactPersonName: string | null;
   contactPhone: string | null;
   bus: ContractBus | null;
+  buses: ContractBus[];
   invoices: CorporateInvoice[];
   totalBilled: number;
   totalPaid: number;
@@ -100,14 +126,62 @@ export interface CorporateContractDetail extends CorporateContract {
 
 export interface CreateContractRequest {
   contractName: string;
-  startingLocation: string;
-  destination: string;
-  startShiftTime: string;
-  endShiftTime: string;
-  billingAmount: number;
+  shiftType: ShiftType;
+  morningPickup: ShiftLeg | null;
+  morningDropoff: ShiftLeg | null;
+  morningDistanceKm: number | null;
+  eveningPickup: ShiftLeg | null;
+  eveningDropoff: ShiftLeg | null;
+  eveningDistanceKm: number | null;
+  employeeCount: number;
+  workingDays: WorkingDays;
+  busType: BusType;
+  busIds: number[];
   startDate: string;
   endDate: string;
   corporateUserId: number;
+}
+
+/**
+ * Fetches corporate buses that are free for the given contract term.
+ * GET /api/corporate/buses/available
+ */
+export async function getAvailableCorporateBuses(
+  startDate: string,
+  endDate: string,
+  filters?: { minSeats?: number; search?: string; amenity?: string },
+): Promise<ContractBus[]> {
+  const res = await httpGet<ApiResponse<ContractBus[]>>(
+    "/api/corporate/buses/available",
+    { startDate, endDate, ...filters },
+  );
+  return res.data ?? [];
+}
+
+export interface PricingEstimateRequest {
+  morningDistanceKm: number | null;
+  eveningDistanceKm: number | null;
+  employeeCount: number;
+  shiftType: ShiftType;
+  workingDays: WorkingDays;
+  busType: BusType;
+}
+
+/**
+ * Live preview of the standard monthly billing amount, computed server-side
+ * from each shift's real road distance, employee-driven bus size and bus
+ * type surcharge.
+ * POST /api/corporate/contracts/estimate
+ */
+export async function estimateContractPricing(
+  request: PricingEstimateRequest,
+): Promise<number> {
+  const res = await httpPost<ApiResponse<number>>(
+    "/api/corporate/contracts/estimate",
+    undefined,
+    request,
+  );
+  return res.data ?? 0;
 }
 
 /* ── Profile ──────────────────────────────────────────────────────── */
@@ -179,6 +253,27 @@ export async function createCorporateContract(
     undefined,
     request,
   );
+  if (!res.success || !res.data) {
+    throw new Error(res.message || "Failed to create contract.");
+  }
+  return res.data;
+}
+
+/**
+ * Confirms the final offer after admin approval, turning an "approved"
+ * pending request into a true running contract.
+ * PUT /api/corporate/contracts/{contractId}/finalize?userId={userId}
+ */
+export async function finalizeCorporateContract(
+  contractId: number,
+  userId: number,
+): Promise<CorporateContract> {
+  const res = await httpPut<ApiResponse<CorporateContract>>(
+    `/api/corporate/contracts/${contractId}/finalize?userId=${userId}`,
+  );
+  if (!res.success || !res.data) {
+    throw new Error(res.message || "Failed to finalize contract.");
+  }
   return res.data;
 }
 
@@ -222,6 +317,7 @@ export async function getCorporateContractDetail(
     ...contract,
     companyName: null,
     contactPersonName: null,
+    buses: [],
     contactPhone: null,
     bus: null,
     invoices: contractInvoices,
@@ -376,13 +472,27 @@ export function isContractEnded(contract: CorporateContract): boolean {
 }
 
 /**
- * A contract is only *running* while its status is active AND its end date has
- * not passed. The DB keeps `status = 'active'` after `end_date` until an admin
- * expires it, so the date guard is what keeps finished contracts out of the
- * active list.
+ * True once admin has approved the contract (status = active) but the
+ * corporate user hasn't yet confirmed the final offer. Shown under Pending
+ * Contracts as "Request Approved" — clicking it still opens the negotiation
+ * screen, where the user can now proceed to accept it.
+ */
+export function isAwaitingFinalization(contract: CorporateContract): boolean {
+  return contract.status?.toLowerCase() === "active" && !contract.finalizedAt;
+}
+
+/**
+ * A contract is only *running* while its status is active, it has been
+ * finalized by the corporate user, AND its end date has not passed. The DB
+ * keeps `status = 'active'` after `end_date` until an admin expires it, so
+ * the date guard is what keeps finished contracts out of the active list.
  */
 export function isContractRunning(contract: CorporateContract): boolean {
-  return contract.status?.toLowerCase() === "active" && !isContractEnded(contract);
+  return (
+    contract.status?.toLowerCase() === "active" &&
+    !!contract.finalizedAt &&
+    !isContractEnded(contract)
+  );
 }
 
 /**
@@ -392,7 +502,7 @@ export function isContractRunning(contract: CorporateContract): boolean {
 export function isContractCompleted(contract: CorporateContract): boolean {
   const status = contract.status?.toLowerCase();
   if (status === "expired" || status === "cancelled") return true;
-  return status === "active" && isContractEnded(contract);
+  return status === "active" && !!contract.finalizedAt && isContractEnded(contract);
 }
 
 /**

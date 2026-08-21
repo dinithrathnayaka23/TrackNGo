@@ -135,6 +135,44 @@ public class AdminComplaintService {
             title,
             message
         );
+
+        // Drivers are told the outcome only. "Under review" is an internal step
+        // that does not need their attention, and they already heard when the
+        // complaint was filed.
+        if ("resolved".equals(status) || "rejected".equals(status)) {
+            notifications.toDriver(
+                resolveComplaintDriverId(complaint),
+                NotificationType.COMPLAINT,
+                "resolved".equals(status) ? "Complaint Resolved" : "Complaint Closed",
+                "resolved".equals(status)
+                    ? "A complaint about one of your trips has been resolved by the support team."
+                    : "A complaint about one of your trips was reviewed and closed with no action."
+            );
+        }
+    }
+
+    /** Resolves the driver a complaint is about, falling back to the booking. */
+    private Long resolveComplaintDriverId(Complaint complaint) {
+        if (complaint.getDriverId() != null) {
+            return complaint.getDriverId();
+        }
+        if (complaint.getBookingReference() == null) {
+            return null;
+        }
+
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            """
+            SELECT b.driver_id
+            FROM seat_booking sb
+            INNER JOIN bus b ON b.bus_id = sb.bus_id
+            WHERE sb.booking_reference = ?
+            """,
+            complaint.getBookingReference()
+        );
+        if (rows == null || rows.isEmpty()) {
+            return null;
+        }
+        return rows.get(0).get("driver_id") instanceof Number number ? number.longValue() : null;
     }
 
     /** Loads the detailed admin view for a single complaint. */

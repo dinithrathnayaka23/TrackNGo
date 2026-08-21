@@ -50,6 +50,20 @@ export async function getDriverNotifications(
   return result.data ?? [];
 }
 
+/**
+ * Unread count for the dashboard bell badge. Failures resolve to zero so a
+ * flaky network hides the badge instead of breaking the dashboard.
+ */
+export async function getDriverUnreadCount(userId: number): Promise<number> {
+  try {
+    const notifications = await getDriverNotifications(userId);
+    return notifications.filter((notification) => !notification.read).length;
+  } catch (err) {
+    console.warn("[Notifications] Failed to load driver unread count:", err);
+    return 0;
+  }
+}
+
 export async function markDriverNotificationRead(id: number): Promise<void> {
   const headers = await authHeaders();
   const response = await fetch(apiUrl(`/api/notifications/${id}/read`), {

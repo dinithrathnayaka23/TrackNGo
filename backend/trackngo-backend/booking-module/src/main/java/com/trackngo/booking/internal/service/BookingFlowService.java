@@ -839,26 +839,35 @@ public class BookingFlowService {
         }
     }
 
-    /** Confirms a passenger-initiated cancellation in their feed. */
+    /**
+     * Confirms a passenger-initiated cancellation, to the passenger who asked
+     * for it and to the driver who now has those seats free again.
+     */
     private void notifyBookingCancelled(String bookingRef) {
         Map<String, Object> booking = findBookingRow(
-                "SELECT passenger_id, journey_date, seat_number FROM seat_booking WHERE booking_reference = ?",
+                "SELECT sb.passenger_id, sb.journey_date, sb.seat_number, b.bus_number, b.driver_id " +
+                "FROM seat_booking sb JOIN bus b ON sb.bus_id = b.bus_id " +
+                "WHERE sb.booking_reference = ?",
                 bookingRef
         );
         if (booking == null) {
             return;
         }
-        Number passengerId = (Number) booking.get("passenger_id");
-        if (passengerId == null) {
-            return;
-        }
 
         notifications.toPassenger(
-                passengerId.longValue(),
+                toLongOrNull(booking.get("passenger_id")),
                 NotificationType.CANCELLATION,
                 "Booking Cancelled",
                 "Booking " + bookingRef + " for seat(s) " + booking.get("seat_number")
                         + " on " + booking.get("journey_date") + " has been cancelled as requested."
+        );
+
+        notifications.toDriver(
+                toLongOrNull(booking.get("driver_id")),
+                NotificationType.CANCELLATION,
+                "Booking Cancelled on Your Bus",
+                "Seat(s) " + booking.get("seat_number") + " on bus " + booking.get("bus_number")
+                        + " for " + booking.get("journey_date") + " were cancelled by the passenger."
         );
     }
 
@@ -885,6 +894,11 @@ public class BookingFlowService {
                 "You are marked as boarded on bus " + booking.get("bus_number")
                         + " for booking " + booking.get("booking_reference") + ". Have a safe journey."
         );
+    }
+
+    /** Reads a nullable id out of a JDBC row without assuming its numeric type. */
+    private Long toLongOrNull(Object value) {
+        return value instanceof Number number ? number.longValue() : null;
     }
 
     /** Reads a single booking row, returning null instead of throwing when it is gone. */

@@ -1,3 +1,44 @@
+export type DriverNoticeCategory =
+  | "All"
+  | "Bookings"
+  | "Journeys"
+  | "Ratings"
+  | "Support";
+
+export type DriverNoticeSection = Exclude<DriverNoticeCategory, "All"> | "Other";
+
+export const driverNotificationTabs: DriverNoticeCategory[] = [
+  "All",
+  "Bookings",
+  "Journeys",
+  "Ratings",
+  "Support",
+];
+
+/**
+ * Maps a stored notification type onto the tab it belongs in.
+ *
+ * Types with no entry fall through to "Other", which keeps them out of the
+ * tabs while still listing them under All - that is where promotions, payments
+ * and system notices surface.
+ *
+ * SOS sits under Support rather than falling through, because for a driver an
+ * emergency on their bus is something to act on, not a receipt to file away.
+ */
+const sectionByType: Record<string, DriverNoticeSection> = {
+  booking: "Bookings",
+  cancellation: "Bookings",
+  journey: "Journeys",
+  rating: "Ratings",
+  complaint: "Support",
+  sos: "Support",
+};
+
+export function sectionForType(notificationType: string | null): DriverNoticeSection {
+  if (!notificationType) return "Other";
+  return sectionByType[notificationType.toLowerCase()] ?? "Other";
+}
+
 export interface DriverNotificationItem {
   id: number;
   title: string;
@@ -5,6 +46,7 @@ export interface DriverNotificationItem {
   read: boolean;
   createdAt: string | null;
   notificationType: string;
+  category: DriverNoticeSection;
 }
 
 export function sameCalendarDay(left: Date, right: Date) {

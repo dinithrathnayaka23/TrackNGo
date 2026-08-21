@@ -168,6 +168,16 @@ public class RatingServiceImpl implements RatingService {
                 + saved.getBookingReference() + " has been recorded. Thank you for helping us improve."
         );
 
+        notifications.toDriver(
+            saved.getDriverId(),
+            NotificationType.RATING,
+            isNew ? "New Rating Received" : "Rating Updated",
+            (saved.getDriverRating() == null
+                ? "A passenger rated their journey on booking "
+                : "A passenger rated you " + saved.getDriverRating() + " out of 5 on booking ")
+                + saved.getBookingReference() + "."
+        );
+
         return toDto(saved);
     }
 

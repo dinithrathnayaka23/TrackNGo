@@ -22,6 +22,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { apiUrl } from "@/config/env";
+import { getDriverUnreadCount } from "@/services/driverNotificationsApi";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/context/ThemeContext";
@@ -110,7 +111,7 @@ export default function DriverDashboardScreen() {
   const [gpsAccuracyPercent, setGpsAccuracyPercent] = useState<number | null>(
     null,
   );
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const earningsPulseOpacity = useRef(new Animated.Value(0.45)).current;
   const livePulseOpacity = useRef(new Animated.Value(1)).current;
 
@@ -173,35 +174,12 @@ export default function DriverDashboardScreen() {
 
   const loadUnreadNotifications = useCallback(async () => {
     if (!user?.userId) {
-      setHasUnreadNotifications(false);
+      setUnreadNotifications(0);
       return;
     }
 
-    try {
-      const notifications = await fetch(
-        apiUrl(`/api/notifications/driver/${user.userId}`),
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!notifications.ok) {
-        throw new Error("Failed to load notifications");
-      }
-
-      const result = await notifications.json();
-      const items = Array.isArray(result?.data) ? result.data : [];
-      setHasUnreadNotifications(
-        items.some((item: { read?: boolean }) => !item.read),
-      );
-    } catch (error) {
-      console.warn("Failed to load driver notifications", error);
-    }
-  }, [user?.token, user?.userId]);
+    setUnreadNotifications(await getDriverUnreadCount(user.userId));
+  }, [user?.userId]);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user?.userId || !user?.token) {
@@ -317,7 +295,7 @@ export default function DriverDashboardScreen() {
 
   useEffect(() => {
     if (!user?.userId) {
-      setHasUnreadNotifications(false);
+      setUnreadNotifications(0);
       return;
     }
 
@@ -707,8 +685,12 @@ export default function DriverDashboardScreen() {
                 size={22}
                 color={theme.text}
               />
-              {hasUnreadNotifications ? (
-                <View style={styles.notificationBadge} />
+              {unreadNotifications > 0 ? (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNotifications > 9 ? "9+" : String(unreadNotifications)}
+                  </Text>
+                </View>
               ) : null}
             </TouchableOpacity>
           </View>
@@ -1078,12 +1060,20 @@ function createStyles({
     },
     notificationBadge: {
       position: "absolute",
-      top: 4,
-      right: 4,
-      width: 8,
-      height: 8,
-      borderRadius: 4,
+      top: 0,
+      right: 0,
+      minWidth: 16,
+      height: 16,
+      paddingHorizontal: 4,
+      borderRadius: 8,
       backgroundColor: "#2F6BFF",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    notificationBadgeText: {
+      fontSize: 9,
+      fontWeight: "700",
+      color: "#FFFFFF",
     },
     ratingContainer: {
       flexDirection: "row",

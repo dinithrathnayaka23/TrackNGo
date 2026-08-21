@@ -6,6 +6,8 @@ import com.trackngo.booking.api.dto.BookingFlowDtos.*;
 import com.trackngo.booking.api.dto.PromotionDtos.PromotionQuoteResult;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.SeatUnavailableException;
+import com.trackngo.notification.api.NotificationDispatcher;
+import com.trackngo.notification.api.NotificationType;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Time;
@@ -38,11 +41,18 @@ public class BookingFlowService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
     private final PromotionService promotionService;
+    private final NotificationDispatcher notifications;
 
-    public BookingFlowService(JdbcTemplate jdbc, ObjectMapper mapper, PromotionService promotionService) {
+    public BookingFlowService(
+            JdbcTemplate jdbc,
+            ObjectMapper mapper,
+            PromotionService promotionService,
+            NotificationDispatcher notifications
+    ) {
         this.jdbc = jdbc;
         this.mapper = mapper;
         this.promotionService = promotionService;
+        this.notifications = notifications;
     }
 
     /*
@@ -680,6 +690,20 @@ public class BookingFlowService {
         String toLoc = req.toLocation() != null && !req.toLocation().isBlank()
                 ? req.toLocation() : (String) bus.get("end_location");
 
+        notifySeatBookingConfirmed(
+                req.passengerId(),
+                bookingRef,
+                seatNumbers,
+                (String) bus.get("bus_number"),
+                fromLoc,
+                toLoc,
+                req.journeyDate(),
+                req.journeyTime(),
+                payableAmount,
+                discountAmount,
+                txnId
+        );
+
         return new BookingConfirmationResult(
                 bookingRef,
                 "confirmed",
@@ -747,6 +771,8 @@ public class BookingFlowService {
                 "(SELECT seat_booking_id FROM seat_booking WHERE booking_reference = ?)",
                 bookingRef
         );
+
+        notifyBookingCancelled(bookingRef);
     }
 
     public void markPassengerBoarded(Long seatBookingId) {
@@ -757,6 +783,134 @@ public class BookingFlowService {
         if (updated == 0) {
             throw new RuntimeException("Booking not found or already cancelled");
         }
+
+        notifyPassengerBoarded(seatBookingId);
+    }
+
+    /**
+     * Announces a completed seat booking in the passenger's feed.
+     *
+     * Three separate notices are raised because they belong to different tabs
+     * of the mobile app: the confirmation under Bookings, the receipt under
+     * Payments, and the saving - when a promotion was applied - under All.
+     */
+    private void notifySeatBookingConfirmed(
+            Long passengerId,
+            String bookingRef,
+            String seatNumbers,
+            String busNumber,
+            String fromLocation,
+            String toLocation,
+            String journeyDate,
+            String journeyTime,
+            BigDecimal paidAmount,
+            BigDecimal discountAmount,
+            String transactionId
+    ) {
+        String seatLabel = seatNumbers != null && seatNumbers.contains(",")
+                ? "Seats " + seatNumbers
+                : "Seat " + seatNumbers;
+        String departure = journeyTime == null || journeyTime.isBlank() ? "" : " at " + journeyTime;
+
+        notifications.toPassenger(
+                passengerId,
+                NotificationType.BOOKING,
+                "Booking Confirmed",
+                seatLabel + " on bus " + busNumber + " from " + fromLocation + " to " + toLocation
+                        + " on " + journeyDate + departure + " is confirmed. "
+                        + "Booking reference " + bookingRef + "."
+        );
+
+        notifications.toPassenger(
+                passengerId,
+                NotificationType.PAYMENT,
+                "Payment Successful",
+                formatAmount(paidAmount) + " was received for booking " + bookingRef
+                        + ". Transaction " + transactionId + "."
+        );
+
+        if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+            notifications.toPassenger(
+                    passengerId,
+                    NotificationType.PROMOTION,
+                    "Promotion Applied",
+                    "You saved " + formatAmount(discountAmount) + " on booking " + bookingRef + "."
+            );
+        }
+    }
+
+    /**
+     * Confirms a passenger-initiated cancellation, to the passenger who asked
+     * for it and to the driver who now has those seats free again.
+     */
+    private void notifyBookingCancelled(String bookingRef) {
+        Map<String, Object> booking = findBookingRow(
+                "SELECT sb.passenger_id, sb.journey_date, sb.seat_number, b.bus_number, b.driver_id " +
+                "FROM seat_booking sb JOIN bus b ON sb.bus_id = b.bus_id " +
+                "WHERE sb.booking_reference = ?",
+                bookingRef
+        );
+        if (booking == null) {
+            return;
+        }
+
+        notifications.toPassenger(
+                toLongOrNull(booking.get("passenger_id")),
+                NotificationType.CANCELLATION,
+                "Booking Cancelled",
+                "Booking " + bookingRef + " for seat(s) " + booking.get("seat_number")
+                        + " on " + booking.get("journey_date") + " has been cancelled as requested."
+        );
+
+        notifications.toDriver(
+                toLongOrNull(booking.get("driver_id")),
+                NotificationType.CANCELLATION,
+                "Booking Cancelled on Your Bus",
+                "Seat(s) " + booking.get("seat_number") + " on bus " + booking.get("bus_number")
+                        + " for " + booking.get("journey_date") + " were cancelled by the passenger."
+        );
+    }
+
+    /** Confirms boarding once the driver marks the passenger as on board. */
+    private void notifyPassengerBoarded(Long seatBookingId) {
+        Map<String, Object> booking = findBookingRow(
+                "SELECT sb.passenger_id, sb.booking_reference, b.bus_number " +
+                "FROM seat_booking sb JOIN bus b ON sb.bus_id = b.bus_id " +
+                "WHERE sb.seat_booking_id = ?",
+                seatBookingId
+        );
+        if (booking == null) {
+            return;
+        }
+        Number passengerId = (Number) booking.get("passenger_id");
+        if (passengerId == null) {
+            return;
+        }
+
+        notifications.toPassenger(
+                passengerId.longValue(),
+                NotificationType.JOURNEY,
+                "Boarding Confirmed",
+                "You are marked as boarded on bus " + booking.get("bus_number")
+                        + " for booking " + booking.get("booking_reference") + ". Have a safe journey."
+        );
+    }
+
+    /** Reads a nullable id out of a JDBC row without assuming its numeric type. */
+    private Long toLongOrNull(Object value) {
+        return value instanceof Number number ? number.longValue() : null;
+    }
+
+    /** Reads a single booking row, returning null instead of throwing when it is gone. */
+    private Map<String, Object> findBookingRow(String sql, Object argument) {
+        List<Map<String, Object>> rows = jdbc.queryForList(sql, argument);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** Formats an amount the way the passenger app displays fares. */
+    private String formatAmount(BigDecimal amount) {
+        BigDecimal value = amount == null ? BigDecimal.ZERO : amount;
+        return "LKR " + value.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private void validateBookableJourneyDate(String journeyDate) {

@@ -2,6 +2,8 @@ package com.trackngo.sos.internal.service;
 
 import com.trackngo.commons.exception.ResourceNotFoundException;
 import com.trackngo.commons.exception.BusinessException;
+import com.trackngo.notification.api.NotificationDispatcher;
+import com.trackngo.notification.api.NotificationType;
 import com.trackngo.sos.api.SosAlertService;
 import com.trackngo.sos.api.dto.SosAlertDto;
 import com.trackngo.sos.api.dto.EmergencyContactDto;
@@ -35,6 +37,7 @@ public class SosAlertServiceImpl implements SosAlertService {
     private final EmergencyContactRepository emergencyContactRepository;
     private final JdbcTemplate jdbcTemplate;
     private final SmsProvider smsProvider;
+    private final NotificationDispatcher notifications;
 
     @Value("${trackngo.time-zone:Asia/Colombo}")
     private String timeZoneId;
@@ -112,6 +115,39 @@ public class SosAlertServiceImpl implements SosAlertService {
 
         SosAlert saved = repository.save(alert);
         notifyEmergencyContactsIfRequested(saved, request);
+
+        notifications.toPassenger(
+                saved.getPassengerId(),
+                NotificationType.SOS,
+                "SOS Alert Sent",
+                "Your emergency alert was sent to the TrackNGo control room"
+                        + (saved.getBusNumber() == null ? "" : " for bus " + saved.getBusNumber())
+                        + ". Stay where you are if it is safe; our team is responding."
+        );
+
+        // The alert carries a driver id whether the driver raised it themselves
+        // or it was resolved from the bus a passenger is travelling on, so the
+        // wording has to follow who actually pressed the button.
+        boolean raisedByDriver = request.getPassengerId() == null;
+        notifications.toDriver(
+                saved.getDriverId(),
+                NotificationType.SOS,
+                raisedByDriver ? "SOS Alert Sent" : "Emergency Alert on Your Bus",
+                raisedByDriver
+                        ? "Your emergency alert was sent to the TrackNGo control room. Our team is responding."
+                        : "A passenger raised an emergency alert"
+                                + (saved.getBusNumber() == null ? "" : " on bus " + saved.getBusNumber())
+                                + ". Pull over safely if you can and wait for the control room."
+        );
+
+        notifications.toAllAdmins(
+                NotificationType.SOS,
+                "SOS Alert Triggered",
+                "An emergency alert was raised by a " + (raisedByDriver ? "driver" : "passenger")
+                        + (saved.getBusNumber() == null ? "" : " on bus " + saved.getBusNumber())
+                        + ". Open the SOS dashboard to respond."
+        );
+
         return toDto(repository.findById(saved.getSosId()).orElse(saved));
     }
 
@@ -224,6 +260,21 @@ public class SosAlertServiceImpl implements SosAlertService {
         alert.setAdminId(adminId);
         alert.setResolvedAt(currentDateTime());
         repository.save(alert);
+
+        notifications.toPassenger(
+                alert.getPassengerId(),
+                NotificationType.SOS,
+                "SOS Alert Resolved",
+                "Your emergency alert has been handled and closed by the TrackNGo team."
+        );
+
+        notifications.toDriver(
+                alert.getDriverId(),
+                NotificationType.SOS,
+                "SOS Alert Resolved",
+                "The emergency alert on your bus has been handled and closed by the TrackNGo team."
+        );
+
         return toDto(repository.findById(sosId).orElse(alert));
     }
 
@@ -236,6 +287,21 @@ public class SosAlertServiceImpl implements SosAlertService {
         alert.setAdminId(adminId);
         alert.setResolvedAt(currentDateTime());
         repository.save(alert);
+
+        notifications.toPassenger(
+                alert.getPassengerId(),
+                NotificationType.SOS,
+                "SOS Alert Closed",
+                "Your emergency alert was reviewed and closed as a false alarm. No further action is needed."
+        );
+
+        notifications.toDriver(
+                alert.getDriverId(),
+                NotificationType.SOS,
+                "SOS Alert Closed",
+                "The emergency alert on your bus was reviewed and closed as a false alarm."
+        );
+
         return toDto(repository.findById(sosId).orElse(alert));
     }
 

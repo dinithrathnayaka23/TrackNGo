@@ -49,7 +49,9 @@ export default function RootLayout() {
         <LanguageProvider>
           <GlobalPresenceConnection />
           <RootLayoutNav />
-          <StatusBar style="dark" />
+          {/* White to match the app bar underneath, with dark icons so the
+              clock and battery stay readable against it. */}
+          <StatusBar style="dark" backgroundColor="#FFFFFF" />
         </LanguageProvider>
       </SessionProvider>
     </SafeAreaProvider>

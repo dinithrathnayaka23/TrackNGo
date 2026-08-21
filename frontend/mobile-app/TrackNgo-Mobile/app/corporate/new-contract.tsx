@@ -36,6 +36,8 @@ import {
   type CorporateContract,
 } from "../../services/corporateApi";
 import GooglePlaceField, { type PlaceValue } from "../../components/GooglePlaceField";
+import { createConversation } from "../../services/chatApi";
+import { ADMIN_SUPPORT_USER_ID } from "../../config/env";
 
 // ─── Road-distance helper (same OSRM approach used in BookATrip.tsx) ─────────
 // Avoids Google Directions billing: any two selected locations get a real
@@ -952,6 +954,27 @@ export default function NewContractScreen() {
     </View>
   );
 
+  const handleChatAdmin = async () => {
+    if (!currentUser?.userId) {
+      Alert.alert("Sign in required", "Please sign in again to start a chat with TrackNGo admin.");
+      return;
+    }
+    try {
+      const conversation = await createConversation({ user1Id: currentUser.userId, user2Id: ADMIN_SUPPORT_USER_ID });
+      router.push({
+        pathname: "/chat/chat-room",
+        params: {
+          conversationId: String(conversation.conversationId),
+          otherUserId: String(ADMIN_SUPPORT_USER_ID),
+          otherUserType: "ADMIN",
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not open the admin chat.";
+      Alert.alert("Chat unavailable", message);
+    }
+  };
+
   const renderStep3 = () => {
     const isApproved = contractStatus === "active";
     const submittedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -993,7 +1016,7 @@ export default function NewContractScreen() {
             <Ionicons name="call" size={18} color="#FFFFFF" />
             <Text style={styles.negoCallText}>Call</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.negoChatBtn} onPress={() => Alert.alert("Chat", "Chat feature coming soon!") }>
+          <TouchableOpacity style={styles.negoChatBtn} onPress={() => void handleChatAdmin()}>
             <Ionicons name="chatbubble-ellipses" size={18} color="#FFFFFF" />
             <Text style={styles.negoChatText}>Chat</Text>
           </TouchableOpacity>

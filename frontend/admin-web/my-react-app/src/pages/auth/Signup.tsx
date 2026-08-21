@@ -51,10 +51,10 @@ function Field({
 }: FieldProps) {
   return (
     <div>
-      <label htmlFor={id} className="mb-2 block text-sm font-semibold text-[#334155]">
+      <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-[#334155]">
         {label}
       </label>
-      <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+      <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
         <FontAwesomeIcon icon={icon} className="mr-3 text-[#94a3b8]" />
         <input
           id={id}
@@ -70,7 +70,7 @@ function Field({
         />
       </div>
       {error ? (
-        <p id={`${id}-error`} className="mt-2 text-sm font-medium text-[#dc2626]">
+        <p id={`${id}-error`} className="mt-1.5 text-sm font-medium text-[#dc2626]">
           {error}
         </p>
       ) : null}
@@ -203,29 +203,29 @@ function Signup() {
   return (
     <AuthLayout>
       <div className="w-full max-w-[680px]">
-        <h2 className="animate-auth-fade-up text-sm font-bold leading-tight text-[#111827]">Admin Registration</h2>
-        <p className="animate-auth-fade-up mt-2 text-sm text-[#64748b]" style={{ animationDelay: '90ms' }}>
+        <h2 className="animate-auth-fade-up text-xl font-extrabold tracking-tight leading-tight text-[#111827]">Admin Registration</h2>
+        <p className="animate-auth-fade-up mt-1 text-sm text-[#64748b]" style={{ animationDelay: '90ms' }}>
           Access your centralized transport control panel.
         </p>
 
         {apiError && (
-          <div className="animate-auth-fade-up mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          <div className="animate-auth-fade-up mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {apiError}
           </div>
         )}
 
         {successMessage && (
-          <div className="animate-auth-fade-up mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-600">
+          <div className="animate-auth-fade-up mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-600">
             {successMessage}
           </div>
         )}
 
         <form
-          className="mt-8 space-y-6"
+          className="mt-5 space-y-4"
           onSubmit={handleSubmit}
           noValidate
         >
-          <div className="animate-auth-fade-up grid grid-cols-1 gap-5 sm:grid-cols-2" style={{ animationDelay: '160ms' }}>
+          <div className="animate-auth-fade-up grid grid-cols-1 gap-4 sm:grid-cols-2" style={{ animationDelay: '160ms' }}>
             <Field
               id="full-name"
               name="fullName"
@@ -274,13 +274,13 @@ function Signup() {
             />
           </div>
 
-          <div className="animate-auth-fade-up border-t border-[#e5e7eb] pt-6" style={{ animationDelay: '240ms' }}>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="animate-auth-fade-up border-t border-[#e5e7eb] pt-5" style={{ animationDelay: '240ms' }}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="signup-password" className="mb-2 block text-sm font-semibold text-[#334155]">
+                <label htmlFor="signup-password" className="mb-1.5 block text-sm font-semibold text-[#334155]">
                   Password
                 </label>
-                <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+                <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
                   <FontAwesomeIcon icon={faLock} className="mr-3 text-[#94a3b8]" />
                   <input
                     id="signup-password"
@@ -303,7 +303,7 @@ function Signup() {
                   </button>
                 </div>
                 {errors.password ? (
-                  <p id="signup-password-error" className="mt-2 text-sm font-medium text-[#dc2626]">
+                  <p id="signup-password-error" className="mt-1.5 text-sm font-medium text-[#dc2626]">
                     {errors.password}
                   </p>
                 ) : null}
@@ -330,11 +330,11 @@ function Signup() {
               <div>
                 <label
                   htmlFor="confirm-password"
-                  className="mb-2 block text-sm font-semibold text-[#334155]"
+                  className="mb-1.5 block text-sm font-semibold text-[#334155]"
                 >
                   Confirm Password
                 </label>
-                <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+                <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
                   <FontAwesomeIcon icon={faLock} className="mr-3 text-[#94a3b8]" />
                   <input
                     id="confirm-password"
@@ -357,7 +357,7 @@ function Signup() {
                   </button>
                 </div>
                 {errors.confirmPassword ? (
-                  <p id="confirm-password-error" className="mt-2 text-sm font-medium text-[#dc2626]">
+                  <p id="confirm-password-error" className="mt-1.5 text-sm font-medium text-[#dc2626]">
                     {errors.confirmPassword}
                   </p>
                 ) : null}
@@ -373,11 +373,11 @@ function Signup() {
                 setAgreePolicy(event.target.checked)
                 setErrors((current) => ({ ...current, agreePolicy: undefined }))
               }}
-              className="mt-1 h-5 w-5 rounded border-[#d6dbe6] text-[#2342a6] focus:ring-[#2342a6]"
+              className="mt-1 h-5 w-5 rounded border-[#d6dbe6] text-[#2642a6] focus:ring-[#2642a6]"
             />
             <span>
               I agree to the{' '}
-              <a href="#" className="text-[#1f3c93]">
+              <a href="#" className="text-[#2642a6]">
                 internal data privacy policies
               </a>{' '}
               and confirm the accuracy of my details.
@@ -390,7 +390,7 @@ function Signup() {
           <button
             type="submit"
             disabled={loading}
-            className="animate-auth-fade-up flex h-10 w-full items-center justify-center gap-4 rounded-xl bg-[#2342a6] text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#1f3a93] hover:shadow-[0_12px_26px_rgba(35,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="animate-auth-fade-up flex w-full items-center justify-center gap-2 rounded-lg bg-[#2642a6] py-2.5 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96] hover:shadow-[0_12px_26px_rgba(38,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ animationDelay: '380ms' }}
           >
             {loading ? 'Submitting...' : 'Submit Registration'}
@@ -399,7 +399,7 @@ function Signup() {
 
           <p className="animate-auth-fade-up text-center text-sm font-medium text-[#64748b]" style={{ animationDelay: '440ms' }}>
             Already registered?{' '}
-            <Link to="/login" className="font-semibold text-[#1f3c93]">
+            <Link to="/login" className="font-semibold text-[#2642a6]">
               Login to Dashboard
             </Link>
           </p>

@@ -10,6 +10,12 @@ export default {
       fontFamily: {
         sans: ['Manrope', ...defaultTheme.fontFamily.sans],
       },
+      fontSize: {
+        // Tailwind stops at text-xs (12px), but the dashboard needs one step
+        // below it for dense table badges and meta labels. Naming the step
+        // keeps those out of arbitrary text-[10px] values.
+        "2xs": ["0.625rem", { lineHeight: "0.875rem" }],
+      },
     },
   },
   plugins: [],

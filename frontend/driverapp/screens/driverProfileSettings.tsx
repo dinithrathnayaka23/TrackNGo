@@ -73,11 +73,6 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const [twoFactor, setTwoFactor] = useState(false);
   const { darkMode, setDarkMode } = useTheme(); //global theme data
   const { language, setLanguage, t } = useLanguage(); //global language/translation data
-  const [systemNotifications, setSystemNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [smsAlerts, setSmsAlerts] = useState(false);
-  const [emailUpdates, setEmailUpdates] = useState(true);
-  const [bookingUpdates, setBookingUpdates] = useState(true);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
 
@@ -170,11 +165,11 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const horizontalPadding = isSmallPhone ? 14 : 16;
 
   const theme = { //coming from themecontext
-    background: darkMode ? '#111' : '#F5F5F5',
+    background: darkMode ? '#111' : '#F1F5F9',
     card: darkMode ? '#1E1E1E' : '#FFF',
     text: darkMode ? '#FFF' : '#000',
     secondaryText: darkMode ? '#AAA' : '#666',
-    border: darkMode ? '#333' : '#E0E0E0',
+    border: darkMode ? '#333' : '#E2E8F0',
 
     fontRegular: 'System', //system font eg. sans-serif
     fontBold: 'System',  //system font with bold weight
@@ -263,19 +258,19 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       {isLoadingProfile && ( 
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
-          <ActivityIndicator size="large" color="#0066FF" />
+          <ActivityIndicator size="large" color="#2F6BFF" />
           <Text style={{ marginTop: 10, color: theme.text }}>{t('settings.loadingProfile')}</Text>
         </View>
       )}
 
       {profileError && ( // If there's an error, display a message and a retry button
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
-          <MaterialCommunityIcons name="alert-circle" size={48} color="#FF6B6B" />
+          <MaterialCommunityIcons name="alert-circle" size={48} color="#EF4444" />
           <Text style={{ marginTop: 10, color: theme.text, textAlign: 'center', marginHorizontal: 20 }}>
             {profileError}
           </Text>
           <TouchableOpacity
-            style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#0066FF', borderRadius: 8 }}
+            style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#2F6BFF', borderRadius: 8 }}
             onPress={fetchDriverProfile}
           >
             <Text style={{ color: 'white', fontWeight: "700" }}>{t('common.retry')}</Text>
@@ -312,7 +307,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                   <MaterialCommunityIcons
                     name="account"
                     size={isSmallPhone ? 42 : 50}
-                    color="#0066FF"
+                    color="#2F6BFF"
                   />
                 )}
                 </View>
@@ -395,7 +390,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
             <View style={styles.detailItem}>
               <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="pencil" size={16} color="#0066FF" />
+                <MaterialCommunityIcons name="pencil" size={16} color="#2F6BFF" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('settings.fullName')}</Text>
@@ -407,7 +402,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
             <View style={styles.detailItem}>
               <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="email" size={16} color="#0066FF" />
+                <MaterialCommunityIcons name="email" size={16} color="#2F6BFF" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('settings.emailAddress')}</Text>
@@ -422,7 +417,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               onPress={openPasswordModal}
             >
               <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="lock" size={16} color="#0066FF" />
+                <MaterialCommunityIcons name="lock" size={16} color="#2F6BFF" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('settings.changePassword')}</Text>
@@ -433,7 +428,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
             <View style={styles.detailItem}>
               <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="phone" size={16} color="#0066FF" />
+                <MaterialCommunityIcons name="phone" size={16} color="#2F6BFF" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('settings.mobileNumber')}</Text>
@@ -443,7 +438,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
             <View style={styles.detailItem}>
               <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="card-account-details" size={16} color="#0066FF" />
+                <MaterialCommunityIcons name="card-account-details" size={16} color="#2F6BFF" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('settings.licenseNumber')}</Text>
@@ -453,7 +448,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
             <View style={styles.detailItem}>
               <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="calendar" size={16} color="#0066FF" />
+                <MaterialCommunityIcons name="calendar" size={16} color="#2F6BFF" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('settings.licenseExpiry')}</Text>
@@ -470,7 +465,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
             <View style={styles.detailItem}>
               <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="calendar" size={16} color="#0066FF" />
+                <MaterialCommunityIcons name="calendar" size={16} color="#2F6BFF" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('settings.joinedDate')}</Text>
@@ -480,7 +475,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
             <View style={[styles.detailItem, styles.lastItem]}>
               <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="briefcase" size={16} color="#0066FF" />
+                <MaterialCommunityIcons name="briefcase" size={16} color="#2F6BFF" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('settings.experience')}</Text>
@@ -493,7 +488,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
             <Text style={styles.sectionTitle}>{t('settings.bankDetails')}</Text>
             <View style={styles.detailItem}>
               <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="card-account-details" size={16} color="#0066FF" />
+                <MaterialCommunityIcons name="card-account-details" size={16} color="#2F6BFF" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('settings.bankAccountNumber')}</Text>
@@ -503,7 +498,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
             <View style={[styles.detailItem, styles.lastItem]}>
               <View style={styles.detailIcon}>
-                <MaterialCommunityIcons name="bank" size={16} color="#0066FF" />
+                <MaterialCommunityIcons name="bank" size={16} color="#2F6BFF" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('settings.bankName')}</Text>
@@ -515,7 +510,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>{t('settings.currentAssignment')}</Text>
             <View style={styles.assignmentItem}>
-              <MaterialCommunityIcons name="bus" size={20} color="#0066FF" />
+              <MaterialCommunityIcons name="bus" size={20} color="#2F6BFF" />
               <View style={styles.assignmentContent}>
                 <Text style={styles.detailLabel}>{t('settings.busInformation')}</Text>
                 <Text style={styles.assignmentValue}>
@@ -530,7 +525,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
             </View>
 
             <View style={[styles.assignmentItem, styles.lastItem]}>
-              <MaterialCommunityIcons name="map-marker" size={20} color="#0066FF" />
+              <MaterialCommunityIcons name="map-marker" size={20} color="#2F6BFF" />
               <View style={styles.assignmentContent}>
                 <Text style={styles.detailLabel}>{t('settings.route')}</Text>
                 <Text style={styles.assignmentValue}>
@@ -546,25 +541,8 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>{t('settings.feedback')}</Text>
             <TouchableOpacity style={styles.rowButton} onPress={() => router.push('/reviews-and-ratings')}>
-              <MaterialCommunityIcons name="star-half" size={20} color="#0066FF" />
+              <MaterialCommunityIcons name="star-half" size={20} color="#2F6BFF" />
               <Text style={styles.rowButtonText}>{t('settings.ratingsAndComplaints')}</Text>
-              <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>{t('settings.settingsTitle')}</Text>
-            <TouchableOpacity
-              style={styles.rowButton}
-              onPress={() =>
-                setLanguageModalVisible(true)
-              }
-            >
-              <MaterialCommunityIcons name="translate" size={20} color="#0066FF" />
-              <View style={styles.settingContent}>
-                <Text style={styles.settingLabel}>{t('settings.language')}</Text>
-                <Text style={styles.settingValue}>{LANGUAGE_NAMES[language]}</Text>
-              </View>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
           </View>
@@ -573,7 +551,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
             <Text style={styles.sectionTitle}>{t('settings.privacy')}</Text>
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
-                <MaterialCommunityIcons name="map-marker" size={20} color="#0066FF" />
+                <MaterialCommunityIcons name="map-marker" size={20} color="#2F6BFF" />
                 <View style={styles.switchTextWrap}>
                   <Text style={styles.switchLabel}>{t('settings.shareLocation')}</Text>
                   <Text style={styles.switchDescription}>{t('settings.requiredForTracking')}</Text>
@@ -582,14 +560,14 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               <Switch
                 value={shareLocation}
                 onValueChange={handleShareLocationChange}
-                trackColor={{ false: '#E0E0E0', true: '#0066FF' }}
+                trackColor={{ false: '#E2E8F0', true: '#2F6BFF' }}
                 thumbColor="#FFF" // Thumb color
               />
             </View>
 
             <View style={[styles.switchRow, styles.lastItem]}>
               <View style={styles.switchLeft}>
-                <MaterialCommunityIcons name="shield-account" size={20} color="#0066FF" />
+                <MaterialCommunityIcons name="shield-account" size={20} color="#2F6BFF" />
                 <View style={styles.switchTextWrap}>
                   <Text style={styles.switchLabel}>{t('settings.twoFactorAuth')}</Text>
                 </View>
@@ -597,7 +575,43 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
               <Switch
                 value={twoFactor}
                 onValueChange={setTwoFactor}
-                trackColor={{ false: '#E0E0E0', true: '#0066FF' }}
+                trackColor={{ false: '#E2E8F0', true: '#2F6BFF' }}
+                thumbColor="#FFF"
+              />
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>{t('settings.preferences')}</Text>
+            <TouchableOpacity
+              style={styles.rowButton}
+              onPress={() =>
+                setLanguageModalVisible(true)
+              }
+            >
+              <MaterialCommunityIcons name="translate" size={20} color="#2F6BFF" />
+              <View style={styles.settingContent}>
+                <Text style={styles.settingLabel}>{t('settings.language')}</Text>
+                <Text style={styles.settingValue}>{LANGUAGE_NAMES[language]}</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
+            </TouchableOpacity>
+
+            <View style={[styles.switchRow, styles.lastItem]}>
+              <View style={styles.switchLeft}>
+                <MaterialCommunityIcons
+                  name="moon-waning-crescent"
+                  size={20}
+                  color="#2F6BFF"
+                />
+                <View style={styles.switchTextWrap}>
+                  <Text style={styles.switchLabel}>{t('settings.lightDarkMode')}</Text>
+                </View>
+              </View>
+              <Switch
+                value={darkMode}
+                onValueChange={setDarkMode}
+                trackColor={{ false: '#E2E8F0', true: '#2F6BFF' }}
                 thumbColor="#FFF"
               />
             </View>
@@ -607,133 +621,32 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
             <Text style={styles.sectionTitle}>{t('settings.supportAndLegal')}</Text>
 
             <TouchableOpacity style={styles.supportItem} onPress={() => Alert.alert(t('settings.helpAndSupport'), t('settings.helpAndSupportLoading'))}>
-              <MaterialCommunityIcons name="help-circle" size={20} color="#0066FF" />
+              <MaterialCommunityIcons name="help-circle" size={20} color="#2F6BFF" />
               <Text style={styles.rowButtonText}>{t('settings.helpAndSupport')}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.supportItem}  onPress={() => Alert.alert(t('settings.privacyPolicy'), t('settings.privacyPolicyLoading'))}>
-              <MaterialCommunityIcons name="lock" size={20} color="#0066FF" />
+              <MaterialCommunityIcons name="lock" size={20} color="#2F6BFF" />
               <Text style={styles.rowButtonText}>{t('settings.privacyPolicy')}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.supportItem} onPress={() => Alert.alert(t('settings.termsAndConditions'), t('settings.termsLoading'))}>
-              <MaterialCommunityIcons name="file-document" size={20} color="#0066FF" />
+              <MaterialCommunityIcons name="file-document" size={20} color="#2F6BFF" />
               <Text style={styles.rowButtonText}>{t('settings.termsAndConditions')}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.supportItem, styles.lastItem]} onPress={() => Alert.alert(t('settings.aboutUs'), t('settings.aboutUsLoading'))}>
-              <MaterialCommunityIcons name="information" size={20} color="#0066FF" />
+              <MaterialCommunityIcons name="information" size={20} color="#2F6BFF" />
               <Text style={styles.rowButtonText}>{t('settings.aboutUs')}</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>{t('settings.preferences')}</Text>
-            <View style={[styles.switchRow, styles.lastItem]}>
-              <View style={styles.switchLeft}>
-                <MaterialCommunityIcons
-                  name="moon-waning-crescent"
-                  size={20}
-                  color="#0066FF"
-                />
-                <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>{t('settings.lightDarkMode')}</Text>
-                </View>
-              </View>
-              <Switch
-                value={darkMode}
-                onValueChange={setDarkMode}
-                trackColor={{ false: '#E0E0E0', true: '#0066FF' }}
-                thumbColor="#FFF"
-              />
-            </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>{t('settings.notifications')}</Text>
-
-            <View style={styles.switchRow}>
-              <View style={styles.switchLeft}>
-                <MaterialCommunityIcons name="bell" size={20} color="#0066FF" />
-                <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>{t('settings.systemNotifications')}</Text>
-                </View>
-              </View>
-              <Switch
-                value={systemNotifications}
-                onValueChange={setSystemNotifications}
-                trackColor={{ false: '#E0E0E0', true: '#0066FF' }}
-                thumbColor="#FFF"
-              />
-            </View>
-
-            <View style={styles.switchRow}>
-              <View style={styles.switchLeft}>
-                <MaterialCommunityIcons name="message-alert" size={20} color="#0066FF" />
-                <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>{t('settings.pushNotifications')}</Text>
-                </View>
-              </View>
-              <Switch
-                value={pushNotifications}
-                onValueChange={setPushNotifications}
-                trackColor={{ false: '#E0E0E0', true: '#0066FF' }}
-                thumbColor="#FFF"
-              />
-            </View>
-
-            <View style={styles.switchRow}>
-              <View style={styles.switchLeft}>
-                <MaterialCommunityIcons name="message-text" size={20} color="#0066FF" />
-                <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>{t('settings.smsAlerts')}</Text>
-                </View>
-              </View>
-              <Switch
-                value={smsAlerts}
-                onValueChange={setSmsAlerts}
-                trackColor={{ false: '#E0E0E0', true: '#0066FF' }}
-                thumbColor="#FFF"
-              />
-            </View>
-
-            <View style={styles.switchRow}>
-              <View style={styles.switchLeft}>
-                <MaterialCommunityIcons name="email" size={20} color="#0066FF" />
-                <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>{t('settings.emailUpdates')}</Text>
-                </View>
-              </View>
-              <Switch
-                value={emailUpdates}
-                onValueChange={setEmailUpdates}
-                trackColor={{ false: '#E0E0E0', true: '#0066FF' }}
-                thumbColor="#FFF"
-              />
-            </View>
-
-            <View style={[styles.switchRow, styles.lastItem]}>
-              <View style={styles.switchLeft}>
-                <MaterialCommunityIcons name="calendar" size={20} color="#0066FF" />
-                <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>{t('settings.bookingUpdates')}</Text>
-                </View>
-              </View>
-              <Switch
-                value={bookingUpdates}
-                onValueChange={setBookingUpdates}
-                trackColor={{ false: '#E0E0E0', true: '#0066FF' }}
-                thumbColor="#FFF"
-              />
-            </View>
-          </View>
-
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <MaterialCommunityIcons name="logout" size={20} color= '#FFF' />
+            <MaterialCommunityIcons name="logout" size={20} color="#FFFFFF" />
             <Text style={styles.logoutText}>{t('settings.logOut')}</Text>
           </TouchableOpacity>
         </View>
@@ -764,7 +677,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                 <MaterialCommunityIcons
                   name="check"
                   size={20}
-                  color="#0066FF"
+                  color="#2F6BFF"
                   style={styles.checkIcon}
                 />
                 )}
@@ -894,7 +807,7 @@ function createStyles({
       width: isSmallPhone ? 68 : 76,
       height: isSmallPhone ? 68 : 76,
       borderRadius: 999,
-      backgroundColor: '#E3F2FD',
+      backgroundColor: '#EAF2FF',
       justifyContent: 'center',
       alignItems: 'center',
       overflow: 'hidden',
@@ -939,18 +852,18 @@ function createStyles({
     completionPercent: {
       fontSize: 16,
       fontWeight: "700",
-      color: '#0066FF',
+      color: '#2F6BFF',
     },
     progressBar: {
       height: 5,
-      backgroundColor: '#E0E0E0',
+      backgroundColor: '#E2E8F0',
       borderRadius: 2.5,
       marginBottom: 12,
       overflow: 'hidden',
     },
     progressFill: {
       height: '100%',
-      backgroundColor: '#0066FF',
+      backgroundColor: '#2F6BFF',
       borderRadius: 2.5,
     },
     completionSubtitle: {
@@ -971,13 +884,13 @@ function createStyles({
       gap: 6,
       paddingVertical: 8,
       paddingHorizontal: 10,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: '#F1F5F9',
       borderRadius: 8,
       minWidth: isCompact ? '47%' : 0,
       flexGrow: 1,
     },
     activeCompletionTab: {
-      backgroundColor: '#E3F2FD',
+      backgroundColor: '#EAF2FF',
     },
     completionTabText: {
       fontSize: 10,
@@ -985,7 +898,7 @@ function createStyles({
       color: '#666',
     },
     activeCompletionTabText: {
-      color: '#0066FF',
+      color: '#2F6BFF',
       fontWeight: "700",
     },
     detailItem: {
@@ -1003,7 +916,7 @@ function createStyles({
       width: 38,
       height: 38,
       borderRadius: 8,
-      backgroundColor: '#F5F5F5',
+      backgroundColor: '#F1F5F9',
       justifyContent: 'center',
       alignItems: 'center',
       flexShrink: 0,
@@ -1030,7 +943,7 @@ function createStyles({
       gap: 6,
     },
     validBadge: {
-      backgroundColor: '#E7F5EC',
+      backgroundColor: '#DCFCE7',
       paddingHorizontal: 6,
       paddingVertical: 1,
       borderRadius: 3,
@@ -1041,10 +954,10 @@ function createStyles({
       color: '#22C55E',
     },
     validBadgeStyle:{
-      backgroundColor: '#E7F5EC',
+      backgroundColor: '#DCFCE7',
     },
     expiredBadge: {
-      backgroundColor: '#FDE8E8',
+      backgroundColor: '#FEE2E2',
       paddingHorizontal: 6,
       paddingVertical: 1,
       borderRadius: 3,
@@ -1154,13 +1067,13 @@ function createStyles({
       gap: 8,
       borderRadius: 12,
       borderWidth: 1.5,
-      borderColor: '#0066FF',
-      backgroundColor: '#0066FF',
+      borderColor: '#E53935',
+      backgroundColor: '#E53935',
     },
     logoutText: {
       fontSize: 14,
       fontWeight: "700",
-      color: '#FFF',
+      color: '#FFFFFF',
     },
     profileImage: {
       width: '100%',
@@ -1209,7 +1122,7 @@ function createStyles({
       padding: 8,
     },
     savePasswordButton: {
-      backgroundColor: '#0066FF',
+      backgroundColor: '#2F6BFF',
       borderRadius: 9,
       paddingHorizontal: 14,
       paddingVertical: 10,
@@ -1259,7 +1172,7 @@ function createStyles({
   okText: {
     fontSize: 16,
     fontWeight: "700",
-    color: '#0066FF',
+    color: '#2F6BFF',
     paddingVertical: 8,
     paddingHorizontal: 12,
   },

@@ -13,6 +13,39 @@ export interface AdminNotificationDto {
   adminId: number | null;
 }
 
+export type AdminNoticeCategory = "All" | "Approvals" | "Support" | "Emergency";
+
+export type AdminNoticeSection = Exclude<AdminNoticeCategory, "All"> | "Other";
+
+export const adminNotificationTabs: AdminNoticeCategory[] = [
+  "All",
+  "Approvals",
+  "Support",
+  "Emergency",
+];
+
+/**
+ * Maps a stored notification type onto the tab it belongs in.
+ *
+ * The tabs follow what an admin has to do about a notice rather than which
+ * module raised it: trip and contract requests both wait on a decision, so
+ * they share Approvals. Types with no entry fall through to "Other" and stay
+ * reachable under All without needing a code change here.
+ */
+const sectionByType: Record<string, AdminNoticeSection> = {
+  booking: "Approvals",
+  system_alert: "Approvals",
+  complaint: "Support",
+  sos: "Emergency",
+};
+
+export function sectionForType(
+  notificationType: string | null | undefined,
+): AdminNoticeSection {
+  if (!notificationType) return "Other";
+  return sectionByType[notificationType.toLowerCase()] ?? "Other";
+}
+
 interface ApiResponse<T> {
   success: boolean;
   message: string;

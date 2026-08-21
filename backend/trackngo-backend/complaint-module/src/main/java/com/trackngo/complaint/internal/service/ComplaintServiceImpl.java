@@ -8,6 +8,8 @@ import com.trackngo.complaint.internal.repository.ComplaintRepository;
 import com.trackngo.commons.events.EventPublisher;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import com.trackngo.notification.api.NotificationDispatcher;
+import com.trackngo.notification.api.NotificationType;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,6 +47,7 @@ public class ComplaintServiceImpl implements ComplaintService {
     private final ComplaintRepository repository;
     private final EventPublisher eventPublisher;
     private final JdbcTemplate jdbc;
+    private final NotificationDispatcher notifications;
 
     @Value("${trackngo.time-zone:Asia/Colombo}")
     private String timeZoneId;
@@ -74,6 +77,34 @@ public class ComplaintServiceImpl implements ComplaintService {
         applyCreateFields(entity, dto, email);
         Complaint saved = repository.save(entity);
         eventPublisher.publish(new ComplaintCreatedEvent(saved.getId()));
+
+        notifications.toPassenger(
+            saved.getPassengerId(),
+            NotificationType.COMPLAINT,
+            "Complaint Received",
+            "Your complaint about " + complaintTypeLabel(saved.getComplaintType())
+                + (saved.getBookingReference() == null ? "" : " for booking " + saved.getBookingReference())
+                + " has been received. Our support team will review it shortly."
+        );
+
+        notifications.toDriver(
+            resolveBookingDriverId(saved.getBookingReference()),
+            NotificationType.COMPLAINT,
+            "Complaint Filed About Your Trip",
+            "A passenger raised a complaint about " + complaintTypeLabel(saved.getComplaintType())
+                + (saved.getBookingReference() == null ? "" : " for booking " + saved.getBookingReference())
+                + ". Our support team is reviewing it."
+        );
+
+        notifications.toAllAdmins(
+            NotificationType.COMPLAINT,
+            "New Complaint Submitted",
+            "A " + saved.getPriority() + "-priority complaint about "
+                + complaintTypeLabel(saved.getComplaintType())
+                + (saved.getBookingReference() == null ? "" : " for booking " + saved.getBookingReference())
+                + " is waiting for review."
+        );
+
         return toDto(saved);
     }
 
@@ -315,6 +346,47 @@ public class ComplaintServiceImpl implements ComplaintService {
         }
 
         return bookingReference;
+    }
+
+    /**
+     * Finds the driver who ran the trip a complaint is about.
+     *
+     * The complaint's own driver_id is not always populated, so the booking is
+     * the reliable route to the driver - the same resolution the admin
+     * dashboard and the driver complaint list already use.
+     */
+    private Long resolveBookingDriverId(String bookingReference) {
+        if (bookingReference == null) {
+            return null;
+        }
+
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            """
+            SELECT b.driver_id
+            FROM seat_booking sb
+            INNER JOIN bus b ON b.bus_id = sb.bus_id
+            WHERE sb.booking_reference = ?
+            """,
+            bookingReference
+        );
+        if (rows == null || rows.isEmpty()) {
+            return null;
+        }
+        return rows.get(0).get("driver_id") instanceof Number number ? number.longValue() : null;
+    }
+
+    /** Describes a complaint type in the wording used inside notification messages. */
+    private String complaintTypeLabel(String complaintType) {
+        return switch (normalizeKey(complaintType)) {
+            case "driver_behavior" -> "driver behaviour";
+            case "bus_condition" -> "bus condition";
+            case "route_issue" -> "a route issue";
+            case "late_arrival" -> "a late arrival";
+            case "payment_issue" -> "a payment issue";
+            case "booking_issue" -> "a booking issue";
+            case "safety_concern" -> "a safety concern";
+            default -> "your journey";
+        };
     }
 
     /** Normalizes and validates the complaint type. */

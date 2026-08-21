@@ -8,6 +8,7 @@ import com.trackngo.complaint.internal.entity.Complaint;
 import com.trackngo.complaint.internal.repository.ComplaintRepository;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import com.trackngo.notification.api.NotificationDispatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,12 +44,15 @@ class AdminComplaintServiceTest {
     @Mock
     private ComplaintRepository repository;
 
+    @Mock
+    private NotificationDispatcher notifications;
+
     private AdminComplaintService service;
 
     /** Creates a fresh service instance with a real object mapper for image parsing tests. */
     @BeforeEach
     void setUp() {
-        service = new AdminComplaintService(jdbc, repository, new ObjectMapper());
+        service = new AdminComplaintService(jdbc, repository, new ObjectMapper(), notifications);
     }
 
     /** Verifies that the admin complaint list row is transformed into dashboard-friendly labels. */

@@ -183,21 +183,21 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
   }
 
   return (
-    <div className="dashboard-card flex h-full flex-col rounded-xl border border-[#e5e7eb] bg-white p-5">
+    <div className="flex h-full flex-col rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[#eef2ff] text-[#2642a6]">
             <FontAwesomeIcon icon={faUser} />
           </div>
           <div>
-            <h3 className="text-lg font-extrabold text-[#111827]">Profile Picture</h3>
-            <p className="mt-0.5 text-xs font-medium text-[#64748b]">Keep your admin profile up to date</p>
+            <h2 className="text-lg font-extrabold text-[#111827]">Profile Picture</h2>
+            <p className="mt-1 text-sm text-[#64748b]">Keep your admin profile up to date</p>
           </div>
         </div>
-        <span className="rounded-full bg-[#f1f5f9] px-2.5 py-1 text-xs font-bold text-[#64748b]">Admin</span>
+        <span className="rounded-full bg-[#f1f5f9] px-2.5 py-0.5 text-xs font-bold text-[#64748b]">Admin</span>
       </div>
 
-      <div className="mt-5 flex flex-1 items-center gap-5 rounded-xl border border-[#edf0f5] bg-[#f8fafc] p-4">
+      <div className="mt-5 flex flex-1 items-center gap-5 rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-white bg-[#eef2ff] object-cover shadow-[0_0_0_1px_#cfd8f5,0_6px_14px_rgba(38,66,166,0.12)]">
           <img
             src={effectivePreview}
@@ -228,9 +228,9 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
             type="button"
             disabled={isUploading}
             onClick={() => fileInputRef.current?.click()}
-            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-3.5 py-2 text-xs font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <FontAwesomeIcon icon={faCamera} className="text-[10px]" />
+            <FontAwesomeIcon icon={faCamera} className="text-xs" />
             {isUploading ? 'Processing...' : 'Upload New Photo'}
           </button>
         </div>

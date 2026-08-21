@@ -16,10 +16,11 @@ export default function TabLayout() {
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: "#2F6BFF",
         tabBarInactiveTintColor: "#9AA4B2",
-        tabBarLabelStyle: { fontSize: 12, fontWeight: "600", marginBottom: 2 },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
         tabBarStyle: {
           height: 62,
           paddingTop: 6,
+          paddingBottom: 6,
           backgroundColor: "#FFFFFF",
           borderTopWidth: 1,
           borderTopColor: "#E9EDF3",

@@ -28,10 +28,10 @@ import {
 import { useSession } from "../../store/sessionStore";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Notification">;
-type PassengerCategory = "Bookings" | "Payments" | "Journeys";
+type PassengerCategory = "Bookings" | "Payments" | "Journeys" | "Support";
 type CorporateCategory = "Contracts" | "Billing" | "Updates";
 type NoticeCategory = "All" | PassengerCategory | CorporateCategory;
-type ApiFilterType = "booking" | "payment" | "journey";
+type ApiFilterType = "booking" | "payment" | "journey" | "complaint";
 
 type NoticeItem = {
   id: number;
@@ -47,20 +47,31 @@ type NoticeItem = {
   iconBackground: string;
 };
 
-const passengerTabs: NoticeCategory[] = ["All", "Bookings", "Payments", "Journeys"];
+const passengerTabs: NoticeCategory[] = [
+  "All",
+  "Bookings",
+  "Payments",
+  "Journeys",
+  "Support",
+];
 const corporateTabs: NoticeCategory[] = ["All", "Contracts", "Billing", "Updates"];
 
 const tabToApiType: Partial<Record<NoticeCategory, ApiFilterType>> = {
   Bookings: "booking",
   Payments: "payment",
   Journeys: "journey",
+  Support: "complaint",
 };
 
+// Types without an entry here fall back to "Other", which keeps them out of the
+// category tabs while still listing them under All - promotions, SOS receipts
+// and system notices are all reached that way.
 const categoryByType: Record<string, NoticeItem["category"]> = {
   booking: "Bookings",
   cancellation: "Bookings",
   payment: "Payments",
   journey: "Journeys",
+  complaint: "Support",
 };
 
 // A corporate account never sees seat bookings or journeys — its feed is about
@@ -121,6 +132,16 @@ const iconByType: Record<
     icon: "alert-circle",
     iconColor: "#DC2626",
     iconBackground: "#FEE2E2",
+  },
+  system_alert: {
+    icon: "information",
+    iconColor: "#475569",
+    iconBackground: "#E2E8F0",
+  },
+  system: {
+    icon: "information",
+    iconColor: "#475569",
+    iconBackground: "#E2E8F0",
   },
 };
 
@@ -410,7 +431,10 @@ export function NotificationScreen({ navigation }: Props) {
               style={[styles.tabChip, active && styles.tabActive]}
               onPress={() => setActiveTab(tab)}
             >
-              <Text style={active ? styles.tabActiveText : styles.tabText}>
+              <Text
+                numberOfLines={1}
+                style={active ? styles.tabActiveText : styles.tabText}
+              >
                 {tab}
               </Text>
             </Pressable>
@@ -496,30 +520,43 @@ const styles = StyleSheet.create({
     color: "#1F2937",
     textAlign: "center",
   },
+  // All five passenger tabs share one row. The row is inset less than the cards
+  // below it so the chips get the extra width they need to stay on one line.
   tabsRow: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     flexDirection: "row",
-    gap: 8,
+    gap: 5,
     marginBottom: 8,
   },
+  // flexGrow with an auto basis sizes every chip to its own label first and
+  // only then shares the leftover width. An equal split would hand "All" as
+  // much room as "Payments" and clip the longer labels.
   tabChip: {
-    paddingHorizontal: 14,
+    flexGrow: 1,
+    flexBasis: "auto",
+    paddingHorizontal: 5,
     paddingVertical: 7,
     borderRadius: 18,
     backgroundColor: "#EEF2F7",
+    alignItems: "center",
+    justifyContent: "center",
   },
   tabActive: {
     backgroundColor: "#1A73E8",
   },
+  // 11 is the meta step of this screen type scale, the smallest size that keeps
+  // the longest label ("Payments") inside its share of a narrow screen.
   tabText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: "#7B8794",
+    textAlign: "center",
   },
   tabActiveText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: "#FFFFFF",
+    textAlign: "center",
   },
   scrollContent: {
     paddingHorizontal: 16,

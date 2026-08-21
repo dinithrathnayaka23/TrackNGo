@@ -2,6 +2,7 @@ package com.trackngo.sos.internal.service;
 
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import com.trackngo.notification.api.NotificationDispatcher;
 import com.trackngo.sos.api.dto.SosAlertDto;
 import com.trackngo.sos.api.dto.TriggerSosAlertRequest;
 import com.trackngo.sos.internal.entity.EmergencyContact;
@@ -48,6 +49,9 @@ class SosAlertServiceImplTest {
 
     @Mock
     private SmsProvider smsProvider;
+
+    @Mock
+    private NotificationDispatcher notifications;
 
     @InjectMocks
     private SosAlertServiceImpl service;

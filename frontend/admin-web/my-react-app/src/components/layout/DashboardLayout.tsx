@@ -261,7 +261,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
                     >
                       {crumb}
                     </span>
-                    {!isLast ? <FontAwesomeIcon icon={faChevronRight} className="hidden text-[10px] text-[#cbd5e1] sm:inline" /> : null}
+                    {!isLast ? <FontAwesomeIcon icon={faChevronRight} className="hidden text-2xs text-[#cbd5e1] sm:inline" /> : null}
                   </div>
                 );
               })}
@@ -286,7 +286,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
               >
                 <FontAwesomeIcon icon={faBell} />
                 {unreadCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 min-h-4 min-w-4 rounded-full bg-[#f24f4f] px-1 text-[10px] font-semibold leading-4 text-white">
+                  <span className="absolute -right-1 -top-1 min-h-4 min-w-4 rounded-full bg-[#f24f4f] px-1 text-2xs font-semibold leading-4 text-white">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 ) : null}

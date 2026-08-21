@@ -179,7 +179,7 @@ function ForgotPassword() {
       <div className="w-full max-w-[520px]">
         {step === 'identify' && (
           <>
-            <h2 className="animate-auth-fade-up text-sm font-bold leading-tight text-[#121b33]">Recover Password</h2>
+            <h2 className="animate-auth-fade-up text-xl font-extrabold tracking-tight leading-tight text-[#121b33]">Recover Password</h2>
             <p className="animate-auth-fade-up mt-2 text-sm text-[#5b6476]" style={{ animationDelay: '90ms' }}>
               Choose how you'd like to receive your verification code.
             </p>
@@ -197,10 +197,10 @@ function ForgotPassword() {
                     setIdentifierError('')
                   }}
                   disabled={loading}
-                  className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
+                  className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
                     channel === 'EMAIL'
-                      ? 'border-[#2342a6] bg-[#2342a6]/10 text-[#2342a6]'
-                      : 'border-[#d9dce4] bg-[#f7f7f9] text-[#5b6476]'
+                      ? 'border-[#2642a6] bg-[#2642a6]/10 text-[#2642a6]'
+                      : 'border-[#d6dbe6] bg-white text-[#334155]'
                   }`}
                 >
                   <FontAwesomeIcon icon={faEnvelope} />
@@ -213,10 +213,10 @@ function ForgotPassword() {
                     setIdentifierError('')
                   }}
                   disabled={loading}
-                  className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
+                  className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
                     channel === 'PHONE'
-                      ? 'border-[#2342a6] bg-[#2342a6]/10 text-[#2342a6]'
-                      : 'border-[#d9dce4] bg-[#f7f7f9] text-[#5b6476]'
+                      ? 'border-[#2642a6] bg-[#2642a6]/10 text-[#2642a6]'
+                      : 'border-[#d6dbe6] bg-white text-[#334155]'
                   }`}
                 >
                   <FontAwesomeIcon icon={faMobileScreenButton} />
@@ -228,7 +228,7 @@ function ForgotPassword() {
                 <label htmlFor="fp-identifier" className="mb-2 block text-sm font-semibold text-[#4d5564]">
                   {channel === 'EMAIL' ? 'Email Address' : 'Phone Number'}
                 </label>
-                <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+                <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
                   <FontAwesomeIcon icon={channel === 'EMAIL' ? faEnvelope : faMobileScreenButton} className="mr-3 text-[#8b92a1]" />
                   <input
                     id="fp-identifier"
@@ -254,7 +254,7 @@ function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading}
-                className="animate-auth-fade-up flex h-10 w-full items-center justify-center gap-4 rounded-xl bg-[#2342a6] text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#1f3a93] hover:shadow-[0_12px_26px_rgba(35,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="animate-auth-fade-up flex w-full items-center justify-center gap-2 rounded-lg bg-[#2642a6] py-2.5 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96] hover:shadow-[0_12px_26px_rgba(38,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ animationDelay: '240ms' }}
               >
                 {loading ? 'Sending...' : 'Send Verification Code'}
@@ -266,7 +266,7 @@ function ForgotPassword() {
 
         {step === 'otp' && (
           <>
-            <h2 className="animate-auth-fade-up text-sm font-bold leading-tight text-[#121b33]">Enter Verification Code</h2>
+            <h2 className="animate-auth-fade-up text-xl font-extrabold tracking-tight leading-tight text-[#121b33]">Enter Verification Code</h2>
             <p className="animate-auth-fade-up mt-2 text-sm text-[#5b6476]" style={{ animationDelay: '90ms' }}>
               We sent a code to <span className="font-semibold text-[#20283a]">{maskedDestination}</span>
             </p>
@@ -280,7 +280,7 @@ function ForgotPassword() {
                 <label htmlFor="fp-otp" className="mb-2 block text-sm font-semibold text-[#4d5564]">
                   6-Digit Code
                 </label>
-                <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+                <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
                   <FontAwesomeIcon icon={faShieldHalved} className="mr-3 text-[#8b92a1]" />
                   <input
                     id="fp-otp"
@@ -319,7 +319,7 @@ function ForgotPassword() {
                   type="button"
                   onClick={handleResend}
                   disabled={loading || resendCooldown > 0}
-                  className="font-semibold text-[#129a8f] disabled:cursor-not-allowed disabled:text-[#a3a9b5]"
+                  className="font-semibold text-[#2642a6] disabled:cursor-not-allowed disabled:text-[#a3a9b5]"
                 >
                   {resendCooldown > 0 ? `Resend Code (${resendCooldown}s)` : 'Resend Code'}
                 </button>
@@ -328,7 +328,7 @@ function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading}
-                className="animate-auth-fade-up flex h-10 w-full items-center justify-center gap-4 rounded-xl bg-[#2342a6] text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#1f3a93] hover:shadow-[0_12px_26px_rgba(35,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="animate-auth-fade-up flex w-full items-center justify-center gap-2 rounded-lg bg-[#2642a6] py-2.5 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96] hover:shadow-[0_12px_26px_rgba(38,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ animationDelay: '270ms' }}
               >
                 {loading ? 'Verifying...' : 'Verify Code'}
@@ -340,7 +340,7 @@ function ForgotPassword() {
 
         {step === 'password' && (
           <>
-            <h2 className="animate-auth-fade-up text-sm font-bold leading-tight text-[#121b33]">Set New Password</h2>
+            <h2 className="animate-auth-fade-up text-xl font-extrabold tracking-tight leading-tight text-[#121b33]">Set New Password</h2>
             <p className="animate-auth-fade-up mt-2 text-sm text-[#5b6476]" style={{ animationDelay: '90ms' }}>
               Choose a new password for your admin account.
             </p>
@@ -354,7 +354,7 @@ function ForgotPassword() {
                 <label htmlFor="fp-new-password" className="mb-2 block text-sm font-semibold text-[#4d5564]">
                   New Password
                 </label>
-                <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+                <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
                   <FontAwesomeIcon icon={faLock} className="mr-3 text-[#8b92a1]" />
                   <input
                     id="fp-new-password"
@@ -389,7 +389,7 @@ function ForgotPassword() {
                 <label htmlFor="fp-confirm-password" className="mb-2 block text-sm font-semibold text-[#4d5564]">
                   Confirm Password
                 </label>
-                <div className="flex h-9 items-center rounded-xl border border-[#d9dce4] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+                <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
                   <FontAwesomeIcon icon={faLock} className="mr-3 text-[#8b92a1]" />
                   <input
                     id="fp-confirm-password"
@@ -415,7 +415,7 @@ function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading}
-                className="animate-auth-fade-up flex h-10 w-full items-center justify-center gap-4 rounded-xl bg-[#2342a6] text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#1f3a93] hover:shadow-[0_12px_26px_rgba(35,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="animate-auth-fade-up flex w-full items-center justify-center gap-2 rounded-lg bg-[#2642a6] py-2.5 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96] hover:shadow-[0_12px_26px_rgba(38,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ animationDelay: '270ms' }}
               >
                 {loading ? 'Updating...' : 'Update Password'}
@@ -428,7 +428,7 @@ function ForgotPassword() {
         <div className="animate-auth-fade-up mt-8 border-t border-[#dde0e7] pt-8 text-center" style={{ animationDelay: '420ms' }}>
           <p className="text-sm font-semibold text-[#4d5564]">
             Remembered your password?{' '}
-            <Link to="/login" className="text-[#129a8f]">
+            <Link to="/login" className="text-[#2642a6]">
               Back to Login
             </Link>
           </p>

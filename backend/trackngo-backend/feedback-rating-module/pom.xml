@@ -38,6 +38,11 @@
       <artifactId>commons</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.trackngo</groupId>
+      <artifactId>notification-module</artifactId>
+      <version>${project.version}</version>
+    </dependency>
   </dependencies>
 </project>
 

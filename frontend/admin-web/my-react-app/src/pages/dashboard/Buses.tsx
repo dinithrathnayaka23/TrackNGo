@@ -281,7 +281,7 @@ function Buses() {
           <button
             type="button"
             onClick={openAddModal}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]"
           >
             <FontAwesomeIcon icon={faPlus} className="text-xs" />
             Add New Bus
@@ -293,7 +293,7 @@ function Buses() {
       <div className="animate-dash-in grid gap-4 sm:grid-cols-2 lg:grid-cols-4" style={{ animationDelay: '100ms' }}>
         <article className="flex items-center justify-between rounded-xl border border-[#e5e7eb] bg-white px-5 py-4">
           <div>
-            <p className="text-sm text-[#64748b]">Total Buses</p>
+            <p className="text-sm text-[#64748b] font-semibold">Total Buses</p>
             <p className="mt-1 text-2xl font-extrabold text-[#111827]">{TOTAL}</p>
           </div>
           <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f1f5f9] text-[#334155]">
@@ -302,7 +302,7 @@ function Buses() {
         </article>
         <article className="flex items-center justify-between rounded-xl border border-[#e5e7eb] bg-white px-5 py-4">
           <div>
-            <p className="text-sm text-[#64748b]">Active</p>
+            <p className="text-sm text-[#64748b] font-semibold">Active</p>
             <p className="mt-1 text-2xl font-extrabold text-[#16a34a]">{ACTIVE_COUNT}</p>
           </div>
           <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#dcfce7] text-[#16a34a]">
@@ -311,7 +311,7 @@ function Buses() {
         </article>
         <article className="flex items-center justify-between rounded-xl border border-[#e5e7eb] bg-white px-5 py-4">
           <div>
-            <p className="text-sm text-[#64748b]">Maintenance</p>
+            <p className="text-sm text-[#64748b] font-semibold">Maintenance</p>
             <p className="mt-1 text-2xl font-extrabold text-[#f59e0b]">{MAINTENANCE_COUNT}</p>
           </div>
           <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#fef3c7] text-[#f59e0b]">
@@ -320,7 +320,7 @@ function Buses() {
         </article>
         <article className="flex items-center justify-between rounded-xl border border-[#e5e7eb] bg-white px-5 py-4">
           <div>
-            <p className="text-sm text-[#64748b]">Inactive</p>
+            <p className="text-sm text-[#64748b] font-semibold">Inactive</p>
             <p className="mt-1 text-2xl font-extrabold text-[#dc2626]">{INACTIVE_COUNT}</p>
           </div>
           <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#fee2e2] text-[#dc2626]">
@@ -437,7 +437,7 @@ function Buses() {
             <div className="p-4">
               {/* Bus number and AC type badge */}
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-base font-extrabold text-[#111827]">{bus.busNumber}</h3>
+                <h3 className="text-sm font-bold text-[#111827]">{bus.busNumber}</h3>
                 <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
                   acType === 'AC'
                     ? 'bg-[#dbeafe] text-[#2563eb]'
@@ -457,7 +457,7 @@ function Buses() {
               {/* Driver information */}
               <div className="mt-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="grid h-7 w-7 place-items-center rounded-full bg-[#e0e7ff] text-[10px] font-bold text-[#3b5998]">
+                  <div className="grid h-7 w-7 place-items-center rounded-full bg-[#e0e7ff] text-2xs font-bold text-[#3b5998]">
                     {initials}
                   </div>
                   <span className="text-sm font-medium text-[#334155]">{bus.driverName || 'Unassigned'}</span>
@@ -472,7 +472,7 @@ function Buses() {
                     <p className="text-xs text-[#94a3b8]">Route</p>
                     <p className="mt-0.5 break-words text-sm font-bold leading-snug text-[#111827]">{bus.routeName || 'None'}</p>
                   </div>
-                  <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#eff6ff] px-2.5 py-1 text-[10px] font-semibold text-[#1d4ed8]">
+                  <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#eff6ff] px-2.5 py-1 text-2xs font-semibold text-[#1d4ed8]">
                     {busTypeLabel}
                   </span>
                 </div>
@@ -480,16 +480,16 @@ function Buses() {
                 <div className="mt-3 grid gap-2">
                   <div className="rounded-lg border border-[#dbeafe] bg-[#f8fbff] px-3 py-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Outbound</span>
-                      <FontAwesomeIcon icon={faClock} className="text-[11px] text-[#60a5fa]" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-[#64748b]">Outbound</span>
+                      <FontAwesomeIcon icon={faClock} className="text-xs text-[#60a5fa]" />
                     </div>
                     <p className="mt-1 text-sm font-bold text-[#1d4ed8]">{outboundWindow}</p>
                   </div>
 
                   <div className="rounded-lg border border-[#e5e7eb] bg-[#f8fafc] px-3 py-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Return</span>
-                      <FontAwesomeIcon icon={faClock} className="text-[11px] text-[#94a3b8]" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-[#64748b]">Return</span>
+                      <FontAwesomeIcon icon={faClock} className="text-xs text-[#94a3b8]" />
                     </div>
                     <p className="mt-1 text-sm font-bold text-[#334155]">{returnWindow}</p>
                   </div>
@@ -755,7 +755,7 @@ function Buses() {
                 type="button"
                 onClick={handleAddBus}
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#203b96] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#203b96] disabled:opacity-60"
               >
                 {saving && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />}
                 {saving ? 'Creating...' : 'Create Bus'}

@@ -7,6 +7,7 @@ import com.trackngo.complaint.internal.repository.ComplaintRepository;
 import com.trackngo.commons.events.EventPublisher;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import com.trackngo.notification.api.NotificationDispatcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -46,6 +47,9 @@ class ComplaintServiceImplTest {
 
     @Mock
     private JdbcTemplate jdbc;
+
+    @Mock
+    private NotificationDispatcher notifications;
 
     @InjectMocks
     private ComplaintServiceImpl service;

@@ -31,7 +31,7 @@ import {
   getRecentUpcomingBookings,
   type RecentBookingDto,
 } from "../../services/bookingsApi";
-import { getPassengerNotifications } from "../../services/notificationsApi";
+import { getPassengerUnreadCount } from "../../services/notificationsApi";
 import { getUserProfile } from "../../services/userProfileApi";
 import { useSession } from "../../store/sessionStore";
 
@@ -278,7 +278,7 @@ export default function HomeScreen() {
   const hasLoadedRecentRef = useRef(false);
   const [now, setNow] = useState(() => new Date());
   const [displayName, setDisplayName] = useState("User");
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   /**
    * Fetches user profile to display proper name on dashboard
@@ -349,18 +349,11 @@ export default function HomeScreen() {
 
   const loadUnreadNotifications = useCallback(async () => {
     if (!currentUser) {
-      setHasUnreadNotifications(false);
+      setUnreadNotifications(0);
       return;
     }
 
-    try {
-      const notifications = await getPassengerNotifications(currentUser.userId);
-      setHasUnreadNotifications(
-        notifications.some((notification) => !notification.read),
-      );
-    } catch (error) {
-      console.error("[HomeScreen] Failed to load notifications", error);
-    }
+    setUnreadNotifications(await getPassengerUnreadCount(currentUser.userId));
   }, [currentUser]);
 
   // Refresh data whenever the screen comes into focus
@@ -374,7 +367,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!currentUser) {
-      setHasUnreadNotifications(false);
+      setUnreadNotifications(0);
       return;
     }
 
@@ -496,8 +489,12 @@ export default function HomeScreen() {
                   size={20}
                   color="#1F2937"
                 />
-                {hasUnreadNotifications ? (
-                  <View style={styles.notificationDot} />
+                {unreadNotifications > 0 ? (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>
+                      {unreadNotifications > 9 ? "9+" : String(unreadNotifications)}
+                    </Text>
+                  </View>
                 ) : null}
               </View>
             </PressScale>
@@ -801,14 +798,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  notificationDot: {
+  notificationBadge: {
     position: "absolute",
-    top: 2,
-    right: 2,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
     backgroundColor: "#FF4D5A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notificationBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   greetingBlock: {
     marginBottom: 18,

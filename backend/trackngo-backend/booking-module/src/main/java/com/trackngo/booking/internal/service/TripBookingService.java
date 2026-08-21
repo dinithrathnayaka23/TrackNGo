@@ -9,6 +9,8 @@ import com.trackngo.booking.api.dto.TripBookingReviewRequest;
 import com.trackngo.booking.api.dto.TripBusResponse;
 import com.trackngo.booking.internal.entity.TripBooking;
 import com.trackngo.booking.internal.repository.TripBookingRepository;
+import com.trackngo.notification.api.NotificationDispatcher;
+import com.trackngo.notification.api.NotificationType;
 import org.springframework.dao.DuplicateKeyException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -39,6 +41,7 @@ public class TripBookingService {
     private final TripBookingRepository tripBookingRepository;
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
+    private final NotificationDispatcher notifications;
 
     public List<TripBooking> getAllBookings() {
         String sql = "SELECT * FROM trip_booking ORDER BY trip_booking_id DESC";
@@ -84,7 +87,18 @@ public class TripBookingService {
         booking.setDiscountAmount(BigDecimal.ZERO.setScale(2));
         booking.setBookingStatus("pending");
         booking.setPassengerId(passengerId);
-        return enrich(tripBookingRepository.save(booking));
+        TripBooking submitted = enrich(tripBookingRepository.save(booking));
+
+        notifications.toPassenger(
+                passengerId,
+                NotificationType.BOOKING,
+                "Trip Request Submitted",
+                "Your trip request from " + submitted.getStartLocation() + " to " + submitted.getDestination()
+                        + " on " + submitted.getStartDate() + " for " + submitted.getPassengerCount()
+                        + " passenger(s) was submitted. We will let you know once it has been reviewed."
+        );
+
+        return submitted;
     }
 
     @Transactional
@@ -116,7 +130,17 @@ public class TripBookingService {
         jdbc.update("UPDATE trip_booking SET bus_id = ?, booking_status = 'pending' WHERE trip_booking_id = ?", busId, bookingId);
         booking.setBusId(busId);
         booking.setBookingStatus("pending");
-        return enrich(booking);
+        TripBooking assigned = enrich(booking);
+
+        notifications.toPassenger(
+                passengerId,
+                NotificationType.JOURNEY,
+                "Bus Reserved for Your Trip",
+                "Bus " + assigned.getBusNumber() + " is held for your trip to " + assigned.getDestination()
+                        + ". The request is now waiting for admin approval."
+        );
+
+        return assigned;
     }
 
     @Transactional
@@ -141,6 +165,17 @@ public class TripBookingService {
             releaseBusDates(bookingId);
             booking.setBookingStatus("cancelled");
             booking.setAdminNote(cleanNote(request.adminNote()));
+
+            String declineNote = cleanNote(request.adminNote());
+            notifications.toPassenger(
+                    booking.getPassengerId(),
+                    NotificationType.CANCELLATION,
+                    "Trip Request Declined",
+                    "Your trip request from " + booking.getStartLocation() + " to " + booking.getDestination()
+                            + " could not be approved."
+                            + (declineNote == null ? "" : " Reason: " + declineNote)
+            );
+
             return enrich(booking);
         }
         if (booking.getBusId() == null) {
@@ -168,6 +203,17 @@ public class TripBookingService {
         booking.setDiscountAmount(discount.setScale(2, RoundingMode.HALF_UP));
         booking.setAdminNote(note);
         booking.setBookingStatus("confirmed");
+
+        notifications.toPassenger(
+                booking.getPassengerId(),
+                NotificationType.BOOKING,
+                "Trip Request Approved",
+                "Your trip from " + booking.getStartLocation() + " to " + booking.getDestination()
+                        + " is approved at " + formatAmount(finalPrice) + ". Pay the advance of "
+                        + formatAmount(advance) + " to confirm the booking."
+                        + (note == null ? "" : " Note from admin: " + note)
+        );
+
         return enrich(booking);
     }
 
@@ -286,6 +332,15 @@ public class TripBookingService {
                         transactionId, booking.getAdvancePayment(), session.getPaymentIntent(), bookingId);
             }
             jdbc.update("UPDATE trip_booking SET booking_status = 'confirmed' WHERE trip_booking_id = ?", bookingId);
+
+            notifications.toPassenger(
+                    passengerId,
+                    NotificationType.PAYMENT,
+                    "Advance Payment Received",
+                    formatAmount(booking.getAdvancePayment()) + " was received for your trip to "
+                            + booking.getDestination() + ". Your trip booking is now confirmed."
+            );
+
             return enrich(booking);
         } catch (StripeException e) {
             throw new IllegalStateException("Stripe payment verification failed.", e);
@@ -355,6 +410,12 @@ public class TripBookingService {
         if (obj == null) return List.of();
         try { return mapper.readValue(obj.toString(), new TypeReference<List<String>>() {}); }
         catch (Exception ignored) { return List.of(); }
+    }
+
+    /** Formats an amount the way the passenger app displays trip prices. */
+    private String formatAmount(BigDecimal amount) {
+        BigDecimal value = amount == null ? BigDecimal.ZERO : amount;
+        return "LKR " + value.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private String cleanNote(String note) {

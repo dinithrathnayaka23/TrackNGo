@@ -9,6 +9,8 @@ import com.trackngo.complaint.internal.entity.Complaint;
 import com.trackngo.complaint.internal.repository.ComplaintRepository;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import com.trackngo.notification.api.NotificationDispatcher;
+import com.trackngo.notification.api.NotificationType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -32,15 +34,22 @@ public class AdminComplaintService {
     private final JdbcTemplate jdbc;
     private final ComplaintRepository repository;
     private final ObjectMapper objectMapper;
+    private final NotificationDispatcher notifications;
 
     @Value("${trackngo.time-zone:Asia/Colombo}")
     private String timeZoneId;
 
-    /** Creates the admin complaint service with its data and JSON helpers. */
-    public AdminComplaintService(JdbcTemplate jdbc, ComplaintRepository repository, ObjectMapper objectMapper) {
+    /** Creates the admin complaint service with its data, JSON and notification helpers. */
+    public AdminComplaintService(
+        JdbcTemplate jdbc,
+        ComplaintRepository repository,
+        ObjectMapper objectMapper,
+        NotificationDispatcher notifications
+    ) {
         this.jdbc = jdbc;
         this.repository = repository;
         this.objectMapper = objectMapper;
+        this.notifications = notifications;
     }
 
     /** Loads complaint rows for the admin dashboard list. */
@@ -85,6 +94,47 @@ public class AdminComplaintService {
         complaint.setAdminResponse(trimToNull(request.adminResponse()));
         complaint.setResolvedAt("resolved".equals(normalizedStatus) ? currentDateTime() : null);
         repository.save(complaint);
+
+        notifyComplaintStatusChange(complaint);
+    }
+
+    /**
+     * Tells the passenger their complaint moved on.
+     *
+     * A move back to "pending" is deliberately silent: the passenger was already
+     * told the complaint was received when they filed it, so repeating that adds
+     * nothing to their feed.
+     */
+    private void notifyComplaintStatusChange(Complaint complaint) {
+        String status = normalizeKey(complaint.getStatus());
+        if ("pending".equals(status)) {
+            return;
+        }
+
+        String title = switch (status) {
+            case "under_review" -> "Complaint Under Review";
+            case "resolved" -> "Complaint Resolved";
+            case "rejected" -> "Complaint Closed";
+            default -> "Complaint Updated";
+        };
+        String message = switch (status) {
+            case "under_review" -> "Your complaint is now being reviewed by our support team.";
+            case "resolved" -> "Your complaint has been resolved.";
+            case "rejected" -> "Your complaint was reviewed and closed without further action.";
+            default -> "Your complaint status changed to " + toStatusLabel(complaint.getStatus()) + ".";
+        };
+
+        String adminResponse = trimToNull(complaint.getAdminResponse());
+        if (adminResponse != null) {
+            message = message + " Support team: " + adminResponse;
+        }
+
+        notifications.toPassenger(
+            complaint.getPassengerId(),
+            NotificationType.COMPLAINT,
+            title,
+            message
+        );
     }
 
     /** Loads the detailed admin view for a single complaint. */

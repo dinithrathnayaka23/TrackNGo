@@ -26,6 +26,7 @@ import {
   formatShiftTime,
   getCorporateContracts,
   getCorporateProfile,
+  isAwaitingFinalization,
   isContractCompleted,
   isContractRunning,
 } from "../../services/corporateApi";
@@ -58,10 +59,19 @@ function statusBadge(status: CorporateContract["status"]): { bg: string; text: s
 
 // ─── Active Contract Card ─────────────────────────────────────────────────────
 
-function ContractCard({ contract, onPress }: { contract: CorporateContract, onPress?: () => void }) {
+function ContractCard({
+  contract,
+  onPress,
+  statusOverride,
+}: {
+  contract: CorporateContract;
+  onPress?: () => void;
+  /** Overrides the badge shown on the card — used for "Request Approved" while still pending finalization. */
+  statusOverride?: { label: string; bg: string; text: string };
+}) {
   const anim = useFadeSlide(120);
-  const badge = statusBadge(contract.status);
-  const displayStatus = displayContractStatus(contract.status);
+  const badge = statusOverride ?? statusBadge(contract.status);
+  const displayStatus = statusOverride?.label ?? displayContractStatus(contract.status);
   const scale = useRef(new Animated.Value(1)).current;
 
   const onPressIn = () =>
@@ -266,7 +276,11 @@ export default function CorporateContractScreen() {
   };
 
   const activeContracts = contracts.filter(isContractRunning);
-  const pendingContracts = contracts.filter((c) => c.status?.toLowerCase() === "pending");
+  // Stays here as "Request Approved" once admin approves, until the user
+  // finalizes it in the negotiation screen — only then does it move to Active.
+  const pendingContracts = contracts.filter(
+    (c) => c.status?.toLowerCase() === "pending" || isAwaitingFinalization(c),
+  );
   // Finished contracts, most recently ended first.
   const historyContracts = contracts
     .filter(isContractCompleted)
@@ -343,6 +357,11 @@ export default function CorporateContractScreen() {
                   <ContractCard
                     key={c.contractId}
                     contract={c}
+                    statusOverride={
+                      isAwaitingFinalization(c)
+                        ? { label: "Request Approved", bg: "#DBEAFE", text: "#1D4ED8" }
+                        : undefined
+                    }
                     onPress={() => router.push(`/corporate/new-contract?contractId=${c.contractId}&step=3`)}
                   />
                 ))

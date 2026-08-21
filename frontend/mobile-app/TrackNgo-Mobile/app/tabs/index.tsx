@@ -749,25 +749,44 @@ export default function HomeScreen() {
 
 // UI Styles for the Dashboard
 const styles = StyleSheet.create({
+  // White behind the status bar so the app bar reads as one continuous band
+  // from the top of the screen down to the divider.
   safeArea: {
     flex: 1,
-    backgroundColor: "#F6F7F9",
+    backgroundColor: "#FFFFFF",
   },
   container: {
     paddingHorizontal: H_PADDING,
+    // The top inset belongs to the white app bar below, not to this grey
+    // container, or a grey strip would show above the white band.
     paddingBottom: 32,
     backgroundColor: "#F6F7F9",
   },
+  // Full-bleed white app bar. The negative horizontal margin cancels the
+  // container padding so the white reaches both screen edges, and the matching
+  // padding puts the branding and bell back where they were.
+  //
+  // paddingTop is deliberately small so the row sits directly beneath the
+  // status bar and the two white strips read as one bar. The unread badge no
+  // longer needs clearance here - it sits inside the bell button.
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    overflow: "visible",
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: -H_PADDING,
+    paddingHorizontal: H_PADDING,
+    paddingTop: 2,
+    paddingBottom: 6,
   },
+  // Edge to edge as well, so it reads as the boundary of the app bar rather
+  // than a rule floating inside the content.
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: "#E9EDF3",
-    marginBottom: 18,
+    marginHorizontal: -H_PADDING,
+    marginBottom: 12,
   },
   brandRow: {
     flexDirection: "row",
@@ -791,17 +810,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
+    overflow: "visible",
   },
+  // Sized to contain the unread badge in its own bounds. A badge hung outside
+  // the button on negative offsets gets clipped by whichever ancestor trims
+  // overflow, and it doubles as a more comfortable touch target.
   iconButton: {
-    width: 26,
-    height: 26,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
   },
+  // Anchored onto the bell rather than floating above it: inset by 2 so the
+  // badge overlaps the icon corner the way a badge should, and so it stays
+  // inside the button where nothing can clip it.
   notificationBadge: {
     position: "absolute",
-    top: -4,
-    right: -6,
+    top: 2,
+    right: 2,
     minWidth: 16,
     height: 16,
     paddingHorizontal: 4,
@@ -816,7 +842,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   greetingBlock: {
-    marginBottom: 18,
+    marginBottom: 14,
   },
   dateText: {
     color: "#9AA4B2",

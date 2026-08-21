@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.function.Consumer;
+
 /**
  * Fire-and-forget entry point other modules use to drop a notice into a user's
  * feed.
@@ -59,6 +61,17 @@ public class NotificationDispatcher {
         send(dto);
     }
 
+    /**
+     * Sends a notice to every active admin.
+     *
+     * Admin alerts are addressed to the operations team rather than to one
+     * person, so this fans out to one row per admin. Use it only for events an
+     * admin has to act on - anything routine would multiply across the team.
+     */
+    public void toAllAdmins(NotificationType type, String title, String message) {
+        deliver(build(type, title, message), writer::writeForAllAdmins);
+    }
+
     private NotificationDto build(NotificationType type, String title, String message) {
         NotificationDto dto = new NotificationDto();
         dto.setNotificationType(type.key());
@@ -69,21 +82,25 @@ public class NotificationDispatcher {
     }
 
     private void send(NotificationDto dto) {
+        deliver(dto, writer::write);
+    }
+
+    private void deliver(NotificationDto dto, Consumer<NotificationDto> delivery) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    write(dto);
+                    attempt(dto, delivery);
                 }
             });
             return;
         }
-        write(dto);
+        attempt(dto, delivery);
     }
 
-    private void write(NotificationDto dto) {
+    private void attempt(NotificationDto dto, Consumer<NotificationDto> delivery) {
         try {
-            writer.write(dto);
+            delivery.accept(dto);
         } catch (Exception ex) {
             log.warn(
                 "Failed to create {} notification \"{}\"",

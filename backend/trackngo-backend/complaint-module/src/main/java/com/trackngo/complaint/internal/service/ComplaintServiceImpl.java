@@ -96,6 +96,15 @@ public class ComplaintServiceImpl implements ComplaintService {
                 + ". Our support team is reviewing it."
         );
 
+        notifications.toAllAdmins(
+            NotificationType.COMPLAINT,
+            "New Complaint Submitted",
+            "A " + saved.getPriority() + "-priority complaint about "
+                + complaintTypeLabel(saved.getComplaintType())
+                + (saved.getBookingReference() == null ? "" : " for booking " + saved.getBookingReference())
+                + " is waiting for review."
+        );
+
         return toDto(saved);
     }
 

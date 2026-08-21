@@ -98,6 +98,14 @@ public class TripBookingService {
                         + " passenger(s) was submitted. We will let you know once it has been reviewed."
         );
 
+        notifications.toAllAdmins(
+                NotificationType.BOOKING,
+                "New Trip Request",
+                "A trip request from " + submitted.getStartLocation() + " to " + submitted.getDestination()
+                        + " on " + submitted.getStartDate() + " for " + submitted.getPassengerCount()
+                        + " passenger(s) is waiting for review."
+        );
+
         return submitted;
     }
 

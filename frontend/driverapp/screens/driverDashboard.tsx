@@ -993,6 +993,9 @@ function createStyles({
       backgroundColor: theme.background,
     },
     scrollContent: {
+      // Matches the passenger app: without a top inset the header sits flush
+      // against the safe area and the unread badge on the bell can be clipped.
+      paddingTop: 8,
       paddingBottom: Math.max(24, bottomInset + 16),
     },
     content: {

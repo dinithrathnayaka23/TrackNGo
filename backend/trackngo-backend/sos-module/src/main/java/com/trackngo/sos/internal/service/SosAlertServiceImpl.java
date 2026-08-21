@@ -140,6 +140,14 @@ public class SosAlertServiceImpl implements SosAlertService {
                                 + ". Pull over safely if you can and wait for the control room."
         );
 
+        notifications.toAllAdmins(
+                NotificationType.SOS,
+                "SOS Alert Triggered",
+                "An emergency alert was raised by a " + (raisedByDriver ? "driver" : "passenger")
+                        + (saved.getBusNumber() == null ? "" : " on bus " + saved.getBusNumber())
+                        + ". Open the SOS dashboard to respond."
+        );
+
         return toDto(repository.findById(saved.getSosId()).orElse(saved));
     }
 

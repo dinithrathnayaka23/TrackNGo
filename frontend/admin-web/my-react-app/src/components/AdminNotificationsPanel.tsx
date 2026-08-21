@@ -3,15 +3,52 @@ import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBell,
+  faBus,
   faCheckDouble,
+  faCircleXmark,
+  faCreditCard,
+  faFileContract,
+  faHeadset,
   faSpinner,
+  faStar,
+  faTag,
+  faTicket,
+  faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
+  adminNotificationTabs,
   fetchAdminNotifications,
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
+  sectionForType,
+  type AdminNoticeCategory,
   type AdminNotificationDto,
 } from "../services/adminNotificationService";
+
+type NoticeIcon = { icon: IconDefinition; className: string };
+
+const iconByType: Record<string, NoticeIcon> = {
+  booking: { icon: faTicket, className: "bg-[#e8eefc] text-[#2642a6]" },
+  system_alert: { icon: faFileContract, className: "bg-[#e0f0ff] text-[#0369a1]" },
+  complaint: { icon: faHeadset, className: "bg-[#e0f2fe] text-[#0284c7]" },
+  sos: { icon: faTriangleExclamation, className: "bg-[#fee2e2] text-[#dc2626]" },
+  cancellation: { icon: faCircleXmark, className: "bg-[#fee2e2] text-[#ef4444]" },
+  journey: { icon: faBus, className: "bg-[#fef3c7] text-[#b45309]" },
+  payment: { icon: faCreditCard, className: "bg-[#dcfce7] text-[#15803d]" },
+  rating: { icon: faStar, className: "bg-[#fef9c3] text-[#a16207]" },
+  promotion: { icon: faTag, className: "bg-[#f3e8ff] text-[#7c3aed]" },
+};
+
+const fallbackIcon: NoticeIcon = {
+  icon: faBell,
+  className: "bg-[#e2e8f0] text-[#475569]",
+};
+
+function iconFor(notificationType: string | null): NoticeIcon {
+  if (!notificationType) return fallbackIcon;
+  return iconByType[notificationType.toLowerCase()] ?? fallbackIcon;
+}
 
 function formatTime(value: string | null) {
   if (!value) return "";
@@ -42,6 +79,7 @@ export default function AdminNotificationsPanel({
   onClose,
 }: AdminNotificationsPanelProps) {
   const [items, setItems] = useState<AdminNotificationDto[]>([]);
+  const [activeTab, setActiveTab] = useState<AdminNoticeCategory>("All");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +106,15 @@ export default function AdminNotificationsPanel({
     }, 30000);
     return () => window.clearInterval(intervalId);
   }, [open]);
+
+  // The admin feed is fetched whole for the unread badge anyway, so filtering
+  // here costs nothing and keeps tab switching instant.
+  const visibleItems =
+    activeTab === "All"
+      ? items
+      : items.filter(
+          (item) => sectionForType(item.notificationType) === activeTab,
+        );
 
   const handleMarkRead = async (id: number) => {
     try {
@@ -131,6 +178,26 @@ export default function AdminNotificationsPanel({
           </button>
         </div>
 
+        <div className="flex gap-1.5 border-b border-[#e5e7eb] px-3 py-2">
+          {adminNotificationTabs.map((tab) => {
+            const active = tab === activeTab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 rounded-full px-2 py-1 text-xs font-semibold transition ${
+                  active
+                    ? "bg-[#2642a6] text-white"
+                    : "bg-[#eef2f7] text-[#64748b] hover:bg-[#e2e8f0]"
+                }`}
+              >
+                {tab}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="max-h-[420px] overflow-y-auto px-2 py-2">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-[#64748b]">
@@ -141,21 +208,27 @@ export default function AdminNotificationsPanel({
             <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-4 text-sm text-red-600">
               {error}
             </div>
-          ) : items.length === 0 ? (
+          ) : visibleItems.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[#d6dbe6] bg-[#f9fafb] px-3 py-8 text-center text-sm text-[#64748b]">
-              No notifications yet.
+              {activeTab === "All"
+                ? "No notifications yet."
+                : `No ${activeTab.toLowerCase()} notifications yet.`}
             </div>
           ) : (
             <ul className="space-y-2">
-              {items.map((item) => (
+              {visibleItems.map((item) => {
+                const notice = iconFor(item.notificationType);
+                return (
                 <li key={item.id}>
                   <button
                     type="button"
                     onClick={() => void handleMarkRead(item.id)}
                     className={`flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition ${item.read ? "border-[#e5e7eb] bg-white" : "border-[#c7d2fe] bg-[#f8faff]"}`}
                   >
-                    <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[#e8eefc] text-[#2642a6]">
-                      <FontAwesomeIcon icon={faBell} />
+                    <div
+                      className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full ${notice.className}`}
+                    >
+                      <FontAwesomeIcon icon={notice.icon} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
@@ -175,7 +248,8 @@ export default function AdminNotificationsPanel({
                     </div>
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>

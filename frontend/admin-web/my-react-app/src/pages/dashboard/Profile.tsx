@@ -113,17 +113,17 @@ export default function Profile() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
+    <div className="mx-auto max-w-7xl space-y-5">
+      <button type="button" onClick={() => navigate('/dashboard/settings')} className="grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#334155] transition hover:bg-[#f1f5f9]" aria-label="Back to settings">
+        <FontAwesomeIcon icon={faArrowLeft} />
+      </button>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <button type="button" onClick={() => navigate('/dashboard/settings')} className="mb-2 inline-flex items-center gap-2 text-xs font-bold text-[#64748b] transition hover:text-[#2642a6]">
-            <FontAwesomeIcon icon={faArrowLeft} /> Back to settings
-          </button>
           <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Profile</h1>
           <p className="mt-1 text-sm text-[#64748b]">View and manage your administrator account details.</p>
         </div>
         {!editing && profile ? (
-          <button type="button" onClick={beginEditing} className="inline-flex items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-bold text-[#334155] transition hover:bg-[#f8fafc]">
+          <button type="button" onClick={beginEditing} className="inline-flex items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9]">
             <FontAwesomeIcon icon={faPen} className="text-xs" /> Edit details
           </button>
         ) : null}
@@ -141,10 +141,10 @@ export default function Profile() {
             onUploadSuccess={(url: string) => setProfile((current) => current ? { ...current, profilePhoto: url } : current)}
           />
 
-          <section className="rounded-xl border border-[#e5e7eb] bg-white p-5">
-            <div className="flex items-start justify-between gap-4 border-b border-[#f1f5f9] pb-4">
+          <section className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.05)]">
+            <div className="flex items-start justify-between gap-4 border-b border-[#e5e7eb] pb-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#94a3b8]">Account information</p>
+                <p className="text-xs font-semibold uppercase text-[#94a3b8] tracking-wide">Account information</p>
                 <h2 className="mt-1 text-lg font-extrabold text-[#111827]">{name}</h2>
               </div>
               <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-full border-4 border-white bg-[#eef2ff] text-sm font-extrabold text-[#2642a6] shadow-[0_0_0_1px_#cfd8f5]">
@@ -169,9 +169,9 @@ export default function Profile() {
             </div>
 
             {editing ? (
-              <div className="mt-6 flex justify-end gap-3 border-t border-[#f1f5f9] pt-4">
-                <button type="button" onClick={cancelEditing} disabled={saving} className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-bold text-[#334155] transition hover:bg-[#f8fafc] disabled:opacity-60">Cancel</button>
-                <button type="button" onClick={() => void saveProfile()} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60">
+              <div className="mt-6 flex justify-end gap-3 border-t border-[#e5e7eb] pt-4">
+                <button type="button" onClick={cancelEditing} disabled={saving} className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9] disabled:opacity-60">Cancel</button>
+                <button type="button" onClick={() => void saveProfile()} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60">
                   <FontAwesomeIcon icon={saving ? faSpinner : faFloppyDisk} className={saving ? 'animate-spin' : ''} />
                   {saving ? 'Saving...' : 'Save changes'}
                 </button>

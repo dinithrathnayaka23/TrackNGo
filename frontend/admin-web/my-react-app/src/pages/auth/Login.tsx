@@ -104,27 +104,27 @@ function Login() {
   return (
     <AuthLayout>
       <div className="w-full max-w-[520px]">
-        <h2 className="animate-auth-fade-up text-sm font-bold leading-tight text-[#111827]">Admin Login</h2>
-        <p className="animate-auth-fade-up mt-2 text-sm text-[#64748b]" style={{ animationDelay: '90ms' }}>
+        <h2 className="animate-auth-fade-up text-xl font-extrabold tracking-tight leading-tight text-[#111827]">Admin Login</h2>
+        <p className="animate-auth-fade-up mt-1 text-sm text-[#64748b]" style={{ animationDelay: '90ms' }}>
           Access your centralized transport control panel.
         </p>
 
         {apiError && (
-          <div className="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-600 border border-red-200">
+          <div className="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 border border-red-200">
             {apiError}
           </div>
         )}
 
         <form
-          className="mt-6 space-y-5"
+          className="mt-5 space-y-4"
           onSubmit={handleLogin}
           noValidate
         >
           <div className="animate-auth-fade-up" style={{ animationDelay: '160ms' }}>
-            <label htmlFor="login-email" className="mb-2 block text-sm font-semibold text-[#334155]">
+            <label htmlFor="login-email" className="mb-1.5 block text-sm font-semibold text-[#334155]">
               Email Address
             </label>
-            <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+            <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
               <FontAwesomeIcon icon={faEnvelope} className="mr-3 text-[#94a3b8]" />
               <input
                 id="login-email"
@@ -141,7 +141,7 @@ function Login() {
               />
             </div>
             {errors.email ? (
-              <p id="login-email-error" className="mt-2 text-sm font-medium text-[#dc2626]">
+              <p id="login-email-error" className="mt-1.5 text-sm font-medium text-[#dc2626]">
                 {errors.email}
               </p>
             ) : null}
@@ -150,11 +150,11 @@ function Login() {
           <div className="animate-auth-fade-up" style={{ animationDelay: '230ms' }}>
             <label
               htmlFor="login-password"
-              className="mb-2 block text-sm font-semibold text-[#334155]"
+              className="mb-1.5 block text-sm font-semibold text-[#334155]"
             >
               Password
             </label>
-            <div className="flex h-9 items-center rounded-xl border border-[#d6dbe6] bg-[#f7f7f9] px-4 transition-all duration-200 focus-within:border-[#2342a6] focus-within:shadow-[0_0_0_3px_rgba(35,66,166,0.14)]">
+            <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
               <FontAwesomeIcon icon={faLock} className="mr-3 text-[#94a3b8]" />
               <input
                 id="login-password"
@@ -179,7 +179,7 @@ function Login() {
               </button>
             </div>
             {errors.password ? (
-              <p id="login-password-error" className="mt-2 text-sm font-medium text-[#dc2626]">
+              <p id="login-password-error" className="mt-1.5 text-sm font-medium text-[#dc2626]">
                 {errors.password}
               </p>
             ) : null}
@@ -192,11 +192,11 @@ function Login() {
                 checked={rememberDevice}
                 onChange={(event) => setRememberDevice(event.target.checked)}
                 disabled={loading}
-                className="h-5 w-5 rounded border-[#d6dbe6] text-[#2342a6] focus:ring-[#2342a6] disabled:opacity-50"
+                className="h-5 w-5 rounded border-[#d6dbe6] text-[#2642a6] focus:ring-[#2642a6] disabled:opacity-50"
               />
               <span className="font-semibold">Remember Device</span>
             </label>
-            <Link to="/forgot-password" className="font-semibold text-[#129a8f]">
+            <Link to="/forgot-password" className="font-semibold text-[#2642a6]">
               Recovery Password?
             </Link>
           </div>
@@ -204,7 +204,7 @@ function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="animate-auth-fade-up flex h-10 w-full items-center justify-center gap-4 rounded-xl bg-[#2342a6] text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#1f3a93] hover:shadow-[0_12px_26px_rgba(35,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="animate-auth-fade-up flex w-full items-center justify-center gap-2 rounded-lg bg-[#2642a6] py-2.5 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96] hover:shadow-[0_12px_26px_rgba(38,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ animationDelay: '360ms' }}
           >
             {loading ? 'Logging in...' : 'Login to Dashboard'}
@@ -212,15 +212,15 @@ function Login() {
           </button>
         </form>
 
-        <div className="animate-auth-fade-up mt-8 border-t border-[#e5e7eb] pt-8 text-center" style={{ animationDelay: '420ms' }}>
+        <div className="animate-auth-fade-up mt-6 border-t border-[#e5e7eb] pt-5 text-center" style={{ animationDelay: '420ms' }}>
           <p className="text-sm font-semibold text-[#334155]">
             New administrator profile required?{' '}
-            <Link to="/signup" className="text-[#129a8f]">
+            <Link to="/signup" className="text-[#2642a6]">
               Sign Up
             </Link>
           </p>
 
-          <div className="mt-8 flex justify-center gap-16 text-sm font-semibold text-[#94a3b8]">
+          <div className="mt-4 flex justify-center gap-10 text-sm font-semibold text-[#94a3b8]">
             <Link to="/privacy-policy">Privacy Policy</Link>
             <Link to="/terms-of-service">Terms of Service</Link>
           </div>

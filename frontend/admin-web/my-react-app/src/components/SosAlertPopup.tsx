@@ -8,6 +8,7 @@ import {
   faExternalLinkAlt,
   faWindowMinimize,
   faUserShield,
+  faChevronDown,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   fetchActiveEmergencyNumbers,
@@ -218,7 +219,7 @@ function SosAlertPopup() {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-xl font-extrabold tracking-tight text-[#111827]">
+                  <h2 className="text-lg font-extrabold tracking-tight text-[#111827]">
                     SOS ALERT - EMERGENCY
                     <span className="ml-1 inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
                   </h2>
@@ -253,7 +254,7 @@ function SosAlertPopup() {
                 {gps && (
                   <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between bg-gradient-to-t from-white/95 to-transparent px-4 pb-3 pt-8">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#64748b]">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#64748b]">
                         Current GPS
                       </p>
                       <p className="font-mono text-sm font-semibold text-[#111827]">
@@ -266,12 +267,12 @@ function SosAlertPopup() {
                         href={mapLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs font-bold text-[#2563eb] hover:underline"
+                        className="flex items-center gap-1.5 text-xs font-semibold text-[#2642a6] hover:underline"
                       >
                         FULL MAP{" "}
                         <FontAwesomeIcon
                           icon={faExternalLinkAlt}
-                          className="text-[10px]"
+                          className="text-2xs"
                         />
                       </a>
                     )}
@@ -294,7 +295,7 @@ function SosAlertPopup() {
                   <span className="text-xs font-semibold text-[#111827]">
                     Ambulance
                   </span>
-                  <span className="text-[14px] text-[#94a3b8]">
+                  <span className="text-sm text-[#94a3b8]">
                     {emergencyNumbers.ambulance}
                   </span>
                 </a>
@@ -312,7 +313,7 @@ function SosAlertPopup() {
                   <span className="text-xs font-semibold text-[#111827]">
                     Police
                   </span>
-                  <span className="text-[14px] text-[#94a3b8]">
+                  <span className="text-sm text-[#94a3b8]">
                     {emergencyNumbers.police}
                   </span>
                 </a>
@@ -330,7 +331,7 @@ function SosAlertPopup() {
                   <span className="text-xs font-semibold text-[#111827]">
                     Fire Brigade
                   </span>
-                  <span className="text-[14px] text-[#94a3b8]">
+                  <span className="text-sm text-[#94a3b8]">
                     {emergencyNumbers.fireBrigade}
                   </span>
                 </a>
@@ -359,7 +360,7 @@ function SosAlertPopup() {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="truncate text-lg font-bold text-[#111827]">
+                  <h3 className="truncate text-base font-bold text-[#111827]">
                     {topUserName.trim() || "Unknown"}
                   </h3>
                   <p className="text-sm font-semibold text-red-500">
@@ -373,7 +374,7 @@ function SosAlertPopup() {
 
               {/* SOS details summary */}
               <div className="mb-3 rounded-lg border border-[#e5e7eb] bg-[#fafafa] p-3">
-                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#64748b]">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#64748b]">
                   SOS Details
                 </p>
                 <div className="space-y-1 text-sm text-[#111827]">
@@ -444,7 +445,7 @@ function SosAlertPopup() {
                         icon={faUserShield}
                         className="text-xs text-[#64748b]"
                       />
-                      <p className="text-xs font-bold uppercase tracking-widest text-[#64748b]">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#64748b]">
                         {isPassengerAlert
                           ? "Passenger Emergency Contacts"
                           : "Driver Emergency Contacts"}
@@ -461,11 +462,11 @@ function SosAlertPopup() {
                               {ec.name}
                             </p>
                             {ec.relationship ? (
-                              <p className="text-[11px] text-[#94a3b8]">
+                              <p className="text-xs text-[#94a3b8]">
                                 {ec.relationship}
                               </p>
                             ) : (
-                              <p className="text-[11px] text-[#94a3b8]">
+                              <p className="text-xs text-[#94a3b8]">
                                 Emergency contact
                               </p>
                             )}
@@ -476,7 +477,7 @@ function SosAlertPopup() {
                           >
                             <FontAwesomeIcon
                               icon={faPhone}
-                              className="text-[10px] text-green-600"
+                              className="text-2xs text-green-600"
                             />
                             {ec.teleNumber || "N/A"}
                           </a>
@@ -488,6 +489,7 @@ function SosAlertPopup() {
 
               {/* Status dropdown + OK button */}
               <div className="flex items-center gap-2">
+                <div className="relative flex-1">
                 <select
                   aria-label="SOS status action"
                   value={selectedStatus}
@@ -497,19 +499,21 @@ function SosAlertPopup() {
                     )
                   }
                   disabled={updatingStatus}
-                  className="flex-1 rounded-lg border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-semibold text-[#111827] shadow-sm transition hover:bg-[#f9fafb] disabled:opacity-50 appearance-none cursor-pointer"
+                  className="w-full cursor-pointer appearance-none rounded-lg border border-[#d6dbe6] bg-white py-2.5 pl-3 pr-8 text-sm font-semibold text-[#111827] outline-none transition focus:border-[#2642a6] disabled:opacity-50"
                 >
                   <option value="">Select Status</option>
                   <option value="resolve">Resolved</option>
                   <option value="dismiss">False Alarm</option>
                 </select>
+                <FontAwesomeIcon icon={faChevronDown} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#64748b]" />
+                </div>
                 <button
                   type="button"
                   onClick={() => {
                     if (selectedStatus) handleStatusChange(selectedStatus);
                   }}
                   disabled={!selectedStatus || updatingStatus}
-                  className="rounded-lg bg-[#2563eb] px-6 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#1d4ed8] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="rounded-lg bg-[#2642a6] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#203b96] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {updatingStatus ? "Updating..." : "OK"}
                 </button>

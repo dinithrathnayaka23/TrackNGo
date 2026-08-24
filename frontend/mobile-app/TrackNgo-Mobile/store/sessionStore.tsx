@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { PropsWithChildren } from "react";
 import type { SessionUser } from "../types/chat";
+import { clearAuthToken, onUnauthorized } from "../services/http";
 
 const STORAGE_KEY = "trackngo.session.user";
 
@@ -46,7 +47,13 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const clearCurrentUser = useCallback(async () => {
     setCurrentUserState(null);
     await AsyncStorage.removeItem(STORAGE_KEY);
+    await clearAuthToken();
   }, []);
+
+  // The stored session outlives the JWT, so once the backend stops accepting our
+  // token the app would otherwise keep acting logged in and fail every request.
+  // Dropping the session here sends the user back through the login screen.
+  useEffect(() => onUnauthorized(() => void clearCurrentUser()), [clearCurrentUser]);
 
   const value = useMemo(
     () => ({

@@ -9,15 +9,12 @@ import {
   TextInput,
   View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { httpPost } from "../../services/http";
+import { httpPost, setAuthToken } from "../../services/http";
 import { saveTrustedDeviceToken } from "../../services/trustedDeviceStorage";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text, useLanguage } from "../../utils/i18n";
-
-const TOKEN_KEY = "trackngo.auth.token";
 
 interface LoginApiData {
   token: string;
@@ -73,7 +70,7 @@ export default function TwoFactorScreen() {
       if (data.trustedDeviceToken) {
         await saveTrustedDeviceToken(data.trustedDeviceToken);
       }
-      await AsyncStorage.setItem(TOKEN_KEY, data.token);
+      await setAuthToken(data.token);
       await setCurrentUser({
         userId: data.userId,
         userType: userTypeMap[data.userType?.toLowerCase()] ?? "PASSENGER",

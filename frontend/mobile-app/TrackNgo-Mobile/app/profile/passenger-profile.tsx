@@ -18,10 +18,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import * as ImagePicker from "expo-image-picker";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSession } from "../../store/sessionStore";
 import { useLanguage } from "../../utils/i18n";
+import { HttpError } from "../../services/http";
 import {
   getUserProfile,
   resolveProfilePhoto,
@@ -45,7 +45,6 @@ import {
 } from "../../services/twoFactorApi";
 import { clearTrustedDeviceToken, saveTrustedDeviceToken } from "../../services/trustedDeviceStorage";
 
-const TOKEN_KEY = "trackngo.auth.token";
 const BLUE = "#2378E8";
 const AVATAR_SIZE = 112;
 
@@ -382,11 +381,21 @@ export default function PassengerProfileScreen() {
       setProfile(loadedProfile);
       setSettings(loadedSettings);
     } catch (error) {
+      if (error instanceof HttpError && (error.status === 401 || error.status === 403)) {
+        // clearCurrentUser also drops the token.
+        await clearCurrentUser();
+        Alert.alert(
+          "Session expired",
+          "Please log in again to continue.",
+        );
+        router.replace("/auth/login");
+        return;
+      }
       Alert.alert(profileCopy.en.unableLoad, error instanceof Error ? error.message : profileCopy.en.tryAgain);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, clearCurrentUser, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -567,7 +576,6 @@ export default function PassengerProfileScreen() {
         onPress: async () => {
           setLoggingOut(true);
           try {
-            await AsyncStorage.removeItem(TOKEN_KEY);
             await clearCurrentUser();
             router.replace("/auth/login");
           } finally {

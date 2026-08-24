@@ -14,6 +14,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalDate;
@@ -117,6 +118,64 @@ class ComplaintServiceImplTest {
         verify(repository, never()).save(any(Complaint.class));
     }
 
+    /**
+     * Booking history lists trip bookings under a synthesised 'BK-{tripBookingId}'
+     * reference that has no row in seat_booking, so complaining about one used to be
+     * rejected outright as an unknown booking.
+     */
+    @Test
+    void createShouldAcceptPastTripBooking() {
+        String email = "passenger@trackngo.com";
+        ComplaintDto request = buildCreateRequest();
+
+        stubPassengerOwner(email, 7L);
+        stubMissingSeatBooking(email, "BK-1001");
+        stubTripBookingLookup(email, 1001L, LocalDate.now().minusDays(3), "confirmed");
+        when(repository.save(any(Complaint.class))).thenAnswer(invocation -> {
+            Complaint complaint = invocation.getArgument(0);
+            complaint.setId(56L);
+            return complaint;
+        });
+
+        ComplaintDto created = service.create(email, request);
+
+        assertEquals("BK-1001", created.getBookingReference());
+        assertEquals(7L, created.getPassengerId());
+    }
+
+    /** Verifies that a trip booking whose start date has not passed is still rejected. */
+    @Test
+    void createShouldRejectFutureTripBooking() {
+        String email = "passenger@trackngo.com";
+        ComplaintDto request = buildCreateRequest();
+
+        stubPassengerOwner(email, 7L);
+        stubMissingSeatBooking(email, "BK-1001");
+        stubTripBookingLookup(email, 1001L, LocalDate.now(), "confirmed");
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.create(email, request));
+
+        assertEquals("Complaints can only be submitted for past bookings", exception.getMessage());
+        verify(repository, never()).save(any(Complaint.class));
+    }
+
+    /** Verifies that a reference matching neither booking kind is reported as not found. */
+    @Test
+    void createShouldRejectUnknownBookingReference() {
+        String email = "passenger@trackngo.com";
+        ComplaintDto request = buildCreateRequest();
+
+        stubPassengerOwner(email, 7L);
+        stubMissingSeatBooking(email, "BK-1001");
+        when(jdbc.queryForMap(contains("FROM trip_booking tb"), eq(email), eq(1001L)))
+            .thenThrow(new EmptyResultDataAccessException(1));
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.create(email, request));
+
+        assertEquals("Past booking not found for this passenger", exception.getMessage());
+        verify(repository, never()).save(any(Complaint.class));
+    }
+
     /** Verifies that passenger-owned complaints are mapped back to DTOs for the mine endpoint. */
     @Test
     void getMineShouldReturnComplaintsOwnedByPassenger() {
@@ -213,6 +272,20 @@ class ComplaintServiceImplTest {
     }
 
     /** Stubs the booking lookup used to confirm a passenger is complaining about a past trip. */
+    /** Makes the seat_booking lookup miss so resolution falls through to trip bookings. */
+    private void stubMissingSeatBooking(String email, String bookingReference) {
+        when(jdbc.queryForMap(contains("FROM seat_booking sb"), eq(email), eq(bookingReference)))
+            .thenThrow(new EmptyResultDataAccessException(1));
+    }
+
+    private void stubTripBookingLookup(String email, long tripBookingId, LocalDate startDate, String status) {
+        when(jdbc.queryForMap(contains("FROM trip_booking tb"), eq(email), eq(tripBookingId)))
+            .thenReturn(Map.of(
+                "status", status,
+                "journey_date", startDate
+            ));
+    }
+
     private void stubBookingLookup(String email, String bookingReference, LocalDateTime journeyDateTime, String status) {
         when(jdbc.queryForMap(contains("FROM seat_booking sb"), eq(email), eq(bookingReference)))
             .thenReturn(Map.of(

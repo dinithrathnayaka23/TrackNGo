@@ -122,7 +122,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			sb.journey_time AS journeyTime,
 			sb.seat_number AS seatNumber,
 			sb.total_amount AS totalAmount,
-			sb.status AS status,
+			CASE
+				WHEN sb.status IN ('confirmed', 'boarded') AND sb.journey_date < CURDATE()
+					THEN 'completed'
+				ELSE sb.status
+			END AS status,
 			p.transaction_id AS transactionId,
 			COALESCE(p.payment_status, 'unpaid') AS paymentStatus
 		FROM seat_booking sb
@@ -131,9 +135,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		INNER JOIN `user` u ON u.user_id = sb.passenger_id
 		LEFT JOIN payment p ON p.payment_id = sb.payment_id
 		WHERE u.email = :email
-		  AND (sb.journey_date < CURDATE()
-		       OR sb.status = 'cancelled')
-		
+		  AND (sb.status IN ('completed', 'cancelled')
+		       OR (sb.status IN ('confirmed', 'boarded') AND sb.journey_date < CURDATE()))
+
 		UNION ALL
 		
 		SELECT
@@ -146,7 +150,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			CAST('08:00:00' AS TIME) AS journeyTime,
 			'N/A' AS seatNumber,
 			tb.final_price AS totalAmount,
-			tb.booking_status AS status,
+			CASE
+				WHEN tb.booking_status IN ('approved', 'confirmed', 'in_progress')
+				     AND tb.start_date < CURDATE()
+					THEN 'completed'
+				ELSE tb.booking_status
+			END AS status,
 			COALESCE(trip_payment.transaction_id, 'N/A') AS transactionId,
 			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus
 		FROM trip_booking tb
@@ -158,9 +167,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		)
 		INNER JOIN `user` u ON u.user_id = tb.passenger_id
 		WHERE u.email = :email
-		  AND (tb.start_date < CURDATE()
-		       OR tb.booking_status = 'cancelled')
-		       
+		  AND (tb.booking_status IN ('completed', 'cancelled')
+		       OR (tb.booking_status IN ('approved', 'confirmed', 'in_progress')
+		           AND tb.start_date < CURDATE()))
+
 		ORDER BY journeyDate DESC, journeyTime DESC
 		""", nativeQuery = true)
 	List<BookingHistoryProjection> findPastByEmail(@Param("email") String email);

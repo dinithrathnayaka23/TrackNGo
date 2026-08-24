@@ -12,14 +12,11 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { httpPost } from "../../services/http";
+import { httpPost, setAuthToken } from "../../services/http";
 import { getTrustedDeviceToken, saveTrustedDeviceToken } from "../../services/trustedDeviceStorage";
 import { useSession } from "../../store/sessionStore";
 import type { UserType } from "../../types/chat";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
-
-const TOKEN_KEY = "trackngo.auth.token";
 
 interface LoginApiData {
   token: string;
@@ -99,7 +96,7 @@ export default function LoginScreen() {
       if (data.trustedDeviceToken) {
         await saveTrustedDeviceToken(data.trustedDeviceToken);
       }
-      await AsyncStorage.setItem(TOKEN_KEY, data.token);
+      await setAuthToken(data.token);
       const userType: UserType =
         USER_TYPE_MAP[data.userType?.toLowerCase()] ?? "PASSENGER";
       await setCurrentUser({ userId: data.userId, userType });

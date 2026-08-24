@@ -18,6 +18,7 @@ import {
   type ComplaintDto,
 } from "../../services/complaintsApi";
 import { uploadMedia } from "../../services/chatApi";
+import { extractApiMessage } from "../../services/http";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 
@@ -283,7 +284,10 @@ export default function ComplaintScreen() {
       );
     } catch (error) {
       console.error("[ComplaintScreen] Submit failed", error);
-      Alert.alert("Submit failed", "Could not submit your complaint.");
+      Alert.alert(
+        "Submit failed",
+        extractApiMessage(error, "Could not submit your complaint."),
+      );
     } finally {
       setSubmitting(false);
     }

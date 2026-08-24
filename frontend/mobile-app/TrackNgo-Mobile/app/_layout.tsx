@@ -1,7 +1,10 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  initialWindowMetrics,
+} from "react-native-safe-area-context";
 import { chatSocket } from "../services/chatSocket";
 import { SessionProvider, useSession } from "../store/sessionStore";
 import { LanguageProvider } from "../utils/i18n";
@@ -44,7 +47,11 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
+    // Without initialMetrics the provider has no insets until its native view
+    // reports them, so every consumer renders once with zeros and then again with
+    // the real values. That second pass is what makes the layout jump on the first
+    // frame and again when Android re-dispatches insets after the app is resumed.
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <SessionProvider>
         <LanguageProvider>
           <GlobalPresenceConnection />

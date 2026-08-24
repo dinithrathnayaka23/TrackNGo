@@ -72,15 +72,25 @@ function formatTime(value: string | null) {
 export interface AdminNotificationsPanelProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * Reports how many notifications are still unread whenever that changes.
+   *
+   * The unread badge is owned by the layout, which counts from its own fetch on
+   * a 30 second poll. Without this the badge kept a stale count after a notice
+   * was read here, and only a refresh or route change cleared it.
+   */
+  onUnreadCountChange?: (unreadCount: number) => void;
 }
 
 export default function AdminNotificationsPanel({
   open,
   onClose,
+  onUnreadCountChange,
 }: AdminNotificationsPanelProps) {
   const [items, setItems] = useState<AdminNotificationDto[]>([]);
   const [activeTab, setActiveTab] = useState<AdminNoticeCategory>("All");
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadNotifications = async () => {
@@ -89,6 +99,7 @@ export default function AdminNotificationsPanel({
     try {
       const data = await fetchAdminNotifications();
       setItems(data);
+      setLoaded(true);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not load notifications",
@@ -97,6 +108,14 @@ export default function AdminNotificationsPanel({
       setLoading(false);
     }
   };
+
+  // Derived from items so every path that changes read state - loading, reading
+  // one, reading all - keeps the badge in step without each having to remember.
+  // Gated on a completed load so the empty initial state never blanks the badge.
+  useEffect(() => {
+    if (!loaded) return;
+    onUnreadCountChange?.(items.filter((item) => !item.read).length);
+  }, [items, loaded, onUnreadCountChange]);
 
   useEffect(() => {
     if (!open) return;

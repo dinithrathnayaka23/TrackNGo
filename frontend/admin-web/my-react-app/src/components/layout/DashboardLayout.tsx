@@ -320,6 +320,7 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
             <AdminNotificationsPanel
               open={showNotifications}
               onClose={() => setShowNotifications(false)}
+              onUnreadCountChange={setUnreadCount}
             />
           </header>
 

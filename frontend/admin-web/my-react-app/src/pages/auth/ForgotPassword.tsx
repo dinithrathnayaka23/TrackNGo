@@ -8,11 +8,10 @@ import {
   faEye,
   faEyeSlash,
   faLock,
-  faMobileScreenButton,
   faShieldHalved,
 } from '@fortawesome/free-solid-svg-icons'
 import AuthLayout from '../../components/layout/AuthLayout'
-import authService, { type OtpChannel } from '../../services/authService'
+import authService from '../../services/authService'
 
 type Step = 'identify' | 'otp' | 'password'
 
@@ -27,8 +26,7 @@ function ForgotPassword() {
   const [loading, setLoading] = useState(false)
   const [apiError, setApiError] = useState('')
 
-  // Step 1: channel + identifier
-  const [channel, setChannel] = useState<OtpChannel>('EMAIL')
+  // Step 1: identifier (email only — phone OTP isn't supported yet)
   const [identifier, setIdentifier] = useState('')
   const [identifierError, setIdentifierError] = useState('')
 
@@ -69,10 +67,10 @@ function ForgotPassword() {
   const validateIdentifier = () => {
     const trimmed = identifier.trim()
     if (!trimmed) {
-      setIdentifierError(channel === 'EMAIL' ? 'Email is required.' : 'Phone number is required.')
+      setIdentifierError('Email is required.')
       return false
     }
-    if (channel === 'EMAIL' && !isValidEmail(trimmed)) {
+    if (!isValidEmail(trimmed)) {
       setIdentifierError('Enter a valid email address.')
       return false
     }
@@ -87,7 +85,7 @@ function ForgotPassword() {
 
     setLoading(true)
     try {
-      const response = await authService.forgotPassword({ identifier: identifier.trim(), channel })
+      const response = await authService.forgotPassword({ identifier: identifier.trim(), channel: 'EMAIL' })
       setMaskedDestination(response.maskedDestination)
       startCooldown(response.resendCooldownSeconds)
       setOtp('')
@@ -181,7 +179,7 @@ function ForgotPassword() {
           <>
             <h2 className="animate-auth-fade-up text-xl font-extrabold tracking-tight leading-tight text-[#121b33]">Recover Password</h2>
             <p className="animate-auth-fade-up mt-2 text-sm text-[#5b6476]" style={{ animationDelay: '90ms' }}>
-              Choose how you'd like to receive your verification code.
+              Enter your email address to receive a verification code.
             </p>
 
             {apiError && (
@@ -189,51 +187,16 @@ function ForgotPassword() {
             )}
 
             <form className="mt-6 space-y-5" onSubmit={handleSendCode} noValidate>
-              <div className="animate-auth-fade-up flex gap-3" style={{ animationDelay: '120ms' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setChannel('EMAIL')
-                    setIdentifierError('')
-                  }}
-                  disabled={loading}
-                  className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
-                    channel === 'EMAIL'
-                      ? 'border-[#2642a6] bg-[#2642a6]/10 text-[#2642a6]'
-                      : 'border-[#d6dbe6] bg-white text-[#334155]'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faEnvelope} />
-                  Email
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setChannel('PHONE')
-                    setIdentifierError('')
-                  }}
-                  disabled={loading}
-                  className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
-                    channel === 'PHONE'
-                      ? 'border-[#2642a6] bg-[#2642a6]/10 text-[#2642a6]'
-                      : 'border-[#d6dbe6] bg-white text-[#334155]'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faMobileScreenButton} />
-                  Phone
-                </button>
-              </div>
-
               <div className="animate-auth-fade-up" style={{ animationDelay: '180ms' }}>
                 <label htmlFor="fp-identifier" className="mb-2 block text-sm font-semibold text-[#4d5564]">
-                  {channel === 'EMAIL' ? 'Email Address' : 'Phone Number'}
+                  Email Address
                 </label>
                 <div className="flex items-center rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 transition focus-within:border-[#2642a6] focus-within:ring-1 focus-within:ring-[#2642a6]">
-                  <FontAwesomeIcon icon={channel === 'EMAIL' ? faEnvelope : faMobileScreenButton} className="mr-3 text-[#8b92a1]" />
+                  <FontAwesomeIcon icon={faEnvelope} className="mr-3 text-[#8b92a1]" />
                   <input
                     id="fp-identifier"
-                    type={channel === 'EMAIL' ? 'email' : 'tel'}
-                    placeholder={channel === 'EMAIL' ? 'admin@smartbus-system.com' : '+94771234567'}
+                    type="email"
+                    placeholder="admin@smartbus-system.com"
                     value={identifier}
                     onChange={(event) => {
                       setIdentifier(event.target.value)

@@ -78,6 +78,16 @@ from `ENUM('en', 'si')` to `ENUM('en', 'si', 'ta')` — without it, saving
 `ta` from the profile settings screen fails with a database error because
 MySQL rejects enum values outside the declared set.
 
+Before deploying the booking-completion changes, run
+`V17__complete_elapsed_bookings.sql`. It marks bookings whose journey date has
+passed as `completed`. Nothing in the application previously set that status —
+only the development seed script did — so real bookings stayed `confirmed`
+indefinitely, appearing as active in booking history and being skipped by driver
+earnings and promotion eligibility, which both filter on `status = 'completed'`.
+`BookingCompletionService` performs this transition on a schedule from now on, so
+this migration only repairs rows that predate it. It is idempotent, safe to
+re-run, and never touches cancelled bookings.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

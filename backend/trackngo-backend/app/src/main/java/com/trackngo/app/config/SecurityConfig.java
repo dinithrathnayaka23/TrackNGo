@@ -32,6 +32,7 @@ public class SecurityConfig {
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/chat/**").permitAll()
                 .requestMatchers("/api/routes/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                 .requestMatchers("/api/users/*/conversations/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/users/*/profile").permitAll()
                 .requestMatchers("/api/users/*/profile").authenticated()

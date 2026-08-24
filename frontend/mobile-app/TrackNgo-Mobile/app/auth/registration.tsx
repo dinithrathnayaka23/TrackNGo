@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,6 +13,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
+import { sendRegistrationOtp } from "../../services/registrationOtpApi";
 
 type UserType = "Passenger" | "Corporate";
 
@@ -29,6 +32,7 @@ export default function RegistrationScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   function validate(): boolean {
     const next: Record<string, string> = {};
@@ -49,19 +53,31 @@ export default function RegistrationScreen() {
     return Object.keys(next).length === 0;
   }
 
-  function handleNext() {
+  async function handleNext() {
     if (!validate()) return;
-    router.push({
-      pathname: "/auth/otp-verification",
-      params: {
-        phone: `${countryCode} ${phone}`,
-        email: email.trim(),
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        userType,
-        password,
-      },
-    });
+    const trimmedEmail = email.trim();
+    setSubmitting(true);
+    try {
+      await sendRegistrationOtp(trimmedEmail);
+      router.push({
+        pathname: "/auth/otp-verification",
+        params: {
+          phone: `${countryCode} ${phone}`,
+          email: trimmedEmail,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          userType,
+          password,
+        },
+      });
+    } catch (error) {
+      Alert.alert(
+        "Could Not Send Code",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function clearError(field: string) {
@@ -272,11 +288,16 @@ export default function RegistrationScreen() {
 
         {/* Next button */}
         <TouchableOpacity
-          style={styles.nextBtn}
-          onPress={handleNext}
+          style={[styles.nextBtn, submitting && { opacity: 0.7 }]}
+          onPress={() => void handleNext()}
           activeOpacity={0.85}
+          disabled={submitting}
         >
-          <Text style={styles.nextBtnText}>Next</Text>
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={styles.nextBtnText}>Next</Text>
+          )}
         </TouchableOpacity>
 
         {/* Login link */}

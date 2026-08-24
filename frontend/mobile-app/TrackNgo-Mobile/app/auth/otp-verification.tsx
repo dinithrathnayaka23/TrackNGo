@@ -13,11 +13,13 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { httpPost } from "../../services/http";
+import { resendRegistrationOtp, verifyRegistrationOtp } from "../../services/registrationOtpApi";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text } from "../../utils/i18n";
 
 const OTP_LENGTH = 6;
-const RESEND_SECONDS = 165; // 2:45
+// Must match RegistrationOtpServiceImpl.RESEND_COOLDOWN_SECONDS on the backend.
+const RESEND_SECONDS = 30;
 
 export default function OtpVerificationScreen() {
   const router = useRouter();
@@ -30,9 +32,9 @@ export default function OtpVerificationScreen() {
     userType?: string;
     password?: string;
   }>();
-  const phone = params.phone ?? "+94 77 123 4567";
   const email = params.email ?? "";
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [timer, setTimer] = useState(RESEND_SECONDS);
@@ -89,12 +91,21 @@ export default function OtpVerificationScreen() {
     }
   }
 
-  function handleResend() {
-    setTimer(RESEND_SECONDS);
-    setCanResend(false);
-    setOtp(Array(OTP_LENGTH).fill(""));
-    inputRefs.current[0]?.focus();
-    Alert.alert("Code Sent", "A new verification code has been sent.");
+  async function handleResend() {
+    if (!email) return;
+    setResending(true);
+    try {
+      await resendRegistrationOtp(email);
+      setTimer(RESEND_SECONDS);
+      setCanResend(false);
+      setOtp(Array(OTP_LENGTH).fill(""));
+      inputRefs.current[0]?.focus();
+      Alert.alert("Code Sent", "A new verification code has been sent to your email.");
+    } catch (error) {
+      Alert.alert("Could Not Resend", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setResending(false);
+    }
   }
 
   async function handleVerify() {
@@ -103,14 +114,24 @@ export default function OtpVerificationScreen() {
       Alert.alert("Incomplete Code", "Please enter the full 6-digit code.");
       return;
     }
+    if (!email) {
+      Alert.alert("Missing Email", "No email address was provided. Please go back and try again.");
+      return;
+    }
 
     setLoading(true);
     try {
+      const { verificationToken } = await verifyRegistrationOtp(email, code);
+
       const userTypeParam = params.userType === "Corporate" ? "corporate" : "passenger";
       const payload = {
-        email: params.email?.trim(),
+        email,
         password: params.password,
         userType: userTypeParam,
+        firstName: params.firstName,
+        lastName: params.lastName,
+        phoneNumber: params.phone,
+        emailVerificationToken: verificationToken,
       };
 
       const response = await httpPost<any>("/api/users", undefined, payload);
@@ -161,19 +182,16 @@ export default function OtpVerificationScreen() {
 
         {/* Icon */}
         <View style={styles.iconCircle}>
-          <Ionicons name="chatbubble" size={36} color="#2F6BFF" />
+          <Ionicons name="mail" size={36} color="#2F6BFF" />
           <View style={styles.iconDot}>
             <View style={styles.iconDotInner} />
           </View>
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Verify Your Number</Text>
+        <Text style={styles.title}>Verify Your Email</Text>
         <Text style={styles.subtitle}>Enter the 6-digit code sent to</Text>
-        <Text style={styles.destination}>
-          {phone}
-          {email ? ` & ${email}` : ""}
-        </Text>
+        <Text style={styles.destination}>{email}</Text>
 
         {/* OTP inputs */}
         <View style={styles.otpRow}>
@@ -193,7 +211,6 @@ export default function OtpVerificationScreen() {
               maxLength={index === 0 ? OTP_LENGTH : 1}
               selectTextOnFocus
               textContentType="oneTimeCode"
-              autoComplete={index === 0 ? "sms-otp" : "off"}
             />
           ))}
         </View>
@@ -205,9 +222,9 @@ export default function OtpVerificationScreen() {
               Resend code in <Text style={styles.timerBold}>{formatTime(timer)}</Text>
             </Text>
           ) : null}
-          <Pressable onPress={canResend ? handleResend : undefined} disabled={!canResend}>
-            <Text style={[styles.resendText, !canResend && styles.resendDisabled]}>
-              Resend Code
+          <Pressable onPress={canResend ? () => void handleResend() : undefined} disabled={!canResend || resending}>
+            <Text style={[styles.resendText, (!canResend || resending) && styles.resendDisabled]}>
+              {resending ? "Sending..." : "Resend Code"}
             </Text>
           </Pressable>
         </View>
@@ -217,7 +234,7 @@ export default function OtpVerificationScreen() {
         {/* Verify button */}
         <TouchableOpacity
           style={[styles.verifyBtn, loading && { opacity: 0.7 }]}
-          onPress={handleVerify}
+          onPress={() => void handleVerify()}
           disabled={loading}
           activeOpacity={0.85}
         >

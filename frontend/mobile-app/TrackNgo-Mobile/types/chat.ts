@@ -99,4 +99,6 @@ export interface UserProfile {
   companyName?: string | null;
   contactPersonName?: string | null;
   userType: UserType;
+  /** Present only when the update changed the email — the old JWT is keyed to the old email and stops working. */
+  token?: string | null;
 }

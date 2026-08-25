@@ -21,7 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSession } from "../../store/sessionStore";
 import { useLanguage } from "../../utils/i18n";
-import { HttpError } from "../../services/http";
+import { HttpError, setAuthToken } from "../../services/http";
 import {
   getUserProfile,
   resolveProfilePhoto,
@@ -465,7 +465,7 @@ export default function PassengerProfileScreen() {
       // Changing the email invalidates the current JWT (it's keyed to the old
       // email), so the server hands back a fresh one to keep the session alive.
       if (updated.token) {
-        await AsyncStorage.setItem(TOKEN_KEY, updated.token);
+        await setAuthToken(updated.token);
       }
       setProfile(updated);
       setEditVisible(false);

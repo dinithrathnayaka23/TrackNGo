@@ -244,7 +244,7 @@ export default function LoginScreen() {
               </View>
               <Text style={styles.rememberText}>Remember me</Text>
             </Pressable>
-            <Pressable onPress={() => router.push("/auth/otp-verification")}>
+            <Pressable onPress={() => router.push("/auth/forgot-password")}>
               <Text style={styles.forgotText}>Forgot Password?</Text>
             </Pressable>
           </View>

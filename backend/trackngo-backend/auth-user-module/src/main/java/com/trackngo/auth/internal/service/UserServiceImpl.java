@@ -1,6 +1,7 @@
 
 package com.trackngo.auth.internal.service;
 
+import com.trackngo.auth.api.RegistrationOtpService;
 import com.trackngo.auth.api.UserService;
 import com.trackngo.auth.api.dto.UserDto;
 import com.trackngo.auth.api.dto.AdminUserDto;
@@ -42,18 +43,50 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
+    private final RegistrationOtpService registrationOtpService;
 
     @Override
+    @Transactional
     public UserDto create(UserDto dto) {
+        String email = clean(dto.getEmail());
+        if (email == null) {
+            throw new BusinessException("Email is required.");
+        }
+        registrationOtpService.consumeVerificationToken(email, dto.getEmailVerificationToken());
+
+        String userType = dto.getUserType() != null ? dto.getUserType().toLowerCase(Locale.ROOT) : "passenger";
+        String phone = normalizePhone(dto.getPhoneNumber());
+        if ("passenger".equals(userType)) {
+            if (phone == null) {
+                throw new BusinessException("Mobile number is required.");
+            }
+            Integer duplicatePhone = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM passenger WHERE mobile_number = ?", Integer.class, phone);
+            if (duplicatePhone != null && duplicatePhone > 0) {
+                throw new BusinessException("That mobile number is already registered.");
+            }
+        }
+
         User user = new User();
-        user.setEmail(dto.getEmail());
+        user.setEmail(email);
+        user.setFirstName(clean(dto.getFirstName()));
+        user.setLastName(clean(dto.getLastName()));
         if (dto.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
-        user.setUserType(dto.getUserType() != null ? dto.getUserType() : "passenger");
+        user.setUserType(userType);
         user.setIsActive(true);
-        user.setIsEmailVerified(false);
-        return toDto(userRepository.save(user));
+        user.setIsEmailVerified(true);
+        User saved = userRepository.save(user);
+
+        if ("passenger".equals(userType)) {
+            jdbcTemplate.update(
+                    "INSERT INTO passenger (passenger_id, mobile_number, is_phone_verified, status) VALUES (?, ?, false, 'active')",
+                    saved.getId(), phone
+            );
+        }
+
+        return toDto(saved);
     }
 
     @Override
@@ -481,6 +514,14 @@ public class UserServiceImpl implements UserService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizePhone(String value) {
+        String cleaned = clean(value);
+        if (cleaned == null) {
+            return null;
+        }
+        return cleaned.replaceAll("\\s+", "");
     }
 
     @Override

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { httpPost, setAuthToken } from "../../services/http";
+import { extractApiMessage, httpPost, setAuthToken } from "../../services/http";
 import { resendRegistrationOtp, verifyRegistrationOtp } from "../../services/registrationOtpApi";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text } from "../../utils/i18n";
@@ -170,15 +170,13 @@ export default function OtpVerificationScreen() {
           },
         },
       ]);
-    } catch (err: any) {
-      let errorMsg = err.message;
-      if (err.message && err.message.includes("{")) {
-        try {
-          const parsed = JSON.parse(err.message.substring(err.message.indexOf("{")));
-          if (parsed.message) errorMsg = parsed.message;
-        } catch {}
-      }
-      Alert.alert("Registration Failed", errorMsg || "Failed to create account. Please try again.");
+    } catch (err) {
+      // Falls back to a readable sentence rather than the raw
+      // "POST /api/users failed: 400 - {...}" string the request throws.
+      Alert.alert(
+        "Registration Failed",
+        extractApiMessage(err, "Failed to create account. Please try again."),
+      );
     } finally {
       setLoading(false);
     }

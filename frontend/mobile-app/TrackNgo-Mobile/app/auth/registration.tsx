@@ -71,13 +71,43 @@ export default function RegistrationScreen() {
         },
       });
     } catch (error) {
-      Alert.alert(
-        "Could Not Send Code",
-        error instanceof Error ? error.message : "Please try again.",
-      );
+      showSendOtpError(error, trimmedEmail);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /**
+   * Explains why the verification code could not be sent.
+   *
+   * An address that is already registered is the common case and is not really a
+   * failure, so it is marked on the email field the way validation errors are and
+   * offered a way straight to the login screen rather than a dead-end alert.
+   *
+   * The backend reports this as a plain message with no error code, so the wording
+   * has to be matched. If that wording ever changes this falls through to showing
+   * the server's own message, which is still accurate - it just loses the shortcut.
+   */
+  function showSendOtpError(error: unknown, attemptedEmail: string) {
+    const message =
+      error instanceof Error && error.message.trim()
+        ? error.message
+        : "Something went wrong. Please check your connection and try again.";
+
+    if (/already (exists|registered)/i.test(message)) {
+      setErrors((prev) => ({ ...prev, email: "This email is already registered" }));
+      Alert.alert(
+        "Email already registered",
+        `${attemptedEmail} already has a TrackNGo account. You can log in with it, or sign up using a different email address.`,
+        [
+          { text: "Use another email", style: "cancel" },
+          { text: "Log In", onPress: () => router.replace("/auth/login") },
+        ],
+      );
+      return;
+    }
+
+    Alert.alert("Could not send code", message);
   }
 
   function clearError(field: string) {

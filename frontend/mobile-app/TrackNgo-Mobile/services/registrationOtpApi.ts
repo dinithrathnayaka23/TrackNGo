@@ -1,4 +1,4 @@
-import { httpPost } from "./http";
+import { extractApiMessage, httpPost } from "./http";
 
 interface ApiResponse<T> {
   success: boolean;
@@ -17,21 +17,10 @@ export interface VerifyRegistrationOtpResult {
   expiresInSeconds: number;
 }
 
-function extractMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message) {
-    const braceIndex = error.message.indexOf("{");
-    if (braceIndex >= 0) {
-      try {
-        const parsed = JSON.parse(error.message.slice(braceIndex)) as { message?: string };
-        if (parsed.message) return parsed.message;
-      } catch {
-        // fall through to the raw message below
-      }
-    }
-    return error.message;
-  }
-  return fallback;
-}
+// The shared helper in http.ts does the same extraction, and falls back to the
+// supplied sentence instead of the raw "POST /path failed: 400 - {...}" string
+// that leaked through here whenever the body could not be parsed.
+const extractMessage = extractApiMessage;
 
 export async function sendRegistrationOtp(email: string): Promise<RegistrationOtpResult> {
   try {

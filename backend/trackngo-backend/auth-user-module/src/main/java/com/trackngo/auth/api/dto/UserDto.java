@@ -16,4 +16,9 @@ public class UserDto {
     private String password;
     private String userType;
     private String role;
+    private String firstName;
+    private String lastName;
+    private String phoneNumber;
+    /** Token minted by RegistrationOtpService#verifyOtp; required to prove the email was OTP-verified. */
+    private String emailVerificationToken;
 }

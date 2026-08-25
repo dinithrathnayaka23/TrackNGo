@@ -13,6 +13,8 @@ import {
 import { fetchAdminBookings, type AdminBooking } from '../../services/bookingService'
 import { fetchComplaints, type AdminComplaint } from '../../services/complaintService'
 import { fetchAdminUsers, type AdminUser } from '../../services/userService'
+import { buildDashboardBookingsPdf } from '../../utils/dashboardBookingsPdf'
+import authService from '../../services/authService'
 
 type Range = 7 | 30 | 90
 type Category = 'Highway' | 'Long-distance' | 'Corporate' | 'Trip'
@@ -232,25 +234,10 @@ function Analytics() {
   }).join(' ')
 
   const handleExport = () => {
-    const headers = ['Booking ID', 'Passenger', 'Route', 'Date & Time', 'Amount', 'Payment', 'Status']
-    const csvRows = recentBookings.map((booking) => [
-      booking.bookingId,
-      booking.passengerName,
-      booking.route,
-      formatDateTime(booking.journeyDate, booking.journeyTime),
-      formatAmount(booking.amount),
-      booking.paymentStatus,
-      booking.status,
-    ])
-    const csvContent = [headers, ...csvRows]
-      .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n')
-    const downloadUrl = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))
-    const link = document.createElement('a')
-    link.href = downloadUrl
-    link.download = 'trackngo-dashboard-bookings.csv'
-    link.click()
-    URL.revokeObjectURL(downloadUrl)
+    const profile = authService.getAdminProfile()
+    const generatedBy = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(' ') || profile.email : 'Admin'
+    const doc = buildDashboardBookingsPdf(bookings, selectedRange, generatedBy)
+    doc.save('trackngo-dashboard-bookings.pdf')
   }
 
   return (

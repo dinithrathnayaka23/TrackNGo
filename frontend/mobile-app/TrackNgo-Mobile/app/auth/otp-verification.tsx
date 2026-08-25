@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { httpPost } from "../../services/http";
+import { httpPost, setAuthToken } from "../../services/http";
 import { resendRegistrationOtp, verifyRegistrationOtp } from "../../services/registrationOtpApi";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text } from "../../utils/i18n";
@@ -137,9 +137,24 @@ export default function OtpVerificationScreen() {
       const response = await httpPost<any>("/api/users", undefined, payload);
       const savedUser = response.data || response;
 
+      // Creating the account does not return a JWT, so log in straight away to
+      // obtain one. Without this the new user lands in the app with a session but
+      // no credentials, and every authenticated request comes back as a bare 403.
+      const loginResponse = await httpPost<any>("/api/auth/login", undefined, {
+        // The same normalised address the OTP was verified against and the account
+        // was created with, so the sign-in cannot miss on a whitespace difference.
+        identifier: email,
+        password: params.password,
+      });
+      const loginData = loginResponse.data || loginResponse;
+      if (!loginData?.token) {
+        throw new Error("Account created but sign-in failed. Please log in manually.");
+      }
+      await setAuthToken(loginData.token);
+
       const mappedUserType = userTypeParam === "corporate" ? "CORPORATE_USER" : "PASSENGER";
       await setCurrentUser({
-        userId: savedUser.id,
+        userId: loginData.userId ?? savedUser.id,
         userType: mappedUserType,
       });
 

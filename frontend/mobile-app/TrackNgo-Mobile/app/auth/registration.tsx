@@ -102,6 +102,18 @@ export default function RegistrationScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
+          <Pressable
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace("/auth/welcome")
+            }
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={styles.backBtn}
+          >
+            <Ionicons name="arrow-back" size={22} color="#374151" />
+          </Pressable>
+
           <Text style={styles.title}>Create Account</Text>
 
           {/* Step indicator */}
@@ -325,6 +337,16 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 20,
+  },
+  backBtn: {
+    // Pulled left so the icon's optical edge lines up with the title below it
+    // rather than the touch target's edge.
+    marginLeft: -8,
+    marginBottom: 8,
+    width: 40,
+    height: 40,
+    alignItems: "flex-start",
+    justifyContent: "center",
   },
   title: {
     fontSize: 24,

@@ -6,6 +6,7 @@ import com.trackngo.app.dto.UpdateUserProfileRequest;
 import com.trackngo.auth.internal.repository.UserRepository;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import com.trackngo.commons.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.Authentication;
@@ -47,6 +48,7 @@ public class UserProfileService {
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
 
     public UserProfileDto getCurrentProfile() {
         return getProfile(getAuthenticatedUserId());
@@ -89,9 +91,10 @@ public class UserProfileService {
         );
         ensureCanModifyProfile(userId, String.valueOf(current.get("user_type")));
 
+        String previousEmail = String.valueOf(current.get("email"));
         String email = clean(request.email());
         if (email == null) {
-            email = String.valueOf(current.get("email"));
+            email = previousEmail;
         }
 
         Integer duplicate = jdbcTemplate.queryForObject(
@@ -163,7 +166,12 @@ public class UserProfileService {
             }
         }
 
-        return getProfile(userId);
+        UserProfileDto profile = getProfile(userId);
+        if (!email.equalsIgnoreCase(previousEmail)) {
+            String token = jwtUtil.generateToken(email, Map.of("role", userType, "userType", userType));
+            profile = profile.withToken(token);
+        }
+        return profile;
     }
 
     @Transactional

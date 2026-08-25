@@ -18,10 +18,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import * as ImagePicker from "expo-image-picker";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSession } from "../../store/sessionStore";
 import { useLanguage } from "../../utils/i18n";
+import { HttpError, setAuthToken } from "../../services/http";
 import {
   getUserProfile,
   resolveProfilePhoto,
@@ -45,7 +45,6 @@ import {
 } from "../../services/twoFactorApi";
 import { clearTrustedDeviceToken, saveTrustedDeviceToken } from "../../services/trustedDeviceStorage";
 
-const TOKEN_KEY = "trackngo.auth.token";
 const BLUE = "#2378E8";
 const AVATAR_SIZE = 112;
 
@@ -310,6 +309,35 @@ function DetailRow({
   );
 }
 
+function PasswordField({
+  placeholder,
+  value,
+  onChangeText,
+  visible,
+  onToggleVisible,
+}: {
+  placeholder: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  visible: boolean;
+  onToggleVisible: () => void;
+}) {
+  return (
+    <View style={styles.passwordFieldWrap}>
+      <TextInput
+        style={styles.passwordInput}
+        placeholder={placeholder}
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={!visible}
+      />
+      <Pressable style={styles.passwordToggle} onPress={onToggleVisible} hitSlop={10}>
+        <Ionicons name={visible ? "eye-off" : "eye"} size={20} color="#7B828D" />
+      </Pressable>
+    </View>
+  );
+}
+
 function ToggleRow({
   title,
   subtitle,
@@ -364,6 +392,9 @@ export default function PassengerProfileScreen() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const userId = currentUser?.userId;
   const copy = profileCopy[settings?.language === "si" || settings?.language === "ta" ? settings.language : "en"];
@@ -382,11 +413,21 @@ export default function PassengerProfileScreen() {
       setProfile(loadedProfile);
       setSettings(loadedSettings);
     } catch (error) {
+      if (error instanceof HttpError && (error.status === 401 || error.status === 403)) {
+        // clearCurrentUser also drops the token.
+        await clearCurrentUser();
+        Alert.alert(
+          "Session expired",
+          "Please log in again to continue.",
+        );
+        router.replace("/auth/login");
+        return;
+      }
       Alert.alert(profileCopy.en.unableLoad, error instanceof Error ? error.message : profileCopy.en.tryAgain);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, clearCurrentUser, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -421,6 +462,11 @@ export default function PassengerProfileScreen() {
         email: email.trim(),
         phoneNumber: phoneNumber.trim() || null,
       });
+      // Changing the email invalidates the current JWT (it's keyed to the old
+      // email), so the server hands back a fresh one to keep the session alive.
+      if (updated.token) {
+        await setAuthToken(updated.token);
+      }
       setProfile(updated);
       setEditVisible(false);
     } catch (error) {
@@ -549,6 +595,9 @@ export default function PassengerProfileScreen() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
       setPasswordVisible(false);
       Alert.alert(copy.passwordUpdated, copy.passwordSuccess);
     } catch (error) {
@@ -567,7 +616,6 @@ export default function PassengerProfileScreen() {
         onPress: async () => {
           setLoggingOut(true);
           try {
-            await AsyncStorage.removeItem(TOKEN_KEY);
             await clearCurrentUser();
             router.replace("/auth/login");
           } finally {
@@ -685,9 +733,9 @@ export default function PassengerProfileScreen() {
       <Modal visible={passwordVisible} transparent animationType="slide" onRequestClose={() => setPasswordVisible(false)}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <View style={styles.modalCard}><Text style={styles.modalTitle}>{copy.passwordTitle}</Text>
-            <TextInput style={styles.input} placeholder={copy.currentPassword} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry />
-            <TextInput style={styles.input} placeholder={copy.newPassword} value={newPassword} onChangeText={setNewPassword} secureTextEntry />
-            <TextInput style={styles.input} placeholder={copy.confirmPassword} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+            <PasswordField placeholder={copy.currentPassword} value={currentPassword} onChangeText={setCurrentPassword} visible={showCurrentPassword} onToggleVisible={() => setShowCurrentPassword((value) => !value)} />
+            <PasswordField placeholder={copy.newPassword} value={newPassword} onChangeText={setNewPassword} visible={showNewPassword} onToggleVisible={() => setShowNewPassword((value) => !value)} />
+            <PasswordField placeholder={copy.confirmPassword} value={confirmPassword} onChangeText={setConfirmPassword} visible={showConfirmPassword} onToggleVisible={() => setShowConfirmPassword((value) => !value)} />
             <View style={styles.modalActions}><Pressable style={styles.cancelButton} onPress={() => setPasswordVisible(false)}><Text style={styles.cancelText}>{copy.cancel}</Text></Pressable><Pressable style={styles.primaryButton} onPress={() => void savePassword()} disabled={saving}><Text style={styles.primaryText}>{saving ? copy.updating : copy.update}</Text></Pressable></View>
           </View>
         </KeyboardAvoidingView>
@@ -777,6 +825,9 @@ const styles = StyleSheet.create({
   secretValue: { padding: 10, borderRadius: 8, backgroundColor: "#F1F5F9", color: "#1B2433", fontSize: 13, letterSpacing: 1, fontWeight: "600" },
   twoFactorHint: { marginTop: 8, marginBottom: 12, fontSize: 12, lineHeight: 18, color: "#7B828D" },
   input: { height: 48, borderWidth: 1, borderColor: "#D9DDE4", borderRadius: 9, paddingHorizontal: 13, marginBottom: 12, color: "#111827" },
+  passwordFieldWrap: { position: "relative", justifyContent: "center", marginBottom: 12 },
+  passwordInput: { height: 48, borderWidth: 1, borderColor: "#D9DDE4", borderRadius: 9, paddingHorizontal: 13, paddingRight: 42, color: "#111827" },
+  passwordToggle: { position: "absolute", right: 12, height: 48, justifyContent: "center", alignItems: "center" },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 4 },
   cancelButton: { paddingHorizontal: 18, paddingVertical: 13 },
   cancelText: { color: "#5E6673", fontWeight: "600" },

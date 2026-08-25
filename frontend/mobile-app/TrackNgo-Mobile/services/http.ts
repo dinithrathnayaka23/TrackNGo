@@ -1,8 +1,87 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../config/env";
+
+export const TOKEN_KEY = "trackngo.auth.token";
 
 const defaultHeaders = {
   Accept: "application/json",
 };
+
+export class HttpError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "HttpError";
+    this.status = status;
+  }
+}
+
+/**
+ * Pulls the backend's own `message` out of a failed request so screens can show why
+ * something was rejected instead of a generic failure notice. Errors carry the raw
+ * response body appended to their message, e.g.
+ * `POST /api/complaints failed: 400 - {"success":false,"message":"...","data":null}`.
+ */
+export function extractApiMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback;
+  const start = error.message.indexOf("{");
+  if (start === -1) return fallback;
+  try {
+    const parsed = JSON.parse(error.message.slice(start));
+    const message = typeof parsed?.message === "string" ? parsed.message.trim() : "";
+    return message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function getAuthToken(): Promise<string | null> {
+  return AsyncStorage.getItem(TOKEN_KEY);
+}
+
+export async function setAuthToken(token: string): Promise<void> {
+  await AsyncStorage.setItem(TOKEN_KEY, token);
+}
+
+export async function clearAuthToken(): Promise<void> {
+  await AsyncStorage.removeItem(TOKEN_KEY);
+}
+
+// Callers used to build the Authorization header themselves in each service
+// module, which meant any request that forgot it silently came back as an empty
+// 403. The token is attached here instead so every request carries it, while an
+// explicit Authorization header passed by the caller still wins.
+async function withAuth(headers?: Record<string, string>) {
+  const merged: Record<string, string> = { ...defaultHeaders, ...(headers ?? {}) };
+  if (!merged.Authorization) {
+    const token = await getAuthToken();
+    if (token) {
+      merged.Authorization = `Bearer ${token}`;
+    }
+  }
+  return merged;
+}
+
+// Listeners are notified when the backend rejects our credentials so the app can
+// drop the stale session and send the user back to the login screen from one place.
+type UnauthorizedListener = () => void;
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+
+export function onUnauthorized(listener: UnauthorizedListener): () => void {
+  unauthorizedListeners.add(listener);
+  return () => {
+    unauthorizedListeners.delete(listener);
+  };
+}
+
+function notifyUnauthorized(status: number, path: string) {
+  if (status !== 401 && status !== 403) return;
+  // Auth endpoints answer 401/403 for bad credentials; that is a failed login,
+  // not an expired session, so it must not log the user out.
+  if (path.startsWith("/api/auth/")) return;
+  unauthorizedListeners.forEach((listener) => listener());
+}
 
 function isAbortError(error: unknown) {
   return (
@@ -38,15 +117,13 @@ export async function httpGet<T>(
   try {
     const response = await fetch(url, {
       method: "GET",
-      headers: {
-        ...defaultHeaders,
-        ...(headers ?? {}),
-      },
+      headers: await withAuth(headers),
     });
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[HTTP GET] Error ${response.status}:`, errorText);
-      throw new Error(`GET ${path} failed: ${response.status} - ${errorText}`);
+      notifyUnauthorized(response.status, path);
+      throw new HttpError(`GET ${path} failed: ${response.status} - ${errorText}`, response.status);
     }
     const data = await response.json();
     console.log(`[HTTP GET] Success: ${path}`);
@@ -73,18 +150,18 @@ export async function httpPost<T>(
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        ...defaultHeaders,
+      headers: await withAuth({
         ...(body ? { "Content-Type": "application/json" } : {}),
         ...(headers ?? {}),
-      },
+      }),
       body: body ? JSON.stringify(body) : undefined,
       signal: controller?.signal,
     });
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[HTTP POST] Error ${response.status}:`, errorText);
-      throw new Error(`POST ${path} failed: ${response.status} - ${errorText}`);
+      notifyUnauthorized(response.status, path);
+      throw new HttpError(`POST ${path} failed: ${response.status} - ${errorText}`, response.status);
     }
     const data = await response.json();
     console.log(`[HTTP POST] Success: ${path}`);
@@ -116,17 +193,17 @@ export async function httpPut<T>(
   try {
     const response = await fetch(url, {
       method: "PUT",
-      headers: {
-        ...defaultHeaders,
+      headers: await withAuth({
         ...(body ? { "Content-Type": "application/json" } : {}),
         ...(headers ?? {}),
-      },
+      }),
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[HTTP PUT] Error ${response.status}:`, errorText);
-      throw new Error(`PUT ${path} failed: ${response.status} - ${errorText}`);
+      notifyUnauthorized(response.status, path);
+      throw new HttpError(`PUT ${path} failed: ${response.status} - ${errorText}`, response.status);
     }
     const data = await response.json();
     console.log(`[HTTP PUT] Success: ${path}`);
@@ -147,16 +224,15 @@ export async function httpDelete<T>(
   try {
     const response = await fetch(url, {
       method: "DELETE",
-      headers: {
-        ...defaultHeaders,
-        ...(headers ?? {}),
-      },
+      headers: await withAuth(headers),
     });
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[HTTP DELETE] Error ${response.status}:`, errorText);
-      throw new Error(
+      notifyUnauthorized(response.status, path);
+      throw new HttpError(
         `DELETE ${path} failed: ${response.status} - ${errorText}`,
+        response.status,
       );
     }
     const data = await response.json();
@@ -182,16 +258,14 @@ export async function httpPostForm<T>(
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        ...defaultHeaders,
-        ...(headers ?? {}),
-      },
+      headers: await withAuth(headers),
       body: form,
     });
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[HTTP POST FORM] Error ${response.status}:`, errorText);
-      throw new Error(`POST ${path} failed: ${response.status} - ${errorText}`);
+      notifyUnauthorized(response.status, path);
+      throw new HttpError(`POST ${path} failed: ${response.status} - ${errorText}`, response.status);
     }
     const data = await response.json();
     console.log(`[HTTP POST FORM] Success: ${path}`);

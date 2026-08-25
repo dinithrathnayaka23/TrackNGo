@@ -12,9 +12,17 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 @Configuration
 @EnableMethodSecurity
@@ -27,12 +35,17 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(restAuthenticationEntryPoint())
+                .accessDeniedHandler(restAccessDeniedHandler())
+            )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/health").permitAll()
+                // Registration is performed by an anonymous caller.
+                .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/chat/**").permitAll()
                 .requestMatchers("/api/routes/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                 .requestMatchers("/api/users/*/conversations/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/users/*/profile").permitAll()
                 .requestMatchers("/api/users/*/profile").authenticated()
@@ -68,6 +81,29 @@ public class SecurityConfig {
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    /**
+     * Without these, an unauthenticated request is answered with an empty 403 body,
+     * which is indistinguishable from a genuine authorization failure and gives the
+     * client nothing to act on. A missing or expired token now returns 401 with a
+     * JSON body so callers can tell "log in again" apart from "not allowed".
+     */
+    private AuthenticationEntryPoint restAuthenticationEntryPoint() {
+        return (request, response, authException) -> writeError(
+                response, HttpServletResponse.SC_UNAUTHORIZED, "Authentication required or token expired.");
+    }
+
+    private AccessDeniedHandler restAccessDeniedHandler() {
+        return (request, response, accessDeniedException) -> writeError(
+                response, HttpServletResponse.SC_FORBIDDEN, "You do not have permission to access this resource.");
+    }
+
+    private void writeError(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write("{\"success\":false,\"message\":\"" + message + "\",\"data\":null}");
     }
 
     @Bean

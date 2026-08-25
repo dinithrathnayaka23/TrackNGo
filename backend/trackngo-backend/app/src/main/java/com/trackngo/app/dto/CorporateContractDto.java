@@ -31,6 +31,9 @@ public record CorporateContractDto(
         String createdAt,
         Long corporateUserId,
         Long busId,
-        List<Long> busIds
+        List<Long> busIds,
+        BigDecimal advanceAmount,
+        String advancePaymentStatus,
+        String advancePaidAt
 ) {
 }

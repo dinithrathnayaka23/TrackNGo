@@ -41,6 +41,7 @@ import { ADMIN_SUPPORT_USER_ID, API_BASE_URL } from "../../config/env";
 import { WebView } from "react-native-webview";
 import { createStripeCheckoutSession, getStripeSessionStatus } from "../../services/bookingFlowApi";
 import { payAdvanceDeposit } from "../../services/corporateApi";
+import { getUserProfile } from "../../services/userProfileApi";
 
 // ─── Road-distance helper (same OSRM approach used in BookATrip.tsx) ─────────
 // Avoids Google Directions billing: any two selected locations get a real
@@ -547,14 +548,20 @@ export default function NewContractScreen() {
     if (!contractId || !currentUser) return;
     setSubmitting(true);
     try {
-      const orderId = `CORP-ADV-${contractId}-${Date.now()}`;
+      let email = "corporate@trackngo.lk";
+      try {
+        email = (await getUserProfile(currentUser.userId)).email || email;
+      } catch {
+        // Stripe accepts the fallback email.
+      }
+      const orderId = `CORP-ADV-${contractId}`;
       const result = await createStripeCheckoutSession({
         orderId,
         amount: monthlyAmount,
         currency: 'LKR',
-        itemName: `Advance Deposit: ${contractName}`,
+        itemName: `Advance Deposit: ${createdContract?.contractName ?? contractId}`,
         itemDescription: `Corporate Contract ID: ${contractId}`,
-        email: currentUser.email || 'corporate@trackngo.lk',
+        email,
         successUrl: `${API_BASE_URL}/api/booking-flow/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${API_BASE_URL}/api/booking-flow/stripe/cancel?session_id={CHECKOUT_SESSION_ID}`,
       });
@@ -579,17 +586,21 @@ export default function NewContractScreen() {
         setPaymentProcessing(false);
         return;
       }
-      
-      // Pay deposit
-      await payAdvanceDeposit(contractId!, {
-        transactionId: status.paymentIntentId,
-        paymentMethod: 'stripe',
-        amount: monthlyAmount,
-      });
+
+      // Pay deposit — the backend independently re-verifies the session with
+      // Stripe. Treat "already paid" as success rather than an error: it
+      // means an earlier attempt's payment went through but finalize didn't
+      // complete (e.g. the app closed mid-flow), so this is just a retry.
+      try {
+        await payAdvanceDeposit(contractId!, { sessionId });
+      } catch (payErr: any) {
+        const alreadyPaid = String(payErr?.message || "").toLowerCase().includes("already paid");
+        if (!alreadyPaid) throw payErr;
+      }
 
       // Finalize contract
       await finalizeCorporateContract(contractId!, currentUser!.userId);
-      
+
       Alert.alert("Success", "Deposit paid and contract is now active!", [
         { text: "OK", onPress: () => router.back() },
       ]);
@@ -599,7 +610,22 @@ export default function NewContractScreen() {
     } finally {
       setPaymentProcessing(false);
     }
-  }, [sessionId, contractId, monthlyAmount, currentUser, router]);
+  }, [sessionId, contractId, currentUser, router]);
+
+  const handleActivateWithoutPayment = async () => {
+    if (!contractId || !currentUser) return;
+    setSubmitting(true);
+    try {
+      await finalizeCorporateContract(contractId, currentUser.userId);
+      Alert.alert("Success", "Contract is now active!", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    } catch (e: any) {
+      Alert.alert("Error", e.message || "Failed to activate contract.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleWebViewNavigation = (navState: any) => {
     const url = navState.url;
@@ -1216,6 +1242,9 @@ export default function NewContractScreen() {
     );
   };
 
+  const depositStatus = createdContract?.advancePaymentStatus;
+  const depositResolved = depositStatus === "waived" || depositStatus === "paid";
+
   const renderStep4 = () => (
     <View style={styles.stepContainer}>
       <View style={styles.proposalHeader}>
@@ -1280,26 +1309,49 @@ export default function NewContractScreen() {
           <Text style={styles.pricingRowLabel}>Advance deposit (1 month)</Text>
           <Text style={[styles.pricingRowValue, { color: "#067BF9" }]}>Rs. {monthlyAmount.toLocaleString()}</Text>
         </View>
-        <Text style={styles.pricingHint}>
-          Refundable on contract expiry. Must be paid to activate the contract.
-        </Text>
+        {depositStatus === "waived" ? (
+          <Text style={styles.pricingHint}>Waived by admin — no payment required to activate.</Text>
+        ) : depositStatus === "paid" ? (
+          <Text style={styles.pricingHint}>Already paid — ready to activate.</Text>
+        ) : (
+          <Text style={styles.pricingHint}>
+            Refundable on contract expiry. Must be paid to activate the contract.
+          </Text>
+        )}
       </View>
 
       <View style={{ height: 20 }} />
-      <TouchableOpacity
-        style={styles.acceptBtn}
-        onPress={handlePayDeposit}
-        disabled={submitting}
-      >
-        {submitting ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <>
-            <Ionicons name="card" size={20} color="#FFFFFF" />
-            <Text style={styles.acceptBtnText}>Pay Deposit & Accept</Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {depositResolved ? (
+        <TouchableOpacity
+          style={styles.acceptBtn}
+          onPress={handleActivateWithoutPayment}
+          disabled={submitting}
+        >
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+              <Text style={styles.acceptBtnText}>Activate Contract</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={styles.acceptBtn}
+          onPress={handlePayDeposit}
+          disabled={submitting}
+        >
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="card" size={20} color="#FFFFFF" />
+              <Text style={styles.acceptBtnText}>Pay Deposit & Accept</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity style={styles.rejectBtn} onPress={handleBack} disabled={submitting}>
         <Ionicons name="close-circle" size={20} color="#EF4444" />

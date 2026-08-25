@@ -114,6 +114,7 @@ export type CorporateContractDetail = CorporateContract & {
   advanceAmount: number | null
   advancePaymentStatus: 'pending' | 'paid' | 'waived' | 'refunded'
   advancePaidAt: string | null
+  advanceTransactionId: string | null
 }
 
 type ApiResponse<T> = {

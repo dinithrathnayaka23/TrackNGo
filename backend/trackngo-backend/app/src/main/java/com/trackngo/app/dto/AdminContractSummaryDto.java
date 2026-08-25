@@ -25,6 +25,9 @@ public record AdminContractSummaryDto(
         LocalDate endDate,
         String createdAt,
         Long corporateUserId,
-        Integer busCount
+        Integer busCount,
+        BigDecimal advanceAmount,
+        String advancePaymentStatus,
+        String advancePaidAt
 ) {
 }

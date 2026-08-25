@@ -263,6 +263,9 @@ function ViewContractModal({
                   Status: <span className="font-semibold capitalize">{detail.advancePaymentStatus.replace('_', ' ')}</span>
                   {detail.advancePaidAt && ` on ${formatDate(detail.advancePaidAt)}`}
                 </p>
+                {detail.advanceTransactionId && (
+                  <p className="mt-1 text-xs text-[#94a3b8]">Ref: {detail.advanceTransactionId}</p>
+                )}
               </div>
 
               <div className="rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">

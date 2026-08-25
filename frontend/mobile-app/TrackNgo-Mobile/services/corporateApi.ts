@@ -353,7 +353,7 @@ export async function getCorporateInvoices(
 
 export async function payAdvanceDeposit(
   contractId: number,
-  payload: { transactionId: string; paymentMethod: string; amount: number }
+  payload: { sessionId: string }
 ): Promise<CorporateContract> {
   const res = await httpPost<ApiResponse<CorporateContract>>(
     `/api/corporate/contracts/${contractId}/advance-payment`,

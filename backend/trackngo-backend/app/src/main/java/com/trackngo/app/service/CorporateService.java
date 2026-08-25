@@ -9,6 +9,8 @@ import com.trackngo.app.dto.CorporateAdvancePaymentDto;
 import com.trackngo.app.dto.ShiftLegDto;
 import com.trackngo.notification.api.NotificationService;
 import com.trackngo.notification.api.dto.NotificationDto;
+import com.stripe.exception.StripeException;
+import com.stripe.model.checkout.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,6 +19,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -55,7 +58,8 @@ public class CorporateService {
                 evening_distance_km,
                 employee_count, working_days, bus_type, distance_km,
                 status, finalized_at, billing_amount,
-                start_date, end_date, created_at, corporate_user_id, bus_id
+                start_date, end_date, created_at, corporate_user_id, bus_id,
+                advance_amount, advance_payment_status, advance_paid_at
             """;
 
     private static final String CONTRACTS_SQL = """
@@ -70,6 +74,7 @@ public class CorporateService {
                 c.contract_id, c.contract_name, c.shift_type, c.employee_count, c.bus_type,
                 c.distance_km, c.status, c.billing_amount, c.start_date, c.end_date,
                 c.created_at, c.corporate_user_id,
+                c.advance_amount, c.advance_payment_status, c.advance_paid_at,
                 cu.company_name, cu.contact_person_name, cu.contact_phone,
                 (SELECT COUNT(*) FROM corporate_contract_bus ccb WHERE ccb.contract_id = c.contract_id) AS bus_count
             FROM corporate_contract c
@@ -115,7 +120,7 @@ public class CorporateService {
                 c.employee_count, c.working_days, c.bus_type, c.distance_km,
                 c.status, c.finalized_at, c.billing_amount,
                 c.start_date, c.end_date, c.created_at, c.corporate_user_id, c.bus_id,
-                c.advance_amount, c.advance_payment_status, c.advance_paid_at,
+                c.advance_amount, c.advance_payment_status, c.advance_paid_at, c.advance_transaction_id,
                 cu.company_name, cu.contact_person_name, cu.contact_phone
             FROM corporate_contract c
             LEFT JOIN corporate_user cu ON cu.corporate_user_id = c.corporate_user_id
@@ -280,7 +285,10 @@ public class CorporateService {
                 rs.getDate("end_date") != null ? rs.getDate("end_date").toLocalDate() : null,
                 rs.getString("created_at"),
                 rs.getLong("corporate_user_id"),
-                rs.getInt("bus_count")
+                rs.getInt("bus_count"),
+                rs.getBigDecimal("advance_amount"),
+                rs.getString("advance_payment_status"),
+                rs.getString("advance_paid_at")
         ), params.toArray());
     }
 
@@ -311,7 +319,10 @@ public class CorporateService {
                 rs.getString("created_at"),
                 rs.getLong("corporate_user_id"),
                 rs.getLong("bus_id") == 0 ? null : rs.getLong("bus_id"),
-                null // busIds are only populated where the caller explicitly fetches them (see getContractDetail / createContract)
+                null, // busIds are only populated where the caller explicitly fetches them (see getContractDetail / createContract)
+                rs.getBigDecimal("advance_amount"),
+                rs.getString("advance_payment_status"),
+                rs.getString("advance_paid_at")
         );
     }
 
@@ -323,7 +334,8 @@ public class CorporateService {
                 base.eveningPickup(), base.eveningDropoff(), base.eveningDistanceKm(),
                 base.employeeCount(), base.workingDays(), base.busType(), base.distanceKm(),
                 base.status(), base.finalizedAt(), base.billingAmount(), base.startDate(), base.endDate(),
-                base.createdAt(), base.corporateUserId(), base.busId(), busIds
+                base.createdAt(), base.corporateUserId(), base.busId(), busIds,
+                base.advanceAmount(), base.advancePaymentStatus(), base.advancePaidAt()
         );
     }
 
@@ -421,7 +433,8 @@ public class CorporateService {
                     outstanding,
                     rs.getBigDecimal("advance_amount"),
                     rs.getString("advance_payment_status"),
-                    rs.getString("advance_paid_at")
+                    rs.getString("advance_paid_at"),
+                    rs.getString("advance_transaction_id")
             );
         }, contractId);
 
@@ -751,6 +764,9 @@ public class CorporateService {
     }
 
     public CorporateContractDto processAdvancePayment(Long contractId, CorporateAdvancePaymentDto paymentDto) {
+        if (paymentDto.sessionId() == null || paymentDto.sessionId().isBlank()) {
+            throw new IllegalArgumentException("Stripe session is required.");
+        }
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "SELECT advance_amount, advance_payment_status FROM corporate_contract WHERE contract_id = ?",
                 contractId);
@@ -766,13 +782,28 @@ public class CorporateService {
             throw new IllegalStateException("Advance deposit is already waived.");
         }
         BigDecimal advanceAmount = (BigDecimal) row.get("advance_amount");
-        if (advanceAmount != null && paymentDto.amount().compareTo(advanceAmount) != 0) {
-            throw new IllegalArgumentException("Payment amount does not match the required advance deposit.");
+        if (advanceAmount == null || advanceAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("The advance deposit amount is not available for this contract.");
         }
-        
-        jdbcTemplate.update(
-                "UPDATE corporate_contract SET advance_payment_status = 'paid', advance_paid_at = CURRENT_TIMESTAMP, advance_transaction_id = ? WHERE contract_id = ?",
-                paymentDto.transactionId(), contractId);
+
+        try {
+            Session session = Session.retrieve(paymentDto.sessionId());
+            String orderId = session.getMetadata() == null ? "" : session.getMetadata().getOrDefault("order_id", "");
+            long expectedCents = advanceAmount.setScale(2, RoundingMode.HALF_UP)
+                    .movePointRight(2).longValueExact();
+            if (!("CORP-ADV-" + contractId).equals(orderId)
+                    || !"paid".equalsIgnoreCase(session.getPaymentStatus())
+                    || session.getAmountTotal() == null
+                    || session.getAmountTotal() != expectedCents) {
+                throw new IllegalStateException("Stripe payment could not be verified for this contract.");
+            }
+
+            jdbcTemplate.update(
+                    "UPDATE corporate_contract SET advance_payment_status = 'paid', advance_paid_at = CURRENT_TIMESTAMP, advance_transaction_id = ? WHERE contract_id = ?",
+                    session.getPaymentIntent(), contractId);
+        } catch (StripeException e) {
+            throw new IllegalStateException("Stripe payment verification failed.", e);
+        }
 
         return jdbcTemplate.queryForObject(
                 "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),

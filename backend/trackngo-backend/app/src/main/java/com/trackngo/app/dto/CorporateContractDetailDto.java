@@ -46,6 +46,7 @@ public record CorporateContractDetailDto(
         BigDecimal outstandingAmount,
         BigDecimal advanceAmount,
         String advancePaymentStatus,
-        String advancePaidAt
+        String advancePaidAt,
+        String advanceTransactionId
 ) {
 }

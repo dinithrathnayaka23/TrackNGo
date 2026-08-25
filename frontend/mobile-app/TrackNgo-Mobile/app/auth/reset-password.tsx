@@ -57,8 +57,11 @@ export default function ResetPasswordScreen() {
     }
   }
 
+  // Android already resizes the window for the keyboard (app.json
+  // softwareKeyboardLayoutMode: "resize"), so a "height" behavior here would
+  // compensate a second time and make the bottom-anchored button jitter.
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={styles.container}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color="#374151" />

@@ -3,6 +3,7 @@ package com.trackngo.booking.internal.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.internal.entity.TripBooking;
 import com.trackngo.booking.internal.repository.TripBookingRepository;
+import com.trackngo.notification.api.NotificationDispatcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,6 +38,9 @@ class TripBookingServiceTest {
 
     @Mock
     private ObjectMapper mapper;
+
+    @Mock
+    private NotificationDispatcher notifications;
 
     @InjectMocks
     private TripBookingService service;

@@ -8,6 +8,8 @@ import com.trackngo.feedbackrating.api.dto.RatingDto;
 import com.trackngo.feedbackrating.events.RatingCreatedEvent;
 import com.trackngo.feedbackrating.internal.entity.Rating;
 import com.trackngo.feedbackrating.internal.repository.RatingRepository;
+import com.trackngo.notification.api.NotificationDispatcher;
+import com.trackngo.notification.api.NotificationType;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +29,7 @@ public class RatingServiceImpl implements RatingService {
     private final RatingRepository repository;
     private final EventPublisher eventPublisher;
     private final JdbcTemplate jdbc;
+    private final NotificationDispatcher notifications;
 
     @Value("${trackngo.time-zone:Asia/Colombo}")
     private String timeZoneId;
@@ -156,6 +159,25 @@ public class RatingServiceImpl implements RatingService {
         if (saved.getDriverId() != null) {
             recomputeDriverAverageRating(saved.getDriverId());
         }
+
+        notifications.toPassenger(
+            saved.getPassengerId(),
+            NotificationType.RATING,
+            isNew ? "Thanks for Your Feedback" : "Rating Updated",
+            (isNew ? "Your rating for booking " : "Your updated rating for booking ")
+                + saved.getBookingReference() + " has been recorded. Thank you for helping us improve."
+        );
+
+        notifications.toDriver(
+            saved.getDriverId(),
+            NotificationType.RATING,
+            isNew ? "New Rating Received" : "Rating Updated",
+            (saved.getDriverRating() == null
+                ? "A passenger rated their journey on booking "
+                : "A passenger rated you " + saved.getDriverRating() + " out of 5 on booking ")
+                + saved.getBookingReference() + "."
+        );
+
         return toDto(saved);
     }
 

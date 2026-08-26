@@ -42,7 +42,7 @@ function Navbar({
         <button
           type="button"
           onClick={onLogout}
-          className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-1.5 text-xs font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
+          className="flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-1.5 text-xs font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96]"
         >
           <FontAwesomeIcon icon={faSignOutAlt} />
           Logout

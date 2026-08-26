@@ -237,68 +237,66 @@ function Promotions() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="animate-dash-in flex flex-col gap-4 rounded-xl bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between" style={{ animationDelay: '70ms' }}>
-        <div>
-          <h1 className="mt-1 text-xl font-extrabold tracking-tight text-[#111827]">Promotions</h1>
-        </div>
+    <div className="mx-auto max-w-7xl space-y-5">
+      <div className="animate-dash-in flex flex-wrap items-center justify-between gap-4" style={{ animationDelay: '70ms' }}>
+        <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Promotions</h1>
         <button
           type="button"
           onClick={loadPromotions}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#d6dbe6] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9]"
         >
           <FontAwesomeIcon icon={faRotate} />
           Refresh
         </button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="animate-dash-in rounded-xl bg-white p-5 shadow-sm" style={{ animationDelay: '120ms' }}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="animate-dash-in rounded-xl border border-[#e5e7eb] bg-white px-5 py-4" style={{ animationDelay: '120ms' }}>
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold text-[#64748b]">Active promotions</p>
-              <p className="mt-2 text-3xl font-bold text-[#111827]">{activeCount}</p>
+              <p className="mt-1 text-2xl font-extrabold text-[#16a34a]">{activeCount}</p>
             </div>
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#dcfce7] text-[#047857]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#dcfce7] text-[#16a34a]">
               <FontAwesomeIcon icon={faCircleCheck} />
             </span>
           </div>
         </div>
-        <div className="animate-dash-in rounded-xl bg-white p-5 shadow-sm" style={{ animationDelay: '160ms' }}>
+        <div className="animate-dash-in rounded-xl border border-[#e5e7eb] bg-white px-5 py-4" style={{ animationDelay: '160ms' }}>
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold text-[#64748b]">Total redemptions</p>
-              <p className="mt-2 text-3xl font-bold text-[#111827]">{totalRedemptions}</p>
+              <p className="mt-1 text-2xl font-extrabold text-[#111827]">{totalRedemptions}</p>
             </div>
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#eff6ff] text-[#2563eb]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#e8eeff] text-[#2642a6]">
               <FontAwesomeIcon icon={faTicket} />
             </span>
           </div>
         </div>
-        <div className="animate-dash-in rounded-xl bg-white p-5 shadow-sm" style={{ animationDelay: '200ms' }}>
+        <div className="animate-dash-in rounded-xl border border-[#e5e7eb] bg-white px-5 py-4" style={{ animationDelay: '200ms' }}>
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold text-[#64748b]">Ending soon</p>
-              <p className="mt-2 text-3xl font-bold text-[#111827]">{endingSoon}</p>
+              <p className="mt-1 text-2xl font-extrabold text-[#f59e0b]">{endingSoon}</p>
             </div>
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#fef3c7] text-[#b45309]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#fef3c7] text-[#f59e0b]">
               <FontAwesomeIcon icon={faClock} />
             </span>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="animate-dash-in rounded-xl bg-white p-5 shadow-sm" style={{ animationDelay: '240ms' }}>
+      <form onSubmit={handleSubmit} className="animate-dash-in rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.05)]" style={{ animationDelay: '240ms' }}>
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-[#111827]">{editingId ? 'Edit promotion' : 'Create promotion'}</h2>
+            <h2 className="text-lg font-extrabold text-[#111827]">{editingId ? 'Edit promotion' : 'Create promotion'}</h2>
             <p className="text-sm text-[#64748b]">Set discount rules, promo codes, and booking limits.</p>
           </div>
           {editingId && (
             <button
               type="button"
               onClick={resetForm}
-              className="inline-flex items-center justify-center rounded-lg border border-[#d6dbe6] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+              className="inline-flex items-center justify-center rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9]"
             >
               New promotion
             </button>
@@ -317,7 +315,7 @@ function Promotions() {
             <input
               value={form.name}
               onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
               placeholder="Weekend highway discount"
             />
           </label>
@@ -327,7 +325,7 @@ function Promotions() {
             <select
               value={form.targetType}
               onChange={(event) => setForm((current) => ({ ...current, targetType: event.target.value as PromotionTarget }))}
-              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
             >
               {Object.entries(targetLabels).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -342,7 +340,7 @@ function Promotions() {
             <select
               value={form.discountType}
               onChange={(event) => setForm((current) => ({ ...current, discountType: event.target.value as PromotionDiscountType }))}
-              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
             >
               {Object.entries(discountLabels).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -360,7 +358,7 @@ function Promotions() {
               step="0.01"
               value={form.discountValue}
               onChange={(event) => setForm((current) => ({ ...current, discountValue: event.target.value }))}
-              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
             />
           </label>
 
@@ -370,7 +368,7 @@ function Promotions() {
               <input
                 value={form.promoCode}
                 onChange={(event) => setForm((current) => ({ ...current, promoCode: event.target.value.toUpperCase() }))}
-                className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm uppercase outline-none focus:border-[#2563eb]"
+                className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-xs font-semibold uppercase tracking-wide outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
                 placeholder="TRACK20"
               />
             </label>
@@ -384,7 +382,7 @@ function Promotions() {
                 min="0"
                 value={form.regularCustomerMinCompletedBookings}
                 onChange={(event) => setForm((current) => ({ ...current, regularCustomerMinCompletedBookings: event.target.value }))}
-                className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+                className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
               />
             </label>
           )}
@@ -396,7 +394,7 @@ function Promotions() {
               min="1"
               value={form.maxBookings}
               onChange={(event) => setForm((current) => ({ ...current, maxBookings: event.target.value }))}
-              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
             />
           </label>
 
@@ -405,7 +403,7 @@ function Promotions() {
             <textarea
               value={form.description}
               onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-              className="min-h-24 w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"
+              className="min-h-24 w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
               placeholder="Optional notes for the admin team"
             />
           </label>
@@ -415,7 +413,7 @@ function Promotions() {
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2563eb] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#1d4ed8] disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96] disabled:opacity-60"
           >
             <FontAwesomeIcon icon={editingId ? faPen : faPlus} />
             {saving ? 'Saving...' : editingId ? 'Save changes' : 'Create promotion'}
@@ -423,9 +421,9 @@ function Promotions() {
         </div>
       </form>
 
-      <div className="animate-dash-in rounded-xl bg-white shadow-sm" style={{ animationDelay: '280ms' }}>
-        <div className="border-b border-[#f1f5f9] px-5 py-4">
-          <h2 className="text-lg font-bold text-[#111827]">Promotion list</h2>
+      <div className="animate-dash-in overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.05)]" style={{ animationDelay: '280ms' }}>
+        <div className="border-b border-[#e5e7eb] px-5 py-4">
+          <h2 className="text-lg font-extrabold text-[#111827]">Promotion list</h2>
         </div>
         {loading ? (
           <div className="p-6 text-sm font-semibold text-[#64748b]">Loading promotions...</div>
@@ -434,7 +432,7 @@ function Promotions() {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-[#f8fafc] text-xs uppercase text-[#64748b]">
+              <thead className="bg-[#f8fafc] text-xs uppercase text-[#64748b] font-semibold tracking-wide">
                 <tr>
                   <th className="px-5 py-3">Promotion</th>
                   <th className="px-5 py-3">Audience</th>
@@ -451,12 +449,12 @@ function Promotions() {
                     <tr key={promotion.promotionId} className="align-top">
                       <td className="px-5 py-4">
                         <div className="flex items-start gap-3">
-                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#eff6ff] text-[#2563eb]">
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#e8eeff] text-[#2642a6]">
                             <FontAwesomeIcon icon={promotion.targetType === 'PROMO_CODE' ? faPercent : faBullseye} />
                           </span>
                           <div>
                             <p className="font-bold text-[#111827]">{promotion.name}</p>
-                            {promotion.promoCode && <p className="mt-1 text-xs font-bold text-[#2563eb]">{promotion.promoCode}</p>}
+                            {promotion.promoCode && <p className="mt-1 text-xs font-bold text-[#2642a6]">{promotion.promoCode}</p>}
                             {promotion.description && <p className="mt-1 max-w-md text-xs text-[#64748b]">{promotion.description}</p>}
                           </div>
                         </div>
@@ -475,12 +473,12 @@ function Promotions() {
                             <span>{promotion.maxBookings}</span>
                           </div>
                           <div className="mt-2 h-2 rounded-full bg-[#e2e8f0]">
-                            <div className="h-2 rounded-full bg-[#2563eb]" style={{ width: `${usagePercent}%` }} />
+                            <div className="h-2 rounded-full bg-[#2642a6]" style={{ width: `${usagePercent}%` }} />
                           </div>
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${statusClass(promotion.status)}`}>{promotion.status}</span>
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${statusClass(promotion.status)}`}>{promotion.status}</span>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
@@ -489,7 +487,7 @@ function Promotions() {
                               <button
                                 type="button"
                                 onClick={() => handleEdit(promotion)}
-                                className="grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] text-[#334155] transition hover:bg-[#f8fafc]"
+                                className="grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] text-[#334155] transition hover:bg-[#f1f5f9]"
                                 aria-label={`Edit ${promotion.name}`}
                               >
                                 <FontAwesomeIcon icon={faPen} />

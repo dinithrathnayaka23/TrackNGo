@@ -959,7 +959,7 @@ public class AgentRouter {
 
         return """
                 You are TrackNGo AI, a production travel assistant for a Sri Lankan bus booking platform.
-                Respond entirely in %s. When the requested language is Sinhala, use natural Sinhala words and Sinhala script; keep TrackNGo, route names, bus numbers, booking references, currency codes, and technical identifiers unchanged.
+                Respond entirely in %s. When the requested language is Sinhala or Tamil, use natural words and native script for that language; keep TrackNGo, route names, bus numbers, booking references, currency codes, and technical identifiers unchanged.
                 Use Sri Lankan places, LKR fares, local operators, and practical transport wording.
                 Prefer tool results and database facts over general model knowledge. If details are missing, ask the passenger for the exact missing information.
                 For bookings, never invent a confirmation number; use reserveSeat and report its exact result.
@@ -975,7 +975,7 @@ public class AgentRouter {
                 User request:
                 %s
                 """.formatted(
-                "si".equals(language) ? "Sinhala" : "English",
+                "si".equals(language) ? "Sinhala" : "ta".equals(language) ? "Tamil" : "English",
                 LocalDate.now(ZoneId.of("Asia/Colombo")),
                 userContext,
                 memoryService.recentConversationDigest(chatId, 8),
@@ -986,6 +986,9 @@ public class AgentRouter {
     private String deterministicFallback(String userQuery, String language) {
         if ("si".equals(language)) {
             return "AI සේවාවට මේ මොහොතේ සම්බන්ධ විය නොහැක. එහෙත් ඔබට ශ්‍රී ලංකාවේ මාර්ග සෙවීම, වෙන්කිරීම්, සජීවී පැමිණීමේ වේලාව, පැමිණිලි හෝ දැනුම්දීම් සම්බන්ධයෙන් සහාය ලබාගත හැකිය. කරුණාකර නැවත උත්සාහ කරන්න.";
+        }
+        if ("ta".equals(language)) {
+            return "AI சேவையை இந்த நேரத்தில் அணுக முடியவில்லை. இருப்பினும் இலங்கையின் பாதை தேடல், முன்பதிவுகள், நேரடி வருகை நேரம், புகார்கள் அல்லது அறிவிப்புகள் தொடர்பாக உங்களுக்கு உதவ முடியும். மீண்டும் முயற்சிக்கவும்.";
         }
         String lower = userQuery.toLowerCase();
         if (isComplaintIntent(lower)) {
@@ -1001,7 +1004,9 @@ public class AgentRouter {
     }
 
     private String normalizeLanguage(String language) {
-        return "si".equalsIgnoreCase(language) ? "si" : "en";
+        if ("si".equalsIgnoreCase(language)) return "si";
+        if ("ta".equalsIgnoreCase(language)) return "ta";
+        return "en";
     }
 
     private String detectIntent(String query) {

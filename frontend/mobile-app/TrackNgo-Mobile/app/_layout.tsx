@@ -1,7 +1,10 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  initialWindowMetrics,
+} from "react-native-safe-area-context";
 import { chatSocket } from "../services/chatSocket";
 import { SessionProvider, useSession } from "../store/sessionStore";
 import { LanguageProvider } from "../utils/i18n";
@@ -36,6 +39,9 @@ function RootLayoutNav() {
       <Stack.Screen name="auth/login" />
       <Stack.Screen name="auth/registration" />
       <Stack.Screen name="auth/otp-verification" />
+      <Stack.Screen name="auth/forgot-password" />
+      <Stack.Screen name="auth/reset-otp-verification" />
+      <Stack.Screen name="auth/reset-password" />
       <Stack.Screen name="auth/two-factor" />
       <Stack.Screen name="tabs" />
     </Stack>
@@ -44,12 +50,18 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
+    // Without initialMetrics the provider has no insets until its native view
+    // reports them, so every consumer renders once with zeros and then again with
+    // the real values. That second pass is what makes the layout jump on the first
+    // frame and again when Android re-dispatches insets after the app is resumed.
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <SessionProvider>
         <LanguageProvider>
           <GlobalPresenceConnection />
           <RootLayoutNav />
-          <StatusBar style="dark" />
+          {/* White to match the app bar underneath, with dark icons so the
+              clock and battery stay readable against it. */}
+          <StatusBar style="dark" backgroundColor="#FFFFFF" />
         </LanguageProvider>
       </SessionProvider>
     </SafeAreaProvider>

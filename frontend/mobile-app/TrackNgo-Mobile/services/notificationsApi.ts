@@ -21,6 +21,19 @@ export type NotificationType =
   | "system"
   | "sos";
 
+/**
+ * Server-side filters the passenger feed accepts.
+ *
+ * "booking" also returns cancellations, so a booking and the notice that
+ * cancelled it stay together under the Bookings tab.
+ */
+export type PassengerNotificationFilter =
+  | "booking"
+  | "cancellation"
+  | "payment"
+  | "journey"
+  | "complaint";
+
 export interface NotificationDto {
   id: number;
   notificationType: NotificationType | string;
@@ -41,7 +54,7 @@ async function authHeaders(): Promise<Record<string, string> | undefined> {
 
 export async function getPassengerNotifications(
   userId: number,
-  type?: "booking" | "cancellation" | "payment" | "journey",
+  type?: PassengerNotificationFilter,
 ): Promise<NotificationDto[]> {
   const headers = await authHeaders();
   const res = await httpGet<ApiResponse<NotificationDto[]>>(
@@ -50,6 +63,19 @@ export async function getPassengerNotifications(
     headers,
   );
   return res.data ?? [];
+}
+
+/**
+ * Unread count for the passenger bell badge.
+ */
+export async function getPassengerUnreadCount(userId: number): Promise<number> {
+  try {
+    const notifications = await getPassengerNotifications(userId);
+    return notifications.filter((notification) => !notification.read).length;
+  } catch (err) {
+    console.warn("[Notifications] Failed to load passenger unread count:", err);
+    return 0;
+  }
 }
 
 /**

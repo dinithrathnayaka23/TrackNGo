@@ -3,7 +3,27 @@ import {
   fetchAdminNotifications,
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
+  sectionForType,
 } from "../../services/adminNotificationService";
+
+describe("adminNotificationService notification categories", () => {
+  it("routes each notification type to its tab", () => {
+    expect(sectionForType("booking")).toBe("Approvals");
+    expect(sectionForType("system_alert")).toBe("Approvals");
+    expect(sectionForType("complaint")).toBe("Support");
+    expect(sectionForType("sos")).toBe("Emergency");
+  });
+
+  it("matches types case-insensitively", () => {
+    expect(sectionForType("SOS")).toBe("Emergency");
+  });
+
+  it("leaves uncategorised types for the All tab", () => {
+    expect(sectionForType("payment")).toBe("Other");
+    expect(sectionForType(null)).toBe("Other");
+    expect(sectionForType(undefined)).toBe("Other");
+  });
+});
 
 describe("adminNotificationService", () => {
   beforeEach(() => {

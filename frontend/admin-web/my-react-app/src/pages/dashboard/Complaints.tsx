@@ -3,6 +3,7 @@ import {
   faCalendarDays,
   faCamera,
   faCheckCircle,
+  faChevronDown,
   faClipboardList,
   faDownload,
   faFileLines,
@@ -398,7 +399,7 @@ function Complaints() {
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Complaints Management</h1>
             {HIGH_COUNT > 0 && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fee2e2] px-3 py-1 text-xs font-bold text-[#dc2626]">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fee2e2] px-2.5 py-0.5 text-xs font-bold text-[#dc2626]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#dc2626]" />
                 {HIGH_COUNT} high priority
               </span>
@@ -407,7 +408,7 @@ function Complaints() {
           <button
             type="button"
             onClick={exportPdf}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]"
           >
             <FontAwesomeIcon icon={faDownload} className="text-xs" />
             Export Report
@@ -417,7 +418,7 @@ function Complaints() {
         <div className="animate-dash-in grid gap-4 sm:grid-cols-2 lg:grid-cols-4" style={{ animationDelay: '100ms' }}>
           <article className="flex items-center justify-between rounded-xl border border-[#e5e7eb] bg-white px-5 py-4">
             <div>
-              <p className="text-sm text-[#64748b]">Total Complaints</p>
+              <p className="text-sm text-[#64748b] font-semibold">Total Complaints</p>
               <p className="mt-1 text-2xl font-extrabold text-[#111827]">{TOTAL}</p>
             </div>
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#f1f5f9] text-[#334155]">
@@ -426,7 +427,7 @@ function Complaints() {
           </article>
           <article className="flex items-center justify-between rounded-xl border border-[#fecaca] bg-white px-5 py-4">
             <div>
-              <p className="text-sm text-[#64748b]">Pending</p>
+              <p className="text-sm text-[#64748b] font-semibold">Pending</p>
               <p className="mt-1 text-2xl font-extrabold text-[#dc2626]">{PENDING_COUNT}</p>
             </div>
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#fee2e2] text-[#dc2626]">
@@ -435,7 +436,7 @@ function Complaints() {
           </article>
           <article className="flex items-center justify-between rounded-xl border border-[#e5e7eb] bg-white px-5 py-4">
             <div>
-              <p className="text-sm text-[#64748b]">Under Review</p>
+              <p className="text-sm text-[#64748b] font-semibold">Under Review</p>
               <p className="mt-1 text-2xl font-extrabold text-[#111827]">{REVIEW_COUNT}</p>
             </div>
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#fef3c7] text-[#f59e0b]">
@@ -444,7 +445,7 @@ function Complaints() {
           </article>
           <article className="flex items-center justify-between rounded-xl border border-[#e5e7eb] bg-white px-5 py-4">
             <div>
-              <p className="text-sm text-[#64748b]">Resolved</p>
+              <p className="text-sm text-[#64748b] font-semibold">Resolved</p>
               <p className="mt-1 text-2xl font-extrabold text-[#16a34a]">{RESOLVED_COUNT}</p>
             </div>
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#dcfce7] text-[#16a34a]">
@@ -455,7 +456,7 @@ function Complaints() {
 
         <div className="animate-dash-in flex flex-wrap items-end gap-3" style={{ animationDelay: '120ms' }}>
           <div className="min-w-[180px] flex-1">
-            <label className="text-xs font-semibold text-[#64748b]">Search</label>
+            <label className="text-sm font-semibold text-[#64748b]">Search</label>
             <div className="relative mt-1">
               <FontAwesomeIcon icon={faSearchGlass} className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#94a3b8]" />
               <input
@@ -471,15 +472,15 @@ function Complaints() {
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#64748b]">Status</label>
-            <div className="mt-1">
+            <label className="text-sm font-semibold text-[#64748b]">Status</label>
+            <div className="relative mt-1">
               <select
                 value={statusFilter}
                 onChange={(event) => {
                   setStatusFilter(event.target.value as typeof statusFilter)
                   setPage(1)
                 }}
-                className="rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2642a6]"
+                className="w-full appearance-none rounded-lg border border-[#d6dbe6] bg-white py-2.5 pl-3 pr-8 text-sm font-medium text-[#334155] outline-none transition focus:border-[#2642a6]"
               >
                 <option value="All">All Statuses</option>
                 <option>Pending</option>
@@ -487,46 +488,49 @@ function Complaints() {
                 <option>Resolved</option>
                 <option>Rejected</option>
               </select>
+              <FontAwesomeIcon icon={faChevronDown} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#64748b]" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#64748b]">Priority</label>
-            <div className="mt-1">
+            <label className="text-sm font-semibold text-[#64748b]">Priority</label>
+            <div className="relative mt-1">
               <select
                 value={priorityFilter}
                 onChange={(event) => {
                   setPriorityFilter(event.target.value as typeof priorityFilter)
                   setPage(1)
                 }}
-                className="rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2642a6]"
+                className="w-full appearance-none rounded-lg border border-[#d6dbe6] bg-white py-2.5 pl-3 pr-8 text-sm font-medium text-[#334155] outline-none transition focus:border-[#2642a6]"
               >
                 <option value="All">All Priorities</option>
                 <option>High</option>
                 <option>Medium</option>
                 <option>Low</option>
               </select>
+              <FontAwesomeIcon icon={faChevronDown} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#64748b]" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#64748b]">Category</label>
-            <div className="mt-1">
+            <label className="text-sm font-semibold text-[#64748b]">Category</label>
+            <div className="relative mt-1">
               <select
                 value={categoryFilter}
                 onChange={(event) => {
                   setCategoryFilter(event.target.value as typeof categoryFilter)
                   setPage(1)
                 }}
-                className="rounded-lg border border-[#d6dbe6] bg-white px-3 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#2642a6]"
+                className="w-full appearance-none rounded-lg border border-[#d6dbe6] bg-white py-2.5 pl-3 pr-8 text-sm font-medium text-[#334155] outline-none transition focus:border-[#2642a6]"
               >
                 <option value="All">All Categories</option>
                 {CATEGORIES.map((category) => (
                   <option key={category}>{category}</option>
                 ))}
               </select>
+              <FontAwesomeIcon icon={faChevronDown} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#64748b]" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#64748b]">Date From</label>
+            <label className="text-sm font-semibold text-[#64748b]">Date From</label>
             <div className="relative mt-1">
               <FontAwesomeIcon icon={faCalendarDays} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#94a3b8]" />
               <input
@@ -541,7 +545,7 @@ function Complaints() {
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#64748b]">Date To</label>
+            <label className="text-sm font-semibold text-[#64748b]">Date To</label>
             <div className="relative mt-1">
               <FontAwesomeIcon icon={faCalendarDays} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#94a3b8]" />
               <input
@@ -557,7 +561,7 @@ function Complaints() {
           </div>
         </div>
 
-        <div className="animate-dash-in overflow-hidden rounded-xl border border-[#e5e7eb] bg-white" style={{ animationDelay: '140ms' }}>
+        <div className="animate-dash-in overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.05)]" style={{ animationDelay: '140ms' }}>
           <div className="overflow-x-auto overscroll-x-contain">
             <table className="min-w-[1680px] w-full table-fixed text-sm">
               <colgroup>
@@ -573,11 +577,11 @@ function Complaints() {
                 <col className="w-[170px]" />
               </colgroup>
               <thead>
-                <tr className="h-12 border-b border-[#e5e7eb] bg-[#f8fafc] text-left text-xs font-bold uppercase tracking-wide text-[#64748b]">
+                <tr className="h-12 border-b border-[#e5e7eb] bg-[#f8fafc] text-left text-xs font-semibold uppercase tracking-wide text-[#64748b]">
                   <th className="whitespace-nowrap py-3 pl-5 pr-3">
                     <button type="button" onClick={toggleSort} className="inline-flex items-center gap-1 hover:text-[#334155]">
                       ID
-                      <FontAwesomeIcon icon={!sortDir ? faSort : sortDir === 'asc' ? faSortUp : faSortDown} className="text-[10px]" />
+                      <FontAwesomeIcon icon={!sortDir ? faSort : sortDir === 'asc' ? faSortUp : faSortDown} className="text-2xs" />
                     </button>
                   </th>
                   <th className="whitespace-nowrap px-3 py-3">Priority</th>
@@ -610,7 +614,7 @@ function Complaints() {
                   >
                     <td className="whitespace-nowrap py-3.5 pl-5 pr-3 align-middle font-mono text-xs font-bold tracking-tight text-[#2642a6]">{complaint.id}</td>
                     <td className="whitespace-nowrap px-3 py-3.5 align-middle">
-                      <span className={`inline-flex whitespace-nowrap items-center rounded-full px-2.5 py-1 text-xs font-bold ${priorityBadge(complaint.priority)}`}>
+                      <span className={`inline-flex whitespace-nowrap items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${priorityBadge(complaint.priority)}`}>
                         {complaint.priority}
                       </span>
                     </td>
@@ -619,7 +623,7 @@ function Complaints() {
                     </td>
                     <td className="whitespace-nowrap px-3 py-3.5 align-middle">
                       <div className="flex items-center gap-2">
-                        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#e0e7ff] text-[10px] font-bold text-[#3b5998]">
+                        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#e0e7ff] text-2xs font-bold text-[#3b5998]">
                           {complaint.passengerInitials}
                         </div>
                         <span className="whitespace-nowrap font-medium text-[#111827]">{complaint.passengerName}</span>
@@ -642,7 +646,7 @@ function Complaints() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3.5 align-middle">
-                      <span className={`inline-flex whitespace-nowrap items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(complaint.status)}`}>
+                      <span className={`inline-flex whitespace-nowrap items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${statusBadge(complaint.status)}`}>
                         {complaint.status}
                       </span>
                     </td>
@@ -668,7 +672,7 @@ function Complaints() {
                 type="button"
                 disabled={page <= 1}
                 onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-                className="rounded-lg border border-[#d6dbe6] bg-white px-3 py-1.5 text-sm font-medium text-[#334155] transition hover:bg-[#f1f5f9] disabled:opacity-40"
+                className="rounded-lg border border-[#d6dbe6] bg-white px-3 py-1.5 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9] disabled:opacity-40"
               >
                 Previous
               </button>
@@ -680,7 +684,7 @@ function Complaints() {
                     key={pageNumber}
                     type="button"
                     onClick={() => setPage(pageNumber)}
-                    className={`grid h-8 w-8 place-items-center rounded-lg text-sm font-medium transition ${
+                    className={`grid h-8 w-8 place-items-center rounded-lg text-sm font-semibold transition ${
                       page === pageNumber
                         ? 'bg-[#2642a6] text-white'
                         : 'border border-[#d6dbe6] bg-white text-[#334155] hover:bg-[#f1f5f9]'
@@ -694,7 +698,7 @@ function Complaints() {
                 type="button"
                 disabled={page >= totalPages}
                 onClick={() => setPage((currentPage) => currentPage + 1)}
-                className="rounded-lg border border-[#d6dbe6] bg-white px-3 py-1.5 text-sm font-medium text-[#334155] transition hover:bg-[#f1f5f9] disabled:opacity-40"
+                className="rounded-lg border border-[#d6dbe6] bg-white px-3 py-1.5 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9] disabled:opacity-40"
               >
                 Next
               </button>
@@ -709,7 +713,7 @@ function Complaints() {
 
       {(selectedComplaint || detailLoading || detailError) && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="relative w-full max-w-[860px] overflow-hidden rounded-2xl bg-white shadow-2xl animate-in">
+          <div className="relative w-full max-w-[860px] overflow-hidden rounded-2xl bg-white shadow-xl animate-in">
             <button
               type="button"
               onClick={closeDetailModal}
@@ -737,20 +741,20 @@ function Complaints() {
 
               {!detailLoading && !detailError && selectedComplaint && (
                 <div className="p-6">
-                  <div className="rounded-xl border border-[#d6dbe6] bg-white p-5">
+                  <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="mr-3 text-[22px] font-extrabold tracking-tight text-[#111827]">
+                      <h2 className="mr-3 text-lg font-extrabold tracking-tight text-[#111827]">
                         {selectedComplaint.type}
                       </h2>
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${priorityBadge(selectedComplaint.priority)}`}>
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${priorityBadge(selectedComplaint.priority)}`}>
                         {selectedComplaint.priority}
                       </span>
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${statusBadge(selectedComplaint.status)}`}>
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${statusBadge(selectedComplaint.status)}`}>
                         {selectedComplaint.status}
                       </span>
                     </div>
 
-                    <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[15px] text-[#334155]">
+                    <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-[#334155]">
                       <p>
                         <span className="font-semibold text-[#111827]">Passenger:</span> {selectedComplaint.passengerName}
                       </p>
@@ -762,12 +766,12 @@ function Complaints() {
                     <div className="mt-5 rounded-lg border border-[#e5e7eb] bg-[#f8fafc] p-4">
                       <div className="mb-2 flex items-center gap-2">
                         <FontAwesomeIcon icon={faFileLines} className="text-sm text-[#f97316]" />
-                        <p className="text-xs font-bold uppercase tracking-widest text-[#64748b]">Complaint Description</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#64748b]">Complaint Description</p>
                       </div>
-                      <p className="text-[15px] leading-7 text-[#334155]">{selectedComplaint.description}</p>
+                      <p className="text-sm leading-6 text-[#334155]">{selectedComplaint.description}</p>
                     </div>
 
-                    <div className="mt-5 space-y-1.5 text-[15px] text-[#334155]">
+                    <div className="mt-5 space-y-1.5 text-sm text-[#334155]">
                       <p>
                         <span className="font-semibold text-[#111827]">Booking ID:</span> {selectedComplaint.bookingId}
                       </p>
@@ -781,7 +785,7 @@ function Complaints() {
                     </div>
 
                     <div className="mt-6">
-                      <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#64748b]">Evidence Images</p>
+                      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#64748b]">Evidence Images</p>
                       {selectedComplaint.images.length === 0 ? (
                         <div className="rounded-lg border border-dashed border-[#d6dbe6] bg-[#f8fafc] px-4 py-8 text-center text-sm text-[#94a3b8]">
                           No evidence images were attached to this complaint.
@@ -818,7 +822,7 @@ function Complaints() {
                     </div>
 
                     <div className="mt-6">
-                      <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#64748b]">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#64748b]">
                         Admin Response
                       </p>
                       <textarea
@@ -831,21 +835,24 @@ function Complaints() {
                     </div>
 
                     <div className="mt-4 flex items-center justify-end gap-3">
-                      <select
-                        value={statusDraft}
-                        onChange={(event) => setStatusDraft(event.target.value as ComplaintStatus)}
-                        className="min-w-[170px] rounded-lg border border-[#d6dbe6] bg-white px-4 py-2.5 text-sm font-semibold text-[#111827] outline-none transition focus:border-[#2642a6]"
-                      >
-                        <option>Pending</option>
-                        <option>Under Review</option>
-                        <option>Resolved</option>
-                        <option>Rejected</option>
-                      </select>
+                      <div className="relative">
+                        <select
+                          value={statusDraft}
+                          onChange={(event) => setStatusDraft(event.target.value as ComplaintStatus)}
+                          className="min-w-[170px] appearance-none rounded-lg border border-[#d6dbe6] bg-white py-2 pl-3 pr-8 text-sm font-semibold text-[#111827] outline-none transition focus:border-[#2642a6]"
+                        >
+                          <option>Pending</option>
+                          <option>Under Review</option>
+                          <option>Resolved</option>
+                          <option>Rejected</option>
+                        </select>
+                        <FontAwesomeIcon icon={faChevronDown} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#64748b]" />
+                      </div>
                       <button
                         type="button"
                         onClick={() => void handleComplaintUpdate()}
                         disabled={savingComplaint}
-                        className="rounded-lg bg-[#2563eb] px-6 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {savingComplaint ? 'Saving...' : 'OK'}
                       </button>

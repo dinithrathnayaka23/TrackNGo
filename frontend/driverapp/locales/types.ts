@@ -79,7 +79,6 @@ export interface Translations {
     routeIdPrefix: string;
     feedback: string;
     ratingsAndComplaints: string;
-    settingsTitle: string;
     language: string;
     chooseLanguage: string;
     privacy: string;
@@ -97,12 +96,6 @@ export interface Translations {
     aboutUsLoading: string;
     preferences: string;
     lightDarkMode: string;
-    notifications: string;
-    systemNotifications: string;
-    pushNotifications: string;
-    smsAlerts: string;
-    emailUpdates: string;
-    bookingUpdates: string;
     logOut: string;
     logoutConfirmTitle: string;
     logoutConfirmMessage: string;
@@ -288,7 +281,6 @@ export const TRANSLATION_KEYS = [
   "settings.routeIdPrefix",
   "settings.feedback",
   "settings.ratingsAndComplaints",
-  "settings.settingsTitle",
   "settings.language",
   "settings.chooseLanguage",
   "settings.privacy",
@@ -306,12 +298,6 @@ export const TRANSLATION_KEYS = [
   "settings.aboutUsLoading",
   "settings.preferences",
   "settings.lightDarkMode",
-  "settings.notifications",
-  "settings.systemNotifications",
-  "settings.pushNotifications",
-  "settings.smsAlerts",
-  "settings.emailUpdates",
-  "settings.bookingUpdates",
   "settings.logOut",
   "settings.logoutConfirmTitle",
   "settings.logoutConfirmMessage",

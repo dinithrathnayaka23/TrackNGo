@@ -8,6 +8,8 @@ import com.trackngo.complaint.internal.repository.ComplaintRepository;
 import com.trackngo.commons.events.EventPublisher;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import com.trackngo.notification.api.NotificationDispatcher;
+import com.trackngo.notification.api.NotificationType;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,6 +47,7 @@ public class ComplaintServiceImpl implements ComplaintService {
     private final ComplaintRepository repository;
     private final EventPublisher eventPublisher;
     private final JdbcTemplate jdbc;
+    private final NotificationDispatcher notifications;
 
     @Value("${trackngo.time-zone:Asia/Colombo}")
     private String timeZoneId;
@@ -74,6 +77,34 @@ public class ComplaintServiceImpl implements ComplaintService {
         applyCreateFields(entity, dto, email);
         Complaint saved = repository.save(entity);
         eventPublisher.publish(new ComplaintCreatedEvent(saved.getId()));
+
+        notifications.toPassenger(
+            saved.getPassengerId(),
+            NotificationType.COMPLAINT,
+            "Complaint Received",
+            "Your complaint about " + complaintTypeLabel(saved.getComplaintType())
+                + (saved.getBookingReference() == null ? "" : " for booking " + saved.getBookingReference())
+                + " has been received. Our support team will review it shortly."
+        );
+
+        notifications.toDriver(
+            resolveBookingDriverId(saved.getBookingReference()),
+            NotificationType.COMPLAINT,
+            "Complaint Filed About Your Trip",
+            "A passenger raised a complaint about " + complaintTypeLabel(saved.getComplaintType())
+                + (saved.getBookingReference() == null ? "" : " for booking " + saved.getBookingReference())
+                + ". Our support team is reviewing it."
+        );
+
+        notifications.toAllAdmins(
+            NotificationType.COMPLAINT,
+            "New Complaint Submitted",
+            "A " + saved.getPriority() + "-priority complaint about "
+                + complaintTypeLabel(saved.getComplaintType())
+                + (saved.getBookingReference() == null ? "" : " for booking " + saved.getBookingReference())
+                + " is waiting for review."
+        );
+
         return toDto(saved);
     }
 
@@ -274,15 +305,45 @@ public class ComplaintServiceImpl implements ComplaintService {
         );
     }
 
-    /** Confirms the booking belongs to the passenger and happened in the past. */
+    /**
+     * Confirms the booking belongs to the passenger and happened in the past.
+     *
+     * Booking history is a union of two sources: seat bookings, which carry a real
+     * booking_reference, and trip bookings, whose reference is synthesised as
+     * 'BK-' + trip_booking_id and has no row in seat_booking at all. Looking only in
+     * seat_booking rejected every trip booking as "not found".
+     *
+     * The prefix cannot be used to tell the two apart, because seat references are
+     * themselves formatted 'BK-{yyyyMMdd}-{suffix}'. The reference is therefore matched
+     * against seat_booking first, where it is an exact stored string, and only a miss
+     * is reinterpreted as a trip booking id. That ordering stays correct even if a seat
+     * reference is ever generated in a shape that parses as a number.
+     */
     private String resolvePastPassengerBookingReference(String email, String bookingReference) {
         if (bookingReference == null) {
             throw new BusinessException("Booking reference is required for passenger complaints");
         }
 
-        Map<String, Object> booking;
+        Map<String, Object> seatBooking = findSeatBooking(email, bookingReference);
+        if (seatBooking != null) {
+            return resolvePastSeatBooking(seatBooking, bookingReference);
+        }
+
+        if (bookingReference.startsWith("BK-")) {
+            try {
+                long tripBookingId = Long.parseLong(bookingReference.substring(3));
+                return resolvePastTripBooking(email, tripBookingId, bookingReference);
+            } catch (NumberFormatException ignored) {
+                // Falls through: not every "BK-" prefixed value is a trip booking id.
+            }
+        }
+        throw new BusinessException("Past booking not found for this passenger");
+    }
+
+    /** Loads a seat booking owned by the passenger, or null when the reference is not one. */
+    private Map<String, Object> findSeatBooking(String email, String bookingReference) {
         try {
-            booking = jdbc.queryForMap(
+            return jdbc.queryForMap(
                 """
                 SELECT sb.booking_reference, sb.status, sb.journey_date, sb.journey_time
                 FROM seat_booking sb
@@ -294,27 +355,135 @@ public class ComplaintServiceImpl implements ComplaintService {
                 bookingReference
             );
         } catch (EmptyResultDataAccessException ex) {
-            throw new BusinessException("Past booking not found for this passenger");
+            return null;
         }
+    }
 
-        String status = normalizeKey(String.valueOf(booking.get("status")));
-        if ("cancelled".equals(status)) {
-            throw new BusinessException("Cancelled bookings cannot be used to submit complaints");
-        }
-
-        LocalDate journeyDate = booking.get("journey_date") instanceof java.sql.Date date
-            ? date.toLocalDate()
-            : (LocalDate) booking.get("journey_date");
+    /** Validates an already-loaded seat booking row. */
+    private String resolvePastSeatBooking(Map<String, Object> booking, String bookingReference) {
+        LocalDate journeyDate = toLocalDate(booking.get("journey_date"));
         LocalTime journeyTime = booking.get("journey_time") instanceof Time time
             ? time.toLocalTime()
             : (LocalTime) booking.get("journey_time");
-        LocalDateTime journeyDateTime = LocalDateTime.of(journeyDate, journeyTime);
 
-        if (!journeyDateTime.isBefore(currentDateTime())) {
-            throw new BusinessException("Complaints can only be submitted for past bookings");
+        requirePastNonCancelled(
+            String.valueOf(booking.get("status")),
+            LocalDateTime.of(journeyDate, journeyTime)
+        );
+        return bookingReference;
+    }
+
+    /** Validates a trip booking reference of the form 'BK-{tripBookingId}'. */
+    private String resolvePastTripBooking(String email, long tripBookingId, String bookingReference) {
+        Map<String, Object> booking;
+        try {
+            booking = jdbc.queryForMap(
+                """
+                SELECT tb.booking_status AS status, tb.start_date AS journey_date
+                FROM trip_booking tb
+                INNER JOIN `user` u ON u.user_id = tb.passenger_id
+                WHERE u.email = ? AND tb.trip_booking_id = ?
+                """,
+                email,
+                tripBookingId
+            );
+        } catch (EmptyResultDataAccessException ex) {
+            throw new BusinessException("Past booking not found for this passenger");
         }
 
+        // Trip bookings record only a start date, so treat the whole day as elapsed.
+        LocalDate journeyDate = toLocalDate(booking.get("journey_date"));
+        requirePastNonCancelled(
+            String.valueOf(booking.get("status")),
+            journeyDate.plusDays(1).atStartOfDay()
+        );
         return bookingReference;
+    }
+
+    /** Rejects cancelled bookings and journeys that have not happened yet. */
+    private void requirePastNonCancelled(String status, LocalDateTime journeyEnd) {
+        if ("cancelled".equals(normalizeKey(status))) {
+            throw new BusinessException("Cancelled bookings cannot be used to submit complaints");
+        }
+        if (!journeyEnd.isBefore(currentDateTime())) {
+            throw new BusinessException("Complaints can only be submitted for past bookings");
+        }
+    }
+
+    /** Reads a date column that JDBC may hand back as java.sql.Date or LocalDate. */
+    private LocalDate toLocalDate(Object value) {
+        if (value instanceof java.sql.Date date) {
+            return date.toLocalDate();
+        }
+        if (value instanceof LocalDateTime dateTime) {
+            return dateTime.toLocalDate();
+        }
+        return (LocalDate) value;
+    }
+
+    /**
+     * Finds the driver who ran the trip a complaint is about.
+     *
+     * The complaint's own driver_id is not always populated, so the booking is
+     * the reliable route to the driver - the same resolution the admin
+     * dashboard and the driver complaint list already use.
+     */
+    private Long resolveBookingDriverId(String bookingReference) {
+        if (bookingReference == null) {
+            return null;
+        }
+
+        Long seatDriverId = firstDriverId(jdbc.queryForList(
+            """
+            SELECT b.driver_id
+            FROM seat_booking sb
+            INNER JOIN bus b ON b.bus_id = sb.bus_id
+            WHERE sb.booking_reference = ?
+            """,
+            bookingReference
+        ));
+        if (seatDriverId != null) {
+            return seatDriverId;
+        }
+
+        // Trip bookings are not in seat_booking and name their driver directly, so they
+        // need their own lookup or the driver is never told about the complaint. Seat
+        // bookings are checked first for the same reason as in the reference validation:
+        // both kinds of reference start with 'BK-'.
+        if (bookingReference.startsWith("BK-")) {
+            try {
+                long tripBookingId = Long.parseLong(bookingReference.substring(3));
+                return firstDriverId(jdbc.queryForList(
+                    "SELECT tb.driver_id FROM trip_booking tb WHERE tb.trip_booking_id = ?",
+                    tripBookingId
+                ));
+            } catch (NumberFormatException ignored) {
+                // Falls through: not every "BK-" prefixed value is a trip booking id.
+            }
+        }
+        return null;
+    }
+
+    /** Reads the driver id out of the first row, tolerating an empty result. */
+    private Long firstDriverId(List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return null;
+        }
+        return rows.get(0).get("driver_id") instanceof Number number ? number.longValue() : null;
+    }
+
+    /** Describes a complaint type in the wording used inside notification messages. */
+    private String complaintTypeLabel(String complaintType) {
+        return switch (normalizeKey(complaintType)) {
+            case "driver_behavior" -> "driver behaviour";
+            case "bus_condition" -> "bus condition";
+            case "route_issue" -> "a route issue";
+            case "late_arrival" -> "a late arrival";
+            case "payment_issue" -> "a payment issue";
+            case "booking_issue" -> "a booking issue";
+            case "safety_concern" -> "a safety concern";
+            default -> "your journey";
+        };
     }
 
     /** Normalizes and validates the complaint type. */

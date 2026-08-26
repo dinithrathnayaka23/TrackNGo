@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.api.dto.AdminBusDtos.*;
 import com.trackngo.commons.booking.BookingDisruptionHandler;
+import com.trackngo.notification.api.NotificationDispatcher;
+import com.trackngo.notification.api.NotificationType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -27,15 +29,18 @@ public class AdminBusService {
     private final ObjectMapper mapper;
 
     private final BookingDisruptionHandler disruptionHandler;
+    private final NotificationDispatcher notifications;
 
     public AdminBusService(
             JdbcTemplate jdbc,
             ObjectMapper mapper,
-            BookingDisruptionHandler disruptionHandler
+            BookingDisruptionHandler disruptionHandler,
+            NotificationDispatcher notifications
     ) {
         this.jdbc = jdbc;
         this.mapper = mapper;
         this.disruptionHandler = disruptionHandler;
+        this.notifications = notifications;
     }
 
     @PostConstruct
@@ -148,8 +153,8 @@ public class AdminBusService {
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement(
                     "INSERT INTO bus (bus_number, bus_brand, seat_capacity, bus_type, bus_condition, " +
-                    "status, amenities, start_time, end_time, registration_number, insurance_exp_date, " +
-                    "driver_id, route_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "status, amenities, start_time, end_time, return_start_time, return_end_time, " +
+                    "registration_number, insurance_exp_date, driver_id, route_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, req.busNumber());
@@ -176,11 +181,13 @@ public class AdminBusService {
     @Transactional
     public void updateBus(Long busId, SaveBusRequest req) {
         String amenitiesJson = toJson(req.amenities());
-        String previousStatus = jdbc.queryForObject(
-                "SELECT status FROM bus WHERE bus_id = ?",
-                String.class,
+        // The driver and bus number are read alongside the status because the
+        // update overwrites all three, and the driver has to be told about it.
+        Map<String, Object> previousBus = jdbc.queryForMap(
+                "SELECT status, driver_id, bus_number FROM bus WHERE bus_id = ?",
                 busId
         );
+        String previousStatus = (String) previousBus.get("status");
         if (isUnavailable(req.status())) {
             disruptionHandler.cancelFutureBookingsForBus(
                     busId,
@@ -202,6 +209,52 @@ public class AdminBusService {
                 req.registrationNumber(), req.insuranceExpDate(),
                 req.driverId(), req.routeId(), busId
         );
+
+        notifyDriverOfBusChange(previousBus, req);
+    }
+
+    /**
+     * Keeps drivers informed about the bus they are responsible for.
+     *
+     * Two changes matter to a driver, and the admin bus form is the only place
+     * either happens: being put on (or taken off) a bus, and that bus changing
+     * service status. A reassignment implies the status notice, so only the
+     * assignment is announced when both change at once.
+     */
+    private void notifyDriverOfBusChange(Map<String, Object> previousBus, SaveBusRequest req) {
+        Long previousDriverId = toLongNullable(previousBus.get("driver_id"));
+        Long newDriverId = req.driverId();
+        String busNumber = req.busNumber() != null
+                ? req.busNumber()
+                : (String) previousBus.get("bus_number");
+
+        if (!Objects.equals(previousDriverId, newDriverId)) {
+            notifications.toDriver(
+                    newDriverId,
+                    NotificationType.JOURNEY,
+                    "Bus Assigned",
+                    "You are now assigned to bus " + busNumber
+                            + ". Check your allocations for the route and timetable."
+            );
+            notifications.toDriver(
+                    previousDriverId,
+                    NotificationType.JOURNEY,
+                    "Bus Unassigned",
+                    "You are no longer assigned to bus " + busNumber + "."
+            );
+            return;
+        }
+
+        String previousStatus = (String) previousBus.get("status");
+        if (req.status() != null && !req.status().equalsIgnoreCase(previousStatus)) {
+            notifications.toDriver(
+                    newDriverId,
+                    NotificationType.JOURNEY,
+                    "Bus Status Changed",
+                    "Bus " + busNumber + " is now marked as "
+                            + req.status().toLowerCase(Locale.ROOT) + "."
+            );
+        }
     }
 
     /* ── Delete bus ───────────────────────────────────────── */

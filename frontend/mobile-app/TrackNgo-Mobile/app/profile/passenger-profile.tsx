@@ -18,10 +18,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import * as ImagePicker from "expo-image-picker";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSession } from "../../store/sessionStore";
 import { useLanguage } from "../../utils/i18n";
+import { HttpError, setAuthToken } from "../../services/http";
 import {
   getUserProfile,
   resolveProfilePhoto,
@@ -45,7 +45,6 @@ import {
 } from "../../services/twoFactorApi";
 import { clearTrustedDeviceToken, saveTrustedDeviceToken } from "../../services/trustedDeviceStorage";
 
-const TOKEN_KEY = "trackngo.auth.token";
 const BLUE = "#2378E8";
 const AVATAR_SIZE = 112;
 
@@ -64,6 +63,7 @@ const profileCopy = {
     language: "Language",
     english: "English",
     sinhala: "Sinhala",
+    tamil: "Tamil",
     userId: "ID",
     privacy: "Privacy",
     shareLocation: "Share Location",
@@ -140,6 +140,7 @@ const profileCopy = {
     language: "භාෂාව",
     english: "ඉංග්‍රීසි",
     sinhala: "සිංහල",
+    tamil: "දෙමළ",
     userId: "හඳුනාගැනීමේ අංකය",
     privacy: "පෞද්ගලිකත්වය",
     shareLocation: "ස්ථානය බෙදාගැනීම",
@@ -202,6 +203,83 @@ const profileCopy = {
     termsMessage: "TrackNGo නියමයන් සහ කොන්දේසි මෙහි ලබා ගත හැක.",
     tryAgain: "කරුණාකර නැවත උත්සාහ කරන්න.",
   },
+  ta: {
+    header: "சுயவிவரம் & அமைப்புகள்",
+    completion: "சுயவிவர நிறைவு",
+    bankHint: "100% அடைய உங்கள் சுயவிவர விவரங்களை நிறைவு செய்யவும்",
+    professional: "தனிப்பட்ட விவரங்கள்",
+    fullName: "முழு பெயர்",
+    email: "மின்னஞ்சல் முகவரி",
+    changePassword: "கடவுச்சொல்லை மாற்றவும்",
+    mobile: "மொபைல் எண்",
+    notProvided: "வழங்கப்படவில்லை",
+    settings: "அமைப்புகள்",
+    language: "மொழி",
+    english: "ஆங்கிலம்",
+    sinhala: "சிங்களம்",
+    tamil: "தமிழ்",
+    userId: "ஐடி",
+    privacy: "தனியுரிமை",
+    shareLocation: "இருப்பிடத்தைப் பகிரவும்",
+    shareLocationHint: "கண்காணிப்பு அம்சங்களுக்கு தேவை",
+    twoFactor: "இரு-காரணி அங்கீகாரம்",
+    twoFactorSetupTitle: "இரு-காரணி அங்கீகாரத்தை அமைக்கவும்",
+    twoFactorSetupInstructions: "Google Authenticator, Aegis அல்லது Microsoft Authenticator மூலம் இந்த QR குறியீட்டை ஸ்கேன் செய்து, 6 இலக்க குறியீட்டை உள்ளிடவும்.",
+    twoFactorSecret: "கைமுறை அமைப்பு விசை",
+    twoFactorAuthenticatorHint: "இந்த விசையை ரகசியமாக வைத்திருங்கள். QR குறியீட்டை ஸ்கேன் செய்ய முடியாவிட்டால் இதைப் பயன்படுத்தலாம்.",
+    twoFactorCodePlaceholder: "6 இலக்க அங்கீகார குறியீடு",
+    twoFactorEnable: "இயக்கு",
+    twoFactorDisableTitle: "இரு-காரணி அங்கீகாரத்தை முடக்கவும்",
+    twoFactorDisableInstructions: "இரு-காரணி அங்கீகாரத்தை முடக்க உங்கள் அங்கீகார பயன்பாட்டிலிருந்து தற்போதைய குறியீட்டை உள்ளிடவும்.",
+    twoFactorDisable: "முடக்கு",
+    twoFactorVerify: "குறியீட்டை சரிபார்க்கவும்",
+    twoFactorEnabled: "இரு-காரணி அங்கீகாரம் இயக்கப்பட்டது",
+    twoFactorEnabledMessage: "புதிய சாதனங்களுக்கு அங்கீகார குறியீடு தேவைப்படும். இந்த சாதனம் 180 நாட்களுக்கு நினைவில் வைக்கப்படும்.",
+    twoFactorDisabled: "இரு-காரணி அங்கீகாரம் முடக்கப்பட்டது",
+    twoFactorDisabledMessage: "உள்நுழைவிலிருந்து அங்கீகார சரிபார்ப்பு அகற்றப்பட்டது.",
+    twoFactorError: "இரு-காரணி அங்கீகாரத்தை புதுப்பிக்க முடியவில்லை",
+    supportLegal: "ஆதரவு & சட்டம்",
+    terms: "விதிமுறைகள் மற்றும் நிபந்தனைகள்",
+    termsHint: "எங்கள் விதிமுறைகள் மற்றும் நிபந்தனைகளைக் காண்க",
+    logout: "வெளியேறு",
+    loggingOut: "வெளியேறுகிறது...",
+    unavailable: "சுயவிவரத் தகவல் கிடைக்கவில்லை.",
+    retry: "மீண்டும் முயற்சிக்கவும்",
+    editProfile: "சுயவிவரத்தைத் திருத்து",
+    namePlaceholder: "முழு பெயர்",
+    emailPlaceholder: "மின்னஞ்சல் முகவரி",
+    mobilePlaceholder: "மொபைல் எண்",
+    cancel: "ரத்து செய்",
+    save: "சேமி",
+    saving: "சேமிக்கிறது...",
+    selectLanguage: "மொழியைத் தேர்ந்தெடுக்கவும்",
+    passwordTitle: "கடவுச்சொல்லை மாற்றவும்",
+    currentPassword: "தற்போதைய கடவுச்சொல்",
+    newPassword: "புதிய கடவுச்சொல்",
+    confirmPassword: "புதிய கடவுச்சொல்லை உறுதிப்படுத்தவும்",
+    update: "புதுப்பிக்கவும்",
+    updating: "புதுப்பிக்கிறது...",
+    passenger: "பயணி",
+    unableLoad: "சுயவிவரத்தை ஏற்ற முடியவில்லை",
+    missingDetails: "விவரங்கள் இல்லை",
+    nameEmailRequired: "பெயர் மற்றும் மின்னஞ்சல் தேவை.",
+    saveProfileError: "சுயவிவரத்தை சேமிக்க முடியவில்லை",
+    permissionRequired: "அனுமதி தேவை",
+    photoPermission: "உங்கள் சுயவிவரப் படத்தை மாற்ற புகைப்படங்களை அணுக அனுமதிக்கவும்.",
+    updatePhotoError: "படத்தை புதுப்பிக்க முடியவில்லை",
+    saveSettingError: "அமைப்பை சேமிக்க முடியவில்லை",
+    saveLanguageError: "மொழியை சேமிக்க முடியவில்லை",
+    completePassword: "அனைத்து கடவுச்சொல் புலங்களையும் நிரப்பவும்.",
+    passwordUpdated: "கடவுச்சொல் புதுப்பிக்கப்பட்டது",
+    passwordSuccess: "உங்கள் கடவுச்சொல் வெற்றிகரமாக மாற்றப்பட்டது.",
+    changePasswordError: "கடவுச்சொல்லை மாற்ற முடியவில்லை",
+    logoutTitle: "வெளியேறு",
+    logoutConfirm: "நீங்கள் வெளியேற விரும்புகிறீர்களா?",
+    logoutAccount: "வெளியேறு",
+    termsTitle: "விதிமுறைகள் மற்றும் நிபந்தனைகள்",
+    termsMessage: "TrackNGo இன் விதிமுறைகள் மற்றும் நிபந்தனைகள் இங்கே கிடைக்கும்.",
+    tryAgain: "மீண்டும் முயற்சிக்கவும்.",
+  },
 } as const;
 
 function DetailRow({
@@ -228,6 +306,35 @@ function DetailRow({
       </View>
       {onPress ? <Ionicons name="chevron-forward" size={18} color="#8A9099" /> : null}
     </Pressable>
+  );
+}
+
+function PasswordField({
+  placeholder,
+  value,
+  onChangeText,
+  visible,
+  onToggleVisible,
+}: {
+  placeholder: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  visible: boolean;
+  onToggleVisible: () => void;
+}) {
+  return (
+    <View style={styles.passwordFieldWrap}>
+      <TextInput
+        style={styles.passwordInput}
+        placeholder={placeholder}
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={!visible}
+      />
+      <Pressable style={styles.passwordToggle} onPress={onToggleVisible} hitSlop={10}>
+        <Ionicons name={visible ? "eye-off" : "eye"} size={20} color="#7B828D" />
+      </Pressable>
+    </View>
   );
 }
 
@@ -285,9 +392,12 @@ export default function PassengerProfileScreen() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const userId = currentUser?.userId;
-  const copy = profileCopy[settings?.language === "si" ? "si" : "en"];
+  const copy = profileCopy[settings?.language === "si" || settings?.language === "ta" ? settings.language : "en"];
 
   const loadData = useCallback(async () => {
     if (!userId) {
@@ -303,11 +413,21 @@ export default function PassengerProfileScreen() {
       setProfile(loadedProfile);
       setSettings(loadedSettings);
     } catch (error) {
+      if (error instanceof HttpError && (error.status === 401 || error.status === 403)) {
+        // clearCurrentUser also drops the token.
+        await clearCurrentUser();
+        Alert.alert(
+          "Session expired",
+          "Please log in again to continue.",
+        );
+        router.replace("/auth/login");
+        return;
+      }
       Alert.alert(profileCopy.en.unableLoad, error instanceof Error ? error.message : profileCopy.en.tryAgain);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, clearCurrentUser, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -342,6 +462,11 @@ export default function PassengerProfileScreen() {
         email: email.trim(),
         phoneNumber: phoneNumber.trim() || null,
       });
+      // Changing the email invalidates the current JWT (it's keyed to the old
+      // email), so the server hands back a fresh one to keep the session alive.
+      if (updated.token) {
+        await setAuthToken(updated.token);
+      }
       setProfile(updated);
       setEditVisible(false);
     } catch (error) {
@@ -470,6 +595,9 @@ export default function PassengerProfileScreen() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
       setPasswordVisible(false);
       Alert.alert(copy.passwordUpdated, copy.passwordSuccess);
     } catch (error) {
@@ -488,7 +616,6 @@ export default function PassengerProfileScreen() {
         onPress: async () => {
           setLoggingOut(true);
           try {
-            await AsyncStorage.removeItem(TOKEN_KEY);
             await clearCurrentUser();
             router.replace("/auth/login");
           } finally {
@@ -558,7 +685,7 @@ export default function PassengerProfileScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>{copy.settings}</Text>
-        <View style={styles.card}><DetailRow icon="language" label={copy.language} value={settings.language === "si" ? copy.sinhala : copy.english} onPress={() => setLanguageVisible(true)} /></View>
+        <View style={styles.card}><DetailRow icon="language" label={copy.language} value={settings.language === "si" ? copy.sinhala : settings.language === "ta" ? copy.tamil : copy.english} onPress={() => setLanguageVisible(true)} /></View>
 
         <Text style={styles.sectionTitle}>{copy.privacy}</Text>
         <View style={styles.card}>
@@ -598,6 +725,7 @@ export default function PassengerProfileScreen() {
           <View style={styles.modalCard}><Text style={styles.modalTitle}>{copy.selectLanguage}</Text>
             <Pressable style={styles.languageOption} onPress={() => void selectLanguage("en")}><Text style={styles.languageText}>{copy.english}</Text>{settings.language === "en" ? <Ionicons name="checkmark" size={21} color={BLUE} /> : null}</Pressable>
             <Pressable style={styles.languageOption} onPress={() => void selectLanguage("si")}><Text style={styles.languageText}>{copy.sinhala}</Text>{settings.language === "si" ? <Ionicons name="checkmark" size={21} color={BLUE} /> : null}</Pressable>
+            <Pressable style={styles.languageOption} onPress={() => void selectLanguage("ta")}><Text style={styles.languageText}>{copy.tamil}</Text>{settings.language === "ta" ? <Ionicons name="checkmark" size={21} color={BLUE} /> : null}</Pressable>
           </View>
         </Pressable>
       </Modal>
@@ -605,9 +733,9 @@ export default function PassengerProfileScreen() {
       <Modal visible={passwordVisible} transparent animationType="slide" onRequestClose={() => setPasswordVisible(false)}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <View style={styles.modalCard}><Text style={styles.modalTitle}>{copy.passwordTitle}</Text>
-            <TextInput style={styles.input} placeholder={copy.currentPassword} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry />
-            <TextInput style={styles.input} placeholder={copy.newPassword} value={newPassword} onChangeText={setNewPassword} secureTextEntry />
-            <TextInput style={styles.input} placeholder={copy.confirmPassword} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+            <PasswordField placeholder={copy.currentPassword} value={currentPassword} onChangeText={setCurrentPassword} visible={showCurrentPassword} onToggleVisible={() => setShowCurrentPassword((value) => !value)} />
+            <PasswordField placeholder={copy.newPassword} value={newPassword} onChangeText={setNewPassword} visible={showNewPassword} onToggleVisible={() => setShowNewPassword((value) => !value)} />
+            <PasswordField placeholder={copy.confirmPassword} value={confirmPassword} onChangeText={setConfirmPassword} visible={showConfirmPassword} onToggleVisible={() => setShowConfirmPassword((value) => !value)} />
             <View style={styles.modalActions}><Pressable style={styles.cancelButton} onPress={() => setPasswordVisible(false)}><Text style={styles.cancelText}>{copy.cancel}</Text></Pressable><Pressable style={styles.primaryButton} onPress={() => void savePassword()} disabled={saving}><Text style={styles.primaryText}>{saving ? copy.updating : copy.update}</Text></Pressable></View>
           </View>
         </KeyboardAvoidingView>
@@ -697,6 +825,9 @@ const styles = StyleSheet.create({
   secretValue: { padding: 10, borderRadius: 8, backgroundColor: "#F1F5F9", color: "#1B2433", fontSize: 13, letterSpacing: 1, fontWeight: "600" },
   twoFactorHint: { marginTop: 8, marginBottom: 12, fontSize: 12, lineHeight: 18, color: "#7B828D" },
   input: { height: 48, borderWidth: 1, borderColor: "#D9DDE4", borderRadius: 9, paddingHorizontal: 13, marginBottom: 12, color: "#111827" },
+  passwordFieldWrap: { position: "relative", justifyContent: "center", marginBottom: 12 },
+  passwordInput: { height: 48, borderWidth: 1, borderColor: "#D9DDE4", borderRadius: 9, paddingHorizontal: 13, paddingRight: 42, color: "#111827" },
+  passwordToggle: { position: "absolute", right: 12, height: 48, justifyContent: "center", alignItems: "center" },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 4 },
   cancelButton: { paddingHorizontal: 18, paddingVertical: 13 },
   cancelText: { color: "#5E6673", fontWeight: "600" },

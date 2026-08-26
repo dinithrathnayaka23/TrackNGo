@@ -6,6 +6,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "androidStatusBar": {
+      "backgroundColor": "#FFFFFF",
+      "barStyle": "dark-content"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -41,8 +45,7 @@
           "isAccessMediaLocationEnabled": false
         }
       ],
-      "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "@react-native-community/datetimepicker"
     ],
     "web": {
       "bundler": "metro"

@@ -44,6 +44,50 @@ concurrency guard: only one trip booking can hold a bus on any day. The
 application locks the bus row, checks the full date range, and releases the
 reservation when a trip is cancelled or completed.
 
+Before deploying the corporate morning/evening shift booking and standard
+pricing changes, run `V12__corporate_contract_shifts.sql`. It adds shift
+type, a full per-shift pickup/drop-off route (place name, coordinates, time)
+for both morning and evening, employee count, working days, bus type and
+distance columns to `corporate_contract`, and backfills existing rows from
+the legacy single shift window so historical contracts keep meaningful
+start/end times.
+
+Before deploying corporate multi-bus assignment, run
+`V13__corporate_contract_bus_assignment.sql`. It adds the
+`corporate_contract_bus` join table so a contract whose employee headcount
+exceeds one bus's seat capacity can be served by several buses, and
+backfills one row per contract from the legacy single `bus_id` column.
+
+Before deploying admin-configurable corporate pricing, run
+`V14__corporate_pricing_settings.sql`. It creates the single-row
+`corporate_pricing_settings` table (rate per km by bus size, AC/Mini Bus
+surcharges, working-days-per-month) that `CorporatePricingService` now reads
+at request time instead of using hardcoded constants, and seeds it with the
+values the formula already used so pricing is unchanged until an admin edits it.
+
+Before deploying the corporate negotiation-finalization flow, run
+`V15__corporate_contract_finalization.sql`. It adds `finalized_at` to
+`corporate_contract` so the mobile app can tell "admin approved" (status =
+active) apart from "the corporate user confirmed the final offer" — a
+contract stays in the Pending Contracts list as "Request Approved" until
+finalized, then moves to Active Contracts.
+
+Before deploying Tamil as a passenger language option, run
+`V16__user_language_preference_tamil.sql`. It widens `user.language_preference`
+from `ENUM('en', 'si')` to `ENUM('en', 'si', 'ta')` — without it, saving
+`ta` from the profile settings screen fails with a database error because
+MySQL rejects enum values outside the declared set.
+
+Before deploying the booking-completion changes, run
+`V17__complete_elapsed_bookings.sql`. It marks bookings whose journey date has
+passed as `completed`. Nothing in the application previously set that status —
+only the development seed script did — so real bookings stayed `confirmed`
+indefinitely, appearing as active in booking history and being skipped by driver
+earnings and promotion eligibility, which both filter on `status = 'completed'`.
+`BookingCompletionService` performs this transition on a schedule from now on, so
+this migration only repairs rows that predate it. It is idempotent, safe to
+re-run, and never touches cancelled bookings.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

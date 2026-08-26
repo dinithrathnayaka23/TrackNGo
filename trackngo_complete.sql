@@ -20,7 +20,7 @@ CREATE TABLE user (
     user_type ENUM('passenger', 'driver', 'corporate', 'admin') NOT NULL,
     is_email_verified BOOLEAN DEFAULT false,
     is_active BOOLEAN DEFAULT true,
-    language_preference ENUM('en', 'si') DEFAULT 'en',
+    language_preference ENUM('en', 'si', 'ta') DEFAULT 'en',
     theme_preference ENUM('light', 'dark', 'auto') DEFAULT 'light',
     last_login TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -453,9 +453,36 @@ CREATE TABLE corporate_contract (
     contract_name VARCHAR(255) NOT NULL,
     starting_location VARCHAR(255) NOT NULL,
     destination VARCHAR(255) NOT NULL,
+    shift_type ENUM('morning', 'evening', 'both') NOT NULL DEFAULT 'both',
     start_shift_time TIME NOT NULL,
     end_shift_time TIME NOT NULL,
+
+    morning_pickup_location VARCHAR(255) NULL,
+    morning_pickup_lat DECIMAL(10, 7) NULL,
+    morning_pickup_lng DECIMAL(10, 7) NULL,
+    morning_pickup_time TIME NULL,
+    morning_dropoff_location VARCHAR(255) NULL,
+    morning_dropoff_lat DECIMAL(10, 7) NULL,
+    morning_dropoff_lng DECIMAL(10, 7) NULL,
+    morning_dropoff_time TIME NULL,
+    morning_distance_km DECIMAL(6, 2) NULL,
+
+    evening_pickup_location VARCHAR(255) NULL,
+    evening_pickup_lat DECIMAL(10, 7) NULL,
+    evening_pickup_lng DECIMAL(10, 7) NULL,
+    evening_pickup_time TIME NULL,
+    evening_dropoff_location VARCHAR(255) NULL,
+    evening_dropoff_lat DECIMAL(10, 7) NULL,
+    evening_dropoff_lng DECIMAL(10, 7) NULL,
+    evening_dropoff_time TIME NULL,
+    evening_distance_km DECIMAL(6, 2) NULL,
+
+    employee_count INT NOT NULL DEFAULT 0,
+    working_days ENUM('weekdays', 'all_days') NOT NULL DEFAULT 'weekdays',
+    bus_type ENUM('standard', 'ac', 'mini') NOT NULL DEFAULT 'standard',
+    distance_km DECIMAL(6, 2) NULL,
     status ENUM('pending', 'active', 'expired', 'cancelled') DEFAULT 'pending',
+    finalized_at TIMESTAMP NULL,
     billing_amount DECIMAL(10, 2) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
@@ -618,6 +645,31 @@ CREATE TABLE corporate_invoices (
     INDEX idx_status (status),
     INDEX idx_date (date DESC),
     INDEX idx_due_date (due_date)
+);
+
+CREATE TABLE corporate_contract_bus (
+    contract_id BIGINT NOT NULL,
+    bus_id BIGINT NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (contract_id, bus_id),
+    FOREIGN KEY (contract_id) REFERENCES corporate_contract(contract_id) ON DELETE CASCADE,
+    FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,
+    INDEX idx_bus (bus_id)
+);
+
+CREATE TABLE corporate_pricing_settings (
+    id TINYINT PRIMARY KEY DEFAULT 1,
+    small_bus_rate_per_km DECIMAL(10, 2) NOT NULL DEFAULT 250.00,
+    large_bus_rate_per_km DECIMAL(10, 2) NOT NULL DEFAULT 400.00,
+    small_bus_max_employees INT NOT NULL DEFAULT 20,
+    ac_surcharge_percent DECIMAL(5, 2) NOT NULL DEFAULT 25.00,
+    mini_bus_flat_surcharge DECIMAL(10, 2) NOT NULL DEFAULT 1500.00,
+    weekdays_per_month INT NOT NULL DEFAULT 22,
+    all_days_per_month INT NOT NULL DEFAULT 30,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_corporate_pricing_settings_single_row CHECK (id = 1)
 );
 
 

@@ -105,6 +105,14 @@ export interface Translations {
     uploadFailedMessage: string;
   };
   chat: {
+    delete: string;
+    deleteTitle: string;
+    deleteConfirm: string;
+    deleteFailedTitle: string;
+    deleteFailedMessage: string;
+    typing: string;
+    online: string;
+    offline: string;
     title: string;
     searchPlaceholder: string;
     noConversations: string;
@@ -303,6 +311,14 @@ export const TRANSLATION_KEYS = [
   "settings.loginRequiredMessage",
   "settings.uploadFailedTitle",
   "settings.uploadFailedMessage",
+  "chat.delete",
+  "chat.deleteTitle",
+  "chat.deleteConfirm",
+  "chat.deleteFailedTitle",
+  "chat.deleteFailedMessage",
+  "chat.typing",
+  "chat.online",
+  "chat.offline",
   "chat.title",
   "chat.searchPlaceholder",
   "chat.noConversations",

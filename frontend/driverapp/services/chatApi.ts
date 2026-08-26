@@ -55,6 +55,40 @@ export interface MediaUploadResponse {
   sizeBytes: number;
 }
 
+/* ── Realtime payloads ──────────────────────────────────────────────
+   These mirror the passenger app's chat types because both apps read the same
+   broker topics; a shape that drifts here shows up as a silent no-op there. */
+
+export interface MessageStatusUpdate {
+  conversationId: number;
+  messageId: number;
+  status: ChatMessageStatus;
+}
+
+export interface MessageDeleteEvent {
+  conversationId: number;
+  messageId: number;
+  deletedByUserId: number;
+  deletedAt: string;
+}
+
+export interface TypingIndicator {
+  conversationId: number;
+  userId: number;
+  typing: boolean;
+}
+
+/**
+ * Either a full snapshot of who is online (`onlineUserIds`) or a single delta for
+ * one user. The REST endpoint always sends the snapshot form; the broker sends
+ * deltas as people come and go.
+ */
+export interface PresenceUpdate {
+  userId: number;
+  online: boolean;
+  onlineUserIds?: number[];
+}
+
 export interface PagedResponse<T> {
   content?: T[];
   page?: number;
@@ -194,6 +228,24 @@ export async function markConversationDelivered(params: {
   const query = buildQuery({ userId });
   await requestJson<unknown>(token, `/api/conversations/${conversationId}/delivered?${query}`, {
     method: 'POST',
+  });
+}
+
+/** The current online-user snapshot, used to paint presence before the socket connects. */
+export function getPresenceSnapshot(params: { token: string }) {
+  return requestJson<PresenceUpdate>(params.token, '/api/chat/presence');
+}
+
+/** Deletes one of the driver's own sent messages for everyone in the thread. */
+export function deleteMessage(params: {
+  token: string;
+  messageId: number;
+  userId: number;
+}) {
+  const { token, messageId, userId } = params;
+  const query = buildQuery({ userId });
+  return requestJson<MessageDeleteEvent>(token, `/api/messages/${messageId}?${query}`, {
+    method: 'DELETE',
   });
 }
 

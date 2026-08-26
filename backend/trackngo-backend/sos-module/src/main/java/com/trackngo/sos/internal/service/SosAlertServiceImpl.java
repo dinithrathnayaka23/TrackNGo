@@ -21,10 +21,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -32,6 +34,36 @@ import java.util.Map;
 public class SosAlertServiceImpl implements SosAlertService {
 
     private static final Logger log = LoggerFactory.getLogger(SosAlertServiceImpl.class);
+
+    /**
+     * The joined projection behind every admin view of an alert. The live popup and the
+     * history report show the same columns, so they share one SELECT and append their
+     * own WHERE clause rather than keeping two copies of these joins in step.
+     */
+    private static final String ALERT_SELECT_SQL = """
+            SELECT s.sos_id, s.shared_location, s.status,
+                   s.triggered_at, s.resolved_at, s.passenger_id, s.driver_id, s.admin_id,
+                   CASE WHEN s.passenger_id IS NOT NULL THEN 'passenger' ELSE 'driver' END AS triggered_by_type,
+                   pu.first_name AS passenger_first_name,
+                   pu.last_name AS passenger_last_name,
+                   p.mobile_number AS passenger_phone_number,
+                   p.profile_photo AS passenger_profile_photo,
+                   du.first_name AS driver_first_name,
+                   du.last_name AS driver_last_name,
+                   d.phone_number AS driver_phone_number,
+                   COALESCE(s.start_location, r.start_location) AS start_location,
+                   COALESCE(s.end_location, r.end_location) AS end_location,
+                   COALESCE(s.bus_number, b.bus_number) AS bus_number,
+                   r.route_name,
+                   s.bus_id
+            FROM sos_alert s
+            LEFT JOIN bus b ON b.bus_id = s.bus_id
+            LEFT JOIN route r ON r.route_id = b.route_id
+            LEFT JOIN passenger p ON p.passenger_id = s.passenger_id
+            LEFT JOIN user pu ON pu.user_id = p.passenger_id
+            LEFT JOIN driver d ON d.driver_id = COALESCE(s.driver_id, b.driver_id)
+            LEFT JOIN user du ON du.user_id = d.driver_id
+            """;
 
     private final SosAlertRepository repository;
     private final EmergencyContactRepository emergencyContactRepository;
@@ -154,101 +186,120 @@ public class SosAlertServiceImpl implements SosAlertService {
     /** Loads active SOS alerts together with passenger, driver, route, and emergency contact details. */
     @Override
     public List<SosAlertDto> getActiveAlerts() {
-        String sql = """
-            SELECT s.sos_id, s.shared_location, s.status,
-                   s.triggered_at, s.resolved_at, s.passenger_id, s.driver_id, s.admin_id,
-                   CASE WHEN s.passenger_id IS NOT NULL THEN 'passenger' ELSE 'driver' END AS triggered_by_type,
-                   pu.first_name AS passenger_first_name,
-                   pu.last_name AS passenger_last_name,
-                   p.mobile_number AS passenger_phone_number,
-                   p.profile_photo AS passenger_profile_photo,
-                   du.first_name AS driver_first_name,
-                   du.last_name AS driver_last_name,
-                   d.phone_number AS driver_phone_number,
-                   COALESCE(s.start_location, r.start_location) AS start_location,
-                   COALESCE(s.end_location, r.end_location) AS end_location,
-                   COALESCE(s.bus_number, b.bus_number) AS bus_number,
-                   r.route_name,
-                   s.bus_id
-            FROM sos_alert s
-            LEFT JOIN bus b ON b.bus_id = s.bus_id
-            LEFT JOIN route r ON r.route_id = b.route_id
-            LEFT JOIN passenger p ON p.passenger_id = s.passenger_id
-            LEFT JOIN user pu ON pu.user_id = p.passenger_id
-            LEFT JOIN driver d ON d.driver_id = COALESCE(s.driver_id, b.driver_id)
-            LEFT JOIN user du ON du.user_id = d.driver_id
-            WHERE s.status = 'triggered'
-            ORDER BY s.triggered_at DESC
-            """;
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                ALERT_SELECT_SQL + " WHERE s.status = 'triggered' ORDER BY s.triggered_at DESC"
+        );
+        return rows.stream().map(row -> mapAlertRow(row, true)).toList();
+    }
 
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+    /**
+     * Returns past alerts for the admin history report.
+     *
+     * Unlike the live popup this deliberately leaves the emergency contacts off: the
+     * report can span months of alerts, and loading each person's contact list would
+     * mean one extra query per row for detail a report never shows.
+     */
+    @Override
+    public List<SosAlertDto> getAlertHistory(LocalDate from, LocalDate to, String status, String triggeredBy) {
+        StringBuilder sql = new StringBuilder(ALERT_SELECT_SQL).append(" WHERE 1 = 1");
+        List<Object> params = new ArrayList<>();
 
-        return rows.stream().map(row -> {
-            SosAlertDto dto = new SosAlertDto();
-            dto.setSosId(((Number) row.get("sos_id")).longValue());
-            dto.setSharedLocation((String) row.get("shared_location"));
-            dto.setStatus((String) row.get("status"));
-            dto.setTriggeredAt(toLocalDateTime(row.get("triggered_at")));
-            dto.setResolvedAt(toLocalDateTime(row.get("resolved_at")));
-            dto.setPassengerId(row.get("passenger_id") != null
-                    ? ((Number) row.get("passenger_id")).longValue() : null);
-            dto.setDriverId(row.get("driver_id") != null
-                    ? ((Number) row.get("driver_id")).longValue() : null);
-            dto.setTriggeredByType((String) row.get("triggered_by_type"));
+        if (from != null) {
+            sql.append(" AND s.triggered_at >= ?");
+            params.add(Timestamp.valueOf(from.atStartOfDay()));
+        }
+        if (to != null) {
+            // The bound is a date, so the whole of that day counts as inside the range.
+            sql.append(" AND s.triggered_at < ?");
+            params.add(Timestamp.valueOf(to.plusDays(1).atStartOfDay()));
+        }
 
-                String passengerName = joinName(
-                    (String) row.get("passenger_first_name"),
-                    (String) row.get("passenger_last_name")
-                );
-                String driverName = joinName(
-                    (String) row.get("driver_first_name"),
-                    (String) row.get("driver_last_name")
-                );
+        String normalizedStatus = trimToNull(status);
+        if (normalizedStatus != null) {
+            sql.append(" AND s.status = ?");
+            params.add(normalizedStatus.toLowerCase(Locale.ROOT));
+        }
 
-                dto.setPassengerName(passengerName);
-                dto.setPassengerPhoneNumber((String) row.get("passenger_phone_number"));
-                dto.setDriverName(driverName);
-                dto.setDriverPhoneNumber((String) row.get("driver_phone_number"));
+        String normalizedTrigger = trimToNull(triggeredBy);
+        if ("passenger".equalsIgnoreCase(normalizedTrigger)) {
+            sql.append(" AND s.passenger_id IS NOT NULL");
+        } else if ("driver".equalsIgnoreCase(normalizedTrigger)) {
+            sql.append(" AND s.passenger_id IS NULL");
+        }
 
-                if ("passenger".equals(dto.getTriggeredByType())) {
-                dto.setName(passengerName);
-                dto.setPhoneNumber(dto.getPassengerPhoneNumber());
-                dto.setProfilePhoto((String) row.get("passenger_profile_photo"));
-                } else {
-                dto.setName(driverName);
-                dto.setPhoneNumber(dto.getDriverPhoneNumber());
-                dto.setProfilePhoto(null);
-                }
+        sql.append(" ORDER BY s.triggered_at DESC");
 
-            dto.setRouteName((String) row.get("route_name"));
-                dto.setBusNumber((String) row.get("bus_number"));
-                dto.setStartLocation((String) row.get("start_location"));
-                dto.setEndLocation((String) row.get("end_location"));
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql.toString(), params.toArray());
+        return rows.stream().map(row -> mapAlertRow(row, false)).toList();
+    }
 
-            // Fetch emergency contacts for the person who triggered the SOS
-            Long ownerId = dto.getPassengerId() != null ? dto.getPassengerId() : dto.getDriverId();
-            String ownerType = dto.getTriggeredByType();
-            if (ownerId != null && ownerType != null) {
-                List<EmergencyContactDto> contacts = emergencyContactRepository
-                        .findByOwnerIdAndOwnerTypeOrderByCreatedAtDesc(ownerId, ownerType)
-                        .stream()
-                        .map(ec -> {
-                            EmergencyContactDto ecDto = new EmergencyContactDto();
-                            ecDto.setContactId(ec.getContactId());
-                            ecDto.setOwnerId(ec.getOwnerId());
-                            ecDto.setOwnerType(ec.getOwnerType());
-                            ecDto.setName(ec.getName());
-                            ecDto.setTeleNumber(ec.getTeleNumber());
-                            ecDto.setRelationship(ec.getRelationship());
-                            return ecDto;
-                        }).toList();
-                dto.setEmergencyContacts(contacts);
-            } else {
-                dto.setEmergencyContacts(new ArrayList<>());
-            }
+    /** Turns one joined SOS row into the DTO both the live popup and the history share. */
+    private SosAlertDto mapAlertRow(Map<String, Object> row, boolean includeEmergencyContacts) {
+        SosAlertDto dto = new SosAlertDto();
+        dto.setSosId(((Number) row.get("sos_id")).longValue());
+        dto.setSharedLocation((String) row.get("shared_location"));
+        dto.setStatus((String) row.get("status"));
+        dto.setTriggeredAt(toLocalDateTime(row.get("triggered_at")));
+        dto.setResolvedAt(toLocalDateTime(row.get("resolved_at")));
+        dto.setPassengerId(row.get("passenger_id") != null
+                ? ((Number) row.get("passenger_id")).longValue() : null);
+        dto.setDriverId(row.get("driver_id") != null
+                ? ((Number) row.get("driver_id")).longValue() : null);
+        dto.setTriggeredByType((String) row.get("triggered_by_type"));
 
-            return dto;
-        }).toList();
+        String passengerName = joinName(
+                (String) row.get("passenger_first_name"),
+                (String) row.get("passenger_last_name")
+        );
+        String driverName = joinName(
+                (String) row.get("driver_first_name"),
+                (String) row.get("driver_last_name")
+        );
+
+        dto.setPassengerName(passengerName);
+        dto.setPassengerPhoneNumber((String) row.get("passenger_phone_number"));
+        dto.setDriverName(driverName);
+        dto.setDriverPhoneNumber((String) row.get("driver_phone_number"));
+
+        if ("passenger".equals(dto.getTriggeredByType())) {
+            dto.setName(passengerName);
+            dto.setPhoneNumber(dto.getPassengerPhoneNumber());
+            dto.setProfilePhoto((String) row.get("passenger_profile_photo"));
+        } else {
+            dto.setName(driverName);
+            dto.setPhoneNumber(dto.getDriverPhoneNumber());
+            dto.setProfilePhoto(null);
+        }
+
+        dto.setRouteName((String) row.get("route_name"));
+        dto.setBusNumber((String) row.get("bus_number"));
+        dto.setStartLocation((String) row.get("start_location"));
+        dto.setEndLocation((String) row.get("end_location"));
+
+        Long ownerId = dto.getPassengerId() != null ? dto.getPassengerId() : dto.getDriverId();
+        String ownerType = dto.getTriggeredByType();
+        if (includeEmergencyContacts && ownerId != null && ownerType != null) {
+            dto.setEmergencyContacts(
+                    emergencyContactRepository
+                            .findByOwnerIdAndOwnerTypeOrderByCreatedAtDesc(ownerId, ownerType)
+                            .stream()
+                            .map(ec -> {
+                                EmergencyContactDto ecDto = new EmergencyContactDto();
+                                ecDto.setContactId(ec.getContactId());
+                                ecDto.setOwnerId(ec.getOwnerId());
+                                ecDto.setOwnerType(ec.getOwnerType());
+                                ecDto.setName(ec.getName());
+                                ecDto.setTeleNumber(ec.getTeleNumber());
+                                ecDto.setRelationship(ec.getRelationship());
+                                return ecDto;
+                            })
+                            .toList()
+            );
+        } else {
+            dto.setEmergencyContacts(new ArrayList<>());
+        }
+
+        return dto;
     }
 
     /** Resolves an SOS alert and records which admin handled it. */

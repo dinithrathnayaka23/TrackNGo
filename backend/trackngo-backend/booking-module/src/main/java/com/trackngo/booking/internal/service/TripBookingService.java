@@ -265,12 +265,17 @@ public class TripBookingService {
                 """);
         List<Object> params = new ArrayList<>();
         params.add(passengerCount);
-        if ("AC".equalsIgnoreCase(requirement)) {
-            sql.append(" AND UPPER(amenities) LIKE '%AC%' ");
-        } else if ("Standard".equalsIgnoreCase(requirement)) {
-            sql.append(" AND UPPER(amenities) NOT LIKE '%AC%' ");
-        } else if ("Mini Bus".equalsIgnoreCase(requirement)) {
+
+        VehiclePreference preference = VehiclePreference.parse(requirement);
+        if (preference.miniBus()) {
             sql.append(" AND UPPER(bus_brand) LIKE '%ROSA%' ");
+        } else if (preference.standard()) {
+            sql.append(" AND UPPER(bus_brand) NOT LIKE '%ROSA%' ");
+        }
+        if (preference.airConditioned()) {
+            sql.append(" AND UPPER(amenities) LIKE '%AC%' ");
+        } else if (preference.nonAirConditioned()) {
+            sql.append(" AND UPPER(amenities) NOT LIKE '%AC%' ");
         }
 
         return jdbc.queryForList(sql.toString(), params.toArray()).stream().map(row -> new TripBusResponse(
@@ -376,8 +381,9 @@ public class TripBookingService {
         double distance = resolveDistance(request);
         BigDecimal rate = request.passengerCount() <= 20 ? SMALL_BUS_RATE_PER_KM : LARGE_BUS_RATE_PER_KM;
         BigDecimal distanceCost = BigDecimal.valueOf(distance).multiply(rate);
-        if ("AC".equalsIgnoreCase(request.requirement())) distanceCost = distanceCost.multiply(new BigDecimal("1.25"));
-        if ("Mini Bus".equalsIgnoreCase(request.requirement())) distanceCost = distanceCost.add(new BigDecimal("1500"));
+        VehiclePreference preference = VehiclePreference.parse(request.requirement());
+        if (preference.airConditioned()) distanceCost = distanceCost.multiply(new BigDecimal("1.25"));
+        if (preference.miniBus()) distanceCost = distanceCost.add(new BigDecimal("1500"));
         BigDecimal total = DAILY_RATE.multiply(BigDecimal.valueOf(days)).add(distanceCost).setScale(2, RoundingMode.HALF_UP);
         BigDecimal advance = total.multiply(ADVANCE_RATE).setScale(2, RoundingMode.HALF_UP);
         return new Fare(total, advance);

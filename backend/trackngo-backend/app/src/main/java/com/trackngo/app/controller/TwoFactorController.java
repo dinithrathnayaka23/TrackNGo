@@ -1,5 +1,6 @@
 package com.trackngo.app.controller;
 
+import com.trackngo.app.dto.EmailTwoFactorStatusDto;
 import com.trackngo.app.dto.TwoFactorCodeRequest;
 import com.trackngo.app.dto.TwoFactorSetupDto;
 import com.trackngo.app.service.TwoFactorService;
@@ -27,5 +28,23 @@ public class TwoFactorController {
     public ApiResponse<Void> disable(@PathVariable Long id, @RequestBody TwoFactorCodeRequest request) {
         twoFactorService.disable(id, request);
         return ApiResponse.ok("Two-factor authentication disabled");
+    }
+
+    @GetMapping("/email")
+    public ApiResponse<EmailTwoFactorStatusDto> emailStatus(@PathVariable Long id) {
+        return ApiResponse.ok("Email two-factor status",
+                new EmailTwoFactorStatusDto(twoFactorService.isEmailLoginOtpEnabled(id)));
+    }
+
+    @PostMapping("/email/enable")
+    public ApiResponse<EmailTwoFactorStatusDto> enableEmail(@PathVariable Long id) {
+        boolean enabled = twoFactorService.setEmailLoginOtpEnabled(id, true);
+        return ApiResponse.ok("Email two-factor authentication enabled", new EmailTwoFactorStatusDto(enabled));
+    }
+
+    @PostMapping("/email/disable")
+    public ApiResponse<EmailTwoFactorStatusDto> disableEmail(@PathVariable Long id) {
+        boolean enabled = twoFactorService.setEmailLoginOtpEnabled(id, false);
+        return ApiResponse.ok("Email two-factor authentication disabled", new EmailTwoFactorStatusDto(enabled));
     }
 }

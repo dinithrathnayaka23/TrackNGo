@@ -52,6 +52,8 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         User user = userRepository.findByIdentifier(request.getIdentifier().trim())
                 .orElseThrow(() -> new BusinessException("No account found for this identifier"));
 
+        requireUserType(user, request.getExpectedUserType());
+
         String channel = normalizeChannel(request.getChannel());
         String destination = resolveDestination(user, channel);
 
@@ -190,6 +192,17 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         return userRepository.findContactPhoneByUserId(user.getId())
                 .filter(phone -> phone != null && !phone.isBlank())
                 .orElseThrow(() -> new BusinessException("No phone number is on file for this account"));
+    }
+
+    private void requireUserType(User user, String expectedUserType) {
+        if (expectedUserType == null || expectedUserType.isBlank()) {
+            return;
+        }
+        String expected = expectedUserType.trim().toLowerCase();
+        String actual = user.getUserType() == null ? "" : user.getUserType().trim().toLowerCase();
+        if (!expected.equals(actual)) {
+            throw new BusinessException("No " + expected + " account found for this identifier");
+        }
     }
 
     private String normalizeChannel(String channel) {

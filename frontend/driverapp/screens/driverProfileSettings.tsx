@@ -24,6 +24,7 @@ import { LANGUAGE_CODES, LANGUAGE_NAMES } from '@/locales';
 import { formatDate, isLicenseExpired } from '@/utils/dateFormatter'; // Import utility functions for date formatting and license expiry checking
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { resolveAssetUrl } from '@/utils/media';
+import { getEmailTwoFactorStatus, setEmailTwoFactorEnabled } from '@/services/twoFactorApi';
 
 const DRIVER_SHARE_LOCATION_KEY = 'driverShareLocation';
 
@@ -88,6 +89,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const [completionTab, setCompletionTab] = useState('profile'); //state for completion tab
   const [shareLocation, setShareLocation] = useState(true); //state for share location
   const [twoFactor, setTwoFactor] = useState(false);
+  const [isTwoFactorLoading, setIsTwoFactorLoading] = useState(false);
   const { darkMode, setDarkMode } = useTheme(); //global theme data
   const { language, setLanguage, t } = useLanguage(); //global language/translation data
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -119,6 +121,34 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
         console.warn('Failed to load location sharing preference:', error);
       });
   }, []);
+
+  useEffect(() => {
+    if (!user?.userId || !user?.token) return;
+    getEmailTwoFactorStatus(user.userId, user.token)
+      .then((status) => setTwoFactor(status.enabled))
+      .catch((error) => {
+        console.warn('Failed to load two-factor authentication status:', error);
+      });
+  }, [user?.userId, user?.token]);
+
+  const handleTwoFactorChange = async (value: boolean) => {
+    if (!user?.userId || !user?.token) return;
+    const previous = twoFactor;
+    setTwoFactor(value);
+    setIsTwoFactorLoading(true);
+    try {
+      const status = await setEmailTwoFactorEnabled(user.userId, user.token, value);
+      setTwoFactor(status.enabled);
+    } catch (error) {
+      setTwoFactor(previous);
+      Alert.alert(
+        'Could Not Update',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
+    } finally {
+      setIsTwoFactorLoading(false);
+    }
+  };
 
   const fetchDriverProfile = async () => {
     if (!user?.userId || !user?.token) { // Check if user data is available
@@ -595,11 +625,15 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                 <MaterialCommunityIcons name="shield-account" size={20} color="#2F6BFF" />
                 <View style={styles.switchTextWrap}>
                   <Text style={styles.switchLabel}>{t('settings.twoFactorAuth')}</Text>
+                  <Text style={styles.switchDescription}>
+                    A code will be emailed to you at every login
+                  </Text>
                 </View>
               </View>
               <Switch
                 value={twoFactor}
-                onValueChange={setTwoFactor}
+                onValueChange={(value) => void handleTwoFactorChange(value)}
+                disabled={isTwoFactorLoading}
                 trackColor={{ false: '#E2E8F0', true: '#2F6BFF' }}
                 thumbColor="#FFF"
               />

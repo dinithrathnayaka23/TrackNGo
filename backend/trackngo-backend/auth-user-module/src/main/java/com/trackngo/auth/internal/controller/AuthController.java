@@ -5,6 +5,7 @@ import com.trackngo.auth.api.AuthService;
 import com.trackngo.auth.api.dto.AdminRegisterRequest;
 import com.trackngo.auth.api.dto.AuthRequest;
 import com.trackngo.auth.api.dto.AuthResponse;
+import com.trackngo.auth.api.dto.ResendTwoFactorOtpRequest;
 import com.trackngo.auth.api.dto.TwoFactorVerifyRequest;
 import com.trackngo.commons.ApiResponse;
 import jakarta.validation.Valid;
@@ -37,6 +38,12 @@ public class AuthController {
     @PostMapping("/2fa/verify")
     public ApiResponse<AuthResponse> verifyTwoFactor(@Valid @RequestBody TwoFactorVerifyRequest request) {
         return ApiResponse.ok("Two-factor verification successful", authService.verifyTwoFactor(request));
+    }
+
+    @PostMapping("/2fa/resend")
+    public ApiResponse<Void> resendTwoFactorOtp(@Valid @RequestBody ResendTwoFactorOtpRequest request) {
+        authService.resendTwoFactorOtp(request);
+        return ApiResponse.ok("A new verification code was sent to your email");
     }
 }
 

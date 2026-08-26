@@ -139,6 +139,7 @@ export default function Profile() {
           <ProfilePictureUpload
             currentImageUrl={photo || ''}
             onUploadSuccess={(url: string) => setProfile((current) => current ? { ...current, profilePhoto: url } : current)}
+            onRemoveSuccess={() => setProfile((current) => current ? { ...current, profilePhoto: null } : current)}
           />
 
           <section className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.05)]">

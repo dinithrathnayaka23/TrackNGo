@@ -27,6 +27,7 @@ import {
   getCorporateProfile,
   updateCorporateProfile,
 } from "../../services/corporateApi";
+import { deleteProfilePicture } from "../../services/userProfileApi";
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
 function useFadeSlide(delay: number) {
@@ -192,6 +193,42 @@ export default function CorporateProfileScreen() {
     }
   };
 
+  const handleRemoveImage = async () => {
+    try {
+      setSaving(true);
+      await deleteProfilePicture();
+      setForm((prev) => ({ ...prev, profilePhoto: "" }));
+      await loadProfile();
+    } catch (e) {
+      console.error("[CorporateProfile] Failed to remove photo:", e);
+      Alert.alert("Error", "Could not remove the profile picture.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // With a picture already set the avatar offers both actions; with none there is
+  // nothing to remove, so it opens the picker directly the way it always did.
+  const handleAvatarPress = () => {
+    if (!form.profilePhoto) {
+      void handlePickImage();
+      return;
+    }
+    Alert.alert("Profile picture", undefined, [
+      { text: "Choose a new photo", onPress: () => void handlePickImage() },
+      {
+        text: "Remove photo",
+        style: "destructive",
+        onPress: () =>
+          Alert.alert("Remove photo?", "Your profile picture will be deleted.", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Remove", style: "destructive", onPress: () => void handleRemoveImage() },
+          ]),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
   const handleSave = async (closeModalFn: () => void) => {
     if (!currentUser?.userId) return;
     setSaving(true);
@@ -297,7 +334,7 @@ export default function CorporateProfileScreen() {
             { opacity: avatarAnim.opacity, transform: [{ translateY: avatarAnim.translateY }] },
           ]}
         >
-          <TouchableOpacity onPress={handlePickImage} style={styles.avatarWrapper}>
+          <TouchableOpacity onPress={handleAvatarPress} disabled={saving} style={styles.avatarWrapper}>
             <View style={styles.avatarCircle}>
               {loading ? (
                 <ActivityIndicator size="small" color="#2F6BFF" />

@@ -27,6 +27,23 @@ import { resolveAssetUrl } from '@/utils/media';
 
 const DRIVER_SHARE_LOCATION_KEY = 'driverShareLocation';
 
+type PasswordStrength = { level: 'low' | 'medium' | 'high'; label: string; color: string; score: number };
+
+function getPasswordStrength(password: string): PasswordStrength | null {
+  if (!password) return null;
+
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+  if (/\d/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+
+  if (score <= 2) return { level: 'low', label: 'Low', color: '#DC2626', score };
+  if (score <= 3) return { level: 'medium', label: 'Medium', color: '#D97706', score };
+  return { level: 'high', label: 'High', color: '#16A34A', score };
+}
+
 interface DriverProfile {  //stricture of driver profile data we get from API
   driverId: number;
   firstName: string;
@@ -88,6 +105,9 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   console.log("USER:", user); // Log the user from UserContext when logged in.
   
@@ -210,8 +230,13 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
     setNewPassword('');
     setConfirmPassword('');
     setPasswordError('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     setPasswordModalVisible(true);
   };
+
+  const newPasswordStrength = useMemo(() => getPasswordStrength(newPassword), [newPassword]);
 
   const changePassword = async () => {
     if (!user?.userId || !user.token) {
@@ -791,30 +816,93 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
           <View style={styles.passwordModalContainer}>
             <Text style={styles.modalTitle}>Change Password</Text>
             <Text style={styles.passwordHint}>Only you can change your account password.</Text>
-            <TextInput
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              placeholder="Current password"
-              placeholderTextColor="#999"
-              secureTextEntry
-              style={styles.passwordInput}
-            />
-            <TextInput
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="New password"
-              placeholderTextColor="#999"
-              secureTextEntry
-              style={styles.passwordInput}
-            />
-            <TextInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm new password"
-              placeholderTextColor="#999"
-              secureTextEntry
-              style={styles.passwordInput}
-            />
+
+            <View style={styles.passwordInputWrap}>
+              <TextInput
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder="Current password"
+                placeholderTextColor="#999"
+                secureTextEntry={!showCurrentPassword}
+                style={styles.passwordInput}
+              />
+              <TouchableOpacity
+                style={styles.passwordEyeButton}
+                onPress={() => setShowCurrentPassword((prev) => !prev)}
+              >
+                <MaterialCommunityIcons
+                  name={showCurrentPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color={theme.secondaryText}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.passwordTip}>
+              Use at least 8 characters with a mix of uppercase and lowercase letters, numbers, and symbols. Avoid names, birthdays, or words that are easy to guess.
+            </Text>
+
+            <View style={styles.passwordInputWrap}>
+              <TextInput
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="New password"
+                placeholderTextColor="#999"
+                secureTextEntry={!showNewPassword}
+                style={styles.passwordInput}
+              />
+              <TouchableOpacity
+                style={styles.passwordEyeButton}
+                onPress={() => setShowNewPassword((prev) => !prev)}
+              >
+                <MaterialCommunityIcons
+                  name={showNewPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color={theme.secondaryText}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {newPasswordStrength ? (
+              <View style={styles.strengthWrap}>
+                <View style={styles.strengthBarTrack}>
+                  <View
+                    style={[
+                      styles.strengthBarFill,
+                      {
+                        width: `${(newPasswordStrength.score / 5) * 100}%`,
+                        backgroundColor: newPasswordStrength.color,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.strengthLabel, { color: newPasswordStrength.color }]}>
+                  {newPasswordStrength.label}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.passwordInputWrap}>
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Confirm new password"
+                placeholderTextColor="#999"
+                secureTextEntry={!showConfirmPassword}
+                style={styles.passwordInput}
+              />
+              <TouchableOpacity
+                style={styles.passwordEyeButton}
+                onPress={() => setShowConfirmPassword((prev) => !prev)}
+              >
+                <MaterialCommunityIcons
+                  name={showConfirmPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color={theme.secondaryText}
+                />
+              </TouchableOpacity>
+            </View>
+
             {passwordError ? <Text style={styles.passwordError}>{passwordError}</Text> : null}
             <View style={styles.passwordActions}>
               <TouchableOpacity onPress={() => setPasswordModalVisible(false)} disabled={isChangingPassword}>
@@ -1179,15 +1267,57 @@ function createStyles({
       fontSize: 12,
       textAlign: 'center',
     },
+    passwordInputWrap: {
+      position: 'relative',
+      justifyContent: 'center',
+      marginTop: 10,
+    },
     passwordInput: {
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: 9,
       color: theme.text,
       paddingHorizontal: 12,
+      paddingRight: 42,
       paddingVertical: 11,
-      marginTop: 10,
       backgroundColor: theme.background,
+    },
+    passwordEyeButton: {
+      position: 'absolute',
+      right: 4,
+      height: '100%',
+      paddingHorizontal: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    passwordTip: {
+      marginTop: 8,
+      color: theme.secondaryText,
+      fontSize: 11,
+      lineHeight: 15,
+    },
+    strengthWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+    },
+    strengthBarTrack: {
+      flex: 1,
+      height: 5,
+      borderRadius: 2.5,
+      backgroundColor: theme.border,
+      overflow: 'hidden',
+    },
+    strengthBarFill: {
+      height: '100%',
+      borderRadius: 2.5,
+    },
+    strengthLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      minWidth: 48,
+      textAlign: 'right',
     },
     passwordError: {
       marginTop: 10,

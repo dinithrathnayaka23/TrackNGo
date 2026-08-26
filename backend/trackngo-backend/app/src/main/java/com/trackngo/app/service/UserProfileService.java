@@ -35,6 +35,8 @@ public class UserProfileService {
                 cu.address AS address,
                 cu.business_registration_number AS business_registration_number,
                 cu.industry AS industry,
+                cu.website AS website,
+                cu.employee_count AS employee_count,
                 u.user_type AS user_type
             FROM `user` u
             LEFT JOIN passenger p ON p.passenger_id = u.user_id
@@ -76,6 +78,8 @@ public class UserProfileService {
                     clean(rs.getString("address")),
                     clean(rs.getString("business_registration_number")),
                     clean(rs.getString("industry")),
+                    clean(rs.getString("website")),
+                    rs.getObject("employee_count") != null ? rs.getInt("employee_count") : null,
                     mapUserType(rs.getString("user_type")));
         }, userId);
     }

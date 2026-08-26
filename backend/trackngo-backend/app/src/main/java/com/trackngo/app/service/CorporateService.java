@@ -2,11 +2,14 @@ package com.trackngo.app.service;
 
 import com.trackngo.app.dto.AdminContractSummaryDto;
 import com.trackngo.app.dto.ContractBusDto;
+import com.trackngo.app.dto.ContractCancellationDto;
+import com.trackngo.app.dto.ContractStatusUpdateRequest;
 import com.trackngo.app.dto.CorporateContractDetailDto;
 import com.trackngo.app.dto.CorporateContractDto;
 import com.trackngo.app.dto.CorporateInvoiceDto;
 import com.trackngo.app.dto.CorporateAdvancePaymentDto;
 import com.trackngo.app.dto.ShiftLegDto;
+import com.trackngo.app.util.ProfileValidation;
 import com.trackngo.notification.api.NotificationService;
 import com.trackngo.notification.api.dto.NotificationDto;
 import com.stripe.exception.StripeException;
@@ -24,6 +27,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
@@ -36,10 +40,13 @@ public class CorporateService {
     private final JdbcTemplate jdbcTemplate;
     private final NotificationService notificationService;
     private final CorporatePricingService pricingService;
+    private final CorporateInvoiceService corporateInvoiceService;
 
     private static final List<String> VALID_SHIFT_TYPES = List.of("morning", "evening", "both");
     private static final List<String> VALID_BUS_TYPES = List.of("standard", "ac", "mini");
     private static final List<String> VALID_CONTRACT_STATUSES = List.of("pending", "active", "expired", "cancelled");
+    private static final List<String> VALID_CANCEL_ROLES = List.of("admin", "corporate");
+    private static final int MIN_ADMIN_CANCEL_NOTICE_DAYS = 14;
 
     /** Admin-driven status transitions. Expired/cancelled contracts are terminal. */
     private static final Map<String, List<String>> ALLOWED_STATUS_TRANSITIONS = Map.of(
@@ -59,7 +66,10 @@ public class CorporateService {
                 employee_count, working_days, bus_type, distance_km,
                 status, finalized_at, billing_amount,
                 start_date, end_date, created_at, corporate_user_id, bus_id,
-                advance_amount, advance_payment_status, advance_paid_at
+                advance_amount, advance_payment_status, advance_paid_at,
+                original_billing_amount, discount_amount,
+                cancel_status, cancel_requested_by, cancel_reason, cancel_requested_at,
+                cancel_effective_date, cancel_response_reason
             """;
 
     private static final String CONTRACTS_SQL = """
@@ -75,6 +85,9 @@ public class CorporateService {
                 c.distance_km, c.status, c.billing_amount, c.start_date, c.end_date,
                 c.created_at, c.corporate_user_id,
                 c.advance_amount, c.advance_payment_status, c.advance_paid_at,
+                c.original_billing_amount, c.discount_amount,
+                c.cancel_status, c.cancel_requested_by, c.cancel_reason, c.cancel_requested_at,
+                c.cancel_effective_date, c.cancel_response_reason,
                 cu.company_name, cu.contact_person_name, cu.contact_phone,
                 (SELECT COUNT(*) FROM corporate_contract_bus ccb WHERE ccb.contract_id = c.contract_id) AS bus_count
             FROM corporate_contract c
@@ -90,21 +103,23 @@ public class CorporateService {
 
     private static final String INVOICES_SQL = """
             SELECT
-                i.invoice_number, i.contract_id, i.amount, i.status,
-                i.date, i.due_date, i.created_at
+                i.invoice_number, i.contract_id, i.bus_id, b.bus_number, i.amount, i.status,
+                i.period_start, i.period_end, i.due_date, i.stripe_transaction_id, i.paid_at, i.created_at
             FROM corporate_invoices i
             JOIN corporate_contract c ON i.contract_id = c.contract_id
+            LEFT JOIN bus b ON b.bus_id = i.bus_id
             WHERE c.corporate_user_id = ?
-            ORDER BY i.date DESC
+            ORDER BY i.period_start DESC
             """;
 
     private static final String CONTRACT_INVOICES_SQL = """
             SELECT
-                invoice_number, contract_id, amount, status,
-                date, due_date, created_at
-            FROM corporate_invoices
-            WHERE contract_id = ?
-            ORDER BY date DESC
+                i.invoice_number, i.contract_id, i.bus_id, b.bus_number, i.amount, i.status,
+                i.period_start, i.period_end, i.due_date, i.stripe_transaction_id, i.paid_at, i.created_at
+            FROM corporate_invoices i
+            LEFT JOIN bus b ON b.bus_id = i.bus_id
+            WHERE i.contract_id = ?
+            ORDER BY i.period_start DESC
             """;
 
     private static final String CONTRACT_DETAIL_SQL = """
@@ -121,6 +136,9 @@ public class CorporateService {
                 c.status, c.finalized_at, c.billing_amount,
                 c.start_date, c.end_date, c.created_at, c.corporate_user_id, c.bus_id,
                 c.advance_amount, c.advance_payment_status, c.advance_paid_at, c.advance_transaction_id,
+                c.original_billing_amount, c.discount_amount, c.admin_note,
+                c.cancel_status, c.cancel_requested_by, c.cancel_reason, c.cancel_requested_at,
+                c.cancel_effective_date, c.cancel_response_reason,
                 cu.company_name, cu.contact_person_name, cu.contact_phone
             FROM corporate_contract c
             LEFT JOIN corporate_user cu ON cu.corporate_user_id = c.corporate_user_id
@@ -163,6 +181,18 @@ public class CorporateService {
                     AND c.end_date >= ?
               )
             """;
+
+    private static ContractCancellationDto mapCancellation(ResultSet rs) throws SQLException {
+        java.sql.Date effectiveDate = rs.getDate("cancel_effective_date");
+        return new ContractCancellationDto(
+                rs.getString("cancel_status"),
+                rs.getString("cancel_requested_by"),
+                rs.getString("cancel_reason"),
+                rs.getString("cancel_requested_at"),
+                effectiveDate != null ? effectiveDate.toLocalDate() : null,
+                rs.getString("cancel_response_reason")
+        );
+    }
 
     private static ContractBusDto mapBusRow(ResultSet rs) throws SQLException {
         return new ContractBusDto(
@@ -288,7 +318,10 @@ public class CorporateService {
                 rs.getInt("bus_count"),
                 rs.getBigDecimal("advance_amount"),
                 rs.getString("advance_payment_status"),
-                rs.getString("advance_paid_at")
+                rs.getString("advance_paid_at"),
+                rs.getBigDecimal("original_billing_amount"),
+                rs.getBigDecimal("discount_amount"),
+                mapCancellation(rs)
         ), params.toArray());
     }
 
@@ -322,7 +355,10 @@ public class CorporateService {
                 null, // busIds are only populated where the caller explicitly fetches them (see getContractDetail / createContract)
                 rs.getBigDecimal("advance_amount"),
                 rs.getString("advance_payment_status"),
-                rs.getString("advance_paid_at")
+                rs.getString("advance_paid_at"),
+                rs.getBigDecimal("original_billing_amount"),
+                rs.getBigDecimal("discount_amount"),
+                mapCancellation(rs)
         );
     }
 
@@ -335,7 +371,8 @@ public class CorporateService {
                 base.employeeCount(), base.workingDays(), base.busType(), base.distanceKm(),
                 base.status(), base.finalizedAt(), base.billingAmount(), base.startDate(), base.endDate(),
                 base.createdAt(), base.corporateUserId(), base.busId(), busIds,
-                base.advanceAmount(), base.advancePaymentStatus(), base.advancePaidAt()
+                base.advanceAmount(), base.advancePaymentStatus(), base.advancePaidAt(),
+                base.originalBillingAmount(), base.discountAmount(), base.cancellation()
         );
     }
 
@@ -354,16 +391,42 @@ public class CorporateService {
         return new ShiftLegDto(location, rs.getBigDecimal(latCol), rs.getBigDecimal(lngCol), timeOrNull(rs, timeCol));
     }
 
-    public List<CorporateInvoiceDto> getInvoices(Long userId) {
-        return jdbcTemplate.query(INVOICES_SQL, (rs, rowNum) -> new CorporateInvoiceDto(
+    private static CorporateInvoiceDto mapInvoiceRow(ResultSet rs) throws SQLException {
+        return new CorporateInvoiceDto(
                 rs.getLong("invoice_number"),
                 rs.getLong("contract_id"),
+                rs.getLong("bus_id"),
+                rs.getString("bus_number"),
                 rs.getBigDecimal("amount"),
                 rs.getString("status"),
-                rs.getDate("date") != null ? rs.getDate("date").toLocalDate() : null,
+                rs.getDate("period_start") != null ? rs.getDate("period_start").toLocalDate() : null,
+                rs.getDate("period_end") != null ? rs.getDate("period_end").toLocalDate() : null,
                 rs.getDate("due_date") != null ? rs.getDate("due_date").toLocalDate() : null,
+                rs.getString("stripe_transaction_id"),
+                rs.getString("paid_at"),
                 rs.getString("created_at")
-        ), userId);
+        );
+    }
+
+    public List<CorporateInvoiceDto> getInvoices(Long userId) {
+        return jdbcTemplate.query(INVOICES_SQL, (rs, rowNum) -> mapInvoiceRow(rs), userId);
+    }
+
+    /** A single invoice's detail, for the pay screen. Returns null if not found. */
+    public CorporateInvoiceDto getInvoice(Long invoiceNumber) {
+        List<CorporateInvoiceDto> rows = jdbcTemplate.query("""
+                SELECT i.invoice_number, i.contract_id, i.bus_id, b.bus_number, i.amount, i.status,
+                       i.period_start, i.period_end, i.due_date, i.stripe_transaction_id, i.paid_at, i.created_at
+                FROM corporate_invoices i
+                LEFT JOIN bus b ON b.bus_id = i.bus_id
+                WHERE i.invoice_number = ?
+                """, (rs, rowNum) -> mapInvoiceRow(rs), invoiceNumber);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** Verifies and records payment of one monthly invoice via Stripe. */
+    public void payInvoice(Long invoiceNumber, String stripeSessionId) {
+        corporateInvoiceService.payInvoice(invoiceNumber, stripeSessionId);
     }
 
     /**
@@ -373,15 +436,7 @@ public class CorporateService {
      */
     public CorporateContractDetailDto getContractDetail(Long contractId, Long userId) {
         List<CorporateInvoiceDto> invoices =
-                jdbcTemplate.query(CONTRACT_INVOICES_SQL, (rs, rowNum) -> new CorporateInvoiceDto(
-                        rs.getLong("invoice_number"),
-                        rs.getLong("contract_id"),
-                        rs.getBigDecimal("amount"),
-                        rs.getString("status"),
-                        rs.getDate("date") != null ? rs.getDate("date").toLocalDate() : null,
-                        rs.getDate("due_date") != null ? rs.getDate("due_date").toLocalDate() : null,
-                        rs.getString("created_at")
-                ), contractId);
+                jdbcTemplate.query(CONTRACT_INVOICES_SQL, (rs, rowNum) -> mapInvoiceRow(rs), contractId);
 
         BigDecimal totalBilled = sumInvoices(invoices, "pending", "overdue", "paid");
         BigDecimal totalPaid = sumInvoices(invoices, "paid");
@@ -434,7 +489,11 @@ public class CorporateService {
                     rs.getBigDecimal("advance_amount"),
                     rs.getString("advance_payment_status"),
                     rs.getString("advance_paid_at"),
-                    rs.getString("advance_transaction_id")
+                    rs.getString("advance_transaction_id"),
+                    rs.getBigDecimal("original_billing_amount"),
+                    rs.getBigDecimal("discount_amount"),
+                    rs.getString("admin_note"),
+                    mapCancellation(rs)
             );
         }, contractId);
 
@@ -487,8 +546,9 @@ public class CorporateService {
                     evening_dropoff_location, evening_dropoff_lat, evening_dropoff_lng, evening_dropoff_time,
                     evening_distance_km,
                     employee_count, working_days, bus_type, distance_km,
-                    billing_amount, start_date, end_date, corporate_user_id, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                    billing_amount, start_date, end_date, corporate_user_id, status,
+                    original_billing_amount
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
                 """;
         ShiftLegDto morningPickup = dto.morningPickup();
         ShiftLegDto morningDropoff = dto.morningDropoff();
@@ -531,6 +591,7 @@ public class CorporateService {
             ps.setObject(30, dto.startDate());
             ps.setObject(31, dto.endDate());
             ps.setLong(32, dto.corporateUserId());
+            ps.setBigDecimal(33, billingAmount);
             return ps;
         }, keyHolder);
 
@@ -599,12 +660,14 @@ public class CorporateService {
             throw new IllegalStateException("Complete your corporate profile before requesting a contract.");
         }
         Map<String, Object> profile = rows.get(0);
-        boolean complete = List.of("business_registration_number", "industry", "address",
-                        "contact_person_designation", "contact_phone")
-                .stream()
-                .allMatch(field -> profile.get(field) != null && !profile.get(field).toString().isBlank());
+        boolean complete =
+                ProfileValidation.isRealText((String) profile.get("business_registration_number"), 3)
+                        && ProfileValidation.isRealText((String) profile.get("industry"), 2)
+                        && ProfileValidation.isRealText((String) profile.get("address"), 5)
+                        && ProfileValidation.isRealText((String) profile.get("contact_person_designation"), 2)
+                        && ProfileValidation.isValidPhone((String) profile.get("contact_phone"));
         if (!complete) {
-            throw new IllegalStateException("Complete your corporate profile before requesting a contract.");
+            throw new IllegalStateException("Complete your corporate profile with real details before requesting a contract.");
         }
     }
 
@@ -728,21 +791,29 @@ public class CorporateService {
      * Admin approves, rejects, cancels or expires a contract. Only the
      * transitions in {@link #ALLOWED_STATUS_TRANSITIONS} are permitted —
      * expired and cancelled contracts are terminal and cannot be reopened.
+     * On approval ("active"), the admin may also apply a manual discount off
+     * the auto-calculated {@code original_billing_amount}, mirroring the
+     * discount already supported for trip bookings.
      */
-    public CorporateContractDto updateContractStatus(Long contractId, String newStatus) {
+    public CorporateContractDto updateContractStatus(Long contractId, ContractStatusUpdateRequest request) {
+        String newStatus = request.status();
         if (newStatus == null || !VALID_CONTRACT_STATUSES.contains(newStatus.toLowerCase())) {
             throw new IllegalArgumentException("Status must be one of: pending, active, expired, cancelled.");
         }
         String normalized = newStatus.toLowerCase();
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT status, corporate_user_id, contract_name FROM corporate_contract WHERE contract_id = ?",
+                "SELECT status, corporate_user_id, contract_name, original_billing_amount, cancel_status FROM corporate_contract WHERE contract_id = ?",
                 contractId);
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("Contract not found.");
         }
         Map<String, Object> row = rows.get(0);
         String currentStatus = (String) row.get("status");
+        if ("pending".equals(row.get("cancel_status"))) {
+            throw new IllegalStateException(
+                    "A cancellation request is already pending on this contract — resolve it before changing status.");
+        }
         List<String> allowedNext = ALLOWED_STATUS_TRANSITIONS.getOrDefault(currentStatus, List.of());
         if (!allowedNext.contains(normalized)) {
             throw new IllegalStateException(
@@ -750,7 +821,21 @@ public class CorporateService {
         }
         if ("active".equals(normalized)) {
             requireNoBusConflicts(contractId);
-            jdbcTemplate.update("UPDATE corporate_contract SET status = ?, advance_amount = billing_amount, advance_payment_status = 'pending' WHERE contract_id = ?", normalized, contractId);
+            BigDecimal originalAmount = (BigDecimal) row.get("original_billing_amount");
+            BigDecimal discount = request.discountAmount() == null ? BigDecimal.ZERO : request.discountAmount();
+            if (discount.signum() < 0) {
+                throw new IllegalArgumentException("Discount amount cannot be negative.");
+            }
+            if (originalAmount != null && discount.compareTo(originalAmount) > 0) {
+                throw new IllegalArgumentException("Discount cannot exceed the original monthly amount.");
+            }
+            BigDecimal newBilling = (originalAmount == null ? BigDecimal.ZERO : originalAmount).subtract(discount);
+            jdbcTemplate.update("""
+                    UPDATE corporate_contract
+                    SET status = ?, billing_amount = ?, discount_amount = ?, admin_note = ?,
+                        advance_amount = ?, advance_payment_status = 'pending'
+                    WHERE contract_id = ?
+                    """, normalized, newBilling, discount, request.adminNote(), newBilling, contractId);
         } else {
             jdbcTemplate.update("UPDATE corporate_contract SET status = ? WHERE contract_id = ?", normalized, contractId);
         }
@@ -761,6 +846,238 @@ public class CorporateService {
         return jdbcTemplate.queryForObject(
                 "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
                 (rs, rowNum) -> mapContract(rs), contractId);
+    }
+
+    /**
+     * Either party requests to cancel a pending or active contract, with a
+     * required reason. The other party must accept before anything changes
+     * (see {@link #respondToCancellation}). An admin-initiated request on an
+     * already-active contract carries a minimum 2-week notice: the contract
+     * stays active with {@code cancel_effective_date} set, and the scheduled
+     * {@link #expireDueCancellations()} job cancels it once that date arrives.
+     * A corporate-initiated request, or an admin request on a still-pending
+     * contract, takes effect immediately once accepted (no notice needed).
+     */
+    public CorporateContractDto requestCancellation(Long contractId, String role, String reason) {
+        String normalizedRole = role == null ? "" : role.toLowerCase();
+        if (!VALID_CANCEL_ROLES.contains(normalizedRole)) {
+            throw new IllegalArgumentException("Role must be 'admin' or 'corporate'.");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("A reason is required to request cancellation.");
+        }
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT status, corporate_user_id, contract_name, cancel_status FROM corporate_contract WHERE contract_id = ?",
+                contractId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("Contract not found.");
+        }
+        Map<String, Object> row = rows.get(0);
+        String status = (String) row.get("status");
+        if (!"pending".equals(status) && !"active".equals(status)) {
+            throw new IllegalStateException("Only a pending or active contract can be cancelled.");
+        }
+        if (!"none".equals(row.get("cancel_status"))) {
+            throw new IllegalStateException("A cancellation request is already in progress for this contract.");
+        }
+
+        LocalDate effectiveDate = "admin".equals(normalizedRole) && "active".equals(status)
+                ? LocalDate.now().plusDays(MIN_ADMIN_CANCEL_NOTICE_DAYS)
+                : null;
+
+        jdbcTemplate.update("""
+                UPDATE corporate_contract
+                SET cancel_status = 'pending', cancel_requested_by = ?, cancel_reason = ?,
+                    cancel_requested_at = CURRENT_TIMESTAMP, cancel_effective_date = ?, cancel_response_reason = NULL
+                WHERE contract_id = ?
+                """, normalizedRole, reason.trim(), effectiveDate, contractId);
+
+        Long corporateUserId = ((Number) row.get("corporate_user_id")).longValue();
+        String contractName = (String) row.get("contract_name");
+        notifyCancellationRequested(contractId, corporateUserId, contractName, normalizedRole, reason.trim(), effectiveDate);
+
+        return jdbcTemplate.queryForObject(
+                "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
+                (rs, rowNum) -> mapContract(rs), contractId);
+    }
+
+    /**
+     * The party who did NOT request cancellation accepts or rejects it.
+     * Accepting a corporate-initiated request, or an admin request on a
+     * still-pending contract, cancels the contract immediately. Accepting an
+     * admin request on an active contract leaves the contract running until
+     * {@code cancel_effective_date}. Rejecting resets the cancellation state
+     * to 'none' so a fresh request can be filed later.
+     */
+    public CorporateContractDto respondToCancellation(Long contractId, String role, boolean accept, String responseReason) {
+        String normalizedRole = role == null ? "" : role.toLowerCase();
+        if (!VALID_CANCEL_ROLES.contains(normalizedRole)) {
+            throw new IllegalArgumentException("Role must be 'admin' or 'corporate'.");
+        }
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT status, corporate_user_id, contract_name, cancel_status, cancel_requested_by, cancel_effective_date FROM corporate_contract WHERE contract_id = ?",
+                contractId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("Contract not found.");
+        }
+        Map<String, Object> row = rows.get(0);
+        if (!"pending".equals(row.get("cancel_status"))) {
+            throw new IllegalStateException("There is no pending cancellation request on this contract.");
+        }
+        String requestedBy = (String) row.get("cancel_requested_by");
+        if (normalizedRole.equals(requestedBy)) {
+            throw new IllegalStateException("You cannot respond to your own cancellation request.");
+        }
+
+        Long corporateUserId = ((Number) row.get("corporate_user_id")).longValue();
+        String contractName = (String) row.get("contract_name");
+
+        if (!accept) {
+            jdbcTemplate.update("""
+                    UPDATE corporate_contract
+                    SET cancel_status = 'none', cancel_requested_by = NULL, cancel_reason = NULL,
+                        cancel_requested_at = NULL, cancel_effective_date = NULL, cancel_response_reason = ?
+                    WHERE contract_id = ?
+                    """, responseReason, contractId);
+            notifyCancellationDeclined(contractId, corporateUserId, contractName, requestedBy, responseReason);
+        } else {
+            java.sql.Date effectiveDateSql = (java.sql.Date) row.get("cancel_effective_date");
+            boolean takesEffectNow = effectiveDateSql == null;
+            if (takesEffectNow) {
+                jdbcTemplate.update("""
+                        UPDATE corporate_contract
+                        SET status = 'cancelled', cancel_status = 'accepted', cancel_response_reason = ?
+                        WHERE contract_id = ?
+                        """, responseReason, contractId);
+                notifyStatusChange(contractId, corporateUserId, contractName, "cancelled");
+            } else {
+                jdbcTemplate.update("""
+                        UPDATE corporate_contract
+                        SET cancel_status = 'accepted', cancel_response_reason = ?
+                        WHERE contract_id = ?
+                        """, responseReason, contractId);
+                notifyCancellationAccepted(contractId, corporateUserId, contractName, effectiveDateSql.toLocalDate());
+            }
+        }
+
+        return jdbcTemplate.queryForObject(
+                "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
+                (rs, rowNum) -> mapContract(rs), contractId);
+    }
+
+    /**
+     * Called by the scheduled {@code CorporateCancellationScheduler}: cancels
+     * every active contract whose accepted admin-initiated cancellation
+     * notice period has elapsed.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void expireDueCancellations() {
+        List<Map<String, Object>> due = jdbcTemplate.queryForList("""
+                SELECT contract_id, corporate_user_id, contract_name
+                FROM corporate_contract
+                WHERE cancel_status = 'accepted'
+                  AND cancel_effective_date IS NOT NULL
+                  AND cancel_effective_date <= CURRENT_DATE
+                  AND status = 'active'
+                """);
+        for (Map<String, Object> row : due) {
+            Long contractId = ((Number) row.get("contract_id")).longValue();
+            Long corporateUserId = ((Number) row.get("corporate_user_id")).longValue();
+            String contractName = (String) row.get("contract_name");
+            jdbcTemplate.update("""
+                    UPDATE corporate_contract
+                    SET status = 'cancelled', cancel_status = 'none', cancel_requested_by = NULL,
+                        cancel_reason = NULL, cancel_requested_at = NULL, cancel_effective_date = NULL
+                    WHERE contract_id = ?
+                    """, contractId);
+            notifyStatusChange(contractId, corporateUserId, contractName, "cancelled");
+        }
+    }
+
+    private void notifyCancellationRequested(
+            Long contractId, Long corporateUserId, String contractName,
+            String requestedByRole, String reason, LocalDate effectiveDate
+    ) {
+        try {
+            String noticeText = effectiveDate != null
+                    ? (" It will take effect on " + effectiveDate + " if you accept.")
+                    : "";
+            if ("admin".equals(requestedByRole)) {
+                NotificationDto notification = new NotificationDto();
+                notification.setNotificationType("system_alert");
+                notification.setTitle("Cancellation Requested");
+                notification.setMessage("Admin has requested to cancel your contract \"" + contractName
+                        + "\". Reason: " + reason + "." + noticeText);
+                notification.setCorporateUserId(corporateUserId);
+                notification.setRead(false);
+                notificationService.create(notification);
+            } else {
+                for (Long adminId : allAdminUserIds()) {
+                    NotificationDto notification = new NotificationDto();
+                    notification.setNotificationType("system_alert");
+                    notification.setTitle("Cancellation Requested");
+                    notification.setMessage("A corporate client has requested to cancel contract \"" + contractName
+                            + "\" (#" + contractId + "). Reason: " + reason + ".");
+                    notification.setAdminId(adminId);
+                    notification.setRead(false);
+                    notificationService.create(notification);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to create cancellation-requested notification for contract {}", contractId, ex);
+        }
+    }
+
+    private void notifyCancellationDeclined(
+            Long contractId, Long corporateUserId, String contractName, String requestedByRole, String responseReason
+    ) {
+        try {
+            String suffix = responseReason != null && !responseReason.isBlank() ? " Reason given: " + responseReason : "";
+            if ("corporate".equals(requestedByRole)) {
+                NotificationDto notification = new NotificationDto();
+                notification.setNotificationType("system_alert");
+                notification.setTitle("Cancellation Request Declined");
+                notification.setMessage("Your request to cancel contract \"" + contractName + "\" was declined." + suffix);
+                notification.setCorporateUserId(corporateUserId);
+                notification.setRead(false);
+                notificationService.create(notification);
+            } else {
+                for (Long adminId : allAdminUserIds()) {
+                    NotificationDto notification = new NotificationDto();
+                    notification.setNotificationType("system_alert");
+                    notification.setTitle("Cancellation Request Declined");
+                    notification.setMessage("The client declined admin's request to cancel contract \""
+                            + contractName + "\" (#" + contractId + ")." + suffix);
+                    notification.setAdminId(adminId);
+                    notification.setRead(false);
+                    notificationService.create(notification);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to create cancellation-declined notification for contract {}", contractId, ex);
+        }
+    }
+
+    private void notifyCancellationAccepted(Long contractId, Long corporateUserId, String contractName, LocalDate effectiveDate) {
+        try {
+            NotificationDto notification = new NotificationDto();
+            notification.setNotificationType("system_alert");
+            notification.setTitle("Cancellation Accepted");
+            notification.setMessage("You accepted admin's request to cancel contract \"" + contractName
+                    + "\". It will end on " + effectiveDate + ".");
+            notification.setCorporateUserId(corporateUserId);
+            notification.setRead(false);
+            notificationService.create(notification);
+        } catch (Exception ex) {
+            log.warn("Failed to create cancellation-accepted notification for contract {}", contractId, ex);
+        }
+    }
+
+    /** No "assigned admin" concept exists today, so cancellation requests broadcast to every admin. */
+    private List<Long> allAdminUserIds() {
+        return jdbcTemplate.queryForList("SELECT user_id FROM `user` WHERE user_type = 'admin'", Long.class);
     }
 
     public CorporateContractDto processAdvancePayment(Long contractId, CorporateAdvancePaymentDto paymentDto) {
@@ -868,6 +1185,7 @@ public class CorporateService {
         }
 
         jdbcTemplate.update("UPDATE corporate_contract SET finalized_at = CURRENT_TIMESTAMP WHERE contract_id = ?", contractId);
+        corporateInvoiceService.generateInvoicesForContract(contractId);
 
         return jdbcTemplate.queryForObject(
                 "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),

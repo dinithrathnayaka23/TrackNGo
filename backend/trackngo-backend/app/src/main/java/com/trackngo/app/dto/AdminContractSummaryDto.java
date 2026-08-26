@@ -28,6 +28,9 @@ public record AdminContractSummaryDto(
         Integer busCount,
         BigDecimal advanceAmount,
         String advancePaymentStatus,
-        String advancePaidAt
+        String advancePaidAt,
+        BigDecimal originalBillingAmount,
+        BigDecimal discountAmount,
+        ContractCancellationDto cancellation
 ) {
 }

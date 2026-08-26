@@ -72,6 +72,39 @@ active) apart from "the corporate user confirmed the final offer" — a
 contract stays in the Pending Contracts list as "Request Approved" until
 finalized, then moves to Active Contracts.
 
+Before deploying the admin-editable support contact feature, run
+`V17__support_contact_settings.sql`. It creates the single-row
+`support_contact_settings` table (name, role, phone) that the corporate
+contract negotiation screen now reads instead of a hardcoded contact, and
+seeds it with the values that were previously hardcoded so nothing changes
+until an admin edits it from Settings.
+
+Before deploying the corporate contract discount feature, run
+`V18__corporate_contract_discount.sql`. It adds `original_billing_amount`,
+`discount_amount` and `admin_note` to `corporate_contract` so an admin can
+apply a manual discount when approving a contract, mirroring the discount
+already supported for trip bookings. Existing rows are backfilled with
+`original_billing_amount = billing_amount` so nothing changes until a
+discount is applied.
+
+Before deploying the corporate profile validation fix, run
+`V19__corporate_profile_extra_fields.sql`. It adds `website` and
+`employee_count` to `corporate_user` — fields the mobile edit form already
+collected but silently discarded, since no column backed them.
+
+Before deploying mutual-consent contract cancellation, run
+`V20__corporate_contract_cancellation.sql`. It adds `cancel_status`,
+`cancel_requested_by`, `cancel_reason`, `cancel_requested_at`,
+`cancel_effective_date` and `cancel_response_reason` to `corporate_contract`
+so either party can request cancellation with a reason and the other must
+accept before it takes effect.
+
+Before deploying monthly per-bus corporate billing, run
+`V21__corporate_invoice_billing.sql`. It drops and recreates
+`corporate_invoices` (previously only a dump/seed artifact with no real
+migration history or writer) as the real table backing one invoice per
+assigned bus per billing period, paid via Stripe.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

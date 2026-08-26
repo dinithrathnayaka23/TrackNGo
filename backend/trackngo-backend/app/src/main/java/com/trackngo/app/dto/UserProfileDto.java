@@ -13,6 +13,8 @@ public record UserProfileDto(
         String address,
         String businessRegistrationNumber,
         String industry,
+        String website,
+        Integer employeeCount,
         String userType
 ) {
 }

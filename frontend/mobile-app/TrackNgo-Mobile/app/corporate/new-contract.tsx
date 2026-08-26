@@ -4,7 +4,6 @@ import {
   Alert,
   Animated,
   BackHandler,
-  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -26,6 +25,7 @@ import {
   getCorporateContracts,
   getAvailableCorporateBuses,
   finalizeCorporateContract,
+  getSupportContact,
   formatAmount,
   parseBusAmenities,
   type ShiftType,
@@ -34,6 +34,7 @@ import {
   type ShiftLeg,
   type ContractBus,
   type CorporateContract,
+  type SupportContact,
 } from "../../services/corporateApi";
 import GooglePlaceField, { type PlaceValue } from "../../components/GooglePlaceField";
 import { createConversation } from "../../services/chatApi";
@@ -235,13 +236,25 @@ export default function NewContractScreen() {
     }
   }, [initContractId, currentUser]);
 
-  // Admin contact info (mock — replace with actual data if available)
-  const ADMIN_INFO = {
-    name: "Dinith Rathnayaka",
-    role: "Main Admin",
+  // Admin-configured support contact, editable from the admin dashboard
+  // (Settings → Corporate Support Contact). Falls back to a safe default
+  // only if the fetch fails.
+  const [adminInfo, setAdminInfo] = useState<SupportContact>({
+    name: "TrackNGo Support",
+    role: "Support Team",
     phone: "+94701803826",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-  };
+  });
+  useEffect(() => {
+    getSupportContact()
+      .then(setAdminInfo)
+      .catch((e) => console.warn("[Negotiation] Failed to load support contact:", e));
+  }, []);
+  const adminInitials = adminInfo.name
+    .split(/\s+/)
+    .map((part) => part[0] ?? "")
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   const anim = useFadeSlide(0, step);
 
@@ -251,6 +264,7 @@ export default function NewContractScreen() {
   const neededSeats = parseInt(employees, 10) || 0;
   const seatsFulfilled = neededSeats > 0 && selectedSeats >= neededSeats;
   const monthlyAmount = createdContract?.billingAmount ?? 0;
+  const hasDiscount = (createdContract?.discountAmount ?? 0) > 0;
 
   const needsMorning = shiftType === "morning" || shiftType === "both";
   const needsEvening = shiftType === "evening" || shiftType === "both";
@@ -1100,18 +1114,20 @@ export default function NewContractScreen() {
         {/* Admin Contact Card */}
         <Text style={styles.negoSectionLabel}>Admin</Text>
         <View style={styles.negoAdminCard}>
-          <Image source={{ uri: ADMIN_INFO.avatar }} style={styles.negoAdminAvatar} />
+          <View style={styles.negoAdminAvatar}>
+            <Text style={styles.negoAdminAvatarText}>{adminInitials}</Text>
+          </View>
           <View style={styles.negoAdminInfo}>
-            <Text style={styles.negoAdminName}>{ADMIN_INFO.name}</Text>
-            <Text style={styles.negoAdminRole}>{ADMIN_INFO.role}</Text>
+            <Text style={styles.negoAdminName}>{adminInfo.name}</Text>
+            <Text style={styles.negoAdminRole}>{adminInfo.role}</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
               <Ionicons name="call" size={13} color="#10B981" />
-              <Text style={styles.negoAdminPhone}>{ADMIN_INFO.phone}</Text>
+              <Text style={styles.negoAdminPhone}>{adminInfo.phone}</Text>
             </View>
           </View>
         </View>
         <View style={styles.negoActionRow}>
-          <TouchableOpacity style={styles.negoCallBtn} onPress={() => Linking.openURL(`tel:${ADMIN_INFO.phone}`)}>
+          <TouchableOpacity style={styles.negoCallBtn} onPress={() => Linking.openURL(`tel:${adminInfo.phone}`)}>
             <Ionicons name="call" size={18} color="#FFFFFF" />
             <Text style={styles.negoCallText}>Call</Text>
           </TouchableOpacity>
@@ -1170,14 +1186,6 @@ export default function NewContractScreen() {
             <Text style={styles.pricingRowValue}>{createdContract?.distanceKm ?? "—"} km</Text>
           </View>
           <View style={styles.pricingRow}>
-            <Text style={styles.pricingRowLabel}>Trips per working day</Text>
-            <Text style={styles.pricingRowValue}>{createdContract?.shiftType === "both" ? "2 (morning + evening)" : "1"}</Text>
-          </View>
-          <View style={styles.pricingRow}>
-            <Text style={styles.pricingRowLabel}>Bus size rate</Text>
-            <Text style={styles.pricingRowValue}>{(createdContract?.employeeCount ?? 0) <= 20 ? "Small bus rate" : "Large bus rate"}</Text>
-          </View>
-          <View style={styles.pricingRow}>
             <Text style={styles.pricingRowLabel}>Bus type</Text>
             <Text style={styles.pricingRowValue}>{busTypeDisplayLabel(createdContract?.busType)}</Text>
           </View>
@@ -1185,8 +1193,25 @@ export default function NewContractScreen() {
             <Text style={styles.pricingRowLabel}>Working days / month</Text>
             <Text style={styles.pricingRowValue}>{createdContract?.workingDays === "all_days" ? "30 (all days)" : "22 (weekdays)"}</Text>
           </View>
+          {hasDiscount && (
+            <>
+              <View style={styles.pricingDivider} />
+              <View style={styles.pricingRow}>
+                <Text style={styles.pricingRowLabel}>Subtotal</Text>
+                <Text style={styles.pricingRowValue}>{formatAmount(createdContract?.originalBillingAmount ?? monthlyAmount)}</Text>
+              </View>
+              <View style={styles.pricingRow}>
+                <Text style={styles.pricingRowLabel}>Discount</Text>
+                <Text style={[styles.pricingRowValue, { color: "#10B981" }]}>−{formatAmount(createdContract?.discountAmount ?? 0)}</Text>
+              </View>
+              <View style={styles.pricingRow}>
+                <Text style={[styles.pricingRowLabel, { fontWeight: "700", color: "#0F172A" }]}>Total</Text>
+                <Text style={styles.pricingRowValue}>{formatAmount(monthlyAmount)}</Text>
+              </View>
+            </>
+          )}
           <Text style={styles.pricingHint}>
-            Monthly bill = rate per km × distance × trips per day × working days/month, with a surcharge for AC or Mini buses. Rates are set by TrackNGo admin and this figure may still be adjusted during negotiation.
+            Based on your route, bus type and schedule. Rates are set by TrackNGo admin.
           </Text>
         </View>
 
@@ -1214,7 +1239,7 @@ export default function NewContractScreen() {
             <View style={styles.negoTimelineContent}>
               <Text style={styles.negoTimelineTitle}>Negotiation in Progress</Text>
               <Text style={[styles.negoTimelineSub, { color: "#067BF9" }]}>
-                {isApproved ? "Admin has approved your request" : `${ADMIN_INFO.name.split(" ")[0]} is reviewing your request`}
+                {isApproved ? "Admin has approved your request" : `${adminInfo.name.split(" ")[0]} is reviewing your request`}
               </Text>
             </View>
           </View>
@@ -1929,7 +1954,10 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
     backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
   },
+  negoAdminAvatarText: { fontSize: 18, fontWeight: "700", color: "#475569" },
   negoAdminInfo: { flex: 1 },
   negoAdminName: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
   negoAdminRole: { fontSize: 12, color: "#64748B", marginTop: 2 },

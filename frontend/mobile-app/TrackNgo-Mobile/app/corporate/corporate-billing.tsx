@@ -14,8 +14,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { WebView } from "react-native-webview";
 import { useSession } from "../../store/sessionStore";
 import { CorporateTabBar } from "../../components/CorporateTabBar";
+import { API_BASE_URL } from "../../config/env";
+import { createStripeCheckoutSession, getStripeSessionStatus } from "../../services/bookingFlowApi";
+import { getUserProfile } from "../../services/userProfileApi";
 import {
   type CorporateContract,
   type CorporateInvoice,
@@ -27,6 +31,7 @@ import {
   formatContractDate,
   getCorporateContracts,
   getCorporateInvoices,
+  payCorporateInvoice,
 } from "../../services/corporateApi";
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
@@ -90,6 +95,15 @@ export default function CorporateBillingScreen() {
   const [contracts, setContracts] = useState<CorporateContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAllRecent, setShowAllRecent] = useState(false);
+  const [expandedInvoiceKey, setExpandedInvoiceKey] = useState<string | null>(null);
+
+  // ── Stripe payment state ─────────────────────────────────────────
+  const [payingInvoice, setPayingInvoice] = useState<CorporateInvoice | null>(null);
+  const [showWebView, setShowWebView] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState("");
+  const [sessionId, setSessionId] = useState("");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
 
   const headerAnim = useFadeSlide(0);
   const cardAnim = useFadeSlide(80);
@@ -152,9 +166,8 @@ export default function CorporateBillingScreen() {
     .filter((inv) => inv.status === "pending" || inv.status === "overdue")
     .sort((a, b) => (a.dueDate ?? a.date).localeCompare(b.dueDate ?? b.date));
   const overdueCount = outstandingInvoices.filter((inv) => inv.status === "overdue").length;
-  const recentInvoices = [...invoices]
-    .sort((a, b) => (b.date > a.date ? 1 : -1))
-    .slice(0, 10);
+  const sortedInvoices = [...invoices].sort((a, b) => (b.date > a.date ? 1 : -1));
+  const recentInvoices = showAllRecent ? sortedInvoices : sortedInvoices.slice(0, 10);
 
   const contractLabel = (contractId: number): string => {
     const contract = contracts.find((c) => c.contractId === contractId);
@@ -162,7 +175,123 @@ export default function CorporateBillingScreen() {
     return `${contract.startingLocation} → ${contract.destination}`;
   };
 
+  const invoiceKey = (inv: CorporateInvoice) => `${inv.contractId}-${inv.invoiceNumber}`;
+
+  // ── Stripe payment ────────────────────────────────────────────────
+  const startPayment = async (invoice: CorporateInvoice) => {
+    if (!currentUser) return;
+    setPaymentProcessing(true);
+    try {
+      let email = "corporate@trackngo.lk";
+      try {
+        email = (await getUserProfile(currentUser.userId)).email || email;
+      } catch {
+        // Stripe accepts the fallback email.
+      }
+      const orderId = `CORP-INV-${invoice.invoiceNumber}`;
+      const result = await createStripeCheckoutSession({
+        orderId,
+        amount: invoice.amount,
+        currency: "LKR",
+        itemName: `Monthly Bill: ${invoice.busNumber ?? contractLabel(invoice.contractId)}`,
+        itemDescription: `Invoice #${invoice.invoiceNumber} · ${formatContractDate(invoice.date)} – ${invoice.periodEnd ? formatContractDate(invoice.periodEnd) : ""}`,
+        email,
+        successUrl: `${API_BASE_URL}/api/booking-flow/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${API_BASE_URL}/api/booking-flow/stripe/cancel?session_id={CHECKOUT_SESSION_ID}`,
+      });
+      setPayingInvoice(invoice);
+      setSessionId(result.sessionId);
+      setCheckoutUrl(result.url);
+      setShowWebView(true);
+    } catch (err) {
+      console.error("[Stripe] Failed to create checkout session", err);
+      Alert.alert("Payment Error", "Could not initialize payment. Please try again.");
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
+  const completeInvoicePayment = useCallback(async () => {
+    setShowWebView(false);
+    if (!payingInvoice) return;
+    setPaymentProcessing(true);
+    try {
+      const status = await getStripeSessionStatus(sessionId);
+      if (status.paymentStatus !== "paid") {
+        Alert.alert("Payment Incomplete", "Payment was not completed. Please try again.");
+        return;
+      }
+      try {
+        await payCorporateInvoice(payingInvoice.invoiceNumber, { sessionId });
+      } catch (payErr) {
+        const alreadyPaid = String(payErr instanceof Error ? payErr.message : "").toLowerCase().includes("already paid");
+        if (!alreadyPaid) throw payErr;
+      }
+      Alert.alert("Payment Successful", `Invoice paid: ${formatAmount(payingInvoice.amount)}.`);
+      await loadInvoices();
+    } catch (err) {
+      console.error("[Stripe] Invoice payment failed", err);
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to confirm payment.");
+    } finally {
+      setPaymentProcessing(false);
+      setPayingInvoice(null);
+    }
+  }, [sessionId, payingInvoice, loadInvoices]);
+
+  const handleWebViewNavigation = (navState: { url: string }) => {
+    const url = navState.url;
+    if (url.includes("/api/booking-flow/stripe/success")) {
+      completeInvoicePayment();
+    } else if (url.includes("/api/booking-flow/stripe/cancel")) {
+      setShowWebView(false);
+      setPayingInvoice(null);
+      Alert.alert("Cancelled", "Payment was cancelled.");
+    }
+  };
+
+  const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === "completed") {
+        completeInvoicePayment();
+      } else if (data.type === "cancelled") {
+        setShowWebView(false);
+        setPayingInvoice(null);
+        Alert.alert("Cancelled", "Payment was cancelled.");
+      }
+    } catch {
+      // Ignore malformed postMessage payloads.
+    }
+  };
+
   // ── Render ───────────────────────────────────────────────────────
+  if (showWebView && checkoutUrl) {
+    return (
+      <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+        <View style={styles.webViewHeader}>
+          <TouchableOpacity style={styles.webViewCloseBtn} onPress={() => setShowWebView(false)}>
+            <Ionicons name="close" size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <Text style={styles.webViewTitle}>Stripe Checkout</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <WebView
+          source={{ uri: checkoutUrl }}
+          style={{ flex: 1 }}
+          onNavigationStateChange={handleWebViewNavigation}
+          onMessage={handleWebViewMessage}
+          startInLoadingState
+          renderLoading={() => (
+            <View style={styles.webViewLoading}>
+              <ActivityIndicator size="large" color="#067BF9" />
+              <Text style={styles.loadingText}>Loading Stripe...</Text>
+            </View>
+          )}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
       {/* Header */}
@@ -213,30 +342,20 @@ export default function CorporateBillingScreen() {
               </>
             )}
 
-            <View style={styles.cardActions}>
-              <TouchableOpacity
-                style={styles.payBtn}
-                activeOpacity={0.85}
-                onPress={() =>
-                  Alert.alert(
-                    "Pay Now",
-                    `Redirecting to payment gateway for ${formatAmount(outstandingBalance)}…`,
-                  )
-                }
-              >
-                <Text style={styles.payBtnText}>Pay Now</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.downloadBtn}
-                activeOpacity={0.85}
-                onPress={() =>
-                  Alert.alert("Download PDF", "Generating combined invoice PDF…")
-                }
-              >
-                <Text style={styles.downloadBtnText}>Download PDF</Text>
-              </TouchableOpacity>
-            </View>
+            {outstandingInvoices.length > 0 && (
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={[styles.payBtn, paymentProcessing && { opacity: 0.6 }]}
+                  activeOpacity={0.85}
+                  disabled={paymentProcessing}
+                  onPress={() => startPayment(outstandingInvoices[0])}
+                >
+                  <Text style={styles.payBtnText}>
+                    {paymentProcessing ? "Processing..." : `Pay ${formatAmount(outstandingInvoices[0].amount)}`}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </Animated.View>
 
@@ -273,7 +392,7 @@ export default function CorporateBillingScreen() {
                   const st = invoiceStatusStyle(inv.status);
                   const due = describeDueDate(inv);
                   return (
-                    <React.Fragment key={`${inv.contractId}-${inv.invoiceNumber}`}>
+                    <React.Fragment key={invoiceKey(inv)}>
                       {idx > 0 && <View style={styles.divider} />}
                       <Pressable
                         style={({ pressed }) => [
@@ -285,7 +404,9 @@ export default function CorporateBillingScreen() {
                         }
                       >
                         <View style={styles.invoiceLeft}>
-                          <Text style={styles.invoiceRef}>{buildInvoiceRef(inv)}</Text>
+                          <Text style={styles.invoiceRef}>
+                            {buildInvoiceRef(inv)}{inv.busNumber ? ` · ${inv.busNumber}` : ""}
+                          </Text>
                           <Text style={styles.invoiceContract} numberOfLines={1}>
                             {contractLabel(inv.contractId)}
                           </Text>
@@ -301,6 +422,13 @@ export default function CorporateBillingScreen() {
                               {displayInvoiceStatus(inv.status)}
                             </Text>
                           </View>
+                          <TouchableOpacity
+                            style={[styles.payChip, paymentProcessing && { opacity: 0.6 }]}
+                            disabled={paymentProcessing}
+                            onPress={(event) => { event.stopPropagation?.(); startPayment(inv); }}
+                          >
+                            <Text style={styles.payChipText}>Pay</Text>
+                          </TouchableOpacity>
                         </View>
                       </Pressable>
                     </React.Fragment>
@@ -317,16 +445,14 @@ export default function CorporateBillingScreen() {
         >
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Invoices</Text>
-            <TouchableOpacity
-              onPress={() =>
-                Alert.alert("All Invoices", "Full invoice history coming soon.")
-              }
-            >
-              <View style={styles.seeAllRow}>
-                <Text style={styles.sectionAction}>See All</Text>
-                <Ionicons name="chevron-forward" size={14} color="#2F6BFF" />
-              </View>
-            </TouchableOpacity>
+            {sortedInvoices.length > 10 && (
+              <TouchableOpacity onPress={() => setShowAllRecent((cur) => !cur)}>
+                <View style={styles.seeAllRow}>
+                  <Text style={styles.sectionAction}>{showAllRecent ? "Show Less" : "See All"}</Text>
+                  <Ionicons name={showAllRecent ? "chevron-up" : "chevron-forward"} size={14} color="#2F6BFF" />
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {loading ? (
@@ -345,23 +471,20 @@ export default function CorporateBillingScreen() {
                 const st = invoiceStatusStyle(inv.status);
                 const label = displayInvoiceStatus(inv.status);
                 const ref = buildInvoiceRef(inv);
+                const expanded = expandedInvoiceKey === invoiceKey(inv);
+                const payable = inv.status === "pending" || inv.status === "overdue";
                 return (
-                  <React.Fragment key={`${inv.contractId}-${inv.invoiceNumber}`}>
+                  <React.Fragment key={invoiceKey(inv)}>
                     {idx > 0 && <View style={styles.divider} />}
                     <Pressable
                       style={({ pressed }) => [
                         styles.invoiceRow,
                         pressed && styles.invoiceRowPressed,
                       ]}
-                      onPress={() =>
-                        Alert.alert(
-                          ref,
-                          `Amount: ${formatAmount(inv.amount)}\nStatus: ${label}\nDate: ${formatContractDate(inv.date)}${inv.dueDate ? `\nDue: ${formatContractDate(inv.dueDate)}` : ""}`,
-                        )
-                      }
+                      onPress={() => setExpandedInvoiceKey(expanded ? null : invoiceKey(inv))}
                     >
                       <View style={styles.invoiceLeft}>
-                        <Text style={styles.invoiceRef}>{ref}</Text>
+                        <Text style={styles.invoiceRef}>{ref}{inv.busNumber ? ` · ${inv.busNumber}` : ""}</Text>
                         <Text style={styles.invoiceDate}>{formatContractDate(inv.date)}</Text>
                       </View>
                       <View style={styles.invoiceRight}>
@@ -371,6 +494,26 @@ export default function CorporateBillingScreen() {
                         </View>
                       </View>
                     </Pressable>
+                    {expanded && (
+                      <View style={styles.expandedDetail}>
+                        <Text style={styles.expandedRow}>Contract: {contractLabel(inv.contractId)}</Text>
+                        <Text style={styles.expandedRow}>
+                          Billing period: {formatContractDate(inv.date)}
+                          {inv.periodEnd ? ` – ${formatContractDate(inv.periodEnd)}` : ""}
+                        </Text>
+                        {inv.dueDate && <Text style={styles.expandedRow}>Due: {formatContractDate(inv.dueDate)}</Text>}
+                        {inv.paidAt && <Text style={styles.expandedRow}>Paid on: {formatContractDate(inv.paidAt.substring(0, 10))}</Text>}
+                        {payable && (
+                          <TouchableOpacity
+                            style={[styles.expandedPayBtn, paymentProcessing && { opacity: 0.6 }]}
+                            disabled={paymentProcessing}
+                            onPress={() => startPayment(inv)}
+                          >
+                            <Text style={styles.expandedPayBtnText}>Pay {formatAmount(inv.amount)}</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
                   </React.Fragment>
                 );
               })}
@@ -475,12 +618,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12, alignItems: "center",
   },
   payBtnText: { fontSize: 14, fontWeight: "700", color: "#067BF9" },
-  downloadBtn: {
-    flex: 1, backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 10,
-    paddingVertical: 12, alignItems: "center",
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.35)",
-  },
-  downloadBtnText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
 
   // Section header
   sectionHeader: {
@@ -537,4 +674,35 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 16, fontWeight: "800", color: "#10B981", marginBottom: 4 },
   statLabel: { fontSize: 11, fontWeight: "600", color: "#94A3B8" },
 
+  // Pay chip (outstanding row)
+  payChip: {
+    marginTop: 4, backgroundColor: "#067BF9", borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 4,
+  },
+  payChipText: { fontSize: 11, fontWeight: "700", color: "#FFFFFF" },
+
+  // Expanded invoice detail
+  expandedDetail: {
+    backgroundColor: "#F8FAFC", paddingHorizontal: 16, paddingVertical: 12, gap: 4,
+  },
+  expandedRow: { fontSize: 12, color: "#475569", fontWeight: "500" },
+  expandedPayBtn: {
+    marginTop: 8, backgroundColor: "#067BF9", borderRadius: 10,
+    paddingVertical: 10, alignItems: "center",
+  },
+  expandedPayBtnText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
+
+  // Stripe WebView
+  webViewHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, height: 56, backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1, borderBottomColor: "#E2E8F0",
+  },
+  webViewCloseBtn: { width: 40, alignItems: "flex-start" },
+  webViewTitle: { fontSize: 16, fontWeight: "700", color: "#1E293B" },
+  webViewLoading: {
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF",
+  },
+  loadingText: { marginTop: 12, fontSize: 14, color: "#64748B" },
 });

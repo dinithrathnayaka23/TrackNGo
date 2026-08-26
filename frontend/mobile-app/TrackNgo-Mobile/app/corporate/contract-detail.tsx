@@ -1,13 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Linking,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -31,6 +34,8 @@ import {
   getCorporateContractDetail,
   isContractCompleted,
   parseBusAmenities,
+  requestContractCancellation,
+  respondToContractCancellation,
 } from "../../services/corporateApi";
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
@@ -148,6 +153,11 @@ export default function ContractDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [respondSubmitting, setRespondSubmitting] = useState(false);
+
   const heroAnim = useFadeSlide(0);
   const bodyAnim = useFadeSlide(120);
 
@@ -186,6 +196,41 @@ export default function ContractDetailScreen() {
 
   const handleCallDriver = (phone: string) => {
     void Linking.openURL(`tel:${phone}`);
+  };
+
+  const submitCancelRequest = async () => {
+    if (!contractId || !cancelReason.trim()) return;
+    setCancelSubmitting(true);
+    try {
+      await requestContractCancellation(contractId, cancelReason.trim());
+      setCancelModalVisible(false);
+      setCancelReason("");
+      Alert.alert("Request Sent", "Your cancellation request has been sent to admin for approval.");
+      await loadContract();
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to request cancellation.");
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
+  const submitCancelResponse = async (accept: boolean) => {
+    if (!contractId) return;
+    setRespondSubmitting(true);
+    try {
+      await respondToContractCancellation(contractId, accept);
+      Alert.alert(
+        accept ? "Cancellation Accepted" : "Cancellation Declined",
+        accept
+          ? "You accepted admin's request to cancel this contract."
+          : "You declined admin's request to cancel this contract.",
+      );
+      await loadContract();
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to respond to cancellation request.");
+    } finally {
+      setRespondSubmitting(false);
+    }
   };
 
   // ── Derived values ───────────────────────────────────────────────
@@ -289,6 +334,46 @@ export default function ContractDetailScreen() {
           <Animated.View
             style={{ opacity: bodyAnim.opacity, transform: [{ translateY: bodyAnim.translateY }] }}
           >
+            {/* Cancellation request banner */}
+            {contract.cancellation.status === "pending" && (
+              <View style={styles.cancelBanner}>
+                <View style={styles.cancelBannerHeader}>
+                  <Ionicons name="alert-circle" size={18} color="#B45309" />
+                  <Text style={styles.cancelBannerTitle}>
+                    {contract.cancellation.requestedBy === "admin"
+                      ? "Admin has requested to cancel this contract"
+                      : "Your cancellation request is awaiting admin's response"}
+                  </Text>
+                </View>
+                {contract.cancellation.reason && (
+                  <Text style={styles.cancelBannerReason}>Reason: {contract.cancellation.reason}</Text>
+                )}
+                {contract.cancellation.effectiveDate && (
+                  <Text style={styles.cancelBannerReason}>
+                    If accepted, this contract will end on {formatContractDate(contract.cancellation.effectiveDate)}.
+                  </Text>
+                )}
+                {contract.cancellation.requestedBy === "admin" && (
+                  <View style={styles.cancelBannerActions}>
+                    <TouchableOpacity
+                      style={[styles.cancelBannerBtn, { backgroundColor: "#DC2626" }]}
+                      disabled={respondSubmitting}
+                      onPress={() => submitCancelResponse(false)}
+                    >
+                      <Text style={styles.cancelBannerBtnText}>Decline</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.cancelBannerBtn, { backgroundColor: "#059669" }]}
+                      disabled={respondSubmitting}
+                      onPress={() => submitCancelResponse(true)}
+                    >
+                      <Text style={styles.cancelBannerBtnText}>{respondSubmitting ? "Working..." : "Accept"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Daily shift */}
             <SectionCard
               title="Daily Shift"
@@ -463,7 +548,7 @@ export default function ContractDetailScreen() {
                       {idx > 0 && <View style={styles.divider} />}
                       <View style={styles.invoiceRow}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.invoiceRef}>{buildInvoiceRef(inv)}</Text>
+                          <Text style={styles.invoiceRef}>{buildInvoiceRef(inv)}{inv.busNumber ? ` · ${inv.busNumber}` : ""}</Text>
                           <Text style={styles.invoiceDate}>
                             {formatContractDate(inv.date)}
                             {inv.dueDate ? ` · due ${formatContractDate(inv.dueDate)}` : ""}
@@ -530,11 +615,59 @@ export default function ContractDetailScreen() {
               <MaterialCommunityIcons name="receipt" size={18} color="#FFFFFF" />
               <Text style={styles.billingBtnText}>Go to Billing</Text>
             </Pressable>
+
+            {(contract.status === "pending" || contract.status === "active") && contract.cancellation.status !== "pending" && (
+              <Pressable
+                style={({ pressed }) => [styles.cancelContractBtn, pressed && { opacity: 0.85 }]}
+                onPress={() => setCancelModalVisible(true)}
+              >
+                <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
+                <Text style={styles.cancelContractBtnText}>Cancel Contract</Text>
+              </Pressable>
+            )}
           </Animated.View>
 
           <View style={{ height: 24 }} />
         </ScrollView>
       )}
+
+      <Modal visible={cancelModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Request Cancellation</Text>
+            <Text style={styles.modalSubtitle}>
+              Admin must accept before this contract is actually cancelled.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              placeholder="Reason for cancellation"
+              placeholderTextColor="#94A3B8"
+              multiline
+              numberOfLines={3}
+              maxLength={500}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: "#F1F5F9" }]}
+                onPress={() => { setCancelModalVisible(false); setCancelReason(""); }}
+              >
+                <Text style={[styles.modalBtnText, { color: "#334155" }]}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: "#DC2626", opacity: cancelReason.trim() ? 1 : 0.5 }]}
+                disabled={!cancelReason.trim() || cancelSubmitting}
+                onPress={submitCancelRequest}
+              >
+                <Text style={[styles.modalBtnText, { color: "#FFFFFF" }]}>
+                  {cancelSubmitting ? "Sending..." : "Send Request"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -699,4 +832,37 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25, shadowRadius: 10, elevation: 4,
   },
   billingBtnText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
+
+  // Cancel contract
+  cancelContractBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: "#FFFFFF", borderRadius: 12, borderWidth: 1, borderColor: "#FECACA",
+    paddingVertical: 14, marginTop: 12,
+  },
+  cancelContractBtnText: { fontSize: 14, fontWeight: "700", color: "#DC2626" },
+
+  // Cancellation banner
+  cancelBanner: {
+    backgroundColor: "#FFFBEB", borderRadius: 14, borderWidth: 1, borderColor: "#FDE68A",
+    padding: 16, marginBottom: 16, gap: 8,
+  },
+  cancelBannerHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  cancelBannerTitle: { fontSize: 13, fontWeight: "700", color: "#92400E", flex: 1 },
+  cancelBannerReason: { fontSize: 12, color: "#78350F", fontWeight: "500" },
+  cancelBannerActions: { flexDirection: "row", gap: 10, marginTop: 6 },
+  cancelBannerBtn: { flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: "center" },
+  cancelBannerBtnText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
+
+  // Cancel request modal
+  modalOverlay: { flex: 1, backgroundColor: "rgba(15,23,42,0.5)", justifyContent: "center", padding: 20 },
+  modalCard: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 20 },
+  modalTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A" },
+  modalSubtitle: { fontSize: 12, color: "#64748B", marginTop: 4, marginBottom: 12 },
+  modalInput: {
+    borderWidth: 1, borderColor: "#CBD5E1", borderRadius: 12, padding: 12,
+    fontSize: 13, color: "#1E293B", minHeight: 80, textAlignVertical: "top",
+  },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 16 },
+  modalBtn: { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: "center" },
+  modalBtnText: { fontSize: 13, fontWeight: "700" },
 });

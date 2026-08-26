@@ -39,6 +39,8 @@ export interface CorporateProfileDto {
   address: string | null;
   businessRegistrationNumber: string | null;
   industry: string | null;
+  website: string | null;
+  employeeCount: number | null;
   userType: string;
 }
 
@@ -86,6 +88,19 @@ export interface CorporateContract {
   advanceAmount: number | null;
   advancePaymentStatus: 'pending' | 'paid' | 'waived' | 'refunded';
   advancePaidAt: string | null;
+  originalBillingAmount: number | null;
+  discountAmount: number | null;
+  cancellation: ContractCancellation;
+}
+
+/** Mutual-consent cancellation state for a corporate contract. */
+export interface ContractCancellation {
+  status: "none" | "pending" | "accepted" | "rejected";
+  requestedBy: "admin" | "corporate" | null;
+  reason: string | null;
+  requestedAt: string | null;
+  effectiveDate: string | null;
+  responseReason: string | null;
 }
 
 export type InvoiceStatus = "pending" | "paid" | "overdue" | "cancelled";
@@ -93,10 +108,15 @@ export type InvoiceStatus = "pending" | "paid" | "overdue" | "cancelled";
 export interface CorporateInvoice {
   invoiceNumber: number;
   contractId: number;
+  busId: number | null;
+  busNumber: string | null;
   amount: number;
   status: InvoiceStatus;
-  date: string;       // "YYYY-MM-DD"
+  date: string;       // "YYYY-MM-DD" — period start
+  periodEnd: string | null;
   dueDate: string | null;
+  stripeTransactionId: string | null;
+  paidAt: string | null;
   createdAt: string;
 }
 
@@ -187,6 +207,24 @@ export async function estimateContractPricing(
   return res.data ?? 0;
 }
 
+/* ── Support contact ──────────────────────────────────────────────── */
+
+export interface SupportContact {
+  name: string;
+  role: string;
+  phone: string;
+}
+
+/**
+ * Fetches the admin-configured support contact shown while a contract is
+ * awaiting review, replacing what used to be a hardcoded name/phone.
+ * GET /api/admin/support-contact
+ */
+export async function getSupportContact(): Promise<SupportContact> {
+  const res = await httpGet<ApiResponse<SupportContact>>("/api/admin/support-contact");
+  return res.data;
+}
+
 /* ── Profile ──────────────────────────────────────────────────────── */
 
 /**
@@ -214,6 +252,8 @@ export async function updateCorporateProfile(
     businessRegistrationNumber: data.businessRegistrationNumber ?? existing?.businessRegistrationNumber ?? "",
     industry: data.industry ?? existing?.industry ?? "",
     address: data.address ?? existing?.address ?? "",
+    website: data.website ?? existing?.website ?? "",
+    employeeCount: data.employeeCount ?? existing?.employeeCount ?? null,
     contactPersonName: data.contactPersonName ?? existing?.contactPersonName ?? "",
     contactPersonDesignation: data.contactPersonDesignation ?? existing?.contactPersonDesignation ?? "",
     contactPhone: data.contactPhone ?? existing?.contactPhone ?? "",
@@ -258,6 +298,47 @@ export async function createCorporateContract(
   );
   if (!res.success || !res.data) {
     throw new Error(res.message || "Failed to create contract.");
+  }
+  return res.data;
+}
+
+/**
+ * Requests to cancel a pending or active contract, with a required reason.
+ * Admin must accept via {@link respondToContractCancellation} before
+ * anything changes.
+ * POST /api/corporate/contracts/{contractId}/cancel-request
+ */
+export async function requestContractCancellation(
+  contractId: number,
+  reason: string,
+): Promise<CorporateContract> {
+  const res = await httpPost<ApiResponse<CorporateContract>>(
+    `/api/corporate/contracts/${contractId}/cancel-request`,
+    undefined,
+    { role: "corporate", reason },
+  );
+  if (!res.success || !res.data) {
+    throw new Error(res.message || "Failed to request cancellation.");
+  }
+  return res.data;
+}
+
+/**
+ * Accepts or declines a cancellation request admin filed.
+ * POST /api/corporate/contracts/{contractId}/cancel-response
+ */
+export async function respondToContractCancellation(
+  contractId: number,
+  accept: boolean,
+  responseReason?: string,
+): Promise<CorporateContract> {
+  const res = await httpPost<ApiResponse<CorporateContract>>(
+    `/api/corporate/contracts/${contractId}/cancel-response`,
+    undefined,
+    { role: "corporate", accept, responseReason },
+  );
+  if (!res.success || !res.data) {
+    throw new Error(res.message || "Failed to respond to cancellation request.");
   }
   return res.data;
 }
@@ -364,6 +445,63 @@ export async function payAdvanceDeposit(
     throw new Error(res.message || "Failed to process advance payment.");
   }
   return res.data;
+}
+
+/**
+ * Fetches a single invoice's detail, for the pay screen.
+ * GET /api/corporate/invoices/{invoiceNumber}
+ */
+export async function getCorporateInvoice(invoiceNumber: number): Promise<CorporateInvoice | null> {
+  try {
+    const res = await httpGet<ApiResponse<CorporateInvoice>>(`/api/corporate/invoices/${invoiceNumber}`);
+    return res.data ?? null;
+  } catch (err) {
+    console.warn("[CorporateApi] getCorporateInvoice failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Confirms payment of a monthly invoice after a successful Stripe checkout.
+ * POST /api/corporate/invoices/{invoiceNumber}/pay
+ */
+export async function payCorporateInvoice(
+  invoiceNumber: number,
+  payload: { sessionId: string },
+): Promise<void> {
+  const res = await httpPost<ApiResponse<null>>(
+    `/api/corporate/invoices/${invoiceNumber}/pay`,
+    undefined,
+    payload,
+  );
+  if (!res.success) {
+    throw new Error(res.message || "Failed to confirm invoice payment.");
+  }
+}
+
+/* ── Profile validation ───────────────────────────────────────────── */
+
+const PLACEHOLDER_VALUES = new Set([
+  "test", "tests", "testing", "n/a", "na", "none", "asdf", "asdfgh",
+  "xxx", "xxxx", "abc", "abcd", "sample", "demo", "example",
+  "placeholder", "unknown", "company", "address",
+]);
+
+/**
+ * Mirrors the backend's `ProfileValidation.isRealText` so obviously-fake
+ * input ("test", "asdf", "1111", ...) is caught immediately in the form
+ * instead of round-tripping to the server first.
+ */
+export function isRealProfileText(value: string, minLength: number): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length < minLength) return false;
+  if (PLACEHOLDER_VALUES.has(trimmed.toLowerCase())) return false;
+  return new Set(trimmed.split("")).size > 1;
+}
+
+export function isValidProfilePhone(value: string): boolean {
+  const digits = value.replace(/[^0-9]/g, "");
+  return digits.length >= 7 && digits.length <= 15;
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────── */

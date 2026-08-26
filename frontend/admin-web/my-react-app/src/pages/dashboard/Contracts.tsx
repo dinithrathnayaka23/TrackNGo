@@ -30,6 +30,8 @@ import { useNavigate } from 'react-router-dom'
 import {
   fetchAllCorporateContracts,
   fetchCorporateContractDetail,
+  requestContractCancellation,
+  respondToContractCancellation,
   updateContractStatus,
   waiveAdvanceDeposit,
   type AdminContractSummary,
@@ -248,10 +250,21 @@ function ViewContractModal({
 
               <div className="rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">Monthly Billing</p>
-                <p className="mt-2 text-xl font-extrabold text-[#047857]">{formatCurrency(detail.billingAmount)}</p>
-                <p className="text-xs text-[#64748b]">
+                {detail.discountAmount != null && detail.discountAmount > 0 && detail.originalBillingAmount != null && (
+                  <p className="mt-2 text-sm text-[#94a3b8] line-through">{formatCurrency(detail.originalBillingAmount)}</p>
+                )}
+                <p className="mt-1 text-xl font-extrabold text-[#047857]">{formatCurrency(detail.billingAmount)}</p>
+                {detail.discountAmount != null && detail.discountAmount > 0 && (
+                  <p className="mt-1 text-xs font-semibold text-[#b45309]">
+                    Discount applied: −{formatCurrency(detail.discountAmount)}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-[#64748b]">
                   {detail.employeeCount} employees · {busTypeLabel(detail.busType)} bus
                 </p>
+                {detail.adminNote && (
+                  <p className="mt-2 rounded-lg bg-white px-2 py-1.5 text-xs text-[#334155]">"{detail.adminNote}"</p>
+                )}
               </div>
 
               <div className="rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">
@@ -383,6 +396,18 @@ function Contracts() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const [actionBusyId, setActionBusyId] = useState<number | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [cancelRequestTarget, setCancelRequestTarget] = useState<AdminContractSummary | null>(null)
+  const [cancelReasonInput, setCancelReasonInput] = useState('')
+  const [cancelRespondTarget, setCancelRespondTarget] = useState<{ contract: AdminContractSummary; accept: boolean } | null>(null)
+  const [cancelResponseReasonInput, setCancelResponseReasonInput] = useState('')
+  const [discountInput, setDiscountInput] = useState('0')
+  const [noteInput, setNoteInput] = useState('')
+
+  const openPendingAction = (contract: AdminContractSummary, nextStatus: PendingAction['nextStatus']) => {
+    setDiscountInput('0')
+    setNoteInput('')
+    setPendingAction({ contract, nextStatus })
+  }
 
   const loadContracts = () => {
     setLoading(true)
@@ -455,14 +480,34 @@ function Contracts() {
 
   const activeFilters = filterStatus !== 'all' || filterQuery.trim().length > 0
 
+  const parsedDiscount = Math.max(0, Number(discountInput) || 0)
+  const originalAmountForPending = pendingAction
+    ? pendingAction.contract.originalBillingAmount ?? pendingAction.contract.billingAmount
+    : 0
+  const finalAmountPreview = Math.max(0, originalAmountForPending - parsedDiscount)
+
   const runStatusChange = async () => {
     if (!pendingAction) return
     const { contract, nextStatus } = pendingAction
     setActionBusyId(contract.contractId)
     try {
-      await updateContractStatus(contract.contractId, nextStatus)
+      const options =
+        nextStatus === 'active'
+          ? { discountAmount: parsedDiscount, adminNote: noteInput.trim() || undefined }
+          : undefined
+      await updateContractStatus(contract.contractId, nextStatus, options)
       setContracts((cur) =>
-        cur.map((c) => (c.contractId === contract.contractId ? { ...c, status: nextStatus } : c)),
+        cur.map((c) =>
+          c.contractId === contract.contractId
+            ? {
+                ...c,
+                status: nextStatus,
+                ...(nextStatus === 'active'
+                  ? { billingAmount: finalAmountPreview, discountAmount: parsedDiscount }
+                  : {}),
+              }
+            : c,
+        ),
       )
       setToastMessage(
         nextStatus === 'active'
@@ -495,6 +540,49 @@ function Contracts() {
     }
   }
 
+  const submitCancelRequest = async () => {
+    if (!cancelRequestTarget) return
+    if (!cancelReasonInput.trim()) {
+      setToastMessage('A reason is required to request cancellation.')
+      return
+    }
+    setActionBusyId(cancelRequestTarget.contractId)
+    try {
+      const updated = await requestContractCancellation(cancelRequestTarget.contractId, cancelReasonInput.trim())
+      setContracts((cur) =>
+        cur.map((c) => (c.contractId === cancelRequestTarget.contractId ? { ...c, cancellation: updated.cancellation } : c)),
+      )
+      setToastMessage(`Cancellation requested for "${cancelRequestTarget.contractName}" — awaiting the client's response.`)
+      setCancelRequestTarget(null)
+      loadContracts()
+    } catch (err) {
+      setToastMessage(err instanceof Error ? err.message : 'Failed to request cancellation.')
+    } finally {
+      setActionBusyId(null)
+    }
+  }
+
+  const submitCancelResponse = async () => {
+    if (!cancelRespondTarget) return
+    const { contract, accept } = cancelRespondTarget
+    setActionBusyId(contract.contractId)
+    try {
+      await respondToContractCancellation(contract.contractId, accept, cancelResponseReasonInput.trim() || undefined)
+      setToastMessage(
+        accept
+          ? `Accepted the cancellation request for "${contract.contractName}".`
+          : `Declined the cancellation request for "${contract.contractName}".`,
+      )
+      setCancelRespondTarget(null)
+      setCancelResponseReasonInput('')
+      loadContracts()
+    } catch (err) {
+      setToastMessage(err instanceof Error ? err.message : 'Failed to respond to cancellation request.')
+    } finally {
+      setActionBusyId(null)
+    }
+  }
+
   const renderActions = (contract: AdminContractSummary, compact?: boolean) => {
     const busy = actionBusyId === contract.contractId
     const btnBase = compact
@@ -516,7 +604,7 @@ function Contracts() {
               type="button"
               title="Approve"
               disabled={busy}
-              onClick={() => setPendingAction({ contract, nextStatus: 'active' })}
+              onClick={() => openPendingAction(contract, 'active')}
               className={`${btnBase} border-[#bbf7d0] text-[#059669] hover:bg-[#f0fdf4] disabled:opacity-50`}
             >
               <FontAwesomeIcon icon={faThumbsUp} className="text-xs" />
@@ -525,7 +613,7 @@ function Contracts() {
               type="button"
               title="Reject"
               disabled={busy}
-              onClick={() => setPendingAction({ contract, nextStatus: 'cancelled' })}
+              onClick={() => openPendingAction(contract, 'cancelled')}
               className={`${btnBase} border-[#fecaca] text-[#dc2626] hover:bg-[#fef2f2] disabled:opacity-50`}
             >
               <FontAwesomeIcon icon={faThumbsDown} className="text-xs" />
@@ -543,16 +631,38 @@ function Contracts() {
             <FontAwesomeIcon icon={faCheckCircle} className="text-xs" />
           </button>
         )}
-        {contract.status === 'active' && (
+        {contract.status === 'active' && contract.cancellation.status !== 'pending' && (
           <button
             type="button"
             title="Cancel Contract"
             disabled={busy}
-            onClick={() => setPendingAction({ contract, nextStatus: 'cancelled' })}
+            onClick={() => { setCancelRequestTarget(contract); setCancelReasonInput('') }}
             className={`${btnBase} border-[#e5e7eb] text-[#64748b] hover:border-[#dc2626] hover:text-[#dc2626] disabled:opacity-50`}
           >
             <FontAwesomeIcon icon={faBan} className="text-xs" />
           </button>
+        )}
+        {contract.cancellation.status === 'pending' && contract.cancellation.requestedBy === 'corporate' && (
+          <>
+            <button
+              type="button"
+              title="Accept cancellation request"
+              disabled={busy}
+              onClick={() => { setCancelRespondTarget({ contract, accept: true }); setCancelResponseReasonInput('') }}
+              className={`${btnBase} border-[#bbf7d0] text-[#059669] hover:bg-[#f0fdf4] disabled:opacity-50`}
+            >
+              <FontAwesomeIcon icon={faThumbsUp} className="text-xs" />
+            </button>
+            <button
+              type="button"
+              title="Decline cancellation request"
+              disabled={busy}
+              onClick={() => { setCancelRespondTarget({ contract, accept: false }); setCancelResponseReasonInput('') }}
+              className={`${btnBase} border-[#fecaca] text-[#dc2626] hover:bg-[#fef2f2] disabled:opacity-50`}
+            >
+              <FontAwesomeIcon icon={faThumbsDown} className="text-xs" />
+            </button>
+          </>
         )}
       </div>
     )
@@ -781,6 +891,11 @@ function Contracts() {
                                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
                                 {statusLabel(contract.status)}
                               </span>
+                              {contract.cancellation.status === 'pending' && (
+                                <p className="mt-1 text-[10px] font-semibold text-[#b45309]">
+                                  {contract.cancellation.requestedBy === 'admin' ? 'Cancellation sent — awaiting client' : 'Client requested cancellation'}
+                                </p>
+                              )}
                             </td>
                             <td className="px-5 py-4">
                               {contract.advancePaymentStatus === 'paid' ? (
@@ -983,9 +1098,103 @@ function Contracts() {
         <ViewContractModal contractId={viewContractId} onClose={() => setViewContractId(null)} />
       )}
 
+      {cancelRequestTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#0f172a]/50 p-4 backdrop-blur-[2px]">
+          <div className="animate-dash-in w-full max-w-[460px] overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="p-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fee2e2]">
+                <FontAwesomeIcon icon={faBan} className="text-lg text-[#dc2626]" />
+              </div>
+              <h3 className="mt-4 text-base font-extrabold text-[#111827]">Request to cancel this contract?</h3>
+              <p className="mt-2 text-sm text-[#64748b]">
+                The client must accept before "{cancelRequestTarget.contractName}" is actually cancelled.
+                {' '}Since this contract is active, cancellation won't take effect until at least{' '}
+                <strong>{new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</strong> (2 weeks' notice).
+              </p>
+              <label className="mt-4 block text-xs font-semibold text-[#334155]">
+                Reason for cancellation
+                <textarea
+                  value={cancelReasonInput}
+                  onChange={(event) => setCancelReasonInput(event.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Explain why this contract is being cancelled"
+                  className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-[#f1f5f9] px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setCancelRequestTarget(null)}
+                className="rounded-xl border border-[#d6dbe6] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={submitCancelRequest}
+                disabled={actionBusyId === cancelRequestTarget.contractId || !cancelReasonInput.trim()}
+                className="rounded-xl bg-[#dc2626] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#b91c1c] disabled:opacity-60"
+              >
+                {actionBusyId === cancelRequestTarget.contractId ? 'Sending...' : 'Send Cancellation Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelRespondTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#0f172a]/50 p-4 backdrop-blur-[2px]">
+          <div className="animate-dash-in w-full max-w-[460px] overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="p-6">
+              <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${cancelRespondTarget.accept ? 'bg-[#dcfce7]' : 'bg-[#fee2e2]'}`}>
+                <FontAwesomeIcon
+                  icon={cancelRespondTarget.accept ? faThumbsUp : faThumbsDown}
+                  className={`text-lg ${cancelRespondTarget.accept ? 'text-[#059669]' : 'text-[#dc2626]'}`}
+                />
+              </div>
+              <h3 className="mt-4 text-base font-extrabold text-[#111827]">
+                {cancelRespondTarget.accept ? 'Accept this cancellation request?' : 'Decline this cancellation request?'}
+              </h3>
+              <p className="mt-2 text-sm text-[#64748b]">
+                Reason given by the client: "{cancelRespondTarget.contract.cancellation.reason}"
+              </p>
+              <label className="mt-4 block text-xs font-semibold text-[#334155]">
+                Note (optional)
+                <textarea
+                  value={cancelResponseReasonInput}
+                  onChange={(event) => setCancelResponseReasonInput(event.target.value)}
+                  maxLength={500}
+                  rows={2}
+                  className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-[#f1f5f9] px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setCancelRespondTarget(null)}
+                className="rounded-xl border border-[#d6dbe6] px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={submitCancelResponse}
+                disabled={actionBusyId === cancelRespondTarget.contract.contractId}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60 ${cancelRespondTarget.accept ? 'bg-[#059669] hover:bg-[#047857]' : 'bg-[#dc2626] hover:bg-[#b91c1c]'}`}
+              >
+                {actionBusyId === cancelRespondTarget.contract.contractId ? 'Working...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pendingAction && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[#0f172a]/50 p-4 backdrop-blur-[2px]">
-          <div className="animate-dash-in w-full max-w-[420px] overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className={`animate-dash-in w-full overflow-hidden rounded-2xl bg-white shadow-2xl ${pendingAction.nextStatus === 'active' ? 'max-w-[480px]' : 'max-w-[420px]'}`}>
             <div className="p-6">
               <div
                 className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
@@ -1009,6 +1218,41 @@ function Contracts() {
                   ? `"${pendingAction.contract.contractName}" will become active and the company will be notified.`
                   : `"${pendingAction.contract.contractName}" will be ${pendingAction.nextStatus} and the company will be notified. This cannot be undone.`}
               </p>
+
+              {pendingAction.nextStatus === 'active' && (
+                <div className="mt-4 rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[#64748b]">Original monthly amount</span>
+                    <span className="font-semibold text-[#111827]">{formatCurrency(originalAmountForPending)}</span>
+                  </div>
+                  <label className="mt-3 block text-xs font-semibold text-[#334155]">
+                    Discount (LKR)
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={discountInput}
+                      onChange={(event) => setDiscountInput(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
+                    />
+                  </label>
+                  <label className="mt-3 block text-xs font-semibold text-[#334155]">
+                    Note to company (optional)
+                    <textarea
+                      value={noteInput}
+                      onChange={(event) => setNoteInput(event.target.value)}
+                      maxLength={500}
+                      rows={2}
+                      placeholder="e.g. Loyalty discount for renewal"
+                      className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
+                    />
+                  </label>
+                  <div className="mt-3 flex items-center justify-between border-t border-[#e5e7eb] pt-3 text-sm">
+                    <span className="font-semibold text-[#111827]">Final monthly amount</span>
+                    <span className="font-extrabold text-[#047857]">{formatCurrency(finalAmountPreview)}</span>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-[#f1f5f9] px-6 py-4">
               <button

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faBus, faCalendarDays, faCheckCircle, faChevronDown, faChevronLeft, faChevronRight, faDownload, faHourglassHalf, faSearch, faSliders, faSort, faSortDown, faSortUp, faSpinner, faTimesCircle } from '@fortawesome/free-solid-svg-icons'
-import { fetchAdminBookings, fetchTripBookingRequests, type AdminBooking } from '../../services/bookingService'
+import { fetchAdminBookings, fetchAdminCorporateBookings, fetchTripBookingRequests, type AdminBooking } from '../../services/bookingService'
 import TripBookingReviewPanel from '../../components/TripBookingReviewPanel'
 
 type BookingStatus = 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed' | 'In Progress'
 type PaymentStatus = 'Paid' | 'Refunded' | 'Pending' | 'Failed' | 'Unpaid'
-type BookingCategory = 'All Bookings' | 'Highway/Long-distance' | 'Trip Bookings'
+type BookingCategory = 'All Bookings' | 'Highway/Long-distance' | 'Trip Bookings' | 'Corporate Bookings'
 type SortField = 'bookingId' | 'dateTime' | 'amount'
 type SortDir = 'asc' | 'desc' | null
 
@@ -31,15 +32,15 @@ export type BookingRecord = {
 function mapStatus(value: string | null | undefined): BookingStatus {
   const status = String(value ?? '').toLowerCase()
   if (status === 'cancelled') return 'Cancelled'
-  if (status === 'completed') return 'Completed'
+  if (status === 'completed' || status === 'expired') return 'Completed'
   if (status === 'in_progress') return 'In Progress'
-  if (status === 'confirmed') return 'Confirmed'
+  if (status === 'confirmed' || status === 'active') return 'Confirmed'
   return 'Pending'
 }
 
 function mapPaymentStatus(value: string | null | undefined): PaymentStatus {
   const status = String(value ?? '').toLowerCase()
-  if (status === 'success' || status === 'paid') return 'Paid'
+  if (status === 'success' || status === 'paid' || status === 'waived') return 'Paid'
   if (status === 'refunded') return 'Refunded'
   if (status === 'pending') return 'Pending'
   if (status === 'failed') return 'Failed'
@@ -50,6 +51,8 @@ function mapBusType(value: string | null | undefined) {
   const type = String(value ?? '').toLowerCase()
   if (type === 'long_distance') return 'Long-distance'
   if (type === 'trip_booking') return 'Trip Booking'
+  if (type === 'ac') return 'AC'
+  if (type === 'mini') return 'Mini Bus'
   if (!type) return 'Unknown'
   return type.charAt(0).toUpperCase() + type.slice(1)
 }
@@ -60,7 +63,14 @@ function mapBooking(booking: AdminBooking): BookingRecord {
   const dateValue = date ? new Date(`${date}T${time}`).getTime() : 0
   const name = booking.passengerName || 'Unknown passenger'
   const amountNum = Number(booking.amount ?? 0)
-  const category = booking.category === 'Trip Bookings' ? 'Trip Bookings' : booking.category === 'Highway/Long-distance' ? 'Highway/Long-distance' : 'All Bookings'
+  const category =
+    booking.category === 'Trip Bookings'
+      ? 'Trip Bookings'
+      : booking.category === 'Highway/Long-distance'
+        ? 'Highway/Long-distance'
+        : booking.category === 'Corporate Bookings'
+          ? 'Corporate Bookings'
+          : 'All Bookings'
   return {
     bookingId: `#${booking.bookingId || 'UNKNOWN'}`,
     passengerName: name,
@@ -94,6 +104,7 @@ function paymentColor(status: PaymentStatus) {
 }
 
 function Booking() {
+  const navigate = useNavigate()
   const [bookings, setBookings] = useState<BookingRecord[]>([])
   const [tripRequests, setTripRequests] = useState<BookingRecord[]>([])
   const [activeTab, setActiveTab] = useState<BookingCategory>('All Bookings')
@@ -111,8 +122,16 @@ function Booking() {
 
   const loadBookings = useCallback(async () => {
     try {
-      const [data, requests] = await Promise.all([fetchAdminBookings(), fetchTripBookingRequests()])
-      setBookings(data.filter((booking) => booking.category !== 'Trip Bookings' || ['success', 'paid'].includes(String(booking.paymentStatus ?? '').toLowerCase())).map(mapBooking))
+      const [data, requests, corporateBookings] = await Promise.all([
+        fetchAdminBookings(),
+        fetchTripBookingRequests(),
+        fetchAdminCorporateBookings().catch(() => []),
+      ])
+      const merged = [
+        ...data.filter((booking) => booking.category !== 'Trip Bookings' || ['success', 'paid'].includes(String(booking.paymentStatus ?? '').toLowerCase())),
+        ...corporateBookings,
+      ]
+      setBookings(merged.map(mapBooking))
       setTripRequests(requests.map(mapBooking))
       setError(null)
     } catch (requestError) {
@@ -135,6 +154,7 @@ function Booking() {
     all: bookings.length,
     highway: bookings.filter((booking) => booking.category === 'Highway/Long-distance').length,
     trip: bookings.filter((booking) => booking.category === 'Trip Bookings').length,
+    corporate: bookings.filter((booking) => booking.category === 'Corporate Bookings').length,
   }), [bookings])
 
   const filtered = useMemo(() => {
@@ -142,6 +162,7 @@ function Booking() {
     let list = bookings.filter((booking) => {
       if (activeTab === 'Highway/Long-distance' && booking.category !== activeTab) return false
       if (activeTab === 'Trip Bookings' && booking.category !== activeTab) return false
+      if (activeTab === 'Corporate Bookings' && booking.category !== activeTab) return false
       if (query && !booking.bookingId.toLowerCase().includes(query) && !booking.passengerName.toLowerCase().includes(query) && !booking.route.toLowerCase().includes(query)) return false
       if (statusFilter !== 'All Statuses' && booking.status !== statusFilter) return false
       if (routeFilter !== 'All Routes' && booking.route !== routeFilter) return false
@@ -174,7 +195,7 @@ function Booking() {
     setSearch(''); setStatusFilter('All Statuses'); setRouteFilter('All Routes'); setBusTypeFilter('All'); setPaymentFilter('All'); setDateFilter(''); setPage(1)
   }
 
-  const tabs = [{ key: 'All Bookings' as const, label: 'All Bookings', count: counts.all }, { key: 'Highway/Long-distance' as const, label: 'Highway/Long-distance', count: counts.highway }, { key: 'Trip Bookings' as const, label: 'Trip Bookings', count: counts.trip }]
+  const tabs = [{ key: 'All Bookings' as const, label: 'All Bookings', count: counts.all }, { key: 'Highway/Long-distance' as const, label: 'Highway/Long-distance', count: counts.highway }, { key: 'Trip Bookings' as const, label: 'Trip Bookings', count: counts.trip }, { key: 'Corporate Bookings' as const, label: 'Corporate Bookings', count: counts.corporate }]
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
@@ -183,7 +204,7 @@ function Booking() {
       <TripBookingReviewPanel bookings={tripRequests} onUpdated={loadBookings} />
       <div className="border-b border-[#e5e7eb]"><nav className="-mb-px flex gap-6">{tabs.map((tab) => <button key={tab.key} type="button" onClick={() => { setActiveTab(tab.key); setPage(1) }} className={`whitespace-nowrap border-b-2 pb-2.5 text-sm font-semibold ${activeTab === tab.key ? 'border-[#2642a6] text-[#2642a6]' : 'border-transparent text-[#64748b]'}`}>{tab.label}<span className="ml-2 rounded-full bg-[#f1f5f9] px-2 py-0.5 text-xs">{tab.count}</span></button>)}</nav></div>
       <div className="flex gap-5"><aside className="w-64 shrink-0 space-y-4"><div className="flex items-center justify-between"><h2 className="text-base font-bold text-[#111827]">Filters</h2><FontAwesomeIcon icon={faSliders} className="text-sm text-[#94a3b8]" /></div><div><label className="text-xs font-semibold text-[#64748b]">Search</label><div className="relative mt-1"><FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#94a3b8]" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Booking ID, Name..." className="w-full rounded-lg border border-[#d6dbe6] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#2642a6]" /></div></div><FilterSelect label="Booking Status" value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)} options={['All Statuses', 'Confirmed', 'Pending', 'Cancelled', 'Completed', 'In Progress']} /><div><label className="text-xs font-semibold text-[#64748b]">Date</label><div className="relative mt-1"><FontAwesomeIcon icon={faCalendarDays} className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#94a3b8]" /><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="w-full rounded-lg border border-[#d6dbe6] py-2.5 pl-9 pr-3 text-sm" /></div></div><FilterSelect label="Route" value={routeFilter} onChange={setRouteFilter} options={routes} /><FilterSelect label="Bus Type" value={busTypeFilter} onChange={setBusTypeFilter} options={busTypes} /><FilterSelect label="Payment Status" value={paymentFilter} onChange={(value) => setPaymentFilter(value as typeof paymentFilter)} options={['All', 'Paid', 'Refunded', 'Pending', 'Failed', 'Unpaid']} /><div className="flex gap-2"><button type="button" onClick={() => setPage(1)} className="flex-1 rounded-lg bg-[#2642a6] py-2.5 text-sm font-bold text-white">Apply</button><button type="button" onClick={resetFilters} className="flex-1 rounded-lg border border-[#d6dbe6] py-2.5 text-sm font-semibold text-[#334155]">Reset</button></div></aside>
-        <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead><tr className="border-b border-[#e5e7eb] text-left text-xs font-semibold text-[#64748b]"><th className="py-3 pl-5 pr-2"><SortButton label="Booking ID" icon={sortIcon('bookingId')} onClick={() => toggleSort('bookingId')} /></th><th className="px-2 py-3">Passenger</th><th className="px-2 py-3">Route / Bus</th><th className="px-2 py-3"><SortButton label="Date & Time" icon={sortIcon('dateTime')} onClick={() => toggleSort('dateTime')} /></th><th className="px-2 py-3">Seats</th><th className="px-2 py-3"><SortButton label="Amount" icon={sortIcon('amount')} onClick={() => toggleSort('amount')} /></th><th className="py-3 pl-2 pr-5">Status</th></tr></thead><tbody>{loading && <tr><td colSpan={7} className="py-12 text-center text-sm text-[#64748b]"><FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />Loading bookings...</td></tr>}{!loading && error && <tr><td colSpan={7} className="py-12 text-center text-sm text-red-600">{error}</td></tr>}{!loading && !error && visible.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-sm text-[#64748b]">No bookings match your filters.</td></tr>}{!loading && !error && visible.map((booking) => { const [date, time] = booking.dateTime.split('\n'); return <tr key={booking.bookingId} className="border-b border-[#f1f5f9] hover:bg-[#f8fafc]"><td className="py-3.5 pl-5 pr-2 font-bold text-[#2642a6]">{booking.bookingId}</td><td className="px-2 py-3.5"><div className="flex items-center gap-2.5"><div className="grid h-8 w-8 place-items-center rounded-full bg-[#e0e7ff] text-[10px] font-bold text-[#3b5998]">{booking.passengerInitials}</div><span className="font-medium text-[#111827]">{booking.passengerName}</span></div></td><td className="px-2 py-3.5"><p className="font-medium text-[#111827]">{booking.route}</p><p className="text-xs text-[#94a3b8]">{booking.bus} · {booking.busType}</p></td><td className="px-2 py-3.5"><p className="text-[#111827]">{date}</p><p className="text-xs text-[#94a3b8]">{time}</p></td><td className="px-2 py-3.5 text-[#334155]">{booking.seats}</td><td className="px-2 py-3.5"><p className="font-semibold text-[#111827]">{booking.amount}</p><p className={`text-xs font-medium ${paymentColor(booking.paymentStatus)}`}>{booking.paymentStatus}</p></td><td className="py-3.5 pl-2 pr-5"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge(booking.status)}`}>{booking.status}</span></td></tr> })}</tbody></table></div><div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e5e7eb] px-5 py-3 text-sm text-[#64748b]"><p>Showing <span className="font-semibold text-[#2642a6]">{filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}</span> to <span className="font-semibold text-[#2642a6]">{Math.min(page * pageSize, filtered.length)}</span> of <span className="font-semibold text-[#2642a6]">{filtered.length}</span> results</p><div className="flex items-center gap-2"><button type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-[#d6dbe6] px-3 py-1.5 disabled:opacity-40"><FontAwesomeIcon icon={faChevronLeft} /></button><span>{page} / {totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded-lg border border-[#d6dbe6] px-3 py-1.5 disabled:opacity-40"><FontAwesomeIcon icon={faChevronRight} /></button></div></div></div>
+        <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead><tr className="border-b border-[#e5e7eb] text-left text-xs font-semibold text-[#64748b]"><th className="py-3 pl-5 pr-2"><SortButton label="Booking ID" icon={sortIcon('bookingId')} onClick={() => toggleSort('bookingId')} /></th><th className="px-2 py-3">Passenger</th><th className="px-2 py-3">Route / Bus</th><th className="px-2 py-3"><SortButton label="Date & Time" icon={sortIcon('dateTime')} onClick={() => toggleSort('dateTime')} /></th><th className="px-2 py-3">Seats</th><th className="px-2 py-3"><SortButton label="Amount" icon={sortIcon('amount')} onClick={() => toggleSort('amount')} /></th><th className="py-3 pl-2 pr-5">Status</th></tr></thead><tbody>{loading && <tr><td colSpan={7} className="py-12 text-center text-sm text-[#64748b]"><FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />Loading bookings...</td></tr>}{!loading && error && <tr><td colSpan={7} className="py-12 text-center text-sm text-red-600">{error}</td></tr>}{!loading && !error && visible.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-sm text-[#64748b]">No bookings match your filters.</td></tr>}{!loading && !error && visible.map((booking) => { const [date, time] = booking.dateTime.split('\n'); const isCorporate = booking.category === 'Corporate Bookings'; return <tr key={booking.bookingId} onClick={isCorporate ? () => navigate('/dashboard/corporate/contracts') : undefined} title={isCorporate ? 'View in Corporate Contracts' : undefined} className={`border-b border-[#f1f5f9] hover:bg-[#f8fafc] ${isCorporate ? 'cursor-pointer' : ''}`}><td className="py-3.5 pl-5 pr-2 font-bold text-[#2642a6]">{booking.bookingId}</td><td className="px-2 py-3.5"><div className="flex items-center gap-2.5"><div className="grid h-8 w-8 place-items-center rounded-full bg-[#e0e7ff] text-[10px] font-bold text-[#3b5998]">{booking.passengerInitials}</div><span className="font-medium text-[#111827]">{booking.passengerName}</span></div></td><td className="px-2 py-3.5"><p className="font-medium text-[#111827]">{booking.route}</p><p className="text-xs text-[#94a3b8]">{booking.bus} · {booking.busType}</p></td><td className="px-2 py-3.5"><p className="text-[#111827]">{date}</p><p className="text-xs text-[#94a3b8]">{time}</p></td><td className="px-2 py-3.5 text-[#334155]">{booking.seats}</td><td className="px-2 py-3.5"><p className="font-semibold text-[#111827]">{booking.amount}</p><p className={`text-xs font-medium ${paymentColor(booking.paymentStatus)}`}>{booking.paymentStatus}</p></td><td className="py-3.5 pl-2 pr-5"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge(booking.status)}`}>{booking.status}</span></td></tr> })}</tbody></table></div><div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e5e7eb] px-5 py-3 text-sm text-[#64748b]"><p>Showing <span className="font-semibold text-[#2642a6]">{filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}</span> to <span className="font-semibold text-[#2642a6]">{Math.min(page * pageSize, filtered.length)}</span> of <span className="font-semibold text-[#2642a6]">{filtered.length}</span> results</p><div className="flex items-center gap-2"><button type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-[#d6dbe6] px-3 py-1.5 disabled:opacity-40"><FontAwesomeIcon icon={faChevronLeft} /></button><span>{page} / {totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded-lg border border-[#d6dbe6] px-3 py-1.5 disabled:opacity-40"><FontAwesomeIcon icon={faChevronRight} /></button></div></div></div>
       </div>
     </div>
   )

@@ -84,8 +84,6 @@ export const ta: Translations = {
     language: "மொழி",
     chooseLanguage: "மொழியைத் தேர்ந்தெடுக்கவும்",
     privacy: "தனியுரிமை",
-    shareLocation: "இருப்பிடத்தைப் பகிரவும்",
-    requiredForTracking: "கண்காணிப்புக்குத் தேவை",
     twoFactorAuth: "இரு-காரணி அங்கீகாரம்",
     supportAndLegal: "ஆதரவு மற்றும் சட்டம்",
     helpAndSupport: "உதவி மற்றும் ஆதரவு",

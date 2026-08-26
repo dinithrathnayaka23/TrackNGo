@@ -22,10 +22,8 @@ import { useTheme } from '@/context/ThemeContext'; //global theme data
 import { useLanguage } from '@/context/LanguageContext'; //global language/translation data
 import { LANGUAGE_CODES, LANGUAGE_NAMES } from '@/locales';
 import { formatDate, isLicenseExpired } from '@/utils/dateFormatter'; // Import utility functions for date formatting and license expiry checking
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { resolveAssetUrl } from '@/utils/media';
 
-const DRIVER_SHARE_LOCATION_KEY = 'driverShareLocation';
 
 interface DriverProfile {  //stricture of driver profile data we get from API
   driverId: number;
@@ -69,7 +67,6 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const [profileError, setProfileError] = useState<string | null>(null); //state for error handling
 
   const [completionTab, setCompletionTab] = useState('profile'); //state for completion tab
-  const [shareLocation, setShareLocation] = useState(true); //state for share location
   const [twoFactor, setTwoFactor] = useState(false);
   const { darkMode, setDarkMode } = useTheme(); //global theme data
   const { language, setLanguage, t } = useLanguage(); //global language/translation data
@@ -89,16 +86,6 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   useEffect(() => { // Fetch driver profile when user data changes
     fetchDriverProfile();
   }, [user?.userId]); // re run everitime user id chnges
-
-  useEffect(() => {
-    AsyncStorage.getItem(DRIVER_SHARE_LOCATION_KEY)
-      .then((value) => {
-        setShareLocation(value !== 'false');
-      })
-      .catch((error) => {
-        console.warn('Failed to load location sharing preference:', error);
-      });
-  }, []);
 
   const fetchDriverProfile = async () => {
     if (!user?.userId || !user?.token) { // Check if user data is available
@@ -244,14 +231,6 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
     }
   };
 
-  const handleShareLocationChange = async (value: boolean) => {
-    setShareLocation(value);
-    try {
-      await AsyncStorage.setItem(DRIVER_SHARE_LOCATION_KEY, String(value));
-    } catch (error) {
-      console.warn('Failed to save location sharing preference:', error);
-    }
-  };
 
 
   return (
@@ -549,22 +528,6 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>{t('settings.privacy')}</Text>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLeft}>
-                <MaterialCommunityIcons name="map-marker" size={20} color="#2F6BFF" />
-                <View style={styles.switchTextWrap}>
-                  <Text style={styles.switchLabel}>{t('settings.shareLocation')}</Text>
-                  <Text style={styles.switchDescription}>{t('settings.requiredForTracking')}</Text>
-                </View>
-              </View>
-              <Switch
-                value={shareLocation}
-                onValueChange={handleShareLocationChange}
-                trackColor={{ false: '#E2E8F0', true: '#2F6BFF' }}
-                thumbColor="#FFF" // Thumb color
-              />
-            </View>
-
             <View style={[styles.switchRow, styles.lastItem]}>
               <View style={styles.switchLeft}>
                 <MaterialCommunityIcons name="shield-account" size={20} color="#2F6BFF" />

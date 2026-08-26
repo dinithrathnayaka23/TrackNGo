@@ -84,8 +84,6 @@ export const si: Translations = {
     language: "භාෂාව",
     chooseLanguage: "භාෂාව තෝරන්න",
     privacy: "පෞද්ගලිකත්වය",
-    shareLocation: "ස්ථානය බෙදාගන්න",
-    requiredForTracking: "නිරීක්ෂණය සඳහා අවශ්‍යයි",
     twoFactorAuth: "ද්විත්ව සත්‍යාපනය",
     supportAndLegal: "සහාය සහ නීතිමය",
     helpAndSupport: "සහාය සහ උපකාර",

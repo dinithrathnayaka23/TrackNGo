@@ -82,8 +82,6 @@ export interface Translations {
     language: string;
     chooseLanguage: string;
     privacy: string;
-    shareLocation: string;
-    requiredForTracking: string;
     twoFactorAuth: string;
     supportAndLegal: string;
     helpAndSupport: string;
@@ -284,8 +282,6 @@ export const TRANSLATION_KEYS = [
   "settings.language",
   "settings.chooseLanguage",
   "settings.privacy",
-  "settings.shareLocation",
-  "settings.requiredForTracking",
   "settings.twoFactorAuth",
   "settings.supportAndLegal",
   "settings.helpAndSupport",

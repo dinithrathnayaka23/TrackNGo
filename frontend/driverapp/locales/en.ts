@@ -84,8 +84,6 @@ export const en: Translations = {
     language: "Language",
     chooseLanguage: "Choose Language",
     privacy: "Privacy",
-    shareLocation: "Share Location",
-    requiredForTracking: "Required for tracking",
     twoFactorAuth: "Two-Factor Authentication",
     supportAndLegal: "Support & Legal",
     helpAndSupport: "Help & Support",

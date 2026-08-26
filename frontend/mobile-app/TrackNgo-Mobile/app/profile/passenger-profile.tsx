@@ -67,8 +67,6 @@ const profileCopy = {
     tamil: "Tamil",
     userId: "ID",
     privacy: "Privacy",
-    shareLocation: "Share Location",
-    shareLocationHint: "Required for tracking features",
     twoFactor: "Two-Factor Authentication",
     twoFactorSetupTitle: "Set up two-factor authentication",
     twoFactorSetupInstructions: "Scan this QR code with Google Authenticator, Aegis, or Microsoft Authenticator, then enter the 6-digit code.",
@@ -150,8 +148,6 @@ const profileCopy = {
     tamil: "දෙමළ",
     userId: "හඳුනාගැනීමේ අංකය",
     privacy: "පෞද්ගලිකත්වය",
-    shareLocation: "ස්ථානය බෙදාගැනීම",
-    shareLocationHint: "ගමන් නිරීක්ෂණ පහසුකම් සඳහා අවශ්‍ය වේ",
     twoFactor: "ද්වි-සාධක සත්‍යාපනය",
     twoFactorSetupTitle: "ද්වි-සාධක සත්‍යාපනය සකසන්න",
     twoFactorSetupInstructions: "මෙම QR කේතය Google Authenticator, Aegis හෝ Microsoft Authenticator යෙදුමකින් ස්කෑන් කර අංක 6ක කේතය ඇතුළත් කරන්න.",
@@ -233,8 +229,6 @@ const profileCopy = {
     tamil: "தமிழ்",
     userId: "ஐடி",
     privacy: "தனியுரிமை",
-    shareLocation: "இருப்பிடத்தைப் பகிரவும்",
-    shareLocationHint: "கண்காணிப்பு அம்சங்களுக்கு தேவை",
     twoFactor: "இரு-காரணி அங்கீகாரம்",
     twoFactorSetupTitle: "இரு-காரணி அங்கீகாரத்தை அமைக்கவும்",
     twoFactorSetupInstructions: "Google Authenticator, Aegis அல்லது Microsoft Authenticator மூலம் இந்த QR குறியீட்டை ஸ்கேன் செய்து, 6 இலக்க குறியீட்டை உள்ளிடவும்.",
@@ -744,7 +738,6 @@ export default function PassengerProfileScreen() {
 
         <Text style={styles.sectionTitle}>{copy.privacy}</Text>
         <View style={styles.card}>
-          <ToggleRow title={copy.shareLocation} subtitle={copy.shareLocationHint} value={settings.shareLocation} onValueChange={(value) => void setSetting("shareLocation", value)} />
           <ToggleRow title={copy.twoFactor} value={settings.twoFactorAuthentication} onValueChange={(value) => void handleTwoFactorToggle(value)} />
         </View>
 

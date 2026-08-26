@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router'; // Navigate between screens in the app
 import { driverLogin } from "../services/auth"; //driverLogin function from the auth service 
 import AsyncStorage from "@react-native-async-storage/async-storage"; // For storing user data and token permanently on the device.
 import { useUser } from '@/context/UserContext'; //update user state across the app
+import { requestLocationOnSignIn } from '@/utils/locationSharing';
 
 const { width, height } = Dimensions.get('window'); // Get screen dimensions
 
@@ -55,6 +56,9 @@ export default function DriverLoginScreen() {   //default finction because we ar
       await AsyncStorage.setItem("token", authData.token); // Store the token in AsyncStorage 
 
       router.replace("/(tabs)"); // Navigate to dashboard
+      // Raised after the transition rather than before it, so the dashboard is
+      // already behind the device's dialog when the choice is made.
+      void requestLocationOnSignIn();
     }
     else {
       alert("Not a driver account"); 

@@ -15,6 +15,7 @@ import { httpPost, setAuthToken } from "../../services/http";
 import { saveTrustedDeviceToken } from "../../services/trustedDeviceStorage";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text, useLanguage } from "../../utils/i18n";
+import { requestLocationOnSignIn } from "../../utils/locationSharing";
 
 interface LoginApiData {
   token: string;
@@ -76,6 +77,7 @@ export default function TwoFactorScreen() {
         userType: userTypeMap[data.userType?.toLowerCase()] ?? "PASSENGER",
       });
       router.replace("/tabs");
+      void requestLocationOnSignIn();
     } catch (error) {
       Alert.alert(
         isSinhala ? "සත්‍යාපනය අසාර්ථකයි" : "Verification failed",

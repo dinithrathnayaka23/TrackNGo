@@ -145,7 +145,7 @@ function validateSignup(form: SignupForm, agreePolicy: boolean): SignupErrors {
 function Signup() {
   const navigate = useNavigate()
   const [showPasswords, setShowPasswords] = useState(false)
-  const [agreePolicy, setAgreePolicy] = useState(true)
+  const [agreePolicy, setAgreePolicy] = useState(false)
   const [form, setForm] = useState<SignupForm>({
     fullName: '',
     employeeId: '',
@@ -231,7 +231,7 @@ function Signup() {
               name="fullName"
               label="Full Name"
               icon={faUser}
-              placeholder="John Doe"
+              placeholder="Nuwan Perera"
               value={form.fullName}
               onChange={updateField}
               onBlur={validateField}
@@ -242,7 +242,7 @@ function Signup() {
               name="employeeId"
               label="Employee ID"
               icon={faFingerprint}
-              placeholder="EMP-00123"
+              placeholder="TNG-00123"
               value={form.employeeId}
               onChange={updateField}
               onBlur={validateField}
@@ -254,7 +254,7 @@ function Signup() {
               label="Email Address"
               icon={faEnvelope}
               type="email"
-              placeholder="j.doe@smartbus.com"
+              placeholder="nuwan.perera@trackngo.lk"
               value={form.email}
               onChange={updateField}
               onBlur={validateField}
@@ -266,7 +266,7 @@ function Signup() {
               label="Phone Number"
               icon={faPhone}
               type="tel"
-              placeholder="+1 (555) 000-0000"
+              placeholder="+94 71 234 5678"
               value={form.phone}
               onChange={updateField}
               onBlur={validateField}
@@ -387,10 +387,16 @@ function Signup() {
             <p className="mt-1 text-sm font-medium text-[#dc2626]">{errors.agreePolicy}</p>
           ) : null}
 
+          {/* Locked and greyed until the policy is accepted, so the button itself
+              shows what is still outstanding rather than waiting to reject a click. */}
           <button
             type="submit"
-            disabled={loading}
-            className="animate-auth-fade-up flex w-full items-center justify-center gap-2 rounded-lg bg-[#2642a6] py-2.5 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#203b96] hover:shadow-[0_12px_26px_rgba(38,66,166,0.34)] disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading || !agreePolicy}
+            className={`animate-auth-fade-up flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition duration-200 ${
+              agreePolicy
+                ? 'bg-[#2642a6] text-white hover:-translate-y-0.5 hover:bg-[#203b96] hover:shadow-[0_12px_26px_rgba(38,66,166,0.34)]'
+                : 'cursor-not-allowed bg-[#e2e8f0] text-[#94a3b8]'
+            } disabled:cursor-not-allowed`}
             style={{ animationDelay: '380ms' }}
           >
             {loading ? 'Submitting...' : 'Submit Registration'}

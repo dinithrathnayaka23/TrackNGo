@@ -131,8 +131,9 @@ public class CorporateInvoiceService {
         }
         Map<String, Object> row = rows.get(0);
         String status = (String) row.get("status");
+        // Idempotent on retry — see CorporateService.processAdvancePayment for why.
         if ("paid".equalsIgnoreCase(status)) {
-            throw new IllegalStateException("This invoice is already paid.");
+            return;
         }
         if ("cancelled".equalsIgnoreCase(status)) {
             throw new IllegalStateException("This invoice has been cancelled.");

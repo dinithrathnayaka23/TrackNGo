@@ -145,6 +145,7 @@ export interface CorporateContractDetail extends CorporateContract {
   totalBilled: number;
   totalPaid: number;
   outstandingAmount: number;
+  adminNote: string | null;
 }
 
 export interface CreateContractRequest {
@@ -344,6 +345,28 @@ export async function respondToContractCancellation(
 }
 
 /**
+ * Renews a contract nearing its end date by submitting a new pending
+ * contract that continues from where this one leaves off, cloning its
+ * route/shift/bus setup. Goes through the same admin-approval flow as any
+ * new contract request.
+ * POST /api/corporate/contracts/{contractId}/renew
+ */
+export async function renewContract(
+  contractId: number,
+  userId: number,
+): Promise<CorporateContract> {
+  const res = await httpPost<ApiResponse<CorporateContract>>(
+    `/api/corporate/contracts/${contractId}/renew`,
+    undefined,
+    { role: "corporate", userId },
+  );
+  if (!res.success || !res.data) {
+    throw new Error(res.message || "Failed to submit renewal request.");
+  }
+  return res.data;
+}
+
+/**
  * Confirms the final offer after admin approval, turning an "approved"
  * pending request into a true running contract.
  * PUT /api/corporate/contracts/{contractId}/finalize?userId={userId}
@@ -404,6 +427,7 @@ export async function getCorporateContractDetail(
     buses: [],
     contactPhone: null,
     bus: null,
+    adminNote: null,
     invoices: contractInvoices,
     totalBilled: sumBy(["paid", "pending", "overdue"]),
     totalPaid: sumBy(["paid"]),
@@ -659,6 +683,24 @@ export function isContractCompleted(contract: CorporateContract): boolean {
   const status = contract.status?.toLowerCase();
   if (status === "expired" || status === "cancelled") return true;
   return status === "active" && !!contract.finalizedAt && isContractEnded(contract);
+}
+
+/** Contracts within this many days of their end date surface a renewal reminder. */
+export const RENEWAL_REMINDER_WINDOW_DAYS = 30;
+
+/**
+ * True once a running contract is within the renewal reminder window of its
+ * end date (including already past it) — surfaces the "Renew Contract"
+ * banner/action. Mirrors the same window the backend's daily reminder
+ * scheduler uses, so the UI and the notification agree on when renewal
+ * becomes relevant.
+ */
+export function isRenewalDue(contract: CorporateContract): boolean {
+  return (
+    contract.status?.toLowerCase() === "active" &&
+    !!contract.finalizedAt &&
+    daysRemaining(contract.endDate) <= RENEWAL_REMINDER_WINDOW_DAYS
+  );
 }
 
 /**

@@ -30,9 +30,11 @@ import {
   formatAmount,
   formatContractDate,
   getCorporateContracts,
+  getCorporateInvoice,
   getCorporateInvoices,
   payCorporateInvoice,
 } from "../../services/corporateApi";
+import { buildPaymentReceiptHtml, downloadCorporatePdf } from "../../utils/corporatePdf";
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
 
@@ -104,9 +106,12 @@ export default function CorporateBillingScreen() {
   const [checkoutUrl, setCheckoutUrl] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [receiptBusyKey, setReceiptBusyKey] = useState<string | null>(null);
+  const completingRef = useRef(false);
 
   const headerAnim = useFadeSlide(0);
   const cardAnim = useFadeSlide(80);
+  const monthlyAnim = useFadeSlide(110);
   const outstandingAnim = useFadeSlide(140);
   const invoicesAnim = useFadeSlide(180);
 
@@ -168,6 +173,10 @@ export default function CorporateBillingScreen() {
   const overdueCount = outstandingInvoices.filter((inv) => inv.status === "overdue").length;
   const sortedInvoices = [...invoices].sort((a, b) => (b.date > a.date ? 1 : -1));
   const recentInvoices = showAllRecent ? sortedInvoices : sortedInvoices.slice(0, 10);
+  // Running contracts only — the recurring monthly amount is separate from
+  // the one-time advance deposit paid at activation, which isn't a monthly
+  // payment and isn't shown here.
+  const activeContracts = contracts.filter((c) => c.status === "active" && !!c.finalizedAt);
 
   const contractLabel = (contractId: number): string => {
     const contract = contracts.find((c) => c.contractId === contractId);
@@ -175,31 +184,81 @@ export default function CorporateBillingScreen() {
     return `${contract.startingLocation} → ${contract.destination}`;
   };
 
+  /** The nearest unpaid invoice for a contract — the next monthly payment actually due. */
+  const nextDueForContract = (contractId: number): CorporateInvoice | null => {
+    const upcoming = invoices
+      .filter((inv) => inv.contractId === contractId && (inv.status === "pending" || inv.status === "overdue"))
+      .sort((a, b) => (a.dueDate ?? a.date).localeCompare(b.dueDate ?? b.date));
+    return upcoming[0] ?? null;
+  };
+
   const invoiceKey = (inv: CorporateInvoice) => `${inv.contractId}-${inv.invoiceNumber}`;
+
+  const handleDownloadReceipt = async (invoice: CorporateInvoice) => {
+    if (!currentUser) return;
+    const key = invoiceKey(invoice);
+    setReceiptBusyKey(key);
+    try {
+      let companyName: string | null = null;
+      let contactPersonName: string | null = null;
+      try {
+        const profile = await getUserProfile(currentUser.userId);
+        companyName = profile.companyName ?? null;
+        contactPersonName = profile.contactPersonName ?? null;
+      } catch {
+        // Receipt still generates without company details.
+      }
+      const html = buildPaymentReceiptHtml({
+        title: "Monthly Billing Payment",
+        referenceValue: buildInvoiceRef(invoice),
+        companyName,
+        contactPersonName,
+        contractName: contractLabel(invoice.contractId),
+        description: `Billing period ${formatContractDate(invoice.date)}${invoice.periodEnd ? ` – ${formatContractDate(invoice.periodEnd)}` : ""}`,
+        amount: invoice.amount,
+        paidAt: invoice.paidAt,
+        transactionId: invoice.stripeTransactionId,
+      });
+      await downloadCorporatePdf(html, `TrackNGo-Receipt-${buildInvoiceRef(invoice)}.pdf`);
+    } catch (err) {
+      console.error("[CorporateBilling] download receipt failed", err);
+      Alert.alert("Error", "Could not generate the receipt PDF. Please try again.");
+    } finally {
+      setReceiptBusyKey(null);
+    }
+  };
 
   // ── Stripe payment ────────────────────────────────────────────────
   const startPayment = async (invoice: CorporateInvoice) => {
     if (!currentUser) return;
     setPaymentProcessing(true);
     try {
+      // Re-fetch immediately before charging so a stale locally-cached amount
+      // (e.g. from before an admin correction) never gets sent to Stripe.
+      const latest = (await getCorporateInvoice(invoice.invoiceNumber)) ?? invoice;
+      if (latest.status === "paid") {
+        Alert.alert("Already Paid", "This invoice has already been paid.");
+        await loadInvoices();
+        return;
+      }
       let email = "corporate@trackngo.lk";
       try {
         email = (await getUserProfile(currentUser.userId)).email || email;
       } catch {
         // Stripe accepts the fallback email.
       }
-      const orderId = `CORP-INV-${invoice.invoiceNumber}`;
+      const orderId = `CORP-INV-${latest.invoiceNumber}`;
       const result = await createStripeCheckoutSession({
         orderId,
-        amount: invoice.amount,
+        amount: latest.amount,
         currency: "LKR",
-        itemName: `Monthly Bill: ${invoice.busNumber ?? contractLabel(invoice.contractId)}`,
-        itemDescription: `Invoice #${invoice.invoiceNumber} · ${formatContractDate(invoice.date)} – ${invoice.periodEnd ? formatContractDate(invoice.periodEnd) : ""}`,
+        itemName: `Monthly Bill: ${latest.busNumber ?? contractLabel(latest.contractId)}`,
+        itemDescription: `Invoice #${latest.invoiceNumber} · ${formatContractDate(latest.date)} – ${latest.periodEnd ? formatContractDate(latest.periodEnd) : ""}`,
         email,
         successUrl: `${API_BASE_URL}/api/booking-flow/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${API_BASE_URL}/api/booking-flow/stripe/cancel?session_id={CHECKOUT_SESSION_ID}`,
       });
-      setPayingInvoice(invoice);
+      setPayingInvoice(latest);
       setSessionId(result.sessionId);
       setCheckoutUrl(result.url);
       setShowWebView(true);
@@ -211,49 +270,38 @@ export default function CorporateBillingScreen() {
     }
   };
 
-  const completeInvoicePayment = useCallback(async () => {
+  const completeInvoicePayment = useCallback(async (completedSessionId?: string) => {
+    const activeSessionId = completedSessionId || sessionId;
+    if (!activeSessionId || !payingInvoice || completingRef.current) return;
+    completingRef.current = true;
     setShowWebView(false);
-    if (!payingInvoice) return;
     setPaymentProcessing(true);
     try {
-      const status = await getStripeSessionStatus(sessionId);
+      const status = await getStripeSessionStatus(activeSessionId);
       if (status.paymentStatus !== "paid") {
         Alert.alert("Payment Incomplete", "Payment was not completed. Please try again.");
         return;
       }
-      try {
-        await payCorporateInvoice(payingInvoice.invoiceNumber, { sessionId });
-      } catch (payErr) {
-        const alreadyPaid = String(payErr instanceof Error ? payErr.message : "").toLowerCase().includes("already paid");
-        if (!alreadyPaid) throw payErr;
-      }
+      // The backend is idempotent on an already-paid invoice, so no need to
+      // special-case a retry here — it just succeeds again.
+      await payCorporateInvoice(payingInvoice.invoiceNumber, { sessionId: activeSessionId });
       Alert.alert("Payment Successful", `Invoice paid: ${formatAmount(payingInvoice.amount)}.`);
       await loadInvoices();
     } catch (err) {
       console.error("[Stripe] Invoice payment failed", err);
       Alert.alert("Error", err instanceof Error ? err.message : "Failed to confirm payment.");
     } finally {
+      completingRef.current = false;
       setPaymentProcessing(false);
       setPayingInvoice(null);
     }
   }, [sessionId, payingInvoice, loadInvoices]);
 
-  const handleWebViewNavigation = (navState: { url: string }) => {
-    const url = navState.url;
-    if (url.includes("/api/booking-flow/stripe/success")) {
-      completeInvoicePayment();
-    } else if (url.includes("/api/booking-flow/stripe/cancel")) {
-      setShowWebView(false);
-      setPayingInvoice(null);
-      Alert.alert("Cancelled", "Payment was cancelled.");
-    }
-  };
-
   const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === "completed") {
-        completeInvoicePayment();
+        void completeInvoicePayment(data.sessionId || sessionId);
       } else if (data.type === "cancelled") {
         setShowWebView(false);
         setPayingInvoice(null);
@@ -269,7 +317,7 @@ export default function CorporateBillingScreen() {
     return (
       <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
         <View style={styles.webViewHeader}>
-          <TouchableOpacity style={styles.webViewCloseBtn} onPress={() => setShowWebView(false)}>
+          <TouchableOpacity style={styles.webViewCloseBtn} onPress={() => { setShowWebView(false); setPayingInvoice(null); }}>
             <Ionicons name="close" size={24} color="#1E293B" />
           </TouchableOpacity>
           <Text style={styles.webViewTitle}>Stripe Checkout</Text>
@@ -278,9 +326,22 @@ export default function CorporateBillingScreen() {
         <WebView
           source={{ uri: checkoutUrl }}
           style={{ flex: 1 }}
-          onNavigationStateChange={handleWebViewNavigation}
           onMessage={handleWebViewMessage}
           startInLoadingState
+          onShouldStartLoadWithRequest={(request) => {
+            if (request.url.includes("/api/booking-flow/stripe/success")) {
+              const match = request.url.match(/session_id=([^&]+)/);
+              void completeInvoicePayment(match ? decodeURIComponent(match[1]) : sessionId);
+              return false;
+            }
+            if (request.url.includes("/api/booking-flow/stripe/cancel")) {
+              setShowWebView(false);
+              setPayingInvoice(null);
+              Alert.alert("Cancelled", "Payment was cancelled.");
+              return false;
+            }
+            return true;
+          }}
           renderLoading={() => (
             <View style={styles.webViewLoading}>
               <ActivityIndicator size="large" color="#067BF9" />
@@ -288,6 +349,17 @@ export default function CorporateBillingScreen() {
             </View>
           )}
         />
+      </SafeAreaView>
+    );
+  }
+
+  if (paymentProcessing && !showWebView) {
+    return (
+      <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+        <View style={styles.webViewLoading}>
+          <ActivityIndicator size="large" color="#067BF9" />
+          <Text style={styles.loadingText}>Processing payment...</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -358,6 +430,53 @@ export default function CorporateBillingScreen() {
             )}
           </View>
         </Animated.View>
+
+        {/* Monthly payments — recurring amount per active contract, distinct from the advance deposit */}
+        {!loading && activeContracts.length > 0 && (
+          <Animated.View
+            style={{
+              opacity: monthlyAnim.opacity,
+              transform: [{ translateY: monthlyAnim.translateY }],
+              marginBottom: 26,
+            }}
+          >
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Monthly Payments</Text>
+            </View>
+            <Text style={styles.monthlyCaption}>
+              The recurring amount billed each month for your active contracts. Your one-time advance
+              deposit is separate and already paid — it is not a monthly payment.
+            </Text>
+            <View style={styles.invoicesCard}>
+              {activeContracts.map((contract, idx) => {
+                const nextDue = nextDueForContract(contract.contractId);
+                return (
+                  <React.Fragment key={contract.contractId}>
+                    {idx > 0 && <View style={styles.divider} />}
+                    <Pressable
+                      style={({ pressed }) => [styles.invoiceRow, pressed && styles.invoiceRowPressed]}
+                      onPress={() => router.push(`/corporate/contract-detail?contractId=${contract.contractId}`)}
+                    >
+                      <View style={styles.invoiceLeft}>
+                        <Text style={styles.invoiceRef} numberOfLines={1}>
+                          {contract.startingLocation} → {contract.destination}
+                        </Text>
+                        <Text style={styles.invoiceDate}>
+                          {nextDue
+                            ? `Next payment due ${formatContractDate(nextDue.dueDate ?? nextDue.date)}`
+                            : "Next invoice generates automatically"}
+                        </Text>
+                      </View>
+                      <View style={styles.invoiceRight}>
+                        <Text style={styles.invoiceAmount}>{formatAmount(contract.billingAmount)}/mo</Text>
+                      </View>
+                    </Pressable>
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          </Animated.View>
+        )}
 
         {/* Outstanding breakdown — what makes up the balance above */}
         {!loading && (
@@ -512,6 +631,22 @@ export default function CorporateBillingScreen() {
                             <Text style={styles.expandedPayBtnText}>Pay {formatAmount(inv.amount)}</Text>
                           </TouchableOpacity>
                         )}
+                        {inv.status === "paid" && (
+                          <TouchableOpacity
+                            style={[styles.expandedReceiptBtn, receiptBusyKey === invoiceKey(inv) && { opacity: 0.6 }]}
+                            disabled={receiptBusyKey === invoiceKey(inv)}
+                            onPress={() => handleDownloadReceipt(inv)}
+                          >
+                            {receiptBusyKey === invoiceKey(inv) ? (
+                              <ActivityIndicator size="small" color="#067BF9" />
+                            ) : (
+                              <>
+                                <Ionicons name="download-outline" size={15} color="#067BF9" />
+                                <Text style={styles.expandedReceiptBtnText}>Download Receipt</Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        )}
                       </View>
                     )}
                   </React.Fragment>
@@ -627,6 +762,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
   sectionAction: { fontSize: 13, fontWeight: "600", color: "#2F6BFF" },
   seeAllRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+  monthlyCaption: { fontSize: 12, color: "#64748B", lineHeight: 17, marginBottom: 12 },
 
   // Invoices card
   invoicesCard: {
@@ -691,6 +827,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10, alignItems: "center",
   },
   expandedPayBtnText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
+  expandedReceiptBtn: {
+    marginTop: 8, backgroundColor: "#F0F7FF", borderRadius: 10, borderWidth: 1, borderColor: "#BFDBFE",
+    paddingVertical: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7,
+  },
+  expandedReceiptBtnText: { fontSize: 13, fontWeight: "700", color: "#067BF9" },
 
   // Stripe WebView
   webViewHeader: {

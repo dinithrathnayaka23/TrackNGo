@@ -30,6 +30,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   fetchAllCorporateContracts,
   fetchCorporateContractDetail,
+  renewContract,
   requestContractCancellation,
   respondToContractCancellation,
   updateContractStatus,
@@ -137,6 +138,14 @@ function daysUntilExpiry(validTo: string | null) {
   const today = new Date()
   const expiry = new Date(validTo)
   return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+/** Mirrors the corporate app's own renewal window, so both sides agree on when renewal becomes relevant. */
+const RENEWAL_REMINDER_WINDOW_DAYS = 30
+
+function isRenewalDue(contract: AdminContractSummary) {
+  const days = daysUntilExpiry(contract.endDate)
+  return contract.status === 'active' && days !== null && days <= RENEWAL_REMINDER_WINDOW_DAYS
 }
 
 function formatDate(dateStr: string | null) {
@@ -540,6 +549,20 @@ function Contracts() {
     }
   }
 
+  const handleRenew = async (contract: AdminContractSummary) => {
+    if (!window.confirm(`Submit a renewal request for "${contract.contractName}"? This creates a new contract continuing from its end date, using the same route, schedule and buses, for approval.`)) return
+    setActionBusyId(contract.contractId)
+    try {
+      await renewContract(contract.contractId)
+      setToastMessage(`Renewal requested for "${contract.contractName}" — a new pending contract was created.`)
+      loadContracts()
+    } catch (err) {
+      setToastMessage(err instanceof Error ? err.message : 'Failed to submit renewal request.')
+    } finally {
+      setActionBusyId(null)
+    }
+  }
+
   const submitCancelRequest = async () => {
     if (!cancelRequestTarget) return
     if (!cancelReasonInput.trim()) {
@@ -629,6 +652,17 @@ function Contracts() {
             className={`${btnBase} border-[#e5e7eb] text-[#0369a1] hover:border-[#0369a1] hover:bg-[#f0f9ff] disabled:opacity-50`}
           >
             <FontAwesomeIcon icon={faCheckCircle} className="text-xs" />
+          </button>
+        )}
+        {isRenewalDue(contract) && (
+          <button
+            type="button"
+            title="Renew Contract"
+            disabled={busy}
+            onClick={() => handleRenew(contract)}
+            className={`${btnBase} border-[#bfdbfe] text-[#1d4ed8] hover:bg-[#eff6ff] disabled:opacity-50`}
+          >
+            <FontAwesomeIcon icon={faSyncAlt} className="text-xs" />
           </button>
         )}
         {contract.status === 'active' && contract.cancellation.status !== 'pending' && (
@@ -868,8 +902,8 @@ function Contracts() {
                         return (
                           <tr key={contract.contractId} className="group transition hover:bg-[#fafbff]">
                             <td className="px-5 py-4">
-                              <p className="text-xs text-[#94a3b8]">#{contract.contractId}</p>
-                              <p className="mt-0.5 font-semibold text-[#111827]">{contract.contractName}</p>
+                              <p className="text-xs text-[#94a3b8]">#{contract.contractId} · {contract.contractName}</p>
+                              <p className="mt-0.5 font-semibold text-[#111827]">{contract.startingLocation ?? '—'} → {contract.destination ?? '—'}</p>
                             </td>
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-2">
@@ -976,8 +1010,8 @@ function Contracts() {
                               {companyInitials(contract.companyName)}
                             </div>
                             <div>
-                              <p className="text-xs text-[#94a3b8]">#{contract.contractId}</p>
-                              <p className="mt-0.5 text-sm font-bold leading-tight text-[#111827]">{contract.contractName}</p>
+                              <p className="text-xs text-[#94a3b8]">#{contract.contractId} · {contract.contractName}</p>
+                              <p className="mt-0.5 text-sm font-bold leading-tight text-[#111827]">{contract.startingLocation ?? '—'} → {contract.destination ?? '—'}</p>
                             </div>
                           </div>
                           <span

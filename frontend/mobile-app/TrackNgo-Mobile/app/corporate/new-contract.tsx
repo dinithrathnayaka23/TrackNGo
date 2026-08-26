@@ -23,6 +23,7 @@ import { useSession } from "../../store/sessionStore";
 import {
   createCorporateContract,
   getCorporateContracts,
+  getCorporateContractDetail,
   getAvailableCorporateBuses,
   finalizeCorporateContract,
   getSupportContact,
@@ -34,6 +35,7 @@ import {
   type ShiftLeg,
   type ContractBus,
   type CorporateContract,
+  type CorporateContractDetail,
   type SupportContact,
 } from "../../services/corporateApi";
 import GooglePlaceField, { type PlaceValue } from "../../components/GooglePlaceField";
@@ -43,6 +45,7 @@ import { WebView } from "react-native-webview";
 import { createStripeCheckoutSession, getStripeSessionStatus } from "../../services/bookingFlowApi";
 import { payAdvanceDeposit } from "../../services/corporateApi";
 import { getUserProfile } from "../../services/userProfileApi";
+import { buildPaymentReceiptHtml, downloadCorporatePdf } from "../../utils/corporatePdf";
 
 // ─── Road-distance helper (same OSRM approach used in BookATrip.tsx) ─────────
 // Avoids Google Directions billing: any two selected locations get a real
@@ -67,6 +70,9 @@ type RoadRoute = { distanceKm: number; durationMinutes: number };
 // pickup/drop-off time estimate roughly sane, not for pricing (pricing always
 // uses the real OSRM distance when available).
 const FALLBACK_AVERAGE_KMH = 35;
+
+// Corporate contracts only make sense for a sizeable group — below this, a fleet contract isn't worthwhile.
+const MIN_EMPLOYEE_COUNT = 20;
 
 async function getRoadRoute(start: Coord, end: Coord): Promise<RoadRoute> {
   try {
@@ -106,6 +112,10 @@ function addYears(date: Date, years: number): Date {
   const result = new Date(date);
   result.setFullYear(result.getFullYear() + years);
   return result;
+}
+function monthsBetween(start: Date, end: Date): number {
+  const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  return end.getDate() >= start.getDate() ? months : months - 1;
 }
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
@@ -190,7 +200,7 @@ export default function NewContractScreen() {
   const [contractId, setContractId] = useState<number | null>(initContractId);
   const [contractStatus, setContractStatus] = useState<string>("pending");
   const [submittingContract, setSubmittingContract] = useState(false);
-  const [createdContract, setCreatedContract] = useState<CorporateContract | null>(null);
+  const [createdContract, setCreatedContract] = useState<CorporateContractDetail | null>(null);
 
   // 🔹 Advance Payment (Stripe) State
   const [showWebView, setShowWebView] = useState(false);
@@ -201,8 +211,7 @@ export default function NewContractScreen() {
   // Load existing contract details if jumping into negotiation
   useEffect(() => {
     if (initContractId && currentUser) {
-      getCorporateContracts(currentUser.userId).then((contracts) => {
-        const current = contracts.find(c => c.contractId === initContractId);
+      getCorporateContractDetail(initContractId, currentUser.userId).then((current) => {
         if (current) {
           setShiftType(current.shiftType || "both");
           setWorkingDays(current.workingDays || "weekdays");
@@ -289,7 +298,7 @@ export default function NewContractScreen() {
   // Per-step validation — button turns blue only when all required fields are filled
   const isStepValid =
     step === 1
-      ? !!(employees && shiftDetailsFilled && morningDistanceReady && eveningDistanceReady && startDateObj && endDateObj)
+      ? !!(neededSeats >= MIN_EMPLOYEE_COUNT && shiftDetailsFilled && morningDistanceReady && eveningDistanceReady && startDateObj && endDateObj)
       : step === 2
       ? seatsFulfilled
       : true; // Step 3 (negotiation) always shows footer; Accept Offer has its own logic
@@ -333,9 +342,11 @@ export default function NewContractScreen() {
     if (step !== 3 || !contractId || !currentUser) return;
     const poll = async () => {
       try {
-        const contracts = await getCorporateContracts(currentUser.userId);
-        const current = contracts.find((c) => c.contractId === contractId);
-        if (current) setContractStatus(current.status);
+        const current = await getCorporateContractDetail(contractId, currentUser.userId);
+        if (current) {
+          setContractStatus(current.status);
+          setCreatedContract(current);
+        }
       } catch (e) {
         console.warn("[Negotiation] Poll failed:", e);
       }
@@ -440,6 +451,10 @@ export default function NewContractScreen() {
         Alert.alert("Missing Fields", "Please fill in all details, making sure to select places from the search results and set your shift times.");
         return;
       }
+      if (neededSeats < MIN_EMPLOYEE_COUNT) {
+        Alert.alert("Employee Count Too Low", `Corporate contracts require a minimum of ${MIN_EMPLOYEE_COUNT} employees.`);
+        return;
+      }
       if (!morningDistanceReady || !eveningDistanceReady) {
         Alert.alert("Distance Unavailable", "Could not calculate the route distance yet. Please re-select your pickup and drop-off places.");
         return;
@@ -490,16 +505,16 @@ export default function NewContractScreen() {
           corporateUserId: currentUser.userId,
         });
 
-        // Backend returns the created contract. If null (older backend), fetch the latest one.
-        let resolvedContract: CorporateContract | null = created ?? null;
-
-        if (!resolvedContract) {
-          // Fallback: fetch the latest contract for this user
+        // Backend returns the created contract. If null (older backend), fall back to the latest one.
+        let newContractId = created?.contractId ?? null;
+        if (!newContractId) {
           const allContracts = await getCorporateContracts(currentUser.userId);
-          if (allContracts.length > 0) {
-            resolvedContract = allContracts[0]; // ordered by created_at DESC
-          }
+          newContractId = allContracts[0]?.contractId ?? null; // ordered by created_at DESC
         }
+
+        const resolvedContract = newContractId
+          ? await getCorporateContractDetail(newContractId, currentUser.userId)
+          : null;
 
         setContractId(resolvedContract?.contractId ?? null);
         setContractStatus(resolvedContract?.status ?? "pending");
@@ -558,10 +573,21 @@ export default function NewContractScreen() {
     return () => sub.remove();
   }, [step]);
 
+  const completingRef = useRef(false);
+
   const handlePayDeposit = async () => {
     if (!contractId || !currentUser) return;
     setSubmitting(true);
     try {
+      // Re-fetch immediately before charging so a stale locally-cached amount
+      // (e.g. from before an admin discount) never gets sent to Stripe.
+      const latest = await getCorporateContractDetail(contractId, currentUser.userId);
+      if (latest) setCreatedContract(latest);
+      const amountToCharge = latest?.billingAmount ?? monthlyAmount;
+      if (latest?.advancePaymentStatus === "paid" || latest?.advancePaymentStatus === "waived") {
+        Alert.alert("Already Resolved", "The advance deposit has already been paid or waived.");
+        return;
+      }
       let email = "corporate@trackngo.lk";
       try {
         email = (await getUserProfile(currentUser.userId)).email || email;
@@ -571,9 +597,9 @@ export default function NewContractScreen() {
       const orderId = `CORP-ADV-${contractId}`;
       const result = await createStripeCheckoutSession({
         orderId,
-        amount: monthlyAmount,
+        amount: amountToCharge,
         currency: 'LKR',
-        itemName: `Advance Deposit: ${createdContract?.contractName ?? contractId}`,
+        itemName: `Advance Deposit: ${latest?.contractName ?? createdContract?.contractName ?? contractId}`,
         itemDescription: `Corporate Contract ID: ${contractId}`,
         email,
         successUrl: `${API_BASE_URL}/api/booking-flow/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -590,30 +616,26 @@ export default function NewContractScreen() {
     }
   };
 
-  const completePayment = useCallback(async () => {
+  const completePayment = useCallback(async (completedSessionId?: string) => {
+    const activeSessionId = completedSessionId || sessionId;
+    if (!activeSessionId || !contractId || !currentUser || completingRef.current) return;
+    completingRef.current = true;
     setShowWebView(false);
     setPaymentProcessing(true);
     try {
-      const status = await getStripeSessionStatus(sessionId);
+      const status = await getStripeSessionStatus(activeSessionId);
       if (status.paymentStatus !== 'paid') {
         Alert.alert("Payment Incomplete", "Payment was not completed. Please try again.");
-        setPaymentProcessing(false);
         return;
       }
 
-      // Pay deposit — the backend independently re-verifies the session with
-      // Stripe. Treat "already paid" as success rather than an error: it
-      // means an earlier attempt's payment went through but finalize didn't
-      // complete (e.g. the app closed mid-flow), so this is just a retry.
-      try {
-        await payAdvanceDeposit(contractId!, { sessionId });
-      } catch (payErr: any) {
-        const alreadyPaid = String(payErr?.message || "").toLowerCase().includes("already paid");
-        if (!alreadyPaid) throw payErr;
-      }
+      // The backend is idempotent on an already-paid deposit, so a retry
+      // (e.g. the app closed mid-flow after paying but before finalizing)
+      // just succeeds again rather than erroring.
+      await payAdvanceDeposit(contractId, { sessionId: activeSessionId });
 
       // Finalize contract
-      await finalizeCorporateContract(contractId!, currentUser!.userId);
+      await finalizeCorporateContract(contractId, currentUser.userId);
 
       Alert.alert("Success", "Deposit paid and contract is now active!", [
         { text: "OK", onPress: () => router.back() },
@@ -622,6 +644,7 @@ export default function NewContractScreen() {
       console.error("[Stripe] Advance payment failed", e);
       Alert.alert("Error", e.message || "Failed to finalize contract after payment.");
     } finally {
+      completingRef.current = false;
       setPaymentProcessing(false);
     }
   }, [sessionId, contractId, currentUser, router]);
@@ -641,13 +664,38 @@ export default function NewContractScreen() {
     }
   };
 
-  const handleWebViewNavigation = (navState: any) => {
-    const url = navState.url;
-    if (url.includes('/api/booking-flow/stripe/success')) {
-      completePayment();
-    } else if (url.includes('/api/booking-flow/stripe/cancel')) {
-      setShowWebView(false);
-      Alert.alert("Cancelled", "Advance deposit payment was cancelled.");
+  const [depositReceiptBusy, setDepositReceiptBusy] = useState(false);
+
+  const handleDownloadDepositReceipt = async () => {
+    if (!createdContract) return;
+    setDepositReceiptBusy(true);
+    try {
+      let companyName: string | null = null;
+      let contactPersonName: string | null = null;
+      if (currentUser) {
+        try {
+          const profile = await getUserProfile(currentUser.userId);
+          companyName = profile.companyName ?? null;
+          contactPersonName = profile.contactPersonName ?? null;
+        } catch {
+          // Receipt still generates without company details.
+        }
+      }
+      const html = buildPaymentReceiptHtml({
+        title: "Advance Deposit Payment",
+        referenceValue: `CNT-${String(createdContract.contractId).padStart(4, "0")}`,
+        companyName,
+        contactPersonName,
+        contractName: createdContract.contractName,
+        description: "Advance deposit (1 month)",
+        amount: createdContract.advanceAmount ?? monthlyAmount,
+        paidAt: createdContract.advancePaidAt,
+      });
+      await downloadCorporatePdf(html, `TrackNGo-Deposit-Receipt-CNT-${createdContract.contractId}.pdf`);
+    } catch (e: any) {
+      Alert.alert("Error", "Could not generate the receipt PDF. Please try again.");
+    } finally {
+      setDepositReceiptBusy(false);
     }
   };
 
@@ -655,7 +703,7 @@ export default function NewContractScreen() {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'completed') {
-        completePayment();
+        void completePayment(data.sessionId || sessionId);
       } else if (data.type === 'cancelled') {
         setShowWebView(false);
         Alert.alert("Cancelled", "Advance deposit payment was cancelled.");
@@ -695,22 +743,6 @@ export default function NewContractScreen() {
     </View>
   );
 
-  const renderComputedTimeField = (label: string, value: Date | null, loading: boolean) => (
-    <View style={{ flex: 1 }}>
-      <Text style={styles.inputLabelOutside}>{label}</Text>
-      <View style={[styles.inputWrapper, styles.computedTimeWrapper]}>
-        {loading ? (
-          <ActivityIndicator size="small" color="#067BF9" />
-        ) : (
-          <Text style={[styles.textInput, { color: value ? '#1E293B' : '#94A3B8' }]}>
-            {value ? value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
-          </Text>
-        )}
-        <Ionicons name="calculator-outline" size={16} color="#94A3B8" />
-      </View>
-    </View>
-  );
-
   const describeShiftSummary = () => {
     const fmt = (d: Date | null) => d ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--";
     const parts: string[] = [];
@@ -730,6 +762,14 @@ export default function NewContractScreen() {
       if (pickup && dropoff) parts.push(`${pickup.name} → ${dropoff.name}`);
     }
     return parts.length > 0 ? parts.join("  •  ") : "Route not set";
+  };
+
+  const describeContractPeriod = () => {
+    const start = startDateObj ?? (createdContract?.startDate ? new Date(createdContract.startDate) : null);
+    const end = endDateObj ?? (createdContract?.endDate ? new Date(createdContract.endDate) : null);
+    if (!start || !end) return "—";
+    const months = Math.max(1, monthsBetween(start, end));
+    return `${months} Month${months === 1 ? "" : "s"}`;
   };
 
   const busTypeDisplayLabel = (type: BusType | undefined) => {
@@ -768,13 +808,9 @@ export default function NewContractScreen() {
           <Text style={styles.routeSectionTitle}>Morning Shift Route</Text>
           <GooglePlaceField label="Pickup Location" placeholder="Search employee pickup point..." value={morningPickup} onChange={setMorningPickup} icon="location" />
           <GooglePlaceField label="Drop-off Location" placeholder="Search office / drop-off point..." value={morningDropoff} onChange={setMorningDropoff} icon="flag" />
-          <View style={[styles.row, { marginBottom: 4, gap: 12 }]}>
+          <View style={{ marginBottom: 4 }}>
             {renderTimeField("Required Arrival Time", morningDropoffObj, setMorningDropoffObj, showMorningDropoffPicker, setShowMorningDropoffPicker)}
-            {renderComputedTimeField("Estimated Pickup Time", morningPickupObj, morningDistanceLoading)}
           </View>
-          <Text style={styles.computedHint}>
-            Pickup time is calculated automatically from the estimated journey duration — we can't guarantee an exact pickup time, only the required arrival.
-          </Text>
           {(morningDistanceLoading || morningDistanceKm) && (
             <View style={styles.distancePill}>
               <Ionicons name="navigate-outline" size={14} color="#067BF9" />
@@ -817,13 +853,9 @@ export default function NewContractScreen() {
             </>
           )}
 
-          <View style={[styles.row, { marginBottom: 4, gap: 12 }]}>
+          <View style={{ marginBottom: 4 }}>
             {renderTimeField("Departure (Pickup) Time", eveningPickupObj, setEveningPickupObj, showEveningPickupPicker, setShowEveningPickupPicker)}
-            {renderComputedTimeField("Estimated Drop-off Time", eveningDropoffObj, eveningDistanceLoading)}
           </View>
-          <Text style={styles.computedHint}>
-            Drop-off time is calculated automatically from the estimated journey duration.
-          </Text>
           {(eveningDistanceLoading || eveningDistanceKm) && (
             <View style={styles.distancePill}>
               <Ionicons name="navigate-outline" size={14} color="#067BF9" />
@@ -836,16 +868,21 @@ export default function NewContractScreen() {
       )}
 
       <Text style={styles.inputLabelOutside}>Estimated Employees</Text>
-      <View style={[styles.inputWrapper, { marginBottom: 20 }]}>
+      <View style={[styles.inputWrapper, { marginBottom: 4 }]}>
         <TextInput
           style={styles.textInput}
-          placeholder="e.g. 50"
+          placeholder={`e.g. 50 (minimum ${MIN_EMPLOYEE_COUNT})`}
           value={employees}
           onChangeText={setEmployees}
           keyboardType="numeric"
           placeholderTextColor="#94A3B8"
         />
       </View>
+      <Text style={[styles.computedHint, { marginBottom: 20 }]}>
+        {employees && neededSeats < MIN_EMPLOYEE_COUNT
+          ? `Corporate contracts require at least ${MIN_EMPLOYEE_COUNT} employees.`
+          : `Minimum ${MIN_EMPLOYEE_COUNT} employees for a corporate contract.`}
+      </Text>
 
       <Text style={styles.inputLabelOutside}>Working Days</Text>
       <View style={[styles.row, { gap: 8, marginBottom: 20 }]}>
@@ -1208,6 +1245,12 @@ export default function NewContractScreen() {
                 <Text style={[styles.pricingRowLabel, { fontWeight: "700", color: "#0F172A" }]}>Total</Text>
                 <Text style={styles.pricingRowValue}>{formatAmount(monthlyAmount)}</Text>
               </View>
+              {!!createdContract?.adminNote && (
+                <View style={styles.discountReasonBox}>
+                  <Text style={styles.discountReasonLabel}>Reason for discount</Text>
+                  <Text style={styles.discountReasonText}>{createdContract.adminNote}</Text>
+                </View>
+              )}
             </>
           )}
           <Text style={styles.pricingHint}>
@@ -1301,12 +1344,12 @@ export default function NewContractScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
             <Text style={styles.summarySubLabel}>Employee Count</Text>
-            <Text style={styles.statValue}>{employees || "36"}</Text>
+            <Text style={styles.statValue}>{employees || createdContract?.employeeCount || "—"}</Text>
           </View>
           <View style={{ width: 12 }} />
           <View style={styles.statBox}>
             <Text style={styles.summarySubLabel}>Contract Period</Text>
-            <Text style={styles.statValue}>12 Months</Text>
+            <Text style={styles.statValue}>{describeContractPeriod()}</Text>
           </View>
         </View>
       </View>
@@ -1337,7 +1380,23 @@ export default function NewContractScreen() {
         {depositStatus === "waived" ? (
           <Text style={styles.pricingHint}>Waived by admin — no payment required to activate.</Text>
         ) : depositStatus === "paid" ? (
-          <Text style={styles.pricingHint}>Already paid — ready to activate.</Text>
+          <>
+            <Text style={styles.pricingHint}>Already paid — ready to activate.</Text>
+            <TouchableOpacity
+              style={styles.depositReceiptBtn}
+              disabled={depositReceiptBusy}
+              onPress={handleDownloadDepositReceipt}
+            >
+              {depositReceiptBusy ? (
+                <ActivityIndicator size="small" color="#067BF9" />
+              ) : (
+                <>
+                  <Ionicons name="download-outline" size={15} color="#067BF9" />
+                  <Text style={styles.depositReceiptBtnText}>Download Receipt</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </>
         ) : (
           <Text style={styles.pricingHint}>
             Refundable on contract expiry. Must be paid to activate the contract.
@@ -1401,9 +1460,21 @@ export default function NewContractScreen() {
         <WebView
           source={{ uri: checkoutUrl }}
           style={{ flex: 1 }}
-          onNavigationStateChange={handleWebViewNavigation}
           onMessage={handleWebViewMessage}
           startInLoadingState={true}
+          onShouldStartLoadWithRequest={(request) => {
+            if (request.url.includes('/api/booking-flow/stripe/success')) {
+              const match = request.url.match(/session_id=([^&]+)/);
+              void completePayment(match ? decodeURIComponent(match[1]) : sessionId);
+              return false;
+            }
+            if (request.url.includes('/api/booking-flow/stripe/cancel')) {
+              setShowWebView(false);
+              Alert.alert("Cancelled", "Advance deposit payment was cancelled.");
+              return false;
+            }
+            return true;
+          }}
           renderLoading={() => (
             <View style={styles.webViewLoading}>
               <ActivityIndicator size="large" color="#067BF9" />
@@ -1411,6 +1482,17 @@ export default function NewContractScreen() {
             </View>
           )}
         />
+      </SafeAreaView>
+    );
+  }
+
+  if (paymentProcessing && !showWebView) {
+    return (
+      <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+        <View style={styles.webViewLoading}>
+          <ActivityIndicator size="large" color="#067BF9" />
+          <Text style={styles.loadingText}>Processing payment...</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -1425,9 +1507,7 @@ export default function NewContractScreen() {
         <Text style={styles.headerTitle}>
           {step === 3 ? "Negotiation" : step === 4 ? "Contract Proposal" : "New Contract"}
         </Text>
-        <TouchableOpacity style={styles.downloadBtn}>
-          <Ionicons name="download-outline" size={22} color="#067BF9" />
-        </TouchableOpacity>
+        <View style={styles.downloadBtn} />
       </View>
 
       {/* Progress Bar */}
@@ -1512,6 +1592,11 @@ const styles = StyleSheet.create({
   backBtn: { width: 32, alignItems: "flex-start" },
   headerTitle: { fontSize: 18, fontWeight: "700", color: "#1E293B" },
   downloadBtn: { width: 32, alignItems: "flex-end" },
+  depositReceiptBtn: {
+    marginTop: 10, backgroundColor: "#F0F7FF", borderRadius: 10, borderWidth: 1, borderColor: "#BFDBFE",
+    paddingVertical: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7,
+  },
+  depositReceiptBtnText: { fontSize: 13, fontWeight: "700", color: "#067BF9" },
 
   progressContainer: {
     flexDirection: "row",
@@ -1590,11 +1675,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   reversedRouteText: { flex: 1, fontSize: 12, color: "#475569", lineHeight: 17 },
-  computedTimeWrapper: {
-    backgroundColor: "#F1F5F9",
-    borderStyle: "dashed",
-    justifyContent: "space-between",
-  },
   computedHint: { fontSize: 11, color: "#94A3B8", marginBottom: 12, lineHeight: 15 },
 
   // WebView (Stripe) Styles
@@ -2031,6 +2111,9 @@ const styles = StyleSheet.create({
   pricingRowLabel: { fontSize: 13, color: "#64748B" },
   pricingRowValue: { fontSize: 13, fontWeight: "700", color: "#1E293B" },
   pricingHint: { fontSize: 11, color: "#94A3B8", lineHeight: 16, marginTop: 12 },
+  discountReasonBox: { marginTop: 10, backgroundColor: "#F0FDF4", borderRadius: 10, padding: 10 },
+  discountReasonLabel: { fontSize: 10, fontWeight: "700", color: "#059669", letterSpacing: 0.4, marginBottom: 3 },
+  discountReasonText: { fontSize: 12, color: "#065F46", lineHeight: 17 },
 
   negoTimeline: {
     backgroundColor: "#FFFFFF",

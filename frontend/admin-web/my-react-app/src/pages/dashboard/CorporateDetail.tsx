@@ -73,12 +73,17 @@ function statusClass(value: string | null | undefined) {
   return 'bg-[#f1f5f9] text-[#334155]'
 }
 
+function busAllocationText(contract: CorporateContract) {
+  if (contract.busIds && contract.busIds.length > 0) return contract.busIds.map((busId) => `Bus #${busId}`).join(', ')
+  if (contract.busId) return `Bus #${contract.busId}`
+  return 'Not assigned'
+}
+
 function ContractCard({ contract }: { contract: CorporateContract }) {
   return <article className="rounded-xl border border-[#e5e7eb] bg-white p-5">
-    <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs text-[#94a3b8]">Contract ID: #{contract.contractId}</p><h3 className="mt-1 truncate text-sm font-bold text-[#111827]">{cleanText(contract.contractName)}</h3></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(contract.status)}`}>{label(contract.status)}</span></div>
+    <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs text-[#94a3b8]">Contract ID: #{contract.contractId} · {cleanText(contract.contractName)}</p><h3 className="mt-1 truncate text-sm font-bold text-[#111827]">{cleanText(contract.startingLocation)} → {cleanText(contract.destination)}</h3></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(contract.status)}`}>{label(contract.status)}</span></div>
     <div className="mt-4 space-y-2 text-sm">
-      <p className="flex items-center justify-between gap-3"><span className="inline-flex items-center gap-2 text-[#64748b]"><FontAwesomeIcon icon={faBus} className="w-3" />Bus allocation</span><span className="font-semibold text-[#111827]">{contract.busId ? `Bus #${contract.busId}` : 'Not assigned'}</span></p>
-      <p className="flex items-center justify-between gap-3"><span className="inline-flex items-center gap-2 text-[#64748b]"><FontAwesomeIcon icon={faLocationDot} className="w-3" />Route</span><span className="max-w-[62%] text-right font-semibold text-[#111827]">{cleanText(contract.startingLocation)} → {cleanText(contract.destination)}</span></p>
+      <p className="flex items-center justify-between gap-3"><span className="inline-flex items-center gap-2 text-[#64748b]"><FontAwesomeIcon icon={faBus} className="w-3" />Bus allocation</span><span className="max-w-[62%] text-right font-semibold text-[#111827]">{busAllocationText(contract)}</span></p>
       <p className="flex items-center justify-between gap-3"><span className="inline-flex items-center gap-2 text-[#64748b]"><FontAwesomeIcon icon={faCalendarDays} className="w-3" />Valid</span><span className="text-right font-semibold text-[#111827]">{formatDate(contract.startDate)} – {formatDate(contract.endDate)}</span></p>
       <p className="flex items-center justify-between gap-3"><span className="inline-flex items-center gap-2 text-[#64748b]"><FontAwesomeIcon icon={faClock} className="w-3" />Shift</span><span className="font-semibold text-[#111827]">{formatTime(contract.startShiftTime)} – {formatTime(contract.endShiftTime)}</span></p>
       <p className="flex items-center justify-between gap-3"><span className="inline-flex items-center gap-2 text-[#64748b]"><FontAwesomeIcon icon={faDollarSign} className="w-3" />Monthly</span><span className="font-semibold text-[#111827]">{formatCurrency(contract.billingAmount)}</span></p>
@@ -135,7 +140,7 @@ function CorporateDetail() {
 
   const activeContracts = useMemo(() => contracts.filter((contract) => String(contract.status).toLowerCase() === 'active'), [contracts])
   const monthlyValue = useMemo(() => activeContracts.reduce((total, contract) => total + Number(contract.billingAmount || 0), 0), [activeContracts])
-  const busesAllocated = useMemo(() => new Set(activeContracts.map((contract) => contract.busId).filter((busId): busId is number => busId !== null && busId !== undefined)).size, [activeContracts])
+  const busesAllocated = useMemo(() => new Set(activeContracts.flatMap((contract) => contract.busIds && contract.busIds.length > 0 ? contract.busIds : [contract.busId]).filter((busId): busId is number => busId !== null && busId !== undefined)).size, [activeContracts])
 
   const toggleStatus = async () => {
     if (!account?.id) return

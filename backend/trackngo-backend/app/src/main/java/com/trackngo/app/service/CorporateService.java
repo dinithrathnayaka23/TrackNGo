@@ -47,6 +47,9 @@ public class CorporateService {
     private static final List<String> VALID_CONTRACT_STATUSES = List.of("pending", "active", "expired", "cancelled");
     private static final List<String> VALID_CANCEL_ROLES = List.of("admin", "corporate");
     private static final int MIN_ADMIN_CANCEL_NOTICE_DAYS = 14;
+    private static final int MIN_EMPLOYEE_COUNT = 20;
+    /** Contracts within this many days of their end date get a renewal reminder. */
+    private static final int RENEWAL_REMINDER_WINDOW_DAYS = 30;
 
     /** Admin-driven status transitions. Expired/cancelled contracts are terminal. */
     private static final Map<String, List<String>> ALLOWED_STATUS_TRANSITIONS = Map.of(
@@ -73,7 +76,8 @@ public class CorporateService {
             """;
 
     private static final String CONTRACTS_SQL = """
-            SELECT %s
+            SELECT %s,
+                (SELECT GROUP_CONCAT(bus_id ORDER BY assigned_at) FROM corporate_contract_bus WHERE contract_id = corporate_contract.contract_id) AS bus_ids_concat
             FROM corporate_contract
             WHERE corporate_user_id = ?
             ORDER BY created_at DESC
@@ -81,7 +85,8 @@ public class CorporateService {
 
     private static final String ADMIN_CONTRACTS_BASE_SQL = """
             SELECT
-                c.contract_id, c.contract_name, c.shift_type, c.employee_count, c.bus_type,
+                c.contract_id, c.contract_name, c.starting_location, c.destination,
+                c.shift_type, c.employee_count, c.bus_type,
                 c.distance_km, c.status, c.billing_amount, c.start_date, c.end_date,
                 c.created_at, c.corporate_user_id,
                 c.advance_amount, c.advance_payment_status, c.advance_paid_at,
@@ -89,7 +94,10 @@ public class CorporateService {
                 c.cancel_status, c.cancel_requested_by, c.cancel_reason, c.cancel_requested_at,
                 c.cancel_effective_date, c.cancel_response_reason,
                 cu.company_name, cu.contact_person_name, cu.contact_phone,
-                (SELECT COUNT(*) FROM corporate_contract_bus ccb WHERE ccb.contract_id = c.contract_id) AS bus_count
+                (SELECT COUNT(*) FROM corporate_contract_bus ccb WHERE ccb.contract_id = c.contract_id) AS bus_count,
+                (SELECT GROUP_CONCAT(b.bus_number ORDER BY ccb.assigned_at SEPARATOR ', ')
+                 FROM corporate_contract_bus ccb JOIN bus b ON b.bus_id = ccb.bus_id
+                 WHERE ccb.contract_id = c.contract_id) AS bus_numbers
             FROM corporate_contract c
             LEFT JOIN corporate_user cu ON cu.corporate_user_id = c.corporate_user_id
             """;
@@ -284,7 +292,14 @@ public class CorporateService {
     }
 
     public List<CorporateContractDto> getContracts(Long userId) {
-        return jdbcTemplate.query(CONTRACTS_SQL, (rs, rowNum) -> mapContract(rs), userId);
+        return jdbcTemplate.query(CONTRACTS_SQL,
+                (rs, rowNum) -> withBusIds(mapContract(rs), parseBusIds(rs.getString("bus_ids_concat"))),
+                userId);
+    }
+
+    private static List<Long> parseBusIds(String concat) {
+        if (concat == null || concat.isBlank()) return null;
+        return java.util.Arrays.stream(concat.split(",")).map(Long::parseLong).toList();
     }
 
     /**
@@ -305,6 +320,8 @@ public class CorporateService {
                 rs.getString("company_name"),
                 rs.getString("contact_person_name"),
                 rs.getString("contact_phone"),
+                rs.getString("starting_location"),
+                rs.getString("destination"),
                 rs.getString("shift_type"),
                 rs.getInt("employee_count"),
                 rs.getString("bus_type"),
@@ -316,6 +333,7 @@ public class CorporateService {
                 rs.getString("created_at"),
                 rs.getLong("corporate_user_id"),
                 rs.getInt("bus_count"),
+                rs.getString("bus_numbers"),
                 rs.getBigDecimal("advance_amount"),
                 rs.getString("advance_payment_status"),
                 rs.getString("advance_paid_at"),
@@ -709,8 +727,8 @@ public class CorporateService {
         if (dto.busType() != null && !VALID_BUS_TYPES.contains(dto.busType().toLowerCase())) {
             throw new IllegalArgumentException("Bus type must be 'standard', 'ac', or 'mini'.");
         }
-        if (dto.employeeCount() == null || dto.employeeCount() <= 0) {
-            throw new IllegalArgumentException("Employee count must be greater than zero.");
+        if (dto.employeeCount() == null || dto.employeeCount() < MIN_EMPLOYEE_COUNT) {
+            throw new IllegalArgumentException("Employee count must be at least " + MIN_EMPLOYEE_COUNT + ".");
         }
 
         if (needsMorning(shiftType)) {
@@ -996,6 +1014,134 @@ public class CorporateService {
         }
     }
 
+    /**
+     * Called daily by {@code CorporateRenewalReminderScheduler}: notifies both
+     * the corporate client and every admin, once per contract, when an active
+     * contract is within {@link #RENEWAL_REMINDER_WINDOW_DAYS} days of its end
+     * date and hasn't already been reminded. The one-shot flag on the row
+     * (rather than re-checking days-remaining on every run) keeps this from
+     * re-notifying daily for the same contract.
+     */
+    public void sendRenewalReminders() {
+        List<Map<String, Object>> due = jdbcTemplate.queryForList("""
+                SELECT contract_id, corporate_user_id, contract_name, end_date
+                FROM corporate_contract
+                WHERE status = 'active'
+                  AND renewal_reminder_sent_at IS NULL
+                  AND end_date <= DATE_ADD(CURRENT_DATE, INTERVAL ? DAY)
+                """, RENEWAL_REMINDER_WINDOW_DAYS);
+        for (Map<String, Object> row : due) {
+            Long contractId = ((Number) row.get("contract_id")).longValue();
+            Long corporateUserId = ((Number) row.get("corporate_user_id")).longValue();
+            String contractName = (String) row.get("contract_name");
+            LocalDate endDate = ((java.sql.Date) row.get("end_date")).toLocalDate();
+            notifyRenewalDue(contractId, corporateUserId, contractName, endDate);
+            jdbcTemplate.update(
+                    "UPDATE corporate_contract SET renewal_reminder_sent_at = CURRENT_TIMESTAMP WHERE contract_id = ?",
+                    contractId);
+        }
+    }
+
+    private void notifyRenewalDue(Long contractId, Long corporateUserId, String contractName, LocalDate endDate) {
+        try {
+            NotificationDto corporateNotification = new NotificationDto();
+            corporateNotification.setNotificationType("system_alert");
+            corporateNotification.setTitle("Contract Renewal Due Soon");
+            corporateNotification.setMessage("Your contract \"" + contractName + "\" ends on " + endDate
+                    + ". Renew it to keep the service running without interruption.");
+            corporateNotification.setCorporateUserId(corporateUserId);
+            corporateNotification.setRead(false);
+            notificationService.create(corporateNotification);
+
+            for (Long adminId : allAdminUserIds()) {
+                NotificationDto adminNotification = new NotificationDto();
+                adminNotification.setNotificationType("system_alert");
+                adminNotification.setTitle("Contract Renewal Due Soon");
+                adminNotification.setMessage("Contract \"" + contractName + "\" (#" + contractId + ") ends on " + endDate
+                        + " and has not been renewed yet.");
+                adminNotification.setAdminId(adminId);
+                adminNotification.setRead(false);
+                notificationService.create(adminNotification);
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to create renewal-due notification for contract {}", contractId, ex);
+        }
+    }
+
+    /**
+     * Renews a contract by submitting a new pending contract request that
+     * continues immediately after the current term, cloning its route, shift
+     * times, employee count, bus type and bus selection. Goes through the
+     * same admin-approval flow as any new contract — renewing doesn't skip
+     * review. Callable by either the corporate client or an admin, mirroring
+     * the cancellation flow's role handling, so both sides follow the same
+     * standardized process.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public CorporateContractDto renewContract(Long contractId, Long requestedByUserId, String requestedByRole) {
+        CorporateContractDto existing = jdbcTemplate.queryForObject(
+                "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
+                (rs, rowNum) -> mapContract(rs), contractId);
+        if (existing == null) {
+            throw new IllegalArgumentException("Contract not found.");
+        }
+        if (!"active".equalsIgnoreCase(existing.status())) {
+            throw new IllegalStateException("Only an active contract can be renewed.");
+        }
+        if ("corporate".equals(requestedByRole) && requestedByUserId != null
+                && !requestedByUserId.equals(existing.corporateUserId())) {
+            throw new IllegalStateException("You do not have access to this contract.");
+        }
+
+        List<Long> busIds = jdbcTemplate.queryForList(
+                "SELECT bus_id FROM corporate_contract_bus WHERE contract_id = ? ORDER BY assigned_at",
+                Long.class, contractId);
+
+        // The new term starts the day after the current one ends, unless that's
+        // less than a week away — a contract can't be created starting sooner
+        // than that, so a late renewal just starts as soon as it legally can.
+        LocalDate earliestAllowedStart = LocalDate.now().plusWeeks(1);
+        LocalDate newStart = existing.endDate().plusDays(1);
+        if (newStart.isBefore(earliestAllowedStart)) {
+            newStart = earliestAllowedStart;
+        }
+        long termDays = java.time.temporal.ChronoUnit.DAYS.between(existing.startDate(), existing.endDate());
+        LocalDate newEnd = newStart.plusDays(Math.min(Math.max(termDays, 30), 365));
+
+        CorporateContractDto renewalRequest = new CorporateContractDto(
+                null, existing.contractName(), null, null,
+                existing.shiftType(), null, null,
+                existing.morningPickup(), existing.morningDropoff(), existing.morningDistanceKm(),
+                existing.eveningPickup(), existing.eveningDropoff(), existing.eveningDistanceKm(),
+                existing.employeeCount(), existing.workingDays(), existing.busType(), existing.distanceKm(),
+                null, null, null, newStart, newEnd,
+                null, existing.corporateUserId(), null, busIds,
+                null, null, null, null, null, null
+        );
+
+        CorporateContractDto created = createContract(renewalRequest);
+        notifyRenewalSubmitted(existing, created);
+        return created;
+    }
+
+    private void notifyRenewalSubmitted(CorporateContractDto existing, CorporateContractDto renewed) {
+        try {
+            for (Long adminId : allAdminUserIds()) {
+                NotificationDto notification = new NotificationDto();
+                notification.setNotificationType("system_alert");
+                notification.setTitle("Contract Renewal Requested");
+                notification.setMessage("A renewal request for contract \"" + existing.contractName() + "\" (#"
+                        + existing.contractId() + ") was submitted as new contract #" + renewed.contractId()
+                        + ", awaiting approval.");
+                notification.setAdminId(adminId);
+                notification.setRead(false);
+                notificationService.create(notification);
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to create renewal-submitted admin notification for contract {}", existing.contractId(), ex);
+        }
+    }
+
     private void notifyCancellationRequested(
             Long contractId, Long corporateUserId, String contractName,
             String requestedByRole, String reason, LocalDate effectiveDate
@@ -1092,8 +1238,14 @@ public class CorporateService {
         }
         Map<String, Object> row = rows.get(0);
         String advanceStatus = (String) row.get("advance_payment_status");
+        // Idempotent on retry: a client re-confirming a session whose payment
+        // already landed (e.g. the app closed mid-flow before finalizing)
+        // should see success, not an error — mirrors TripBookingService's
+        // confirmPayment, which never fails a duplicate confirmation.
         if ("paid".equalsIgnoreCase(advanceStatus)) {
-            throw new IllegalStateException("Advance deposit is already paid.");
+            return jdbcTemplate.queryForObject(
+                    "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
+                    (rs, rowNum) -> mapContract(rs), contractId);
         }
         if ("waived".equalsIgnoreCase(advanceStatus)) {
             throw new IllegalStateException("Advance deposit is already waived.");

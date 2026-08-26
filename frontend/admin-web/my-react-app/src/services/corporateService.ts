@@ -40,6 +40,7 @@ export type CorporateContract = {
   createdAt: string | null
   corporateUserId: number
   busId: number | null
+  busIds: number[] | null
   cancellation: ContractCancellation
 }
 
@@ -88,6 +89,8 @@ export type AdminContractSummary = {
   companyName: string | null
   contactPersonName: string | null
   contactPhone: string | null
+  startingLocation: string | null
+  destination: string | null
   shiftType: 'morning' | 'evening' | 'both'
   employeeCount: number
   busType: 'standard' | 'ac' | 'mini'
@@ -99,6 +102,7 @@ export type AdminContractSummary = {
   createdAt: string | null
   corporateUserId: number
   busCount: number
+  busNumbers: string | null
   advanceAmount: number | null
   advancePaymentStatus: 'pending' | 'paid' | 'waived' | 'refunded'
   advancePaidAt: string | null
@@ -244,6 +248,20 @@ export function respondToContractCancellation(contractId: number, accept: boolea
   return request<CorporateContract>(`/api/corporate/contracts/${contractId}/cancel-response`, {
     method: 'POST',
     body: JSON.stringify({ role: 'admin', accept, responseReason }),
+  })
+}
+
+/**
+ * Renews a contract nearing its end date by submitting a new pending
+ * contract that continues from where this one leaves off, cloning its
+ * route/shift/bus setup. Goes through the same admin-approval flow as any
+ * new contract request — the same standardized process the corporate app
+ * uses when the client initiates the renewal themselves.
+ */
+export function renewContract(contractId: number) {
+  return request<CorporateContract>(`/api/corporate/contracts/${contractId}/renew`, {
+    method: 'POST',
+    body: JSON.stringify({ role: 'admin' }),
   })
 }
 

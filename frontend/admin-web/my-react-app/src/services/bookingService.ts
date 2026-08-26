@@ -111,6 +111,8 @@ type AdminContractSummary = {
   contractName: string
   companyName: string | null
   contactPersonName: string | null
+  startingLocation: string | null
+  destination: string | null
   shiftType: string
   employeeCount: number
   busType: string
@@ -119,6 +121,7 @@ type AdminContractSummary = {
   startDate: string | null
   endDate: string | null
   busCount: number
+  busNumbers: string | null
   advancePaymentStatus: string
 }
 
@@ -152,9 +155,11 @@ export async function fetchAdminCorporateBookings(): Promise<AdminBooking[]> {
   const contracts = Array.isArray(body.data) ? body.data : []
   return contracts.map((contract) => ({
     bookingId: `CORP-${contract.contractId}`,
-    passengerName: contract.companyName || contract.contactPersonName || 'Corporate client',
-    route: `${contract.contractName} (${contract.employeeCount} employees, ${contract.shiftType} shift)`,
-    bus: `${contract.busCount} bus${contract.busCount === 1 ? '' : 'es'}`,
+    passengerName: contract.contactPersonName || contract.companyName || 'Corporate client',
+    route: contract.startingLocation && contract.destination
+      ? `${contract.startingLocation} → ${contract.destination}`
+      : contract.contractName,
+    bus: contract.busNumbers || (contract.busCount ? `${contract.busCount} bus${contract.busCount === 1 ? '' : 'es'}` : 'Not assigned'),
     busType: contract.busType,
     journeyDate: contract.startDate,
     journeyTime: null,

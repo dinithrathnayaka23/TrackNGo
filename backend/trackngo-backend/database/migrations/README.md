@@ -88,6 +88,17 @@ earnings and promotion eligibility, which both filter on `status = 'completed'`.
 this migration only repairs rows that predate it. It is idempotent, safe to
 re-run, and never touches cancelled bookings.
 
+Before deploying email-based (non-authenticator) two-factor login, run
+`V18__email_otp_login.sql`. It adds `user_settings.email_otp_login_enabled`
+and the `login_otp` table backing the one-time codes AuthServiceImpl emails
+at login time when an account has this enabled — currently surfaced as the
+"Two-Factor Authentication" toggle in the driver app's profile settings. Both
+are also self-healed at application startup, so a fresh environment that
+skips this file still ends up correct on first run. Note the `ALTER TABLE`
+statement intentionally omits `IF NOT EXISTS`: some MySQL builds used in this
+project's dev environments reject that syntax on `ADD COLUMN`. Skip that
+statement by hand if the column is already present.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

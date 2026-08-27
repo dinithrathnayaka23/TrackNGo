@@ -1,6 +1,7 @@
 package com.trackngo.app.service;
 
 import com.trackngo.app.dto.CorporateProfileDto;
+import com.trackngo.app.util.ProfileValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,8 @@ public class CorporateProfileService {
                 corporate_user_id,
                 address,
                 company_name,
+                website,
+                employee_count,
                 contact_person_name,
                 contact_phone,
                 contact_person_designation,
@@ -24,10 +27,12 @@ public class CorporateProfileService {
                 business_registration_number,
                 industry,
                 profile_photo
-            ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 address = VALUES(address),
                 company_name = VALUES(company_name),
+                website = VALUES(website),
+                employee_count = VALUES(employee_count),
                 contact_person_name = VALUES(contact_person_name),
                 contact_phone = VALUES(contact_phone),
                 contact_person_designation = VALUES(contact_person_designation),
@@ -42,6 +47,8 @@ public class CorporateProfileService {
 
     @Transactional
     public void saveProfile(Long userId, CorporateProfileDto dto) {
+        validate(dto);
+
         // Ensure user_type is set to 'corporate'
         jdbcTemplate.update(UPDATE_USER_TYPE_SQL, userId);
 
@@ -51,6 +58,8 @@ public class CorporateProfileService {
                 userId,
                 dto.address(),
                 dto.companyName(),
+                dto.website(),
+                dto.employeeCount(),
                 dto.contactPersonName(),
                 dto.contactPhone(),
                 dto.contactPersonDesignation(),
@@ -58,5 +67,23 @@ public class CorporateProfileService {
                 dto.industry(),
                 dto.profilePhoto()
         );
+    }
+
+    /**
+     * Rejects placeholder text (e.g. "test") on the fields that matter for a
+     * genuine corporate profile, so garbage data can never be saved from the
+     * API even if the client-side form validation is bypassed.
+     */
+    private void validate(CorporateProfileDto dto) {
+        ProfileValidation.requireRealText(dto.companyName(), "Company name", 2);
+        ProfileValidation.requireRealText(dto.businessRegistrationNumber(), "Business registration number", 3);
+        ProfileValidation.requireRealText(dto.industry(), "Industry", 2);
+        ProfileValidation.requireRealText(dto.address(), "Address", 5);
+        ProfileValidation.requireRealText(dto.contactPersonName(), "Contact person name", 2);
+        ProfileValidation.requireRealText(dto.contactPersonDesignation(), "Contact person designation", 2);
+        ProfileValidation.requireValidPhone(dto.contactPhone(), "Contact phone");
+        if (dto.employeeCount() != null && dto.employeeCount() < 0) {
+            throw new IllegalArgumentException("Employee count cannot be negative.");
+        }
     }
 }

@@ -43,6 +43,14 @@ public record CorporateContractDetailDto(
         List<CorporateInvoiceDto> invoices,
         BigDecimal totalBilled,
         BigDecimal totalPaid,
-        BigDecimal outstandingAmount
+        BigDecimal outstandingAmount,
+        BigDecimal advanceAmount,
+        String advancePaymentStatus,
+        String advancePaidAt,
+        String advanceTransactionId,
+        BigDecimal originalBillingAmount,
+        BigDecimal discountAmount,
+        String adminNote,
+        ContractCancellationDto cancellation
 ) {
 }

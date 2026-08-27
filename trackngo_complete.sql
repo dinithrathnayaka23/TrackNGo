@@ -20,7 +20,7 @@ CREATE TABLE user (
     user_type ENUM('passenger', 'driver', 'corporate', 'admin') NOT NULL,
     is_email_verified BOOLEAN DEFAULT false,
     is_active BOOLEAN DEFAULT true,
-    language_preference ENUM('en', 'si') DEFAULT 'en',
+    language_preference ENUM('en', 'si', 'ta') DEFAULT 'en',
     theme_preference ENUM('light', 'dark', 'auto') DEFAULT 'light',
     last_login TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

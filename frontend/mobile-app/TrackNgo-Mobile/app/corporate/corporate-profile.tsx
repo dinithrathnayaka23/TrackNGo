@@ -577,7 +577,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    flex: 1,
     marginRight: 16,
   },
   infoLabel: {
@@ -590,7 +589,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1E293B",
     textAlign: "right",
-    flexShrink: 1,
+    flex: 1,
   },
 
   logoutBtn: {

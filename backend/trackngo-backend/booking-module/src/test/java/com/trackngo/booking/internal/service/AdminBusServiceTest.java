@@ -17,6 +17,8 @@ import java.math.BigDecimal;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.*;
+import com.trackngo.notification.api.NotificationDispatcher;
+
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -32,6 +34,9 @@ class AdminBusServiceTest {
 
     @Mock
     private BookingDisruptionHandler disruptionHandler;
+
+    @Mock
+    private NotificationDispatcher notifications;
 
     @InjectMocks
     private AdminBusService service;

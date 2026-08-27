@@ -51,11 +51,11 @@ export default function DriverNavigationScreen() {
 
   const theme = useMemo(
     () => ({
-      background: darkMode ? '#111' : '#F5F5F5',
+      background: darkMode ? '#111' : '#F1F5F9',
       card: darkMode ? '#1E1E1E' : '#FFFFFF',
       text: darkMode ? '#FFFFFF' : '#111827',
-      secondaryText: darkMode ? '#AAAAAA' : '#64748B',
-      border: darkMode ? '#333333' : '#E2E8F0',
+      secondaryText: darkMode ? '#94A3B8' : '#64748B',
+      border: darkMode ? '#1F2937' : '#E2E8F0',
     }),
     [darkMode]
   );
@@ -209,7 +209,7 @@ export default function DriverNavigationScreen() {
 
         {loading ? (
           <View style={styles.loadingPill}>
-            <ActivityIndicator size="small" color="#0066FF" />
+            <ActivityIndicator size="small" color="#2F6BFF" />
             <Text style={styles.loadingText}>Loading map</Text>
           </View>
         ) : null}
@@ -392,7 +392,7 @@ function createStyles(theme: any, bottomInset: number) {
     },
     mappedBadgeText: {
       fontSize: 11,
-      color: '#0066FF',
+      color: '#2F6BFF',
       fontWeight: "700",
     },
     stopStrip: {
@@ -414,7 +414,7 @@ function createStyles(theme: any, bottomInset: number) {
       overflow: 'hidden',
       textAlign: 'center',
       lineHeight: 20,
-      backgroundColor: '#0066FF',
+      backgroundColor: '#2F6BFF',
       color: '#FFFFFF',
       fontSize: 10,
       fontWeight: "800",
@@ -438,7 +438,7 @@ function createStyles(theme: any, bottomInset: number) {
       gap: 8,
       paddingVertical: 13,
       borderRadius: 12,
-      backgroundColor: '#0066FF',
+      backgroundColor: '#2F6BFF',
     },
     primaryButtonText: {
       fontSize: 14,

@@ -67,11 +67,11 @@ export default function DriverSeatLayoutScreen() { //main component
   const { t } = useLanguage(); //get translation function from languagecontext
   const { width } = useWindowDimensions();
   const theme = useMemo(() => ({
-    background: darkMode ? '#111' : '#F5F5F5',
+    background: darkMode ? '#111' : '#F1F5F9',
     card: darkMode ? '#1E1E1E' : '#FFF',
     text: darkMode ? '#FFF' : '#000',
     secondaryText: darkMode ? '#AAA' : '#666',
-    border: darkMode ? '#333' : '#E0E0E0',
+    border: darkMode ? '#333' : '#E2E8F0',
   }), [darkMode]); //until darkmode changes
   const styles = useMemo(() => createStyles(theme, width), [theme, width]); // Create styles using the current theme. 
 
@@ -535,7 +535,7 @@ export default function DriverSeatLayoutScreen() { //main component
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#0066FF" />
+          <ActivityIndicator size="large" color="#2F6BFF" />
           <Text style={[styles.loadingText, { color: theme.text }]}>{t('allocations.loadingSeatLayout')}</Text>
         </View>
       </SafeAreaView>
@@ -547,7 +547,7 @@ export default function DriverSeatLayoutScreen() { //main component
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
         <View style={styles.centerContainer}>
-          <MaterialCommunityIcons name="alert-circle" size={48} color="#FF6B6B" />
+          <MaterialCommunityIcons name="alert-circle" size={48} color="#EF4444" />
           <Text style={[styles.errorText, { color: theme.text }]}>{error || t('allocations.noDataAvailable')}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadSeatLayoutData}>
             <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
@@ -700,7 +700,7 @@ export default function DriverSeatLayoutScreen() { //main component
                 <Text style={styles.seatInfo}>{t('allocations.seatNumber', { seat: selectedSeat ?? '' })}</Text>
               </View>
               <TouchableOpacity onPress={handlePassengerOptions}>
-                <MaterialCommunityIcons name="pencil" size={20} color="#0066FF" />
+                <MaterialCommunityIcons name="pencil" size={20} color="#2F6BFF" />
               </TouchableOpacity>
             </View>
           </View>
@@ -855,7 +855,7 @@ function createStyles(theme: any, width: number) {
     alignItems: 'center',
   },
   statusBadge: {
-    backgroundColor: '#0066FF',
+    backgroundColor: '#2F6BFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -901,7 +901,7 @@ function createStyles(theme: any, width: number) {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -982,14 +982,14 @@ function createStyles(theme: any, width: number) {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#EAF2FF',
     justifyContent: 'center',
     alignItems: 'center',
   },
   passengerInitials: {
     fontSize: 13,
     fontWeight: "700",
-    color: '#0066FF',
+    color: '#2F6BFF',
   },
   passengerInfo: {
     flex: 1,
@@ -1022,7 +1022,7 @@ function createStyles(theme: any, width: number) {
   locationIconContainer: {
     width: 40,
     height: 40,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F1F5F9',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1107,7 +1107,7 @@ function createStyles(theme: any, width: number) {
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E2E8F0',
   },
   messageButtonText: {
     color: theme.text,
@@ -1118,7 +1118,7 @@ function createStyles(theme: any, width: number) {
     marginHorizontal: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#0066FF',
+    backgroundColor: '#2F6BFF',
     borderRadius: 8,
     flexDirection: 'row',
     justifyContent: 'center',
@@ -1152,7 +1152,7 @@ function createStyles(theme: any, width: number) {
     marginHorizontal: 32,
   },
   retryButton: {
-    backgroundColor: '#0066FF',
+    backgroundColor: '#2F6BFF',
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 8,
@@ -1171,7 +1171,7 @@ function createStyles(theme: any, width: number) {
   },
   selectedSeat: {
     borderWidth: 3,
-    borderColor: '#0066FF',
+    borderColor: '#2F6BFF',
   },
   });
 };

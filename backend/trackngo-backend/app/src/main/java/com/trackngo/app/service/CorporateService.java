@@ -7,7 +7,9 @@ import com.trackngo.app.dto.CorporateContractDto;
 import com.trackngo.app.dto.CorporateInvoiceDto;
 import com.trackngo.app.dto.CorporateAdvancePaymentDto;
 import com.trackngo.app.dto.ShiftLegDto;
+import com.trackngo.notification.api.NotificationDispatcher;
 import com.trackngo.notification.api.NotificationService;
+import com.trackngo.notification.api.NotificationType;
 import com.trackngo.notification.api.dto.NotificationDto;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
@@ -35,6 +37,7 @@ public class CorporateService {
 
     private final JdbcTemplate jdbcTemplate;
     private final NotificationService notificationService;
+    private final NotificationDispatcher notifications;
     private final CorporatePricingService pricingService;
 
     private static final List<String> VALID_SHIFT_TYPES = List.of("morning", "evening", "both");
@@ -721,6 +724,34 @@ public class CorporateService {
             notificationService.create(notification);
         } catch (Exception ex) {
             log.warn("Failed to create submission notification for contract {}", contractId, ex);
+        }
+
+        notifications.toAllAdmins(
+                NotificationType.SYSTEM_ALERT,
+                "New Contract Request",
+                String.format(
+                        "%s submitted contract request \"%s\" (%s → %s). It is waiting for approval.",
+                        resolveCorporateCompanyName(dto.corporateUserId()),
+                        dto.contractName(),
+                        resolveStartingLocation(dto),
+                        resolveDestination(dto)));
+    }
+
+    /** Names the company behind a contract request so admins know who is asking. */
+    private String resolveCorporateCompanyName(Long corporateUserId) {
+        if (corporateUserId == null) {
+            return "A corporate account";
+        }
+
+        try {
+            String companyName = jdbcTemplate.queryForObject(
+                    "SELECT company_name FROM corporate_user WHERE corporate_user_id = ?",
+                    String.class,
+                    corporateUserId);
+            return companyName == null || companyName.isBlank() ? "A corporate account" : companyName;
+        } catch (Exception ex) {
+            log.warn("Failed to resolve company name for corporate user {}", corporateUserId, ex);
+            return "A corporate account";
         }
     }
 

@@ -180,12 +180,12 @@ function Settings() {
         </div>
 
         <section className="animate-dash-in grid gap-4 sm:grid-cols-2 xl:grid-cols-3" style={{ animationDelay: '100ms' }}>
-          <article className="dashboard-card h-full rounded-xl border border-[#e5e7eb] bg-white p-5">
+          <article className="h-full rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]">
             <div className="flex items-start justify-between gap-4">
               <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[#eef2ff] text-[#2642a6]">
                 <FontAwesomeIcon icon={faPhoneVolume} />
               </div>
-              <span className="rounded-full bg-[#f1f5f9] px-2.5 py-1 text-xs font-bold text-[#64748b]">
+              <span className="rounded-full bg-[#f1f5f9] px-2.5 py-0.5 text-xs font-bold text-[#64748b]">
                 SOS
               </span>
             </div>
@@ -200,7 +200,7 @@ function Settings() {
             <button
               type="button"
               onClick={openModal}
-              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]"
+              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]"
             >
               Go
               <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
@@ -219,7 +219,7 @@ function Settings() {
 
       {modalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="relative max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="relative max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-xl">
             <button
               type="button"
               onClick={closeModal}
@@ -236,7 +236,7 @@ function Settings() {
                     <FontAwesomeIcon icon={faGear} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-extrabold text-[#111827]">Emergency Numbers</h2>
+                    <h2 className="text-lg font-extrabold text-[#111827]">Emergency Numbers</h2>
                     <p className="text-sm text-[#64748b]">{rows.length} rows</p>
                   </div>
                 </div>
@@ -244,7 +244,7 @@ function Settings() {
                 <button
                   type="button"
                   onClick={openAddForm}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#203b96]"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#203b96]"
                 >
                   <FontAwesomeIcon icon={faPlus} className="text-xs" />
                   Add New
@@ -255,7 +255,7 @@ function Settings() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[#e5e7eb] bg-[#f8fafc] text-left text-xs font-bold uppercase text-[#64748b]">
+                      <tr className="border-b border-[#e5e7eb] bg-[#f8fafc] text-left text-xs font-semibold uppercase text-[#64748b] tracking-wide">
                         <th className="px-4 py-3">Label</th>
                         <th className="px-4 py-3">Fire Brigade</th>
                         <th className="px-4 py-3">Ambulance</th>
@@ -292,8 +292,8 @@ function Settings() {
                           <td className="px-4 py-3 text-[#334155]">{row.police}</td>
                           <td className="px-4 py-3 text-[#334155]">{row.helpCenter}</td>
                           <td className="px-4 py-3">
-                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${activeBadge(row.isActive)}`}>
-                              {row.isActive && <FontAwesomeIcon icon={faCheckCircle} className="text-[10px]" />}
+                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${activeBadge(row.isActive)}`}>
+                              {row.isActive && <FontAwesomeIcon icon={faCheckCircle} className="text-2xs" />}
                               {row.isActive ? 'Active' : 'Inactive'}
                             </span>
                           </td>
@@ -301,9 +301,9 @@ function Settings() {
                             <button
                               type="button"
                               onClick={() => openEditForm(row)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#d6dbe6] bg-white px-3 py-1.5 text-xs font-bold text-[#334155] transition hover:bg-[#f1f5f9]"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#d6dbe6] bg-white px-3 py-1.5 text-xs font-semibold text-[#334155] transition hover:bg-[#f1f5f9]"
                             >
-                              <FontAwesomeIcon icon={faPen} className="text-[10px]" />
+                              <FontAwesomeIcon icon={faPen} className="text-2xs" />
                               Edit
                             </button>
                           </td>
@@ -323,12 +323,12 @@ function Settings() {
               </div>
 
               {formOpen && (
-                <div className="mt-5 rounded-xl border border-[#d6dbe6] bg-[#f8fafc] p-4">
+                <div className="mt-5 rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-base font-extrabold text-[#111827]">
+                    <h3 className="text-sm font-bold text-[#111827]">
                       {editingId ? 'Edit Emergency Row' : 'Add Emergency Row'}
                     </h3>
-                    <label className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-bold text-[#334155]">
+                    <label className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-[#334155]">
                       <input
                         type="checkbox"
                         checked={form.isActive}
@@ -401,7 +401,7 @@ function Settings() {
                         setEditingId(null)
                         setSaveError('')
                       }}
-                      className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-bold text-[#334155] transition hover:bg-[#f1f5f9]"
+                      className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9]"
                     >
                       Cancel
                     </button>
@@ -409,7 +409,7 @@ function Settings() {
                       type="button"
                       onClick={() => void saveForm()}
                       disabled={saving}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {saving && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />}
                       {saving ? 'Saving...' : 'Save'}

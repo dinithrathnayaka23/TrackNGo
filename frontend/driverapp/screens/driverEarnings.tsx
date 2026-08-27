@@ -197,7 +197,7 @@ export default function DriverEarningsScreen() {
 
           .header {
             text-align: center;
-            border-bottom: 2px solid #0066FF;
+            border-bottom: 2px solid #2F6BFF;
             padding-bottom: 16px;
             margin-bottom: 20px;
           }
@@ -205,7 +205,7 @@ export default function DriverEarningsScreen() {
           .header h1 {
             margin: 0;
             font-size: 22px;
-            color: #0066FF;
+            color: #2F6BFF;
           }
 
           .sub {
@@ -215,7 +215,7 @@ export default function DriverEarningsScreen() {
           }
 
           .card {
-            background: #f5f7ff;
+            background: #EAF2FF;
             padding: 16px;
             border-radius: 10px;
             margin-bottom: 20px;
@@ -240,7 +240,7 @@ export default function DriverEarningsScreen() {
 
           th {
             text-align: left;
-            background: #0066FF;
+            background: #2F6BFF;
             color: white;
             padding: 10px;
             font-size: 12px;
@@ -257,7 +257,7 @@ export default function DriverEarningsScreen() {
             font-size: 16px;
             font-weight: bold;
             margin-top: 16px;
-            color: #0066FF;
+            color: #2F6BFF;
           }
 
           .footer {
@@ -341,11 +341,11 @@ export default function DriverEarningsScreen() {
   const { darkMode } = useTheme(); // Get the current theme mode (dark or light) from the ThemeContext to apply appropriate colors to the UI elements, ensuring that the design is consistent with the user's theme preference and provides good readability and visual appeal in both modes.
 
   const theme = useMemo(() => ({
-  background: darkMode ? '#111' : '#F5F5F5',
+  background: darkMode ? '#111' : '#F1F5F9',
   card: darkMode ? '#1E1E1E' : '#FFF',
   text: darkMode ? '#FFF' : '#000',
   secondaryText: darkMode ? '#AAA' : '#666',
-  border: darkMode ? '#333' : '#E0E0E0',
+  border: darkMode ? '#333' : '#E2E8F0',
   }), [darkMode]);
 
   const styles = useMemo(
@@ -389,7 +389,7 @@ export default function DriverEarningsScreen() {
       >
 
         <Text style={styles.receiptLinkText}>{t('earnings.viewReceipt')}</Text>
-        <MaterialCommunityIcons name="chevron-right" size={16} color="#0066FF" />
+        <MaterialCommunityIcons name="chevron-right" size={16} color="#2F6BFF" />
       </TouchableOpacity>
     </View>
   );
@@ -462,7 +462,7 @@ export default function DriverEarningsScreen() {
                         styles.bar,
                         {
                           height: (data.amount / maxAmount) * 120,
-                          backgroundColor: data.isHighlighted ? '#0066FF' : '#D1D5DB',
+                          backgroundColor: data.isHighlighted ? '#2F6BFF' : '#D1D5DB',
                         },
                       ]}
                     />
@@ -652,7 +652,7 @@ function createStyles({
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: '#0066FF',
+      backgroundColor: '#2F6BFF',
     },
     earningsCard: {
       marginHorizontal: horizontalPadding,
@@ -687,7 +687,7 @@ function createStyles({
     percentageBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#E7F5EC',
+      backgroundColor: '#DCFCE7',
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: 6,
@@ -772,7 +772,7 @@ function createStyles({
       justifyContent: 'space-around',
       borderLeftWidth: 1,
       borderBottomWidth: 1,
-      borderColor: '#E0E0E0',
+      borderColor: '#E2E8F0',
       paddingLeft: 8,
       paddingBottom: 8,
       minWidth: 0,
@@ -797,7 +797,7 @@ function createStyles({
     },
     viewAllText: {
       fontSize: 12,
-      color: '#0066FF',
+      color: '#2F6BFF',
       fontWeight: "600",
     },
     earningsListSection: {
@@ -820,7 +820,7 @@ function createStyles({
       textAlign: 'center',
     },
     retryText: {
-      color: '#0066FF',
+      color: '#2F6BFF',
       fontSize: 14,
       fontWeight: "700",
       marginTop: 4,
@@ -869,7 +869,7 @@ function createStyles({
       color: theme.text,
     },
     netEarningsBadge: {
-      backgroundColor: '#E7F5EC',
+      backgroundColor: '#DCFCE7',
       paddingHorizontal: 10,
       paddingVertical: 3,
       borderRadius: 4,
@@ -889,7 +889,7 @@ function createStyles({
     },
     receiptLinkText: {
       fontSize: 12,
-      color: '#0066FF',
+      color: '#2F6BFF',
       fontWeight: "600",
       marginRight: 4,
     },
@@ -900,8 +900,8 @@ function createStyles({
       paddingHorizontal: 16,
       borderRadius: 12,
       borderWidth: 1.5,
-      borderColor: '#0066FF',
-      backgroundColor:'#0066FF',
+      borderColor: '#2F6BFF',
+      backgroundColor:'#2F6BFF',
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
@@ -927,7 +927,7 @@ function createStyles({
     receiptModal: {
       width: '100%',
       backgroundColor: theme.card,
-      borderColor: '#0066FF',
+      borderColor: '#2F6BFF',
       borderRadius: 16,
       padding: 20,
     },
@@ -937,7 +937,7 @@ function createStyles({
       fontWeight: "700",
       marginBottom: 16,
       textAlign: 'center',
-      color: '#0066FF',
+      color: '#2F6BFF',
     },
 
     receiptRow: {
@@ -961,7 +961,7 @@ function createStyles({
     amountBox: {
       marginTop: 16,
       padding: 14,
-      backgroundColor: '#E3F2FD',
+      backgroundColor: '#EAF2FF',
       borderRadius: 10,
       alignItems: 'center',
     },
@@ -969,13 +969,13 @@ function createStyles({
     amountText: {
       fontSize: 18,
       fontWeight: "700",
-      color: '#0066FF',
+      color: '#2F6BFF',
     },
 
     closeBtn: {
       marginTop: 16,
       padding: 12,
-      backgroundColor: '#0066FF',
+      backgroundColor: '#2F6BFF',
       borderRadius: 10,
       alignItems: 'center',
     },
@@ -995,7 +995,7 @@ function createStyles({
 weeklyTitleModal: {
   fontSize: 18,
   fontWeight: "700",
-  color: '#0066FF',
+  color: '#2F6BFF',
   textAlign: 'center',
 },
 
@@ -1012,7 +1012,7 @@ weekRow: {
   justifyContent: 'space-between',
   paddingVertical: 8,
   borderBottomWidth: 1,
-  borderBottomColor: '#F0F0F0',
+  borderBottomColor: '#F1F5F9',
 },
 
 weekDay: {
@@ -1024,13 +1024,13 @@ weekDay: {
 weekAmount: {
   fontSize: 13,
   fontWeight: "700",
-  color: '#0066FF',
+  color: '#2F6BFF',
 },
 
 weekTotalBox: {
   marginTop: 16,
   padding: 12,
-  backgroundColor: '#E3F2FD',
+  backgroundColor: '#EAF2FF',
   borderRadius: 10,
   alignItems: 'center',
 },
@@ -1038,7 +1038,7 @@ weekTotalBox: {
 weekTotalText: {
   fontSize: 14,
   fontWeight: "700",
-  color: '#0066FF',
+  color: '#2F6BFF',
 },
       });
     }

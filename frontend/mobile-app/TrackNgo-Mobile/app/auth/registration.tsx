@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,6 +13,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
+import { sendRegistrationOtp } from "../../services/registrationOtpApi";
 
 type UserType = "Passenger" | "Corporate";
 
@@ -29,6 +32,7 @@ export default function RegistrationScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   function validate(): boolean {
     const next: Record<string, string> = {};
@@ -49,19 +53,61 @@ export default function RegistrationScreen() {
     return Object.keys(next).length === 0;
   }
 
-  function handleNext() {
+  async function handleNext() {
     if (!validate()) return;
-    router.push({
-      pathname: "/auth/otp-verification",
-      params: {
-        phone: `${countryCode} ${phone}`,
-        email: email.trim(),
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        userType,
-        password,
-      },
-    });
+    const trimmedEmail = email.trim();
+    setSubmitting(true);
+    try {
+      await sendRegistrationOtp(trimmedEmail);
+      router.push({
+        pathname: "/auth/otp-verification",
+        params: {
+          phone: `${countryCode} ${phone}`,
+          email: trimmedEmail,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          userType,
+          password,
+        },
+      });
+    } catch (error) {
+      showSendOtpError(error, trimmedEmail);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  /**
+   * Explains why the verification code could not be sent.
+   *
+   * An address that is already registered is the common case and is not really a
+   * failure, so it is marked on the email field the way validation errors are and
+   * offered a way straight to the login screen rather than a dead-end alert.
+   *
+   * The backend reports this as a plain message with no error code, so the wording
+   * has to be matched. If that wording ever changes this falls through to showing
+   * the server's own message, which is still accurate - it just loses the shortcut.
+   */
+  function showSendOtpError(error: unknown, attemptedEmail: string) {
+    const message =
+      error instanceof Error && error.message.trim()
+        ? error.message
+        : "Something went wrong. Please check your connection and try again.";
+
+    if (/already (exists|registered)/i.test(message)) {
+      setErrors((prev) => ({ ...prev, email: "This email is already registered" }));
+      Alert.alert(
+        "Email already registered",
+        `${attemptedEmail} already has a TrackNGo account. You can log in with it, or sign up using a different email address.`,
+        [
+          { text: "Use another email", style: "cancel" },
+          { text: "Log In", onPress: () => router.replace("/auth/login") },
+        ],
+      );
+      return;
+    }
+
+    Alert.alert("Could not send code", message);
   }
 
   function clearError(field: string) {
@@ -86,6 +132,18 @@ export default function RegistrationScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
+          <Pressable
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace("/auth/welcome")
+            }
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={styles.backBtn}
+          >
+            <Ionicons name="arrow-back" size={22} color="#374151" />
+          </Pressable>
+
           <Text style={styles.title}>Create Account</Text>
 
           {/* Step indicator */}
@@ -272,11 +330,16 @@ export default function RegistrationScreen() {
 
         {/* Next button */}
         <TouchableOpacity
-          style={styles.nextBtn}
-          onPress={handleNext}
+          style={[styles.nextBtn, submitting && { opacity: 0.7 }]}
+          onPress={() => void handleNext()}
           activeOpacity={0.85}
+          disabled={submitting}
         >
-          <Text style={styles.nextBtnText}>Next</Text>
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={styles.nextBtnText}>Next</Text>
+          )}
         </TouchableOpacity>
 
         {/* Login link */}
@@ -304,6 +367,16 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 20,
+  },
+  backBtn: {
+    // Pulled left so the icon's optical edge lines up with the title below it
+    // rather than the touch target's edge.
+    marginLeft: -8,
+    marginBottom: 8,
+    width: 40,
+    height: 40,
+    alignItems: "flex-start",
+    justifyContent: "center",
   },
   title: {
     fontSize: 24,

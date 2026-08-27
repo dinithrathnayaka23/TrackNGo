@@ -3,6 +3,7 @@ package com.trackngo.booking.internal.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.api.dto.BookingFlowDtos.*;
 import com.trackngo.commons.exception.BusinessException;
+import com.trackngo.notification.api.NotificationDispatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,9 @@ class BookingFlowServiceTest {
 
     @Mock
     private PromotionService promotionService;
+
+    @Mock
+    private NotificationDispatcher notifications;
 
     @InjectMocks
     private BookingFlowService service;

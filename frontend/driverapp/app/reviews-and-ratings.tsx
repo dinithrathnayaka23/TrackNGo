@@ -65,11 +65,11 @@ export default function ReviewsAndRatingsScreen() {
   const [complaintsError, setComplaintsError] = useState<string | null>(null);
 
   const theme = {
-    background: darkMode ? "#111" : "#F5F5F5",
+    background: darkMode ? "#111" : "#F1F5F9",
     card: darkMode ? "#1E1E1E" : "#FFF",
     text: darkMode ? "#FFF" : "#000",
     secondaryText: darkMode ? "#AAA" : "#666",
-    border: darkMode ? "#333" : "#E0E0E0",
+    border: darkMode ? "#333" : "#E2E8F0",
   };
 
   const loadData = useCallback(
@@ -187,7 +187,7 @@ export default function ReviewsAndRatingsScreen() {
       >
         {loading ? (
           <View style={styles.stateCard}>
-            <ActivityIndicator color="#0066FF" />
+            <ActivityIndicator color="#2F6BFF" />
             <Text style={styles.stateText}>Loading...</Text>
           </View>
         ) : activeTab === "ratings" && ratingsError ? (
@@ -212,7 +212,7 @@ export default function ReviewsAndRatingsScreen() {
           <>
             {averageDriverRating != null ? (
               <View style={styles.summaryCard}>
-                <MaterialCommunityIcons name="star" size={22} color="#FFD700" />
+                <MaterialCommunityIcons name="star" size={22} color="#F59E0B" />
                 <Text style={styles.summaryText}>
                   {averageDriverRating.toFixed(1)}/5.0 average from {ratings.length}{" "}
                   {ratings.length === 1 ? "rating" : "ratings"}
@@ -249,8 +249,8 @@ export default function ReviewsAndRatingsScreen() {
                         size={16}
                         color={
                           item.driverRating != null && i <= item.driverRating
-                            ? "#FFD700"
-                            : "#D3D3D3"
+                            ? "#F59E0B"
+                            : "#CBD5E1"
                         }
                       />
                     ))}
@@ -395,7 +395,7 @@ function createStyles(theme: {
       alignItems: "center",
     },
     tabButtonActive: {
-      backgroundColor: "#0066FF",
+      backgroundColor: "#2F6BFF",
     },
     tabButtonText: {
       fontSize: 13,

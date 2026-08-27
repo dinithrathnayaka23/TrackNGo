@@ -2,12 +2,17 @@ import { Tabs } from "expo-router";
 import { StyleSheet } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLanguage } from "../../utils/i18n";
 import { formatUnreadBadge, useUnreadChatCount } from "../../hooks/useUnreadChatCount";
+
+// The visible height of the bar itself, before the system navigation inset.
+const TAB_BAR_CONTENT_HEIGHT = 62;
 
 export default function TabLayout() {
   const { t } = useLanguage();
   const unreadChatCount = useUnreadChatCount();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -16,10 +21,16 @@ export default function TabLayout() {
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: "#2F6BFF",
         tabBarInactiveTintColor: "#9AA4B2",
-        tabBarLabelStyle: { fontSize: 12, fontWeight: "600", marginBottom: 2 },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
+        // BottomTabBar applies tabBarStyle last, so a bare height/paddingBottom here
+        // silently replaces the inset-aware values it would otherwise use, leaving the
+        // bar no room for the Android navigation bar. Adding the inset back keeps the
+        // designed 62pt of content and reserves that space. Where the inset is 0 this
+        // evaluates to the previous fixed values, so nothing changes visually there.
         tabBarStyle: {
-          height: 62,
+          height: TAB_BAR_CONTENT_HEIGHT + insets.bottom,
           paddingTop: 6,
+          paddingBottom: 6 + insets.bottom,
           backgroundColor: "#FFFFFF",
           borderTopWidth: 1,
           borderTopColor: "#E9EDF3",

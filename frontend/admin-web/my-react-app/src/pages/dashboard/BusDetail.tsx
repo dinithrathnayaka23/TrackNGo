@@ -1315,7 +1315,7 @@ function BusDetail() {
           <button
             type="button"
             onClick={() => navigate('/dashboard/buses')}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#203b96]"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#203b96]"
           >
             <FontAwesomeIcon icon={faArrowLeft} />
             Back to Buses
@@ -1398,7 +1398,7 @@ function BusDetail() {
                     type="button"
                     onClick={openEditBusModal}
                     disabled={isBusDeleted}
-                    className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-bold text-[#334155] transition duration-200 hover:-translate-y-0.5"
+                    className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition duration-200 hover:-translate-y-0.5"
                   >
                     <FontAwesomeIcon icon={faPen} className="mr-2" />
                     Edit
@@ -1407,7 +1407,7 @@ function BusDetail() {
                     type="button"
                     onClick={handleToggleMaintenance}
                     disabled={isBusDeleted}
-                    className="rounded-lg border border-[#e2cf8f] bg-[#fff7db] px-4 py-2 text-sm font-bold text-[#99680b] transition duration-200 hover:-translate-y-0.5"
+                    className="rounded-lg border border-[#e2cf8f] bg-[#fff7db] px-4 py-2 text-sm font-semibold text-[#99680b] transition duration-200 hover:-translate-y-0.5"
                   >
                     <FontAwesomeIcon
                       icon={faScrewdriverWrench}
@@ -1420,7 +1420,7 @@ function BusDetail() {
                   <button
                     type="button"
                     onClick={() => setIsDeleteModalOpen(true)}
-                    className="rounded-lg bg-[#f25555] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#e64747]"
+                    className="rounded-lg bg-[#f25555] px-5 py-2 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#e64747]"
                     aria-label="Delete bus"
                     disabled={isBusDeleted}
                   >
@@ -1433,7 +1433,7 @@ function BusDetail() {
             {/* Deleted State Alert - Shows when bus has been deleted */}
             {isBusDeleted ? (
               <section className="dashboard-card rounded-2xl border border-[#f0caca] bg-[#fff5f5] p-6 shadow-sm">
-                <h2 className="text-sm font-bold text-[#8d1f1f]">
+                <h2 className="text-base font-bold text-[#8d1f1f]">
                   Bus deleted
                 </h2>
                 <p className="mt-2 text-sm text-[#9a5555]">
@@ -1457,7 +1457,7 @@ function BusDetail() {
                   style={{ animationDelay: "130ms" }}
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-[#111827]">
+                    <h2 className="text-base font-bold text-[#111827]">
                       Vehicle Specs
                     </h2>
                     <FontAwesomeIcon
@@ -1499,7 +1499,7 @@ function BusDetail() {
                   style={{ animationDelay: "170ms" }}
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-[#111827]">
+                    <h2 className="text-base font-bold text-[#111827]">
                       Assigned Driver
                     </h2>
                     <button
@@ -1584,7 +1584,7 @@ function BusDetail() {
                   style={{ animationDelay: "250ms" }}
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-[#111827]">
+                    <h2 className="text-base font-bold text-[#111827]">
                       Amenities
                     </h2>
                     <button
@@ -1849,7 +1849,7 @@ function BusDetail() {
                         )}
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#334155]">Forward Departure</label>
+                            <label className="mb-1 block text-sm font-semibold text-[#334155]">Forward Departure</label>
                             <input
                               type="time"
                               value={scheduleDraft.startTime}
@@ -1858,7 +1858,7 @@ function BusDetail() {
                             />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#334155]">Forward Arrival</label>
+                            <label className="mb-1 block text-sm font-semibold text-[#334155]">Forward Arrival</label>
                             <input
                               type="time"
                               value={scheduleDraft.endTime}
@@ -1867,7 +1867,7 @@ function BusDetail() {
                             />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#334155]">Return Departure</label>
+                            <label className="mb-1 block text-sm font-semibold text-[#334155]">Return Departure</label>
                             <input
                               type="time"
                               value={scheduleDraft.returnStartTime}
@@ -1876,7 +1876,7 @@ function BusDetail() {
                             />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#334155]">Return Arrival</label>
+                            <label className="mb-1 block text-sm font-semibold text-[#334155]">Return Arrival</label>
                             <input
                               type="time"
                               value={scheduleDraft.returnEndTime}
@@ -1923,7 +1923,7 @@ function BusDetail() {
                                 .catch((e: Error) => setScheduleFormError(e.message))
                                 .finally(() => setSaving(false));
                             }}
-                            className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96] disabled:opacity-60"
+                            className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-[#203b96] disabled:opacity-60"
                           >
                             {saving ? "Saving…" : "Save Schedule"}
                           </button>
@@ -2131,7 +2131,7 @@ function BusDetail() {
           <div className="w-full max-w-xl rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
             <div className="flex items-center justify-between border-b border-[#e5e7eb] px-6 py-4">
               <div>
-                <h2 className="text-sm font-extrabold text-[#111827]">
+                <h2 className="text-base font-bold text-[#111827]">
                   Edit Amenities
                 </h2>
                 <p className="text-sm text-[#64748b]">
@@ -2179,7 +2179,7 @@ function BusDetail() {
               <button
                 type="button"
                 onClick={handleSaveAmenities}
-                className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]"
+                className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-[#203b96]"
               >
                 Save Changes
               </button>
@@ -2193,7 +2193,7 @@ function BusDetail() {
           <div className="my-2 flex max-h-[calc(100vh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)] sm:my-6 sm:max-h-[calc(100vh-3rem)]">
             <div className="flex shrink-0 items-center justify-between border-b border-[#e5e7eb] px-4 py-4 sm:px-6">
               <div className="min-w-0 pr-3">
-                <h2 className="text-sm font-extrabold text-[#111827]">
+                <h2 className="text-base font-bold text-[#111827]">
                   Change Driver
                 </h2>
                 <p className="text-sm text-[#64748b]">
@@ -2265,7 +2265,7 @@ function BusDetail() {
               <button
                 type="button"
                 onClick={handleSaveDriver}
-                className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]"
+                className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-[#203b96]"
               >
                 Save Driver
               </button>
@@ -2279,7 +2279,7 @@ function BusDetail() {
           <div className="w-full max-w-xl rounded-2xl border border-[#d6dbe6] bg-[#f7f8fc] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
             <div className="flex items-center justify-between border-b border-[#e5e7eb] px-6 py-4">
               <div>
-                <h2 className="text-sm font-extrabold text-[#111827]">
+                <h2 className="text-base font-bold text-[#111827]">
                   Edit Bus
                 </h2>
                 <p className="text-sm text-[#64748b]">
@@ -2444,7 +2444,7 @@ function BusDetail() {
               <button
                 type="button"
                 onClick={handleSaveBus}
-                className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#203b96]"
+                className="rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-[#203b96]"
               >
                 Save Bus
               </button>
@@ -2470,10 +2470,10 @@ function BusDetail() {
                   <FontAwesomeIcon icon={faArrowLeft} />
                 </button>
                 <div className="text-center">
-                  <h2 className="text-lg font-bold text-[#111827]">
+                  <h2 className="text-lg font-extrabold text-[#111827]">
                     Edit Bus Layout
                   </h2>
-                  <p className="text-xs text-[#94a3b8]">Bus {busDraft.code}</p>
+                  <p className="text-sm text-[#94a3b8]">Bus {busDraft.code}</p>
                 </div>
                 <button
                   type="button"
@@ -2508,7 +2508,7 @@ function BusDetail() {
                   </div>
 
                   <div className="relative rounded-xl border border-[#e5e7eb] bg-[#fbfcff] p-4 md:p-5">
-                    <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#64748b] shadow-sm">
+                    <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-semibold text-[#64748b] shadow-sm">
                       <span className="grid h-8 w-8 place-items-center rounded-full bg-[#f3f4f6] text-[#94a3b8]">
                         <FontAwesomeIcon icon={faCircleUser} />
                       </span>
@@ -2524,7 +2524,7 @@ function BusDetail() {
                     ) : null}
 
                     <div className="pointer-events-none absolute bottom-6 left-1/2 top-16 w-px -translate-x-1/2 border-l border-dashed border-[#e5e7eb]" />
-                    <div className="pointer-events-none absolute left-1/2 top-[52%] -translate-x-1/2 rounded-full bg-[#f1f5f9] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">
+                    <div className="pointer-events-none absolute left-1/2 top-[52%] -translate-x-1/2 rounded-full bg-[#f1f5f9] px-2 py-1 text-xs font-semibold uppercase text-[#94a3b8] tracking-wide">
                       Aisle
                     </div>
 
@@ -2536,7 +2536,7 @@ function BusDetail() {
                               key={`layout-row-last-${rowIndex + 1}`}
                               className="space-y-1"
                             >
-                              <p className="text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">
+                              <p className="text-center text-xs font-semibold uppercase text-[#94a3b8] tracking-wide">
                                 Rear Bench
                               </p>
                               <div
@@ -2671,7 +2671,7 @@ function BusDetail() {
 
                     <div className="flex items-center justify-between rounded-lg border border-[#dce5f4] bg-[#f7faff] px-3 py-2">
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6c7f9a]">
+                        <p className="text-xs font-semibold uppercase text-[#6c7f9a] tracking-wide">
                           Draft Total Seats
                         </p>
                         <p className="mt-1 text-lg font-extrabold text-[#111827]">
@@ -2679,7 +2679,7 @@ function BusDetail() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6c7f9a]">
+                        <span className="text-xs font-semibold uppercase text-[#6c7f9a] tracking-wide">
                           Driver Left Seat
                         </span>
                         <button
@@ -2741,7 +2741,7 @@ function BusDetail() {
                     <button
                       type="button"
                       onClick={handleApplyLayoutConfig}
-                      className="w-full rounded-lg bg-[#1474f2] px-4 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#1268d8]"
+                      className="w-full rounded-lg bg-[#1474f2] px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-[#1268d8]"
                     >
                       OK - Apply Layout
                     </button>
@@ -2791,7 +2791,7 @@ function BusDetail() {
                             .finally(() => setSaving(false));
                         }}
                         disabled={saving}
-                        className="rounded-lg bg-[#1474f2] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#1268d8]"
+                        className="rounded-lg bg-[#1474f2] px-5 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-[#1268d8]"
                       >
                         {saving ? "Saving..." : "Save Layout"}
                       </button>
@@ -2808,7 +2808,7 @@ function BusDetail() {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#101426]/45 p-4">
           <div className="w-full max-w-md rounded-2xl border border-[#f0d6d6] bg-[#fff7f7] shadow-[0_28px_80px_rgba(17,27,52,0.32)]">
             <div className="border-b border-[#e5e7eb] px-6 py-4">
-              <h2 className="text-sm font-extrabold text-[#8d1f1f]">
+              <h2 className="text-base font-bold text-[#8d1f1f]">
                 Delete Bus
               </h2>
               <p className="text-sm text-[#9a5555]">
@@ -2826,7 +2826,7 @@ function BusDetail() {
               <button
                 type="button"
                 onClick={handleDeleteBus}
-                className="rounded-lg bg-[#e04444] px-5 py-2 text-sm font-bold text-white transition duration-200 hover:bg-[#d43939]"
+                className="rounded-lg bg-[#e04444] px-5 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-[#d43939]"
               >
                 Delete
               </button>

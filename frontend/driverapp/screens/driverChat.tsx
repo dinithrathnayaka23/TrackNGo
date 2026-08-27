@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -16,6 +17,7 @@ import { ADMIN_SUPPORT_USER_ID } from '@/config/env';
 import { useUser } from '@/context/UserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import type { TranslateFn } from '@/locales';
+import { resolveAssetUrl } from '@/utils/media';
 import {
   createConversation,
   getConversationMessages,
@@ -37,6 +39,7 @@ interface Conversation {
   unreadCount: number;
   otherUserId?: number | null;
   otherUserType?: ChatParticipantType | null;
+  avatarUri?: string | null;
   isSupport: boolean;
   lastMessageSenderId?: number | null;
   lastMessageStatus?: string | null;
@@ -303,6 +306,7 @@ export default function DriverChatScreen() {
         name: item.name,
         otherUserId: item.otherUserId ? String(item.otherUserId) : '',
         otherUserType: item.otherUserType ?? '',
+        avatarUri: item.avatarUri ?? '',
       },
     });
   };
@@ -357,9 +361,13 @@ export default function DriverChatScreen() {
             return (
               <Pressable style={styles.chatItem} onPress={() => openConversation(item)}>
                 <View style={styles.avatarWrap}>
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarFallbackText}>{fallback}</Text>
-                  </View>
+                  {item.avatarUri ? (
+                    <Image source={{ uri: item.avatarUri }} style={styles.avatarImage} />
+                  ) : (
+                    <View style={styles.avatarFallback}>
+                      <Text style={styles.avatarFallbackText}>{fallback}</Text>
+                    </View>
+                  )}
                   {isOnline ? <View style={styles.onlineDot} /> : null}
                 </View>
 
@@ -567,6 +575,7 @@ function mapConversation(item: ConversationDto, currentUserId: number, t: Transl
     unreadCount: other.unreadCount,
     otherUserId: other.id ?? item.otherParticipantId,
     otherUserType: other.type ?? item.otherParticipantType,
+    avatarUri: resolveAssetUrl(item.otherParticipantPhoto),
     isSupport,
     lastMessageType: item.lastMessageType,
     lastMessageTimestamp: item.lastMessageTimestamp,
@@ -742,6 +751,12 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 44,
     height: 44,
+  },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#DDE5F0',
   },
   avatarFallback: {
     width: 44,

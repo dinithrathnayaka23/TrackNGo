@@ -24,6 +24,8 @@ public class ConversationDto {
     private Long otherParticipantId;
     private String otherParticipantName;
     private String otherParticipantType;
+    /** Stored path of the other participant's avatar; null when they have not set one. */
+    private String otherParticipantPhoto;
     private int unreadCount;
     private int participant1Unread;
     private int participant2Unread;

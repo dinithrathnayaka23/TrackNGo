@@ -13,6 +13,7 @@ export interface ConversationDto {
   otherParticipantId?: number | null;
   otherParticipantName?: string | null;
   otherParticipantType?: ChatParticipantType | null;
+  otherParticipantPhoto?: string | null;
   unreadCount?: number;
   participant1Unread?: number;
   participant2Unread?: number;

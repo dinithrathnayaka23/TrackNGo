@@ -164,6 +164,8 @@ export default function DriverNavigationScreen() {
     orderedStops.length > 1
       ? `${orderedStops[0].name} -> ${orderedStops[orderedStops.length - 1].name}`
       : routeGeometry?.routeName ?? assignment?.routeName ?? 'Route navigation';
+  const startLocation = orderedStops[0]?.name ?? routeGeometry?.routeName ?? assignment?.routeName ?? '';
+  const endLocation = orderedStops.length > 1 ? orderedStops[orderedStops.length - 1].name : '';
 
   const openTurnByTurn = async () => {
     if (!routeGeometry) {
@@ -178,6 +180,17 @@ export default function DriverNavigationScreen() {
     } else {
       Alert.alert('Google Maps unavailable', 'Unable to open turn-by-turn navigation.');
     }
+  };
+
+  const openSos = () => {
+    router.push({
+      pathname: '/sos',
+      params: {
+        busNumber: assignment?.busNumber ?? '',
+        startLocation,
+        endLocation,
+      },
+    });
   };
 
   return (
@@ -230,10 +243,16 @@ export default function DriverNavigationScreen() {
               {routeDisplay}
             </Text>
           </View>
-          <View style={styles.mappedBadge}>
-            <Text style={styles.mappedBadgeText}>
-              {mappedStops}/{orderedStops.length} mapped
-            </Text>
+          <View style={styles.routeActions}>
+            <View style={styles.mappedBadge}>
+              <Text style={styles.mappedBadgeText}>
+                {mappedStops}/{orderedStops.length} mapped
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.sosButton} onPress={openSos}>
+              <MaterialCommunityIcons name="alert-octagon" size={13} color="#FFFFFF" />
+              <Text style={styles.sosButtonText}>SOS</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -393,6 +412,26 @@ function createStyles(theme: any, bottomInset: number) {
     mappedBadgeText: {
       fontSize: 11,
       color: '#2F6BFF',
+      fontWeight: "700",
+    },
+    routeActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flexShrink: 0,
+    },
+    sosButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: '#EF4444',
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 10,
+    },
+    sosButtonText: {
+      fontSize: 13,
+      color: '#FFFFFF',
       fontWeight: "700",
     },
     stopStrip: {

@@ -51,6 +51,7 @@ public class SosAlertServiceImpl implements SosAlertService {
                    du.first_name AS driver_first_name,
                    du.last_name AS driver_last_name,
                    d.phone_number AS driver_phone_number,
+                   d.profile_photo AS driver_profile_photo,
                    COALESCE(s.start_location, r.start_location) AS start_location,
                    COALESCE(s.end_location, r.end_location) AS end_location,
                    COALESCE(s.bus_number, b.bus_number) AS bus_number,
@@ -268,7 +269,7 @@ public class SosAlertServiceImpl implements SosAlertService {
         } else {
             dto.setName(driverName);
             dto.setPhoneNumber(dto.getDriverPhoneNumber());
-            dto.setProfilePhoto(null);
+            dto.setProfilePhoto((String) row.get("driver_profile_photo"));
         }
 
         dto.setRouteName((String) row.get("route_name"));

@@ -15,6 +15,8 @@ public record AdminContractSummaryDto(
         String companyName,
         String contactPersonName,
         String contactPhone,
+        String startingLocation,
+        String destination,
         String shiftType,
         Integer employeeCount,
         String busType,
@@ -26,8 +28,12 @@ public record AdminContractSummaryDto(
         String createdAt,
         Long corporateUserId,
         Integer busCount,
+        String busNumbers,
         BigDecimal advanceAmount,
         String advancePaymentStatus,
-        String advancePaidAt
+        String advancePaidAt,
+        BigDecimal originalBillingAmount,
+        BigDecimal discountAmount,
+        ContractCancellationDto cancellation
 ) {
 }

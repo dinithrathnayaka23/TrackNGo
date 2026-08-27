@@ -1,6 +1,8 @@
 package com.trackngo.app.controller;
 
 import com.trackngo.app.dto.AdminContractSummaryDto;
+import com.trackngo.app.dto.CancellationRequestDto;
+import com.trackngo.app.dto.CancellationResponseDto;
 import com.trackngo.app.dto.ContractBusDto;
 import com.trackngo.app.dto.ContractStatusUpdateRequest;
 import com.trackngo.app.dto.CorporateContractDetailDto;
@@ -9,6 +11,7 @@ import com.trackngo.app.dto.CorporateInvoiceDto;
 import com.trackngo.app.dto.CorporatePricingEstimateRequest;
 import com.trackngo.app.dto.CorporatePricingSettingsDto;
 import com.trackngo.app.dto.CorporateAdvancePaymentDto;
+import com.trackngo.app.dto.RenewalRequestDto;
 import com.trackngo.app.service.CorporatePricingService;
 import com.trackngo.app.service.CorporateService;
 import com.trackngo.commons.ApiResponse;
@@ -58,7 +61,7 @@ public class CorporateController {
             @PathVariable("contractId") Long contractId,
             @RequestBody ContractStatusUpdateRequest request) {
         try {
-            CorporateContractDto updated = corporateService.updateContractStatus(contractId, request.status());
+            CorporateContractDto updated = corporateService.updateContractStatus(contractId, request);
             return ApiResponse.ok("Contract status updated successfully", updated);
         } catch (IllegalStateException | IllegalArgumentException ex) {
             return ApiResponse.fail(ex.getMessage());
@@ -104,6 +107,57 @@ public class CorporateController {
         }
     }
 
+    /**
+     * Either party requests to cancel a pending or active contract, with a
+     * required reason. The other party must accept via {@code /cancel-response}
+     * before anything changes.
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/cancel-request")
+    public ApiResponse<CorporateContractDto> requestCancellation(
+            @PathVariable("contractId") Long contractId,
+            @RequestBody CancellationRequestDto request) {
+        try {
+            CorporateContractDto updated = corporateService.requestCancellation(contractId, request.role(), request.reason());
+            return ApiResponse.ok("Cancellation requested successfully", updated);
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
+    /**
+     * The party who did not request cancellation accepts or rejects it.
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/cancel-response")
+    public ApiResponse<CorporateContractDto> respondToCancellation(
+            @PathVariable("contractId") Long contractId,
+            @RequestBody CancellationResponseDto request) {
+        try {
+            CorporateContractDto updated = corporateService.respondToCancellation(
+                    contractId, request.role(), request.accept(), request.responseReason());
+            return ApiResponse.ok("Cancellation response recorded successfully", updated);
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
+    /**
+     * Renews a contract nearing its end date by submitting a new pending
+     * contract that continues from where this one leaves off, cloning its
+     * route/shift/bus setup. Callable by either the corporate client or an
+     * admin — both follow the same renewal flow.
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/renew")
+    public ApiResponse<CorporateContractDto> renewContract(
+            @PathVariable("contractId") Long contractId,
+            @RequestBody RenewalRequestDto request) {
+        try {
+            CorporateContractDto renewed = corporateService.renewContract(contractId, request.userId(), request.role());
+            return ApiResponse.ok("Renewal request submitted successfully", renewed);
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
     @GetMapping("/contracts/{contractId}")
     public ApiResponse<CorporateContractDetailDto> getContractDetail(
             @PathVariable("contractId") Long contractId,
@@ -118,6 +172,27 @@ public class CorporateController {
     @GetMapping("/invoices")
     public ApiResponse<List<CorporateInvoiceDto>> getInvoices(@RequestParam("userId") Long userId) {
         return ApiResponse.ok("Invoices fetched successfully", corporateService.getInvoices(userId));
+    }
+
+    @GetMapping("/invoices/{invoiceNumber}")
+    public ApiResponse<CorporateInvoiceDto> getInvoice(@PathVariable("invoiceNumber") Long invoiceNumber) {
+        CorporateInvoiceDto invoice = corporateService.getInvoice(invoiceNumber);
+        if (invoice == null) {
+            return ApiResponse.fail("Invoice not found");
+        }
+        return ApiResponse.ok("Invoice fetched successfully", invoice);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/invoices/{invoiceNumber}/pay")
+    public ApiResponse<Void> payInvoice(
+            @PathVariable("invoiceNumber") Long invoiceNumber,
+            @RequestBody CorporateAdvancePaymentDto request) {
+        try {
+            corporateService.payInvoice(invoiceNumber, request.sessionId());
+            return ApiResponse.ok("Invoice paid successfully", null);
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            return ApiResponse.fail(ex.getMessage());
+        }
     }
 
     /**

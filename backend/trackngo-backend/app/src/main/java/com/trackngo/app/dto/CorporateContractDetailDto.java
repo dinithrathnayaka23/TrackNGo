@@ -47,6 +47,10 @@ public record CorporateContractDetailDto(
         BigDecimal advanceAmount,
         String advancePaymentStatus,
         String advancePaidAt,
-        String advanceTransactionId
+        String advanceTransactionId,
+        BigDecimal originalBillingAmount,
+        BigDecimal discountAmount,
+        String adminNote,
+        ContractCancellationDto cancellation
 ) {
 }

@@ -59,9 +59,9 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
         tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
         tabBarStyle: {
-          height: 62,
+          height: 70,
           paddingTop: 6,
-          paddingBottom: 6,
+          paddingBottom: 14,
           backgroundColor: darkMode ? '#1E1E1E' : '#FFFFFF',
           borderTopColor: darkMode ? '#333' : '#E9EDF3',
           borderTopWidth: 1,

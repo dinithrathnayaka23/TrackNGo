@@ -73,6 +73,29 @@ public class TwoFactorService {
         trustedDeviceService.revokeAll(userId);
     }
 
+    public boolean isEmailLoginOtpEnabled(Long userId) {
+        ensureUserExists(userId);
+        ensureSettingsRow(userId);
+        Boolean enabled = jdbcTemplate.queryForObject(
+                "SELECT email_otp_login_enabled FROM user_settings WHERE user_id = ?",
+                Boolean.class,
+                userId
+        );
+        return Boolean.TRUE.equals(enabled);
+    }
+
+    @Transactional
+    public boolean setEmailLoginOtpEnabled(Long userId, boolean enabled) {
+        requireOwner(userId);
+        ensureSettingsRow(userId);
+        jdbcTemplate.update(
+                "UPDATE user_settings SET email_otp_login_enabled = ? WHERE user_id = ?",
+                enabled,
+                userId
+        );
+        return enabled;
+    }
+
     public boolean isEnabled(Long userId) {
         ensureUserExists(userId);
         ensureSettingsRow(userId);

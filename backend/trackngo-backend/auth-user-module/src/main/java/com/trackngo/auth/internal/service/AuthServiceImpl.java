@@ -5,29 +5,44 @@ import com.trackngo.auth.api.AuthService;
 import com.trackngo.auth.api.dto.AdminRegisterRequest;
 import com.trackngo.auth.api.dto.AuthRequest;
 import com.trackngo.auth.api.dto.AuthResponse;
+import com.trackngo.auth.api.dto.ResendTwoFactorOtpRequest;
 import com.trackngo.auth.api.dto.TwoFactorVerifyRequest;
 import com.trackngo.auth.events.UserRegisteredEvent;
 import com.trackngo.auth.internal.entity.Admin;
+import com.trackngo.auth.internal.entity.LoginOtp;
 import com.trackngo.auth.internal.entity.User;
 import com.trackngo.auth.internal.repository.AdminRepository;
+import com.trackngo.auth.internal.repository.LoginOtpRepository;
 import com.trackngo.auth.internal.repository.UserRepository;
+import com.trackngo.auth.internal.service.notify.OtpEmailSender;
 import com.trackngo.commons.events.EventPublisher;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.util.JwtUtil; // import JwtUtil
 import com.trackngo.commons.security.TotpUtil;
 import com.trackngo.commons.security.TrustedDeviceService;
 import io.jsonwebtoken.Claims;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
+    private static final int LOGIN_OTP_LENGTH = 6;
+    private static final long LOGIN_OTP_EXPIRY_MINUTES = 5;
+    private static final long LOGIN_OTP_RESEND_COOLDOWN_SECONDS = 30;
+    private static final int LOGIN_OTP_MAX_ATTEMPTS = 5;
+
     private final UserRepository userRepository;
     private final AdminRepository adminRepository;
     private final PasswordEncoder passwordEncoder;
@@ -35,6 +50,31 @@ public class AuthServiceImpl implements AuthService {
     private final EventPublisher eventPublisher;
     private final JdbcTemplate jdbcTemplate;
     private final TrustedDeviceService trustedDeviceService;
+    private final LoginOtpRepository loginOtpRepository;
+    private final OtpEmailSender otpEmailSender;
+
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    @PostConstruct
+    void ensureLoginOtpSchema() {
+        // ddl-auto=update should create this via the LoginOtp entity, but that
+        // relies on a fresh restart picking up the new mapping. Self-healing here
+        // avoids a repeat of the missing password_reset_otp table surprise.
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS login_otp (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    user_id BIGINT NOT NULL,
+                    otp_hash VARCHAR(255) NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    consumed BOOLEAN NOT NULL DEFAULT FALSE,
+                    attempts INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_login_otp_user
+                        FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
+                    INDEX idx_login_otp_user (user_id, consumed)
+                )
+                """);
+    }
 
     @Override
     public AuthResponse login(AuthRequest request) {
@@ -57,13 +97,19 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("Access denied. " + toDisplayRole(requestedUserType) + " account required.");
         }
 
-        if (isTwoFactorEnabled(user.getId())
+        boolean totpEnabled = isTwoFactorEnabled(user.getId());
+        boolean emailOtpEnabled = !totpEnabled && isEmailOtpLoginEnabled(user.getId());
+
+        if ((totpEnabled || emailOtpEnabled)
                 && !trustedDeviceService.isTrusted(user.getId(), request.getTrustedDeviceToken())) {
             String challengeToken = jwtUtil.generateToken(
                     user.getEmail(),
                     Map.of("purpose", "2fa", "userId", user.getId(), "role", actualUserType, "userType", actualUserType),
                     5 * 60 * 1000L
             );
+            if (emailOtpEnabled) {
+                sendLoginOtp(user);
+            }
             return new AuthResponse(null, user.getId(), user.getUserType(), user.getEmail(), user.getFirstName(), user.getLastName(), true, challengeToken, null);
         }
         return authenticatedResponse(user, null);
@@ -103,12 +149,53 @@ public class AuthServiceImpl implements AuthService {
         String email = claims.getSubject();
         Number userIdClaim = claims.get("userId", Number.class);
         if (email == null || userIdClaim == null || !verifyCode(userIdClaim.longValue(), request.getCode())) {
-            throw new BusinessException("The authenticator code is invalid or expired.");
+            throw new BusinessException("The verification code is invalid or expired.");
         }
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException("Invalid two-factor challenge."));
         return authenticatedResponse(user, trustedDeviceService.issue(user.getId()));
+    }
+
+    @Override
+    @Transactional
+    public void resendTwoFactorOtp(ResendTwoFactorOtpRequest request) {
+        Claims claims;
+        try {
+            claims = jwtUtil.parse(request.getChallengeToken());
+        } catch (Exception ex) {
+            throw new BusinessException("The two-factor challenge has expired. Please log in again.");
+        }
+
+        if (!"2fa".equals(claims.get("purpose", String.class))) {
+            throw new BusinessException("Invalid two-factor challenge.");
+        }
+
+        Number userIdClaim = claims.get("userId", Number.class);
+        if (userIdClaim == null) {
+            throw new BusinessException("Invalid two-factor challenge.");
+        }
+        Long userId = userIdClaim.longValue();
+
+        if (isTwoFactorEnabled(userId)) {
+            throw new BusinessException("Your account uses an authenticator app. There is no code to resend.");
+        }
+        if (!isEmailOtpLoginEnabled(userId)) {
+            throw new BusinessException("Invalid two-factor challenge.");
+        }
+
+        LoginOtp last = loginOtpRepository.findTopByUserIdAndConsumedFalseOrderByCreatedAtDesc(userId).orElse(null);
+        if (last != null) {
+            long secondsSinceLastSend = ChronoUnit.SECONDS.between(last.getCreatedAt(), LocalDateTime.now());
+            if (secondsSinceLastSend < LOGIN_OTP_RESEND_COOLDOWN_SECONDS) {
+                long remaining = LOGIN_OTP_RESEND_COOLDOWN_SECONDS - secondsSinceLastSend;
+                throw new BusinessException("Please wait " + remaining + " more second(s) before requesting a new code");
+            }
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException("Account no longer exists"));
+        sendLoginOtp(user);
     }
 
     private AuthResponse authenticatedResponse(User user, String trustedDeviceToken) {
@@ -167,16 +254,77 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private boolean verifyCode(Long userId, String code) {
+        if (isTwoFactorEnabled(userId)) {
+            try {
+                String secret = jdbcTemplate.queryForObject(
+                        "SELECT two_factor_secret FROM user_settings WHERE user_id = ?",
+                        String.class, userId
+                );
+                return TotpUtil.isValidCode(secret, code);
+            } catch (DataAccessException ex) {
+                return false;
+            }
+        }
+        if (isEmailOtpLoginEnabled(userId)) {
+            return verifyEmailLoginOtp(userId, code);
+        }
+        return false;
+    }
+
+    private boolean isEmailOtpLoginEnabled(Long userId) {
         try {
-            Map<String, Object> settings = jdbcTemplate.queryForMap(
-                    "SELECT two_factor_authentication, two_factor_secret FROM user_settings WHERE user_id = ?",
-                    userId
+            Boolean enabled = jdbcTemplate.queryForObject(
+                    "SELECT email_otp_login_enabled FROM user_settings WHERE user_id = ?",
+                    Boolean.class, userId
             );
-            return Boolean.TRUE.equals(settings.get("two_factor_authentication"))
-                    && TotpUtil.isValidCode((String) settings.get("two_factor_secret"), code);
+            return Boolean.TRUE.equals(enabled);
         } catch (DataAccessException ex) {
             return false;
         }
+    }
+
+    private void sendLoginOtp(User user) {
+        invalidateOutstandingLoginOtps(user.getId());
+
+        String otpCode = generateLoginOtp();
+        LocalDateTime now = LocalDateTime.now();
+
+        LoginOtp otp = new LoginOtp();
+        otp.setUserId(user.getId());
+        otp.setOtpHash(passwordEncoder.encode(otpCode));
+        otp.setExpiresAt(now.plusMinutes(LOGIN_OTP_EXPIRY_MINUTES));
+        otp.setConsumed(false);
+        otp.setAttempts(0);
+        otp.setCreatedAt(now);
+        loginOtpRepository.save(otp);
+
+        otpEmailSender.sendLoginOtp(user.getEmail(), otpCode, (int) LOGIN_OTP_EXPIRY_MINUTES);
+    }
+
+    private boolean verifyEmailLoginOtp(Long userId, String code) {
+        LoginOtp otp = loginOtpRepository.findTopByUserIdAndConsumedFalseOrderByCreatedAtDesc(userId).orElse(null);
+        if (otp == null || otp.getExpiresAt().isBefore(LocalDateTime.now()) || otp.getAttempts() >= LOGIN_OTP_MAX_ATTEMPTS) {
+            return false;
+        }
+        if (!passwordEncoder.matches(code == null ? "" : code.trim(), otp.getOtpHash())) {
+            otp.setAttempts(otp.getAttempts() + 1);
+            loginOtpRepository.save(otp);
+            return false;
+        }
+        otp.setConsumed(true);
+        loginOtpRepository.save(otp);
+        return true;
+    }
+
+    private void invalidateOutstandingLoginOtps(Long userId) {
+        List<LoginOtp> outstanding = loginOtpRepository.findByUserIdAndConsumedFalse(userId);
+        outstanding.forEach(o -> o.setConsumed(true));
+        loginOtpRepository.saveAll(outstanding);
+    }
+
+    private String generateLoginOtp() {
+        int number = secureRandom.nextInt(1_000_000);
+        return String.format("%0" + LOGIN_OTP_LENGTH + "d", number);
     }
 
     @Override

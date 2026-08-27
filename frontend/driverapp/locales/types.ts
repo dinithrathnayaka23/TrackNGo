@@ -204,6 +204,18 @@ export interface Translations {
     failedToMarkBoarded: string;
     blockedSeatTitle: string;
     blockedSeatMessage: string;
+    cannotOpenChat: string;
+    qrScanTitle: string;
+    qrScanInstructions: string;
+    qrScanMismatchTitle: string;
+    qrScanMismatchMessage: string;
+    qrScanInvalidTitle: string;
+    qrScanInvalidMessage: string;
+    qrScanSuccessMessage: string;
+    cameraPermissionTitle: string;
+    cameraPermissionMessage: string;
+    grantPermission: string;
+    scanAgain: string;
   };
 }
 
@@ -406,6 +418,18 @@ export const TRANSLATION_KEYS = [
   "allocations.failedToMarkBoarded",
   "allocations.blockedSeatTitle",
   "allocations.blockedSeatMessage",
+  "allocations.cannotOpenChat",
+  "allocations.qrScanTitle",
+  "allocations.qrScanInstructions",
+  "allocations.qrScanMismatchTitle",
+  "allocations.qrScanMismatchMessage",
+  "allocations.qrScanInvalidTitle",
+  "allocations.qrScanInvalidMessage",
+  "allocations.qrScanSuccessMessage",
+  "allocations.cameraPermissionTitle",
+  "allocations.cameraPermissionMessage",
+  "allocations.grantPermission",
+  "allocations.scanAgain",
 ] as const;
 
 export type TranslationKey = (typeof TRANSLATION_KEYS)[number];

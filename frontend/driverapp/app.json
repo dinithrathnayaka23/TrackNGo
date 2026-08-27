@@ -53,7 +53,13 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "TrackNGo Driver uses your camera to scan passenger ticket QR codes at boarding."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

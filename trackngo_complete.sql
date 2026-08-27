@@ -548,7 +548,7 @@ CREATE TABLE seat_booking (
     seat_number VARCHAR(255) NOT NULL,
     special_request TEXT,
     total_amount DECIMAL(10, 2) NOT NULL,
-    status ENUM('confirmed', 'cancelled', 'completed') DEFAULT 'confirmed',
+    status ENUM('confirmed', 'boarded', 'completed', 'cancelled') DEFAULT 'confirmed',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     passenger_id BIGINT NOT NULL,
     bus_id BIGINT NOT NULL,
@@ -851,4 +851,63 @@ CREATE TABLE password_reset_otp (
         FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
     INDEX idx_password_reset_otp_user (user_id, consumed),
     INDEX idx_password_reset_otp_reset_token (reset_token)
+);
+
+-- =============================================
+-- USER PROFILE SETTINGS + TWO-FACTOR AUTHENTICATION
+-- Backs UserSettingsService / TwoFactorService. two_factor_secret and
+-- friends are used by the authenticator-app (TOTP) flow; trusted device
+-- tokens let a verified device skip re-entering a 2FA code for a while.
+-- =============================================
+
+CREATE TABLE user_settings (
+    user_id BIGINT PRIMARY KEY,
+    language_code VARCHAR(8) NOT NULL DEFAULT 'en',
+    share_location BOOLEAN NOT NULL DEFAULT TRUE,
+    two_factor_authentication BOOLEAN NOT NULL DEFAULT FALSE,
+    push_notifications BOOLEAN NOT NULL DEFAULT TRUE,
+    sms_alerts BOOLEAN NOT NULL DEFAULT FALSE,
+    email_updates BOOLEAN NOT NULL DEFAULT TRUE,
+    booking_updates BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    two_factor_secret VARCHAR(64) NULL,
+    two_factor_pending_secret VARCHAR(64) NULL,
+    two_factor_enabled_at TIMESTAMP NULL,
+    email_otp_login_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT fk_user_settings_user FOREIGN KEY (user_id)
+        REFERENCES `user`(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE trusted_two_factor_devices (
+    device_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP NULL,
+    CONSTRAINT fk_trusted_2fa_device_user FOREIGN KEY (user_id)
+        REFERENCES `user`(user_id) ON DELETE CASCADE,
+    INDEX idx_trusted_2fa_device_user (user_id),
+    INDEX idx_trusted_2fa_device_lookup (user_id, token_hash)
+);
+
+-- =============================================
+-- EMAIL-BASED LOGIN TWO-FACTOR AUTHENTICATION
+-- Backs AuthServiceImpl's email OTP login challenge, used when a driver (or
+-- any account) enables "two-factor authentication" from profile settings
+-- without setting up an authenticator app.
+-- =============================================
+
+CREATE TABLE login_otp (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    otp_hash VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    consumed BOOLEAN NOT NULL DEFAULT FALSE,
+    attempts INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_login_otp_user
+        FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
+    INDEX idx_login_otp_user (user_id, consumed)
 );

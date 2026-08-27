@@ -40,6 +40,14 @@ public class OtpEmailSender {
                 "Password reset OTP", otpCode, expiryMinutes);
     }
 
+    public void sendLoginOtp(String toEmail, String otpCode, int expiryMinutes) {
+        send(toEmail, "Your TrackNGo login verification code",
+                "Your TrackNGo login verification code is: " + otpCode + "\n\n"
+                        + "Enter this code to finish logging in. It expires in " + expiryMinutes
+                        + " minutes. If you did not attempt to log in, you can safely ignore this email.",
+                "Login OTP", otpCode, expiryMinutes);
+    }
+
     public void sendRegistrationOtp(String toEmail, String otpCode, int expiryMinutes) {
         send(toEmail, "Verify your email for TrackNGo",
                 "Your TrackNGo verification code is: " + otpCode + "\n\n"

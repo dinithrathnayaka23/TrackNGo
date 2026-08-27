@@ -23,7 +23,25 @@ import { useLanguage } from '@/context/LanguageContext'; //global language/trans
 import { LANGUAGE_CODES, LANGUAGE_NAMES } from '@/locales';
 import { formatDate, isLicenseExpired } from '@/utils/dateFormatter'; // Import utility functions for date formatting and license expiry checking
 import { resolveAssetUrl } from '@/utils/media';
+import { getEmailTwoFactorStatus, setEmailTwoFactorEnabled } from '@/services/twoFactorApi';
 
+
+type PasswordStrength = { level: 'low' | 'medium' | 'high'; label: string; color: string; score: number };
+
+function getPasswordStrength(password: string): PasswordStrength | null {
+  if (!password) return null;
+
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+  if (/\d/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+
+  if (score <= 2) return { level: 'low', label: 'Low', color: '#DC2626', score };
+  if (score <= 3) return { level: 'medium', label: 'Medium', color: '#D97706', score };
+  return { level: 'high', label: 'High', color: '#16A34A', score };
+}
 
 interface DriverProfile {  //stricture of driver profile data we get from API
   driverId: number;
@@ -68,6 +86,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
 
   const [completionTab, setCompletionTab] = useState('profile'); //state for completion tab
   const [twoFactor, setTwoFactor] = useState(false);
+  const [isTwoFactorLoading, setIsTwoFactorLoading] = useState(false);
   const { darkMode, setDarkMode } = useTheme(); //global theme data
   const { language, setLanguage, t } = useLanguage(); //global language/translation data
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -80,12 +99,43 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   console.log("USER:", user); // Log the user from UserContext when logged in.
   
   useEffect(() => { // Fetch driver profile when user data changes
     fetchDriverProfile();
   }, [user?.userId]); // re run everitime user id chnges
+
+  useEffect(() => {
+    if (!user?.userId || !user?.token) return;
+    getEmailTwoFactorStatus(user.userId, user.token)
+      .then((status) => setTwoFactor(status.enabled))
+      .catch((error) => {
+        console.warn('Failed to load two-factor authentication status:', error);
+      });
+  }, [user?.userId, user?.token]);
+
+  const handleTwoFactorChange = async (value: boolean) => {
+    if (!user?.userId || !user?.token) return;
+    const previous = twoFactor;
+    setTwoFactor(value);
+    setIsTwoFactorLoading(true);
+    try {
+      const status = await setEmailTwoFactorEnabled(user.userId, user.token, value);
+      setTwoFactor(status.enabled);
+    } catch (error) {
+      setTwoFactor(previous);
+      Alert.alert(
+        'Could Not Update',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
+    } finally {
+      setIsTwoFactorLoading(false);
+    }
+  };
 
   const fetchDriverProfile = async () => {
     if (!user?.userId || !user?.token) { // Check if user data is available
@@ -192,8 +242,13 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
     setNewPassword('');
     setConfirmPassword('');
     setPasswordError('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     setPasswordModalVisible(true);
   };
+
+  const newPasswordStrength = useMemo(() => getPasswordStrength(newPassword), [newPassword]);
 
   const changePassword = async () => {
     if (!user?.userId || !user.token) {
@@ -533,11 +588,15 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                 <MaterialCommunityIcons name="shield-account" size={20} color="#2F6BFF" />
                 <View style={styles.switchTextWrap}>
                   <Text style={styles.switchLabel}>{t('settings.twoFactorAuth')}</Text>
+                  <Text style={styles.switchDescription}>
+                    A code will be emailed to you at every login
+                  </Text>
                 </View>
               </View>
               <Switch
                 value={twoFactor}
-                onValueChange={setTwoFactor}
+                onValueChange={(value) => void handleTwoFactorChange(value)}
+                disabled={isTwoFactorLoading}
                 trackColor={{ false: '#E2E8F0', true: '#2F6BFF' }}
                 thumbColor="#FFF"
               />
@@ -667,30 +726,93 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
           <View style={styles.passwordModalContainer}>
             <Text style={styles.modalTitle}>Change Password</Text>
             <Text style={styles.passwordHint}>Only you can change your account password.</Text>
-            <TextInput
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              placeholder="Current password"
-              placeholderTextColor="#999"
-              secureTextEntry
-              style={styles.passwordInput}
-            />
-            <TextInput
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="New password"
-              placeholderTextColor="#999"
-              secureTextEntry
-              style={styles.passwordInput}
-            />
-            <TextInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm new password"
-              placeholderTextColor="#999"
-              secureTextEntry
-              style={styles.passwordInput}
-            />
+
+            <View style={styles.passwordInputWrap}>
+              <TextInput
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder="Current password"
+                placeholderTextColor="#999"
+                secureTextEntry={!showCurrentPassword}
+                style={styles.passwordInput}
+              />
+              <TouchableOpacity
+                style={styles.passwordEyeButton}
+                onPress={() => setShowCurrentPassword((prev) => !prev)}
+              >
+                <MaterialCommunityIcons
+                  name={showCurrentPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color={theme.secondaryText}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.passwordTip}>
+              Use at least 8 characters with a mix of uppercase and lowercase letters, numbers, and symbols. Avoid names, birthdays, or words that are easy to guess.
+            </Text>
+
+            <View style={styles.passwordInputWrap}>
+              <TextInput
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="New password"
+                placeholderTextColor="#999"
+                secureTextEntry={!showNewPassword}
+                style={styles.passwordInput}
+              />
+              <TouchableOpacity
+                style={styles.passwordEyeButton}
+                onPress={() => setShowNewPassword((prev) => !prev)}
+              >
+                <MaterialCommunityIcons
+                  name={showNewPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color={theme.secondaryText}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {newPasswordStrength ? (
+              <View style={styles.strengthWrap}>
+                <View style={styles.strengthBarTrack}>
+                  <View
+                    style={[
+                      styles.strengthBarFill,
+                      {
+                        width: `${(newPasswordStrength.score / 5) * 100}%`,
+                        backgroundColor: newPasswordStrength.color,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.strengthLabel, { color: newPasswordStrength.color }]}>
+                  {newPasswordStrength.label}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.passwordInputWrap}>
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Confirm new password"
+                placeholderTextColor="#999"
+                secureTextEntry={!showConfirmPassword}
+                style={styles.passwordInput}
+              />
+              <TouchableOpacity
+                style={styles.passwordEyeButton}
+                onPress={() => setShowConfirmPassword((prev) => !prev)}
+              >
+                <MaterialCommunityIcons
+                  name={showConfirmPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color={theme.secondaryText}
+                />
+              </TouchableOpacity>
+            </View>
+
             {passwordError ? <Text style={styles.passwordError}>{passwordError}</Text> : null}
             <View style={styles.passwordActions}>
               <TouchableOpacity onPress={() => setPasswordModalVisible(false)} disabled={isChangingPassword}>
@@ -1055,15 +1177,57 @@ function createStyles({
       fontSize: 12,
       textAlign: 'center',
     },
+    passwordInputWrap: {
+      position: 'relative',
+      justifyContent: 'center',
+      marginTop: 10,
+    },
     passwordInput: {
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: 9,
       color: theme.text,
       paddingHorizontal: 12,
+      paddingRight: 42,
       paddingVertical: 11,
-      marginTop: 10,
       backgroundColor: theme.background,
+    },
+    passwordEyeButton: {
+      position: 'absolute',
+      right: 4,
+      height: '100%',
+      paddingHorizontal: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    passwordTip: {
+      marginTop: 8,
+      color: theme.secondaryText,
+      fontSize: 11,
+      lineHeight: 15,
+    },
+    strengthWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+    },
+    strengthBarTrack: {
+      flex: 1,
+      height: 5,
+      borderRadius: 2.5,
+      backgroundColor: theme.border,
+      overflow: 'hidden',
+    },
+    strengthBarFill: {
+      height: '100%',
+      borderRadius: 2.5,
+    },
+    strengthLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      minWidth: 48,
+      textAlign: 'right',
     },
     passwordError: {
       marginTop: 10,

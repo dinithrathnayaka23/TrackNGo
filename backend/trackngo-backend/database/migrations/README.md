@@ -133,6 +133,24 @@ Before deploying the corporate renewal reminder, run
 `CorporateRenewalReminderScheduler` sends the "expiring soon" notice to the
 admin and the corporate client once per contract instead of every day it runs.
 
+Before deploying email-based (non-authenticator) two-factor login, run
+`V25__email_otp_login.sql`. It adds `user_settings.email_otp_login_enabled`
+and the `login_otp` table backing the one-time codes AuthServiceImpl emails
+at login time when an account has this enabled — currently surfaced as the
+"Two-Factor Authentication" toggle in the driver app's profile settings. Both
+are also self-healed at application startup, so a fresh environment that
+skips this file still ends up correct on first run. Note the `ALTER TABLE`
+statement intentionally omits `IF NOT EXISTS`: some MySQL builds used in this
+project's dev environments reject that syntax on `ADD COLUMN`. Skip that
+statement by hand if the column is already present.
+
+Before deploying the driver app's "Mark as Boarded" action, run
+`V26__seat_booking_boarded_status.sql`. It widens `seat_booking.status` to
+include `'boarded'` — several services (`BookingCompletionService`,
+`DriverEarningsService`, `BookingRepository`) already query for that status,
+but nothing had ever added it to the enum, so
+`BookingFlowService.markPassengerBoarded()` fails outright on any database
+created from the original schema.
 
 Disruption handling behaves as follows:
 

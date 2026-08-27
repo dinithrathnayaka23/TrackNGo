@@ -99,6 +99,14 @@ statement intentionally omits `IF NOT EXISTS`: some MySQL builds used in this
 project's dev environments reject that syntax on `ADD COLUMN`. Skip that
 statement by hand if the column is already present.
 
+Before deploying the driver app's "Mark as Boarded" action, run
+`V19__seat_booking_boarded_status.sql`. It widens `seat_booking.status` to
+include `'boarded'` — several services (`BookingCompletionService`,
+`DriverEarningsService`, `BookingRepository`) already query for that status,
+but nothing had ever added it to the enum, so
+`BookingFlowService.markPassengerBoarded()` fails outright on any database
+created from the original schema.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

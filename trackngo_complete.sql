@@ -548,7 +548,7 @@ CREATE TABLE seat_booking (
     seat_number VARCHAR(255) NOT NULL,
     special_request TEXT,
     total_amount DECIMAL(10, 2) NOT NULL,
-    status ENUM('confirmed', 'cancelled', 'completed') DEFAULT 'confirmed',
+    status ENUM('confirmed', 'boarded', 'completed', 'cancelled') DEFAULT 'confirmed',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     passenger_id BIGINT NOT NULL,
     bus_id BIGINT NOT NULL,

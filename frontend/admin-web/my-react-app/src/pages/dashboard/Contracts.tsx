@@ -262,6 +262,51 @@ function ViewContractModal({
           {error && <p className="py-10 text-center text-sm font-semibold text-[#b91c1c]">{error}</p>}
           {detail && (
             <div className="grid gap-4 sm:grid-cols-2">
+              {(detail.cancellation.status !== 'none' || detail.status === 'cancelled' || detail.cancellation.reason) && (
+                <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] p-4 sm:col-span-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <FontAwesomeIcon icon={faExclamationTriangle} className="text-[#dc2626]" />
+                      <h4 className="text-sm font-bold text-[#991b1b]">
+                        {detail.cancellation.status === 'pending'
+                          ? detail.cancellation.requestedBy === 'corporate'
+                            ? 'Client Requested Cancellation (Action Required)'
+                            : 'Admin Requested Cancellation (Awaiting Client)'
+                          : detail.cancellation.status === 'rejected'
+                          ? 'Cancellation Request Declined'
+                          : detail.status === 'cancelled'
+                          ? 'Contract Cancelled'
+                          : 'Cancellation Details'}
+                      </h4>
+                    </div>
+                    {detail.cancellation.requestedAt && (
+                      <span className="text-xs text-[#7f1d1d]">
+                        Requested {formatDate(detail.cancellation.requestedAt)}
+                      </span>
+                    )}
+                  </div>
+                  {detail.cancellation.reason && (
+                    <div className="mt-2.5 rounded-lg border border-[#fca5a5]/60 bg-white/90 p-3">
+                      <p className="text-xs font-bold text-[#991b1b]">
+                        Reason given by {detail.cancellation.requestedBy === 'corporate' ? 'Client' : 'Admin'}:
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-[#1e293b]">"{detail.cancellation.reason}"</p>
+                    </div>
+                  )}
+                  {detail.cancellation.responseReason && (
+                    <div className="mt-2 rounded-lg border border-[#fca5a5]/60 bg-white/90 p-3">
+                      <p className="text-xs font-bold text-[#991b1b]">Admin Response / Rejection Reason:</p>
+                      <p className="mt-1 text-sm font-medium text-[#1e293b]">"{detail.cancellation.responseReason}"</p>
+                    </div>
+                  )}
+                  {detail.cancellation.effectiveDate && (
+                    <p className="mt-2 text-xs font-semibold text-[#991b1b]">
+                      Effective Cancellation Date: {formatDate(detail.cancellation.effectiveDate)}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">Company</p>
                 <div className="mt-2 flex items-center gap-2">
@@ -280,7 +325,30 @@ function ViewContractModal({
                 {detail.discountAmount != null && detail.discountAmount > 0 && detail.originalBillingAmount != null && (
                   <p className="mt-2 text-sm text-[#94a3b8] line-through">{formatCurrency(detail.originalBillingAmount)}</p>
                 )}
-                <p className="mt-1 text-2xl font-extrabold text-[#047857]">{formatCurrency(detail.billingAmount)}</p>
+                <p className="mt-1 text-2xl font-extrabold text-[#047857]">
+                  {detail.carriedBalance != null && detail.carriedBalance > 0
+                    ? formatCurrency(detail.billingAmount + detail.carriedBalance)
+                    : formatCurrency(detail.billingAmount)}
+                </p>
+                {Boolean(detail.renewedFromContractId != null || (detail.carriedBalance != null && detail.carriedBalance > 0)) && (
+                  <div className="mt-2 rounded-lg bg-[#fef2f2] p-2.5 text-xs text-[#991b1b]">
+                    <div className="flex justify-between font-medium">
+                      <span>Base Monthly Rate:</span>
+                      <span>{formatCurrency(detail.billingAmount)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-[#dc2626] mt-0.5">
+                      <span>Predecessor Worked Days:</span>
+                      <span>+{formatCurrency(detail.carriedBalance ?? 0)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-[#0f172a] mt-1 pt-1 border-t border-[#fecaca]">
+                      <span>1st Month Total:</span>
+                      <span>{formatCurrency(detail.billingAmount + (detail.carriedBalance ?? 0))}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-[#7f1d1d]">
+                      Renewed from Contract #{detail.renewedFromContractId ?? 'prior'}. {(detail.carriedBalance ?? 0) > 0 ? `Charged for days operated before renewal.` : `Predecessor worked days balance is Rs. 0.00.`} From month 2 onwards: {formatCurrency(detail.billingAmount)}/mo.
+                    </p>
+                  </div>
+                )}
                 {detail.discountAmount != null && detail.discountAmount > 0 && (
                   <p className="mt-1 text-xs font-semibold text-[#b45309]">
                     Discount applied: −{formatCurrency(detail.discountAmount)}
@@ -380,12 +448,23 @@ function ViewContractModal({
                 )}
               </div>
 
-              {detail.outstandingAmount > 0 && (
-                <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] p-4 sm:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#b91c1c]">Outstanding Balance</p>
-                  <p className="mt-2 text-lg font-extrabold text-[#b91c1c]">{formatCurrency(detail.outstandingAmount)}</p>
+              <div className="rounded-xl border border-[#e5e7eb] bg-[#f8fafc] p-4 sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#64748b]">Monthly Payment Settlement</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-[#bbf7d0] bg-[#f0fdf4] p-3">
+                    <p className="text-[11px] font-semibold text-[#166534]">Settled Payments (Paid)</p>
+                    <p className="mt-1 text-base font-extrabold text-[#15803d]">{formatCurrency(detail.totalPaid)}</p>
+                  </div>
+                  <div className="rounded-lg border border-[#fecaca] bg-[#fef2f2] p-3">
+                    <p className="text-[11px] font-semibold text-[#991b1b]">Outstanding Balance</p>
+                    <p className="mt-1 text-base font-extrabold text-[#dc2626]">{formatCurrency(detail.outstandingAmount)}</p>
+                  </div>
+                  <div className="rounded-lg border border-[#e2e8f0] bg-white p-3">
+                    <p className="text-[11px] font-semibold text-[#475569]">Total Billed</p>
+                    <p className="mt-1 text-base font-extrabold text-[#0f172a]">{formatCurrency(detail.totalBilled)}</p>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
@@ -959,8 +1038,8 @@ function Contracts() {
                         return (
                           <tr key={contract.contractId} className="group transition hover:bg-[#fafbff]">
                             <td className="px-5 py-4">
-                              <p className="text-xs text-[#94a3b8]">#{contract.contractId} · {contract.contractName}</p>
-                              <p className="mt-0.5 font-semibold text-[#111827]">{contract.startingLocation ?? '—'} → {contract.destination ?? '—'}</p>
+                              <p className="text-xs font-medium text-[#94a3b8]">#{contract.contractId}</p>
+                              <p className="mt-0.5 font-semibold text-[#111827]">{contract.contractName}</p>
                             </td>
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-2">
@@ -985,8 +1064,20 @@ function Contracts() {
                                 {isScheduledForCancellation(contract) ? `Ending ${formatDate(contract.cancellation.effectiveDate)}` : statusLabel(contract.status)}
                               </span>
                               {contract.cancellation.status === 'pending' && (
-                                <p className="mt-1 text-[10px] font-semibold text-[#b45309]">
-                                  {contract.cancellation.requestedBy === 'admin' ? 'Cancellation sent — awaiting client' : 'Client requested cancellation'}
+                                <div className="mt-1 max-w-[200px] rounded bg-[#fef2f2] px-2 py-1 border border-[#fecaca] text-[11px] text-[#991b1b]">
+                                  <p className="font-bold">
+                                    {contract.cancellation.requestedBy === 'corporate' ? 'Client Requested' : 'Admin Requested'}:
+                                  </p>
+                                  {contract.cancellation.reason && (
+                                    <p className="mt-0.5 italic text-[#7f1d1d]">
+                                      "{contract.cancellation.reason}"
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {contract.status === 'cancelled' && contract.cancellation.reason && (
+                                <p className="mt-1 text-[10px] text-[#64748b] italic">
+                                  Reason: "{contract.cancellation.reason}"
                                 </p>
                               )}
                               {contract.renewalRequestStatus === 'requested' && (
@@ -1072,8 +1163,8 @@ function Contracts() {
                               {companyInitials(contract.companyName)}
                             </div>
                             <div>
-                              <p className="text-xs text-[#94a3b8]">#{contract.contractId} · {contract.contractName}</p>
-                              <p className="mt-0.5 text-sm font-bold leading-tight text-[#111827]">{contract.startingLocation ?? '—'} → {contract.destination ?? '—'}</p>
+                              <p className="text-xs font-medium text-[#94a3b8]">#{contract.contractId}</p>
+                              <p className="mt-0.5 text-sm font-bold leading-tight text-[#111827]">{contract.contractName}</p>
                             </div>
                           </div>
                           <span
@@ -1259,12 +1350,17 @@ function Contracts() {
                 Reason given by the client: "{cancelRespondTarget.contract.cancellation.reason}"
               </p>
               <label className="mt-4 block text-xs font-semibold text-[#334155]">
-                Note (optional)
+                {cancelRespondTarget.accept ? 'Note (optional)' : 'Rejection Reason / Client Instructions (Required)'}
                 <textarea
                   value={cancelResponseReasonInput}
                   onChange={(event) => setCancelResponseReasonInput(event.target.value)}
+                  placeholder={
+                    cancelRespondTarget.accept
+                      ? 'Optional note for the client...'
+                      : 'State what the client must fulfill before requesting cancellation again.'
+                  }
                   maxLength={500}
-                  rows={2}
+                  rows={3}
                   className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm outline-none focus:border-[#2642a6]"
                 />
               </label>
@@ -1280,10 +1376,13 @@ function Contracts() {
               <button
                 type="button"
                 onClick={submitCancelResponse}
-                disabled={actionBusyId === cancelRespondTarget.contract.contractId}
+                disabled={
+                  actionBusyId === cancelRespondTarget.contract.contractId ||
+                  (!cancelRespondTarget.accept && !cancelResponseReasonInput.trim())
+                }
                 className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60 ${cancelRespondTarget.accept ? 'bg-[#059669] hover:bg-[#047857]' : 'bg-[#dc2626] hover:bg-[#b91c1c]'}`}
               >
-                {actionBusyId === cancelRespondTarget.contract.contractId ? 'Working...' : 'Confirm'}
+                {actionBusyId === cancelRespondTarget.contract.contractId ? 'Working...' : cancelRespondTarget.accept ? 'Accept Cancellation' : 'Decline Request'}
               </button>
             </div>
           </div>

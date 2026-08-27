@@ -442,8 +442,12 @@ export default function ContractDetailScreen() {
                 <Text style={styles.heroRouteCity} numberOfLines={1}>{contract.destination}</Text>
               </View>
 
-              <Text style={styles.heroAmountLabel}>MONTHLY BILLING</Text>
-              <Text style={styles.heroAmount}>{formatAmount(contract.billingAmount)}</Text>
+              <Text style={styles.heroAmountLabel}>
+                {(contract.carriedBalance ?? 0) > 0 ? "1ST MONTH BILLING (INCL. WORKED DAYS)" : "MONTHLY BILLING"}
+              </Text>
+              <Text style={styles.heroAmount}>
+                {formatAmount(contract.billingAmount + (contract.carriedBalance ?? 0))}
+              </Text>
 
               {/* Contract period progress */}
               <View style={styles.progressTrack}>
@@ -521,9 +525,38 @@ export default function ContractDetailScreen() {
               </View>
             )}
 
+            {/* Cancellation rejected banner */}
+            {contract.cancellation.status === "rejected" && (
+              <View style={[styles.cancelBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+                <View style={styles.cancelBannerHeader}>
+                  <Ionicons name="alert-circle" size={18} color="#DC2626" />
+                  <Text style={[styles.cancelBannerTitle, { color: "#991B1B" }]}>
+                    Cancellation Request Declined by Admin
+                  </Text>
+                </View>
+                {contract.cancellation.responseReason && (
+                  <View style={{ marginTop: 8, padding: 10, backgroundColor: "#FFF", borderRadius: 8, borderWidth: 1, borderColor: "#FEE2E2" }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: "#991B1B" }}>Admin Instructions / Requirement:</Text>
+                    <Text style={{ fontSize: 13, color: "#1E293B", marginTop: 2 }}>{contract.cancellation.responseReason}</Text>
+                  </View>
+                )}
+                <Text style={[styles.cancelBannerReason, { marginTop: 8, color: "#7F1D1D" }]}>
+                  Please fulfill what the admin requested above. Once completed, you can request cancellation again.
+                </Text>
+                <View style={{ marginTop: 10 }}>
+                  <TouchableOpacity
+                    style={[styles.cancelBannerBtn, { backgroundColor: "#DC2626", alignSelf: "flex-start", paddingHorizontal: 16 }]}
+                    onPress={() => setCancelModalVisible(true)}
+                  >
+                    <Text style={styles.cancelBannerBtnText}>Request Cancellation Again</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
             {/* Renewal — always available on an active contract, not just near its end date */}
             {contract.status?.toLowerCase() === "active" &&
-              contract.cancellation.status === "none" &&
+              (contract.cancellation.status === "none" || contract.cancellation.status === "rejected") &&
               !isScheduledForCancellation(contract) && (
                 <View style={styles.renewBanner}>
                   <View style={styles.cancelBannerHeader}>
@@ -728,6 +761,38 @@ export default function ContractDetailScreen() {
                 </View>
               </View>
 
+              {Boolean(contract.renewedFromContractId || (contract.carriedBalance != null && contract.carriedBalance > 0)) && (
+                <View style={{ marginTop: 12, padding: 14, backgroundColor: "#FEF2F2", borderRadius: 12, borderWidth: 1, borderColor: "#FECACA" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Ionicons name="receipt" size={18} color="#DC2626" />
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#991B1B" }}>
+                      1st Month Billing Breakdown
+                    </Text>
+                  </View>
+                  <View style={{ height: 8 }} />
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={{ fontSize: 12, color: "#64748B" }}>Base Monthly Rate</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: "#1E293B" }}>{formatAmount(contract.billingAmount)}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={{ fontSize: 12, color: (contract.carriedBalance ?? 0) > 0 ? "#DC2626" : "#059669" }}>Predecessor Worked Days</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: (contract.carriedBalance ?? 0) > 0 ? "#DC2626" : "#059669" }}>+{formatAmount(contract.carriedBalance ?? 0)}</Text>
+                  </View>
+                  <View style={{ height: 1, backgroundColor: "#FECACA", marginVertical: 6 }} />
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>1st Month Total Due</Text>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>{formatAmount(contract.billingAmount + (contract.carriedBalance ?? 0))}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ fontSize: 12, color: "#059669", fontWeight: "600" }}>From Month 2 Onwards</Text>
+                    <Text style={{ fontSize: 12, color: "#059669", fontWeight: "600" }}>{formatAmount(contract.billingAmount)} / mo</Text>
+                  </View>
+                  <Text style={{ fontSize: 11, color: "#7F1D1D", marginTop: 8, lineHeight: 15 }}>
+                    Renewed from Contract #{contract.renewedFromContractId ?? 'prior'}. {(contract.carriedBalance ?? 0) > 0 ? `Includes +${formatAmount(contract.carriedBalance)} for days operated before renewal (unworked days deducted).` : `Predecessor worked days balance is Rs. 0.00.`} Starting from month 2, regular monthly rate applies.
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.divider} />
 
               {contract.invoices.length === 0 ? (
@@ -876,7 +941,9 @@ export default function ContractDetailScreen() {
                 onPress={() => setCancelModalVisible(true)}
               >
                 <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
-                <Text style={styles.cancelContractBtnText}>Cancel Contract</Text>
+                <Text style={styles.cancelContractBtnText}>
+                  {contract.cancellation.status === "rejected" ? "Request Cancellation Again" : "Cancel Contract"}
+                </Text>
               </Pressable>
             )}
           </Animated.View>

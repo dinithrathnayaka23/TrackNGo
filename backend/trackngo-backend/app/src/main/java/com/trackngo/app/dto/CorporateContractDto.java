@@ -39,6 +39,7 @@ public record CorporateContractDto(
         String advancePaidAt,
         BigDecimal originalBillingAmount,
         BigDecimal discountAmount,
+        BigDecimal carriedBalance,
         ContractCancellationDto cancellation,
         /** Write-only: set on create to tag a new contract as a renewal of this prior one. Never read back. */
         Long renewedFromContractId,

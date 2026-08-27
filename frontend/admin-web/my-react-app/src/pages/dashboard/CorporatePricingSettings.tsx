@@ -17,22 +17,22 @@ const FIELDS: Array<{
   suffix?: string
   step?: string
 }> = [
-  { key: 'smallBusRatePerKm', label: 'Small bus rate per km', hint: 'Charged when the employee count fits a small bus.', suffix: 'Rs / km', step: '0.01' },
-  { key: 'largeBusRatePerKm', label: 'Large bus rate per km', hint: 'Charged when the employee count exceeds the small-bus threshold.', suffix: 'Rs / km', step: '0.01' },
-  { key: 'smallBusMaxEmployees', label: 'Small bus max employees', hint: 'Headcount at or below this uses the small-bus rate; above it uses the large-bus rate.', suffix: 'employees', step: '1' },
-  { key: 'acSurchargePercent', label: 'AC surcharge', hint: 'Percentage added to the distance cost for AC bus contracts.', suffix: '%', step: '0.01' },
-  { key: 'miniBusFlatSurcharge', label: 'Mini bus flat surcharge', hint: 'Flat amount added per day for Mini Bus contracts.', suffix: 'Rs / day', step: '0.01' },
-  { key: 'weekdaysPerMonth', label: 'Weekdays per month', hint: 'Billing days used for contracts running Monday–Friday.', suffix: 'days', step: '1' },
-  { key: 'allDaysPerMonth', label: 'All-days per month', hint: 'Billing days used for contracts running every day.', suffix: 'days', step: '1' },
+  { key: 'standardBusRatePerKm', label: 'Standard Bus rate per km', hint: 'Base rate per km for Standard Bus contracts (includes fuel, driver, maintenance).', suffix: 'Rs / km', step: '0.01' },
+  { key: 'miniBusRatePerKm', label: 'Mini Rosa Bus rate per km', hint: 'Base rate per km for Mini Rosa Bus contracts (includes fuel, driver, maintenance).', suffix: 'Rs / km', step: '0.01' },
+  { key: 'acSurchargePercent', label: 'AC surcharge', hint: 'Percentage surcharge added to the monthly transport cost for AC contracts.', suffix: '%', step: '0.01' },
+  { key: 'platformFeePercent', label: 'Platform / service fee', hint: 'Platform fee percentage added to the subtotal.', suffix: '%', step: '0.01' },
+  { key: 'taxPercent', label: 'Tax', hint: 'Tax percentage applied to (subtotal + platform fee). Set to 0 if not applicable.', suffix: '%', step: '0.01' },
+  { key: 'weekdaysPerMonth', label: 'Weekdays per month', hint: 'Service days used for contracts running Monday–Friday.', suffix: 'days', step: '1' },
+  { key: 'allDaysPerMonth', label: 'All-days per month', hint: 'Service days used for contracts running every day.', suffix: 'days', step: '1' },
 ]
 
 function toForm(settings: CorporatePricingSettings): FormState {
   return {
-    smallBusRatePerKm: String(settings.smallBusRatePerKm),
-    largeBusRatePerKm: String(settings.largeBusRatePerKm),
-    smallBusMaxEmployees: String(settings.smallBusMaxEmployees),
+    standardBusRatePerKm: String(settings.standardBusRatePerKm),
+    miniBusRatePerKm: String(settings.miniBusRatePerKm),
     acSurchargePercent: String(settings.acSurchargePercent),
-    miniBusFlatSurcharge: String(settings.miniBusFlatSurcharge),
+    platformFeePercent: String(settings.platformFeePercent),
+    taxPercent: String(settings.taxPercent),
     weekdaysPerMonth: String(settings.weekdaysPerMonth),
     allDaysPerMonth: String(settings.allDaysPerMonth),
   }
@@ -79,11 +79,11 @@ function CorporatePricingSettingsPage() {
     setSaveError(null)
     try {
       const payload = {
-        smallBusRatePerKm: Number(form.smallBusRatePerKm),
-        largeBusRatePerKm: Number(form.largeBusRatePerKm),
-        smallBusMaxEmployees: Number(form.smallBusMaxEmployees),
+        standardBusRatePerKm: Number(form.standardBusRatePerKm),
+        miniBusRatePerKm: Number(form.miniBusRatePerKm),
         acSurchargePercent: Number(form.acSurchargePercent),
-        miniBusFlatSurcharge: Number(form.miniBusFlatSurcharge),
+        platformFeePercent: Number(form.platformFeePercent),
+        taxPercent: Number(form.taxPercent),
         weekdaysPerMonth: Number(form.weekdaysPerMonth),
         allDaysPerMonth: Number(form.allDaysPerMonth),
       }
@@ -114,18 +114,20 @@ function CorporatePricingSettingsPage() {
       <header className="mb-6">
         <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Corporate Pricing Settings</h1>
         <p className="mt-1 text-sm text-[#64748b]">
-          These rates drive the standard monthly billing formula for every new corporate contract request.
+          These rates drive the standard monthly billing formula for corporate employee transportation in Sri Lanka.
         </p>
       </header>
 
       <div className="mb-5 flex items-start gap-3 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-4">
         <FontAwesomeIcon icon={faCircleInfo} className="mt-0.5 text-[#2563eb]" />
         <div className="text-sm text-[#1e3a8a]">
-          <p className="font-semibold">Formula</p>
-          <p className="mt-1 leading-relaxed">
-            Monthly bill = rate per km (small or large bus, by employee count) × one-way distance × trips per day
-            (1, or 2 for morning + evening) × working days per month, then AC adds the surcharge % or Mini Bus adds
-            the flat surcharge per day.
+          <p className="font-semibold">Pricing Formula</p>
+          <p className="mt-1 leading-relaxed text-xs">
+            1. <strong>Monthly Transport Cost</strong> = Rate per km (Standard / Mini Rosa) × Daily Distance × Service Days per Month<br />
+            2. <strong>Subtotal</strong> = Monthly Transport Cost + (AC Surcharge % if AC)<br />
+            3. <strong>Platform Fee</strong> = Subtotal × Platform Fee %<br />
+            4. <strong>Tax</strong> = (Subtotal + Platform Fee) × Tax %<br />
+            5. <strong>Final Amount</strong> = Subtotal + Platform Fee + Tax
           </p>
         </div>
       </div>

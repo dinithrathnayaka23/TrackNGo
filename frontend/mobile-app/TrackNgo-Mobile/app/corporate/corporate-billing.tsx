@@ -252,8 +252,12 @@ export default function CorporateBillingScreen() {
         orderId,
         amount: latest.amount,
         currency: "LKR",
-        itemName: `Monthly Bill: ${latest.busNumber ?? contractLabel(latest.contractId)}`,
-        itemDescription: `Invoice #${latest.invoiceNumber} · ${formatContractDate(latest.date)} – ${latest.periodEnd ? formatContractDate(latest.periodEnd) : ""}`,
+        itemName: latest.invoiceType === "carried_balance"
+          ? `Carried Balance: ${contractLabel(latest.contractId)}`
+          : `Monthly Bill: ${latest.busNumber ?? contractLabel(latest.contractId)}`,
+        itemDescription: latest.invoiceType === "carried_balance"
+          ? `Carried Balance from Prior Contract · Invoice #${latest.invoiceNumber}`
+          : `Invoice #${latest.invoiceNumber} · ${formatContractDate(latest.date)} – ${latest.periodEnd ? formatContractDate(latest.periodEnd) : ""}`,
         email,
         successUrl: `${API_BASE_URL}/api/booking-flow/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${API_BASE_URL}/api/booking-flow/stripe/cancel?session_id={CHECKOUT_SESSION_ID}`,
@@ -524,7 +528,8 @@ export default function CorporateBillingScreen() {
                       >
                         <View style={styles.invoiceLeft}>
                           <Text style={styles.invoiceRef}>
-                            {buildInvoiceRef(inv)}{inv.busNumber ? ` · ${inv.busNumber}` : ""}
+                            {buildInvoiceRef(inv)}
+                            {inv.invoiceType === "carried_balance" ? " · Carried Balance" : (inv.busNumber ? ` · ${inv.busNumber}` : "")}
                           </Text>
                           <Text style={styles.invoiceContract} numberOfLines={1}>
                             {contractLabel(inv.contractId)}
@@ -603,7 +608,10 @@ export default function CorporateBillingScreen() {
                       onPress={() => setExpandedInvoiceKey(expanded ? null : invoiceKey(inv))}
                     >
                       <View style={styles.invoiceLeft}>
-                        <Text style={styles.invoiceRef}>{ref}{inv.busNumber ? ` · ${inv.busNumber}` : ""}</Text>
+                        <Text style={styles.invoiceRef}>
+                          {ref}
+                          {inv.invoiceType === "carried_balance" ? " · Carried Balance" : (inv.busNumber ? ` · ${inv.busNumber}` : "")}
+                        </Text>
                         <Text style={styles.invoiceDate}>{formatContractDate(inv.date)}</Text>
                       </View>
                       <View style={styles.invoiceRight}>

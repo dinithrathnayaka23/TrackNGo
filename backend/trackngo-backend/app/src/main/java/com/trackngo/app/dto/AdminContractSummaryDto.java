@@ -36,6 +36,8 @@ public record AdminContractSummaryDto(
         String advancePaidAt,
         BigDecimal originalBillingAmount,
         BigDecimal discountAmount,
+        BigDecimal carriedBalance,
+        Long renewedFromContractId,
         ContractCancellationDto cancellation,
         /** "none", "requested", "approved" or "declined" — the corporate client's ask to renew this contract. */
         String renewalRequestStatus

@@ -41,6 +41,8 @@ export type CorporateContract = {
   corporateUserId: number
   busId: number | null
   busIds: number[] | null
+  carriedBalance: number
+  renewedFromContractId?: number | null
   cancellation: ContractCancellation
   /** The corporate client's ask to renew this contract — always available while active, not just near its end date. */
   renewalRequestStatus: 'none' | 'requested' | 'approved' | 'declined'
@@ -56,6 +58,7 @@ export type CorporateInvoice = {
   date: string | null
   periodEnd: string | null
   dueDate: string | null
+  invoiceType?: 'monthly' | 'carried_balance' | 'adjustment'
   stripeTransactionId: string | null
   paidAt: string | null
   createdAt: string | null
@@ -110,6 +113,8 @@ export type AdminContractSummary = {
   advancePaidAt: string | null
   originalBillingAmount: number | null
   discountAmount: number | null
+  carriedBalance: number
+  renewedFromContractId?: number | null
   cancellation: ContractCancellation
   /** The corporate client's ask to renew this contract — always available while active, not just near its end date. */
   renewalRequestStatus: 'none' | 'requested' | 'approved' | 'declined'
@@ -286,11 +291,11 @@ export function respondToContractRenewal(contractId: number, approve: boolean) {
 
 /** Admin-configurable rates driving the corporate contract pricing formula. */
 export type CorporatePricingSettings = {
-  smallBusRatePerKm: number
-  largeBusRatePerKm: number
-  smallBusMaxEmployees: number
+  standardBusRatePerKm: number
+  miniBusRatePerKm: number
   acSurchargePercent: number
-  miniBusFlatSurcharge: number
+  platformFeePercent: number
+  taxPercent: number
   weekdaysPerMonth: number
   allDaysPerMonth: number
   updatedAt: string | null

@@ -47,7 +47,7 @@ export interface CorporateProfileDto {
 export type ContractStatus = "pending" | "active" | "expired" | "cancelled";
 export type ShiftType = "morning" | "evening" | "both";
 export type WorkingDays = "weekdays" | "all_days";
-export type BusType = "standard" | "ac" | "mini";
+export type BusType = "standard" | "mini";
 
 /** One pickup or drop-off point: a Google Places result plus the shift time. */
 export interface ShiftLeg {
@@ -74,6 +74,8 @@ export interface CorporateContract {
   employeeCount: number;
   workingDays: WorkingDays;
   busType: BusType;
+  /** True when the selected bus has air conditioning — independent of bus size. */
+  isAc: boolean;
   distanceKm: number | null;
   status: ContractStatus;
   /** Set once the corporate user confirms the final offer after admin approval. */
@@ -90,6 +92,8 @@ export interface CorporateContract {
   advancePaidAt: string | null;
   originalBillingAmount: number | null;
   discountAmount: number | null;
+  carriedBalance: number;
+  renewedFromContractId?: number | null;
   cancellation: ContractCancellation;
   /** The corporate client's ask to renew this contract — always available while active, not just near its end date. */
   renewalRequestStatus: 'none' | 'requested' | 'approved' | 'declined';
@@ -117,6 +121,7 @@ export interface CorporateInvoice {
   date: string;       // "YYYY-MM-DD" — period start
   periodEnd: string | null;
   dueDate: string | null;
+  invoiceType?: 'monthly' | 'carried_balance' | 'adjustment';
   stripeTransactionId: string | null;
   paidAt: string | null;
   createdAt: string;
@@ -162,6 +167,8 @@ export interface CreateContractRequest {
   employeeCount: number;
   workingDays: WorkingDays;
   busType: BusType;
+  /** True when the selected bus has air conditioning — drives the AC surcharge. */
+  isAc: boolean;
   busIds: number[];
   startDate: string;
   endDate: string;
@@ -193,6 +200,8 @@ export interface PricingEstimateRequest {
   shiftType: ShiftType;
   workingDays: WorkingDays;
   busType: BusType;
+  /** True when the selected bus has air conditioning — drives the AC surcharge. */
+  isAc: boolean;
 }
 
 /**
@@ -208,6 +217,22 @@ export async function estimateContractPricing(
     "/api/corporate/contracts/estimate",
     undefined,
     request,
+  );
+  return res.data ?? 0;
+}
+
+/**
+ * Calculates fair prorated carried balance from predecessor contract,
+ * deducting any unused days.
+ * GET /api/corporate/contracts/carried-balance
+ */
+export async function getCarriedBalance(
+  predecessorContractId: number,
+  startDate?: string,
+): Promise<number> {
+  const res = await httpGet<ApiResponse<number>>(
+    "/api/corporate/contracts/carried-balance",
+    { predecessorContractId, startDate },
   );
   return res.data ?? 0;
 }

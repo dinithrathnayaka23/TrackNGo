@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -46,7 +47,7 @@ public class CorporateService {
     private final CorporateInvoiceService corporateInvoiceService;
 
     private static final List<String> VALID_SHIFT_TYPES = List.of("morning", "evening", "both");
-    private static final List<String> VALID_BUS_TYPES = List.of("standard", "ac", "mini");
+    private static final List<String> VALID_BUS_TYPES = List.of("standard", "mini");
     private static final List<String> VALID_CONTRACT_STATUSES = List.of("pending", "active", "expired", "cancelled");
     private static final List<String> VALID_CANCEL_ROLES = List.of("admin", "corporate");
     private static final int MIN_ADMIN_CANCEL_NOTICE_DAYS = 14;
@@ -69,11 +70,11 @@ public class CorporateService {
                 evening_pickup_location, evening_pickup_lat, evening_pickup_lng, evening_pickup_time,
                 evening_dropoff_location, evening_dropoff_lat, evening_dropoff_lng, evening_dropoff_time,
                 evening_distance_km,
-                employee_count, working_days, bus_type, distance_km,
+                employee_count, working_days, bus_type, is_ac, distance_km,
                 status, finalized_at, billing_amount,
                 start_date, end_date, created_at, corporate_user_id, bus_id,
                 advance_amount, advance_payment_status, advance_paid_at,
-                original_billing_amount, discount_amount,
+                original_billing_amount, discount_amount, carried_balance, renewed_from_contract_id,
                 cancel_status, cancel_requested_by, cancel_reason, cancel_requested_at,
                 cancel_effective_date, cancel_response_reason, renewal_request_status
             """;
@@ -89,11 +90,11 @@ public class CorporateService {
     private static final String ADMIN_CONTRACTS_BASE_SQL = """
             SELECT
                 c.contract_id, c.contract_name, c.starting_location, c.destination,
-                c.shift_type, c.employee_count, c.bus_type,
+                c.shift_type, c.employee_count, c.bus_type, c.is_ac,
                 c.distance_km, c.status, c.billing_amount, c.start_date, c.end_date,
                 c.created_at, c.corporate_user_id,
                 c.advance_amount, c.advance_payment_status, c.advance_paid_at,
-                c.original_billing_amount, c.discount_amount,
+                c.original_billing_amount, c.discount_amount, c.carried_balance, c.renewed_from_contract_id,
                 c.cancel_status, c.cancel_requested_by, c.cancel_reason, c.cancel_requested_at,
                 c.cancel_effective_date, c.cancel_response_reason, c.renewal_request_status,
                 cu.company_name, cu.contact_person_name, cu.contact_phone,
@@ -115,7 +116,7 @@ public class CorporateService {
     private static final String INVOICES_SQL = """
             SELECT
                 i.invoice_number, i.contract_id, i.bus_id, b.bus_number, i.amount, i.status,
-                i.period_start, i.period_end, i.due_date, i.stripe_transaction_id, i.paid_at, i.created_at
+                i.period_start, i.period_end, i.due_date, i.invoice_type, i.stripe_transaction_id, i.paid_at, i.created_at
             FROM corporate_invoices i
             JOIN corporate_contract c ON i.contract_id = c.contract_id
             LEFT JOIN bus b ON b.bus_id = i.bus_id
@@ -126,7 +127,7 @@ public class CorporateService {
     private static final String CONTRACT_INVOICES_SQL = """
             SELECT
                 i.invoice_number, i.contract_id, i.bus_id, b.bus_number, i.amount, i.status,
-                i.period_start, i.period_end, i.due_date, i.stripe_transaction_id, i.paid_at, i.created_at
+                i.period_start, i.period_end, i.due_date, i.invoice_type, i.stripe_transaction_id, i.paid_at, i.created_at
             FROM corporate_invoices i
             LEFT JOIN bus b ON b.bus_id = i.bus_id
             WHERE i.contract_id = ?
@@ -143,11 +144,11 @@ public class CorporateService {
                 c.evening_pickup_location, c.evening_pickup_lat, c.evening_pickup_lng, c.evening_pickup_time,
                 c.evening_dropoff_location, c.evening_dropoff_lat, c.evening_dropoff_lng, c.evening_dropoff_time,
                 c.evening_distance_km,
-                c.employee_count, c.working_days, c.bus_type, c.distance_km,
+                c.employee_count, c.working_days, c.bus_type, c.is_ac, c.distance_km,
                 c.status, c.finalized_at, c.billing_amount,
                 c.start_date, c.end_date, c.created_at, c.corporate_user_id, c.bus_id,
                 c.advance_amount, c.advance_payment_status, c.advance_paid_at, c.advance_transaction_id,
-                c.original_billing_amount, c.discount_amount, c.admin_note,
+                c.original_billing_amount, c.discount_amount, c.carried_balance, c.renewed_from_contract_id, c.admin_note,
                 c.cancel_status, c.cancel_requested_by, c.cancel_reason, c.cancel_requested_at,
                 c.cancel_effective_date, c.cancel_response_reason, c.renewal_request_status,
                 cu.company_name, cu.contact_person_name, cu.contact_phone
@@ -328,6 +329,7 @@ public class CorporateService {
                 rs.getString("shift_type"),
                 rs.getInt("employee_count"),
                 rs.getString("bus_type"),
+                rs.getBoolean("is_ac"),
                 rs.getBigDecimal("distance_km"),
                 rs.getString("status"),
                 rs.getBigDecimal("billing_amount"),
@@ -342,6 +344,8 @@ public class CorporateService {
                 rs.getString("advance_paid_at"),
                 rs.getBigDecimal("original_billing_amount"),
                 rs.getBigDecimal("discount_amount"),
+                rs.getBigDecimal("carried_balance"),
+                rs.getObject("renewed_from_contract_id") != null ? rs.getLong("renewed_from_contract_id") : null,
                 mapCancellation(rs),
                 rs.getString("renewal_request_status")
         ), params.toArray());
@@ -365,6 +369,7 @@ public class CorporateService {
                 rs.getInt("employee_count"),
                 rs.getString("working_days"),
                 rs.getString("bus_type"),
+                rs.getBoolean("is_ac"),
                 rs.getBigDecimal("distance_km"),
                 rs.getString("status"),
                 rs.getString("finalized_at"),
@@ -380,8 +385,9 @@ public class CorporateService {
                 rs.getString("advance_paid_at"),
                 rs.getBigDecimal("original_billing_amount"),
                 rs.getBigDecimal("discount_amount"),
+                rs.getBigDecimal("carried_balance"),
                 mapCancellation(rs),
-                null,
+                rs.getObject("renewed_from_contract_id") != null ? rs.getLong("renewed_from_contract_id") : null,
                 rs.getString("renewal_request_status")
         );
     }
@@ -392,11 +398,11 @@ public class CorporateService {
                 base.shiftType(), base.startShiftTime(), base.endShiftTime(),
                 base.morningPickup(), base.morningDropoff(), base.morningDistanceKm(),
                 base.eveningPickup(), base.eveningDropoff(), base.eveningDistanceKm(),
-                base.employeeCount(), base.workingDays(), base.busType(), base.distanceKm(),
+                base.employeeCount(), base.workingDays(), base.busType(), base.isAc(), base.distanceKm(),
                 base.status(), base.finalizedAt(), base.billingAmount(), base.startDate(), base.endDate(),
                 base.createdAt(), base.corporateUserId(), base.busId(), busIds,
                 base.advanceAmount(), base.advancePaymentStatus(), base.advancePaidAt(),
-                base.originalBillingAmount(), base.discountAmount(), base.cancellation(),
+                base.originalBillingAmount(), base.discountAmount(), base.carriedBalance(), base.cancellation(),
                 base.renewedFromContractId(), base.renewalRequestStatus()
         );
     }
@@ -427,6 +433,7 @@ public class CorporateService {
                 rs.getDate("period_start") != null ? rs.getDate("period_start").toLocalDate() : null,
                 rs.getDate("period_end") != null ? rs.getDate("period_end").toLocalDate() : null,
                 rs.getDate("due_date") != null ? rs.getDate("due_date").toLocalDate() : null,
+                rs.getString("invoice_type"),
                 rs.getString("stripe_transaction_id"),
                 rs.getString("paid_at"),
                 rs.getString("created_at")
@@ -441,7 +448,7 @@ public class CorporateService {
     public CorporateInvoiceDto getInvoice(Long invoiceNumber) {
         List<CorporateInvoiceDto> rows = jdbcTemplate.query("""
                 SELECT i.invoice_number, i.contract_id, i.bus_id, b.bus_number, i.amount, i.status,
-                       i.period_start, i.period_end, i.due_date, i.stripe_transaction_id, i.paid_at, i.created_at
+                       i.period_start, i.period_end, i.due_date, i.invoice_type, i.stripe_transaction_id, i.paid_at, i.created_at
                 FROM corporate_invoices i
                 LEFT JOIN bus b ON b.bus_id = i.bus_id
                 WHERE i.invoice_number = ?
@@ -493,6 +500,7 @@ public class CorporateService {
                     rs.getInt("employee_count"),
                     rs.getString("working_days"),
                     rs.getString("bus_type"),
+                    rs.getBoolean("is_ac"),
                     rs.getBigDecimal("distance_km"),
                     rs.getString("status"),
                     rs.getString("finalized_at"),
@@ -517,6 +525,8 @@ public class CorporateService {
                     rs.getString("advance_transaction_id"),
                     rs.getBigDecimal("original_billing_amount"),
                     rs.getBigDecimal("discount_amount"),
+                    rs.getBigDecimal("carried_balance"),
+                    rs.getObject("renewed_from_contract_id") != null ? rs.getLong("renewed_from_contract_id") : null,
                     rs.getString("admin_note"),
                     mapCancellation(rs),
                     rs.getString("renewal_request_status")
@@ -552,6 +562,7 @@ public class CorporateService {
         validateContractDates(dto);
         List<ContractBusDto> assignedBuses = validateAndResolveBuses(dto);
         String busType = dto.busType() == null ? "standard" : dto.busType().toLowerCase();
+        boolean isAc = Boolean.TRUE.equals(dto.isAc());
 
         boolean needsMorning = needsMorning(dto.shiftType());
         boolean needsEvening = needsEvening(dto.shiftType());
@@ -559,7 +570,12 @@ public class CorporateService {
         if (needsMorning) totalDistanceKm = totalDistanceKm.add(dto.morningDistanceKm());
         if (needsEvening) totalDistanceKm = totalDistanceKm.add(dto.eveningDistanceKm());
 
-        BigDecimal billingAmount = pricingService.calculateMonthlyAmount(dto);
+        BigDecimal billingAmount = pricingService.calculateMonthlyAmount(dto, assignedBuses);
+
+        BigDecimal carriedBalance = BigDecimal.ZERO;
+        if (dto.renewedFromContractId() != null) {
+            carriedBalance = calculateFairCarriedBalance(dto.renewedFromContractId(), dto.startDate());
+        }
 
         String insertSql = """
                 INSERT INTO corporate_contract (
@@ -571,10 +587,10 @@ public class CorporateService {
                     evening_pickup_location, evening_pickup_lat, evening_pickup_lng, evening_pickup_time,
                     evening_dropoff_location, evening_dropoff_lat, evening_dropoff_lng, evening_dropoff_time,
                     evening_distance_km,
-                    employee_count, working_days, bus_type, distance_km,
+                    employee_count, working_days, bus_type, is_ac, distance_km,
                     billing_amount, start_date, end_date, corporate_user_id, status,
-                    original_billing_amount, renewed_from_contract_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+                    original_billing_amount, carried_balance, renewed_from_contract_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
                 """;
         ShiftLegDto morningPickup = dto.morningPickup();
         ShiftLegDto morningDropoff = dto.morningDropoff();
@@ -583,6 +599,7 @@ public class CorporateService {
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         BigDecimal finalTotalDistanceKm = totalDistanceKm;
+        BigDecimal finalCarriedBalance = carriedBalance;
         jdbcTemplate.update(con -> {
             PreparedStatement ps = con.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, dto.contractName());
@@ -612,13 +629,15 @@ public class CorporateService {
             ps.setInt(25, dto.employeeCount());
             ps.setString(26, dto.workingDays());
             ps.setString(27, busType);
-            ps.setBigDecimal(28, finalTotalDistanceKm);
-            ps.setBigDecimal(29, billingAmount);
-            ps.setObject(30, dto.startDate());
-            ps.setObject(31, dto.endDate());
-            ps.setLong(32, dto.corporateUserId());
-            ps.setBigDecimal(33, billingAmount);
-            ps.setObject(34, dto.renewedFromContractId());
+            ps.setBoolean(28, isAc);
+            ps.setBigDecimal(29, finalTotalDistanceKm);
+            ps.setBigDecimal(30, billingAmount);
+            ps.setObject(31, dto.startDate());
+            ps.setObject(32, dto.endDate());
+            ps.setLong(33, dto.corporateUserId());
+            ps.setBigDecimal(34, billingAmount);
+            ps.setBigDecimal(35, finalCarriedBalance);
+            ps.setObject(36, dto.renewedFromContractId());
             return ps;
         }, keyHolder);
 
@@ -773,15 +792,29 @@ public class CorporateService {
         }
     }
 
-    /** Legacy starting_location column: the first pickup point of the day. */
+    /** Starting location: if both shifts, displays both pickup locations. */
     private static String resolveStartingLocation(CorporateContractDto dto) {
+        if ("both".equalsIgnoreCase(dto.shiftType())) {
+            String m = dto.morningPickup() != null ? dto.morningPickup().location() : "";
+            String e = dto.eveningPickup() != null ? dto.eveningPickup().location() : "";
+            if (!m.isBlank() && !e.isBlank()) {
+                return m + " (M) & " + e + " (E)";
+            }
+        }
         if (dto.morningPickup() != null) return dto.morningPickup().location();
         if (dto.eveningPickup() != null) return dto.eveningPickup().location();
         return null;
     }
 
-    /** Legacy destination column: the last drop-off point of the day. */
+    /** Destination: if both shifts, displays both drop-off locations. */
     private static String resolveDestination(CorporateContractDto dto) {
+        if ("both".equalsIgnoreCase(dto.shiftType())) {
+            String m = dto.morningDropoff() != null ? dto.morningDropoff().location() : "";
+            String e = dto.eveningDropoff() != null ? dto.eveningDropoff().location() : "";
+            if (!m.isBlank() && !e.isBlank()) {
+                return m + " (M) & " + e + " (E)";
+            }
+        }
         if (dto.eveningDropoff() != null) return dto.eveningDropoff().location();
         if (dto.morningDropoff() != null) return dto.morningDropoff().location();
         return null;
@@ -1009,8 +1042,17 @@ public class CorporateService {
         if (!"pending".equals(status) && !"active".equals(status)) {
             throw new IllegalStateException("Only a pending or active contract can be cancelled.");
         }
-        if (!"none".equals(row.get("cancel_status"))) {
+        if (!"none".equals(row.get("cancel_status")) && !"rejected".equals(row.get("cancel_status"))) {
             throw new IllegalStateException("A cancellation request is already in progress for this contract.");
+        }
+
+        // Enforce payment settlement: all payments up to current billing period must be settled
+        Integer unpaidInvoices = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM corporate_invoices
+                WHERE contract_id = ? AND status IN ('pending', 'overdue') AND period_start <= CURRENT_DATE
+                """, Integer.class, contractId);
+        if (unpaidInvoices != null && unpaidInvoices > 0) {
+            throw new IllegalStateException("All monthly payments up to the current billing period must be settled before requesting cancellation. Please pay your outstanding invoices first.");
         }
 
         boolean offersNoticeChoice = "admin".equals(normalizedRole) && "active".equals(status);
@@ -1039,8 +1081,8 @@ public class CorporateService {
      * ("immediate" or "scheduled") so the accepting corporate user can choose
      * between cancelling right away or keeping the contract running until a
      * {@value #MIN_ADMIN_CANCEL_NOTICE_DAYS}-day notice period elapses.
-     * Rejecting resets the cancellation state to 'none' so a fresh request
-     * can be filed later.
+     * Rejecting sets the cancellation state to 'rejected' with the reason
+     * so the client can fulfill the requirement and request cancellation again.
      */
     public CorporateContractDto respondToCancellation(
             Long contractId, String role, boolean accept, String responseReason, String cancelTiming) {
@@ -1069,13 +1111,16 @@ public class CorporateService {
         String contractName = (String) row.get("contract_name");
 
         if (!accept) {
+            if (responseReason == null || responseReason.isBlank()) {
+                throw new IllegalArgumentException("A reason is required when declining a cancellation request.");
+            }
             jdbcTemplate.update("""
                     UPDATE corporate_contract
-                    SET cancel_status = 'none', cancel_requested_by = NULL, cancel_reason = NULL,
-                        cancel_requested_at = NULL, cancel_effective_date = NULL, cancel_response_reason = ?
+                    SET cancel_status = 'rejected', cancel_response_reason = ?,
+                        cancel_requested_at = CURRENT_TIMESTAMP
                     WHERE contract_id = ?
-                    """, responseReason, contractId);
-            notifyCancellationDeclined(contractId, corporateUserId, contractName, requestedBy, responseReason);
+                    """, responseReason.trim(), contractId);
+            notifyCancellationDeclined(contractId, corporateUserId, contractName, requestedBy, responseReason.trim());
         } else {
             boolean offersNoticeChoice = "admin".equals(requestedBy) && "active".equals(status);
             boolean cancelNow = true;
@@ -1090,6 +1135,14 @@ public class CorporateService {
             }
 
             if (cancelNow) {
+                // Enforce payment settlement when completing cancellation
+                Integer unpaidInvoices = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*) FROM corporate_invoices
+                        WHERE contract_id = ? AND status IN ('pending', 'overdue') AND period_start <= CURRENT_DATE
+                        """, Integer.class, contractId);
+                if (unpaidInvoices != null && unpaidInvoices > 0) {
+                    throw new IllegalStateException("All monthly payments up to the current billing period must be settled before cancelling this contract. Please settle outstanding invoices first.");
+                }
                 jdbcTemplate.update("""
                         UPDATE corporate_contract
                         SET status = 'cancelled', cancel_status = 'accepted', cancel_response_reason = ?
@@ -1231,18 +1284,20 @@ public class CorporateService {
         if (newStart.isBefore(earliestAllowedStart)) {
             newStart = earliestAllowedStart;
         }
-        long termDays = java.time.temporal.ChronoUnit.DAYS.between(existing.startDate(), existing.endDate());
+        long termDays = ChronoUnit.DAYS.between(existing.startDate(), existing.endDate());
         LocalDate newEnd = newStart.plusDays(Math.min(Math.max(termDays, 30), 365));
+
+        BigDecimal carriedBalance = calculateFairCarriedBalance(contractId, newStart);
 
         CorporateContractDto renewalRequest = new CorporateContractDto(
                 null, existing.contractName(), null, null,
                 existing.shiftType(), null, null,
                 existing.morningPickup(), existing.morningDropoff(), existing.morningDistanceKm(),
                 existing.eveningPickup(), existing.eveningDropoff(), existing.eveningDistanceKm(),
-                existing.employeeCount(), existing.workingDays(), existing.busType(), existing.distanceKm(),
+                existing.employeeCount(), existing.workingDays(), existing.busType(), existing.isAc(), existing.distanceKm(),
                 null, null, null, newStart, newEnd,
                 null, existing.corporateUserId(), null, busIds,
-                null, null, null, null, null, null,
+                null, null, null, null, null, carriedBalance, null,
                 existing.contractId(), null
         );
 
@@ -1592,5 +1647,84 @@ public class CorporateService {
         } catch (Exception ex) {
             log.warn("Failed to create status-change notification for contract {}", contractId, ex);
         }
+    }
+
+    /**
+     * Calculates the fair prorated carried balance from a predecessor contract.
+     * Deducts any unused days from ongoing/future invoices so the client only pays
+     * for days of service actually consumed under the predecessor contract.
+     */
+    public BigDecimal calculateFairCarriedBalance(Long predecessorContractId, LocalDate cutoffDate) {
+        if (predecessorContractId == null) {
+            return BigDecimal.ZERO;
+        }
+        LocalDate effectiveCutoff = LocalDate.now();
+        if (cutoffDate != null && cutoffDate.isBefore(effectiveCutoff)) {
+            effectiveCutoff = cutoffDate;
+        }
+
+        List<Map<String, Object>> invoices = jdbcTemplate.queryForList("""
+                SELECT amount, status, period_start, period_end
+                FROM corporate_invoices
+                WHERE contract_id = ? AND status != 'cancelled'
+                """, predecessorContractId);
+
+        BigDecimal totalDebt = BigDecimal.ZERO;
+        BigDecimal totalCredit = BigDecimal.ZERO;
+
+        for (Map<String, Object> inv : invoices) {
+            BigDecimal amount = (BigDecimal) inv.get("amount");
+            String status = (String) inv.get("status");
+            java.sql.Date startSql = (java.sql.Date) inv.get("period_start");
+            java.sql.Date endSql = (java.sql.Date) inv.get("period_end");
+
+            if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            LocalDate periodStart = startSql != null ? startSql.toLocalDate() : null;
+            LocalDate periodEnd = endSql != null ? endSql.toLocalDate() : null;
+
+            if (periodStart == null || periodEnd == null || !periodEnd.isAfter(periodStart)) {
+                // Non-period or carried-balance invoice: full debt if unpaid
+                if ("pending".equalsIgnoreCase(status) || "overdue".equalsIgnoreCase(status)) {
+                    totalDebt = totalDebt.add(amount);
+                }
+                continue;
+            }
+
+            long totalDays = ChronoUnit.DAYS.between(periodStart, periodEnd);
+            if (totalDays <= 0) {
+                continue;
+            }
+
+            if (!effectiveCutoff.isAfter(periodStart)) {
+                // Period hasn't started yet relative to cutoff: 0 used days
+                if ("paid".equalsIgnoreCase(status)) {
+                    totalCredit = totalCredit.add(amount);
+                }
+            } else if (!effectiveCutoff.isBefore(periodEnd)) {
+                // Period completely elapsed: 100% used
+                if ("pending".equalsIgnoreCase(status) || "overdue".equalsIgnoreCase(status)) {
+                    totalDebt = totalDebt.add(amount);
+                }
+            } else {
+                // Cutoff falls in the middle of the billing period: prorate fairly based on days worked
+                long usedDays = ChronoUnit.DAYS.between(periodStart, effectiveCutoff);
+                BigDecimal usedRatio = BigDecimal.valueOf(usedDays)
+                        .divide(BigDecimal.valueOf(totalDays), 6, RoundingMode.HALF_UP);
+                BigDecimal usedAmount = amount.multiply(usedRatio).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal unusedAmount = amount.subtract(usedAmount);
+
+                if ("pending".equalsIgnoreCase(status) || "overdue".equalsIgnoreCase(status)) {
+                    totalDebt = totalDebt.add(usedAmount);
+                } else if ("paid".equalsIgnoreCase(status)) {
+                    totalCredit = totalCredit.add(unusedAmount);
+                }
+            }
+        }
+
+        BigDecimal netCarried = totalDebt.subtract(totalCredit);
+        return netCarried.compareTo(BigDecimal.ZERO) > 0 ? netCarried.setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     }
 }

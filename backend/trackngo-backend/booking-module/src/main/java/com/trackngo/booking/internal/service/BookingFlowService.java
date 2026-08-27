@@ -38,6 +38,14 @@ public class BookingFlowService {
 
     private static final ZoneId APP_ZONE = ZoneId.of("Asia/Colombo");
 
+    /**
+     * Seat bookings must be made at least one full day ahead: a passenger cannot
+     * book a seat for the day they are travelling. Kept in step with
+     * MIN_BOOKING_LEAD_DAYS in the passenger app's utils/bookingDate.ts, which
+     * applies the same rule to the date picker.
+     */
+    static final int MIN_BOOKING_LEAD_DAYS = 1;
+
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
     private final PromotionService promotionService;
@@ -918,12 +926,13 @@ public class BookingFlowService {
         try {
             parsedDate = LocalDate.parse(journeyDate);
         } catch (DateTimeParseException | NullPointerException ex) {
-            throw new BusinessException("Journey date is invalid. Please choose today or a future date.");
+            throw new BusinessException("Journey date is invalid. Please choose tomorrow or a later date.");
         }
 
-        LocalDate today = LocalDate.now(APP_ZONE);
-        if (parsedDate.isBefore(today)) {
-            throw new BusinessException("Bookings can only be made for today or a future date.");
+        LocalDate earliestBookable = LocalDate.now(APP_ZONE).plusDays(MIN_BOOKING_LEAD_DAYS);
+        if (parsedDate.isBefore(earliestBookable)) {
+            throw new BusinessException(
+                    "Bookings must be made at least one day in advance. Please choose tomorrow or a later date.");
         }
     }
 

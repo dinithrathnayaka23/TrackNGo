@@ -436,13 +436,10 @@ class BookingFlowServiceTest {
         assertThat(result.routeStops()).extracting(BusDetailResult.RouteStopInfo::name)
                 .containsExactly("Kadawatha", "Kegalle", "Mawanella");
     }
-    @Test
-    @DisplayName("createBooking: rejects past journey dates before creating payment or seat booking")
-    void createBooking_pastJourneyDate_throwsBusinessExceptionBeforeWriting() {
-        String yesterday = LocalDate.now(ZoneId.of("Asia/Colombo")).minusDays(1).toString();
-        CreateBookingRequest request = new CreateBookingRequest(
+    private CreateBookingRequest bookingRequestForDate(String journeyDate) {
+        return new CreateBookingRequest(
                 1L,
-                yesterday,
+                journeyDate,
                 "08:00",
                 List.of("A1"),
                 "",
@@ -456,12 +453,45 @@ class BookingFlowServiceTest {
                 null,
                 null
         );
+    }
 
-        assertThatThrownBy(() -> service.createBooking(request))
+    @Test
+    @DisplayName("createBooking: rejects past journey dates before creating payment or seat booking")
+    void createBooking_pastJourneyDate_throwsBusinessExceptionBeforeWriting() {
+        String yesterday = LocalDate.now(ZoneId.of("Asia/Colombo")).minusDays(1).toString();
+
+        assertThatThrownBy(() -> service.createBooking(bookingRequestForDate(yesterday)))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("today or a future date");
+                .hasMessageContaining("at least one day in advance");
 
         verifyNoInteractions(jdbc, promotionService);
+    }
+
+    @Test
+    @DisplayName("createBooking: rejects a booking made for today, since seats must be booked a day ahead")
+    void createBooking_sameDayJourneyDate_throwsBusinessExceptionBeforeWriting() {
+        String today = LocalDate.now(ZoneId.of("Asia/Colombo")).toString();
+
+        assertThatThrownBy(() -> service.createBooking(bookingRequestForDate(today)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("at least one day in advance");
+
+        verifyNoInteractions(jdbc, promotionService);
+    }
+
+    @Test
+    @DisplayName("createBooking: accepts tomorrow, the earliest bookable journey date")
+    void createBooking_earliestBookableDate_passesDateValidation() {
+        String tomorrow = LocalDate.now(ZoneId.of("Asia/Colombo"))
+                .plusDays(BookingFlowService.MIN_BOOKING_LEAD_DAYS)
+                .toString();
+
+        // The booking still fails further down on unstubbed collaborators; what
+        // matters is that it gets past the lead-time guard rather than being
+        // rejected for its date.
+        assertThatThrownBy(() -> service.createBooking(bookingRequestForDate(tomorrow)))
+                .isInstanceOf(Throwable.class)
+                .hasMessageNotContaining("at least one day in advance");
     }
 
     @Test

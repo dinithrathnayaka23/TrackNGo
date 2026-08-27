@@ -14,7 +14,7 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import { createBooking, createStripeCheckoutSession, getStripeSessionStatus } from '../../services/bookingFlowApi';
 import { useSession } from '../../store/sessionStore';
 import { API_BASE_URL } from '../../config/env';
-import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { isUnbookableBookingDate, BOOKING_LEAD_TIME_MESSAGE, earliestBookableDateString } from '../../utils/bookingDate';
 import { LocalizedText as Text } from '../../utils/i18n';
 
 /*
@@ -55,7 +55,7 @@ export default function PaymentGatewayScreen() {
   const busId = params.busId ?? '0';
   const busType = params.busType ?? 'Super Luxury A/C';
   const depart = params.depart ?? '08:30';
-  const date = params.date ?? todayDateString();
+  const date = params.date ?? earliestBookableDateString();
   const seats = params.seats ?? '';
   const totalPrice = Number(params.totalPrice ?? '2500') || 2500;
   const originalAmount = Number(params.originalAmount ?? params.totalPrice ?? '2500') || totalPrice;
@@ -66,7 +66,7 @@ export default function PaymentGatewayScreen() {
   const mobile = params.mobile ?? '';
   const email = params.email ?? '';
   const specialRequest = params.specialRequest ?? '';
-  const invalidBookingDate = isPastOrInvalidBookingDate(date);
+  const invalidBookingDate = isUnbookableBookingDate(date);
 
   // State for managing the payment WebView and backend processing
   const [loading, setLoading] = useState(false);
@@ -77,7 +77,7 @@ export default function PaymentGatewayScreen() {
 
   useEffect(() => {
     if (invalidBookingDate) {
-      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
       router.replace({ pathname: '/booking/search-buses' });
     }
   }, [invalidBookingDate, router]);
@@ -87,7 +87,7 @@ export default function PaymentGatewayScreen() {
    */
   const handlePayWithStripe = async () => {
     if (invalidBookingDate) {
-      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
       return;
     }
     setLoading(true);
@@ -121,7 +121,7 @@ export default function PaymentGatewayScreen() {
    */
   const completeBooking = useCallback(async () => {
     if (invalidBookingDate) {
-      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
       return;
     }
     setShowWebView(false);

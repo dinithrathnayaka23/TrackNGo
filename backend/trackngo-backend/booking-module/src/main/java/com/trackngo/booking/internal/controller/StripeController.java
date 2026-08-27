@@ -49,6 +49,12 @@ public class StripeController {
                     .setSuccessUrl(request.successUrl())
                     .setCancelUrl(request.cancelUrl())
                     .setCustomerEmail(request.email())
+                    // Restrict to card only — without this, Stripe also offers Link
+                    // (its 1-click saved-card feature), which emails a one-time code
+                    // to `email` to verify it. That's a dead end here since `email`
+                    // is often a placeholder, not a real inbox, and Link's repeat-
+                    // customer convenience isn't relevant to these one-off payments.
+                    .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
                     .addLineItem(
                             SessionCreateParams.LineItem.builder()
                                     .setQuantity(1L)

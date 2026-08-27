@@ -628,18 +628,42 @@ export default function BookATrip() {
     }
   };
 
+  const getMinDepartureDate = (): Date => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
   // ── Form validation with error messages ───────────────────
   const validateForm = (): boolean => {
     const e: any = {};
     if (!pickup) e.pickup = "Please select a Pickup Location";
     if (!drop) e.drop = "Please select a Drop-off Location";
-    if (!depart) e.depart = "Please select Departure Date";
+    const minDepart = getMinDepartureDate();
+    if (!depart) {
+      e.depart = "Please select Departure Date";
+    } else {
+      const depZero = new Date(depart);
+      depZero.setHours(0, 0, 0, 0);
+      if (depZero < minDepart) {
+        e.depart = "Departure must be at least 2 days from today";
+      }
+    }
     if (!returnDate) e.returnDate = "Please select Return Date";
     if (depart && returnDate && returnDate < depart) e.returnDate = "Return cannot be before departure";
     if (duration < 1) e.duration = "Duration must be at least 1 day";
     if (passengers < 1) e.passengers = "At least 1 passenger required";
     setErrors(e);
     return Object.keys(e).length === 0;
+  };
+
+  // Helper to format local date as YYYY-MM-DD without UTC timezone drift
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
 
   // ── Submit ─────────────────────────────────────────────────
@@ -659,11 +683,14 @@ export default function BookATrip() {
       const pickupName = pickup?.name || pickupText || "TBD";
       const dropName = drop?.name || dropText || "TBD";
 
+      const startDateStr = formatLocalDate(depart!);
+      const returnDateStr = formatLocalDate(returnDate!);
+
       const savedBooking = await createTripBooking({
         startLocation: pickupName,
         destination: dropName,
-        startDate: depart!.toISOString().split("T")[0],
-        returnDate: returnDate!.toISOString().split("T")[0],
+        startDate: startDateStr,
+        returnDate: returnDateStr,
         passengerCount: passengers,
         requirement: selectedRequirement,
         distanceKm: distance,
@@ -682,8 +709,8 @@ export default function BookATrip() {
         bookingId: savedBooking.id,
         pickup: pickupName,
         drop: dropName,
-        depart: savedBooking.startDate,
-        returnDate: savedBooking.returnDate || returnDate!.toISOString().split("T")[0],
+        depart: savedBooking.startDate || startDateStr,
+        returnDate: savedBooking.returnDate || returnDateStr,
         duration,
         passengers,
         selectedRequirement,
@@ -697,9 +724,9 @@ export default function BookATrip() {
         pathname: "/trips/available-trip-bus",
         params: { tripData: JSON.stringify(tripDetails) },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Booking failed:", error);
-      alert("Failed to save booking. Check if the backend is running.");
+      alert(error?.message || "Failed to save booking. Check if the backend is running.");
     } finally {
       setLoading(false);
       isSubmitting.current = false;
@@ -813,9 +840,23 @@ export default function BookATrip() {
                 <Text style={{ color: depart ? "#111827" : "#94A3B8", fontSize: 16, fontWeight: "700", marginTop: 13 }}>
                   {depart ? depart.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "Choose date"}
                 </Text>
-                <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>Tap to select</Text>
+                <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>Min. 2 days in advance</Text>
               </TouchableOpacity>
-              {showDepartPicker && <DateTimePicker value={depart || new Date()} mode="date" minimumDate={new Date()} display="default" onChange={(_, date) => { setShowDepartPicker(false); if (date) { setDepart(date); if (returnDate && returnDate < date) setReturnDate(date); } }} />}
+              {showDepartPicker && (
+                <DateTimePicker
+                  value={depart && depart >= getMinDepartureDate() ? depart : getMinDepartureDate()}
+                  mode="date"
+                  minimumDate={getMinDepartureDate()}
+                  display="default"
+                  onChange={(_, date) => {
+                    setShowDepartPicker(false);
+                    if (date) {
+                      setDepart(date);
+                      if (returnDate && returnDate < date) setReturnDate(date);
+                    }
+                  }}
+                />
+              )}
               {errors.depart && <Text style={{ color: "#DC2626", fontSize: 11, marginTop: 4 }}>{errors.depart}</Text>}
             </View>
 
@@ -834,7 +875,18 @@ export default function BookATrip() {
                 </Text>
                 <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>Tap to select</Text>
               </TouchableOpacity>
-              {showReturnPicker && <DateTimePicker value={returnDate || depart || new Date()} mode="date" minimumDate={depart || new Date()} display="default" onChange={(_, date) => { setShowReturnPicker(false); if (date) setReturnDate(date); }} />}
+              {showReturnPicker && (
+                <DateTimePicker
+                  value={returnDate && returnDate >= (depart || getMinDepartureDate()) ? returnDate : (depart || getMinDepartureDate())}
+                  mode="date"
+                  minimumDate={depart || getMinDepartureDate()}
+                  display="default"
+                  onChange={(_, date) => {
+                    setShowReturnPicker(false);
+                    if (date) setReturnDate(date);
+                  }}
+                />
+              )}
               {errors.returnDate && <Text style={{ color: "#DC2626", fontSize: 11, marginTop: 4 }}>{errors.returnDate}</Text>}
             </View>
           </View>

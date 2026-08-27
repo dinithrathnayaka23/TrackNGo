@@ -12,4 +12,10 @@ public interface RecentBookingProjection {
     LocalDate getJourneyDate();
     LocalTime getJourneyTime();
     String getPaymentStatus();
+    String getStatus();
+    String getCancellationStatus();
+    String getCancellationReason();
+    String getCancellationRequestedBy();
+    String getCancellationRejectReason();
+    Integer getRefundPercentage();
 }

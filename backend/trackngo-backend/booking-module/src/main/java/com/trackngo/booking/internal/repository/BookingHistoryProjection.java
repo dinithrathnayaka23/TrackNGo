@@ -17,4 +17,9 @@ public interface BookingHistoryProjection {
     String getStatus();
     String getTransactionId();
     String getPaymentStatus();
+    String getCancellationStatus();
+    String getCancellationReason();
+    String getCancellationRequestedBy();
+    String getCancellationRejectReason();
+    Integer getRefundPercentage();
 }

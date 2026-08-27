@@ -15,9 +15,15 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			sb.booking_reference AS bookingReference,
 			COALESCE(sb.from_stop, r.start_location) AS startLocation,
 			COALESCE(sb.to_stop, r.end_location) AS endLocation,
-			 sb.journey_date AS journeyDate,
+			sb.journey_date AS journeyDate,
 			sb.journey_time AS journeyTime,
-			COALESCE(recent_payment.payment_status, 'unpaid') AS paymentStatus
+			COALESCE(MAX(recent_payment.payment_status), 'unpaid') AS paymentStatus,
+			sb.status AS status,
+			COALESCE(sb.cancellation_status, 'none') AS cancellationStatus,
+			sb.cancellation_reason AS cancellationReason,
+			sb.cancellation_requested_by AS cancellationRequestedBy,
+			sb.cancellation_reject_reason AS cancellationRejectReason,
+			sb.refund_percentage AS refundPercentage
 		FROM seat_booking sb
 		INNER JOIN route r ON r.route_id = sb.route_id
 		INNER JOIN bus b ON b.bus_id = sb.bus_id
@@ -26,7 +32,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		WHERE u.email = :email
 		  AND sb.status <> 'cancelled'
 		  AND sb.journey_date >= CURDATE()
-		  AND sb.journey_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+		GROUP BY sb.booking_reference, b.bus_number, b.bus_type, sb.from_stop, r.start_location, sb.to_stop, r.end_location, sb.journey_date, sb.journey_time, sb.status, sb.cancellation_status, sb.cancellation_reason, sb.cancellation_requested_by, sb.cancellation_reject_reason, sb.refund_percentage
 		
 		UNION ALL
 		
@@ -38,7 +44,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			tb.destination AS endLocation,
 			tb.start_date AS journeyDate,
 			CAST('08:00:00' AS TIME) AS journeyTime,
-			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus
+			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus,
+			tb.booking_status AS status,
+			COALESCE(tb.cancellation_status, 'none') AS cancellationStatus,
+			tb.cancellation_reason AS cancellationReason,
+			tb.cancellation_requested_by AS cancellationRequestedBy,
+			tb.cancellation_reject_reason AS cancellationRejectReason,
+			tb.refund_percentage AS refundPercentage
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
 		LEFT JOIN payment trip_payment ON trip_payment.payment_id = (
@@ -50,10 +62,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		WHERE u.email = :email
 		  AND tb.booking_status <> 'cancelled'
 		  AND tb.start_date >= CURDATE()
-		  AND tb.start_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+		  AND (tb.booking_status = 'confirmed' OR tb.bus_id IS NOT NULL)
 		  
 		ORDER BY journeyDate ASC, journeyTime ASC
-		LIMIT 8
+		LIMIT 15
 		""", nativeQuery = true)
 	List<RecentBookingProjection> findUpcomingRecentByEmail(@Param("email") String email);
 
@@ -66,11 +78,16 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			COALESCE(sb.to_stop, r.end_location) AS endLocation,
 			sb.journey_date AS journeyDate,
 			sb.journey_time AS journeyTime,
-			sb.seat_number AS seatNumber,
-			sb.total_amount AS totalAmount,
+			GROUP_CONCAT(sb.seat_number ORDER BY sb.seat_number SEPARATOR ', ') AS seatNumber,
+			SUM(sb.total_amount) AS totalAmount,
 			sb.status AS status,
-			p.transaction_id AS transactionId,
-			COALESCE(p.payment_status, 'unpaid') AS paymentStatus
+			MAX(p.transaction_id) AS transactionId,
+			COALESCE(MAX(p.payment_status), 'unpaid') AS paymentStatus,
+			COALESCE(sb.cancellation_status, 'none') AS cancellationStatus,
+			sb.cancellation_reason AS cancellationReason,
+			sb.cancellation_requested_by AS cancellationRequestedBy,
+			sb.cancellation_reject_reason AS cancellationRejectReason,
+			sb.refund_percentage AS refundPercentage
 		FROM seat_booking sb
 		INNER JOIN bus b ON b.bus_id = sb.bus_id
 		INNER JOIN route r ON r.route_id = sb.route_id
@@ -79,6 +96,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		WHERE u.email = :email
 		  AND sb.status <> 'cancelled'
 		  AND sb.journey_date >= CURDATE()
+		GROUP BY sb.booking_reference, b.bus_number, b.bus_type, sb.from_stop, r.start_location, sb.to_stop, r.end_location, sb.journey_date, sb.journey_time, sb.status, sb.cancellation_status, sb.cancellation_reason, sb.cancellation_requested_by, sb.cancellation_reject_reason, sb.refund_percentage
 		  
 		UNION ALL
 		
@@ -94,7 +112,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			tb.final_price AS totalAmount,
 			tb.booking_status AS status,
 			COALESCE(trip_payment.transaction_id, 'N/A') AS transactionId,
-			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus
+			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus,
+			COALESCE(tb.cancellation_status, 'none') AS cancellationStatus,
+			tb.cancellation_reason AS cancellationReason,
+			tb.cancellation_requested_by AS cancellationRequestedBy,
+			tb.cancellation_reject_reason AS cancellationRejectReason,
+			tb.refund_percentage AS refundPercentage
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
 		LEFT JOIN payment trip_payment ON trip_payment.payment_id = (
@@ -106,6 +129,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		WHERE u.email = :email
 		  AND tb.booking_status <> 'cancelled'
 		  AND tb.start_date >= CURDATE()
+		  AND (tb.booking_status = 'confirmed' OR tb.bus_id IS NOT NULL)
 		  
 		ORDER BY journeyDate ASC, journeyTime ASC
 		""", nativeQuery = true)
@@ -120,15 +144,20 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 			COALESCE(sb.to_stop, r.end_location) AS endLocation,
 			sb.journey_date AS journeyDate,
 			sb.journey_time AS journeyTime,
-			sb.seat_number AS seatNumber,
-			sb.total_amount AS totalAmount,
+			GROUP_CONCAT(sb.seat_number ORDER BY sb.seat_number SEPARATOR ', ') AS seatNumber,
+			SUM(sb.total_amount) AS totalAmount,
 			CASE
 				WHEN sb.status IN ('confirmed', 'boarded') AND sb.journey_date < CURDATE()
 					THEN 'completed'
 				ELSE sb.status
 			END AS status,
-			p.transaction_id AS transactionId,
-			COALESCE(p.payment_status, 'unpaid') AS paymentStatus
+			MAX(p.transaction_id) AS transactionId,
+			COALESCE(MAX(p.payment_status), 'unpaid') AS paymentStatus,
+			COALESCE(sb.cancellation_status, 'none') AS cancellationStatus,
+			sb.cancellation_reason AS cancellationReason,
+			sb.cancellation_requested_by AS cancellationRequestedBy,
+			sb.cancellation_reject_reason AS cancellationRejectReason,
+			sb.refund_percentage AS refundPercentage
 		FROM seat_booking sb
 		INNER JOIN bus b ON b.bus_id = sb.bus_id
 		INNER JOIN route r ON r.route_id = sb.route_id
@@ -137,6 +166,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		WHERE u.email = :email
 		  AND (sb.status IN ('completed', 'cancelled')
 		       OR (sb.status IN ('confirmed', 'boarded') AND sb.journey_date < CURDATE()))
+		GROUP BY sb.booking_reference, b.bus_number, b.bus_type, sb.from_stop, r.start_location, sb.to_stop, r.end_location, sb.journey_date, sb.journey_time, sb.status, sb.cancellation_status, sb.cancellation_reason, sb.cancellation_requested_by, sb.cancellation_reject_reason, sb.refund_percentage
 
 		UNION ALL
 		
@@ -157,7 +187,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 				ELSE tb.booking_status
 			END AS status,
 			COALESCE(trip_payment.transaction_id, 'N/A') AS transactionId,
-			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus
+			COALESCE(trip_payment.payment_status, 'unpaid') AS paymentStatus,
+			COALESCE(tb.cancellation_status, 'none') AS cancellationStatus,
+			tb.cancellation_reason AS cancellationReason,
+			tb.cancellation_requested_by AS cancellationRequestedBy,
+			tb.cancellation_reject_reason AS cancellationRejectReason,
+			tb.refund_percentage AS refundPercentage
 		FROM trip_booking tb
 		LEFT JOIN bus b ON b.bus_id = tb.bus_id
 		LEFT JOIN payment trip_payment ON trip_payment.payment_id = (

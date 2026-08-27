@@ -768,7 +768,7 @@ public class BookingFlowService {
     @Transactional
     public void cancelBooking(String bookingRef) {
         int updated = jdbc.update(
-            "UPDATE seat_booking SET status = 'cancelled' WHERE booking_reference = ? AND status = 'confirmed'",
+            "UPDATE seat_booking SET status = 'cancelled', cancellation_status = 'accepted' WHERE booking_reference = ? AND status = 'confirmed'",
             bookingRef
         );
         if (updated == 0) {
@@ -781,6 +781,157 @@ public class BookingFlowService {
         );
 
         notifyBookingCancelled(bookingRef);
+    }
+
+    @Transactional
+    public Map<String, Object> requestCancellation(String bookingRef, String requesterType, String reason) {
+        if (reason == null || reason.trim().isBlank()) {
+            throw new IllegalArgumentException("Cancellation reason is required.");
+        }
+        String reqType = "admin".equalsIgnoreCase(requesterType) ? "admin" : "user";
+        Map<String, Object> booking = findBookingRow(
+                "SELECT sb.seat_booking_id, sb.passenger_id, sb.journey_date, sb.seat_number, sb.status, " +
+                "sb.cancellation_status, b.bus_number, b.driver_id, u.email " +
+                "FROM seat_booking sb JOIN bus b ON sb.bus_id = b.bus_id " +
+                "JOIN `user` u ON sb.passenger_id = u.user_id " +
+                "WHERE sb.booking_reference = ?",
+                bookingRef
+        );
+        if (booking == null) {
+            throw new RuntimeException("Booking not found");
+        }
+        String currentStatus = (String) booking.get("status");
+        if ("cancelled".equalsIgnoreCase(currentStatus)) {
+            throw new RuntimeException("Booking is already cancelled");
+        }
+
+        LocalDate journeyDate = toLocalDate(booking.get("journey_date"));
+        LocalDate today = LocalDate.now();
+        int refundPercentage;
+        String refundMessage;
+
+        if ("admin".equalsIgnoreCase(reqType)) {
+            refundPercentage = 100;
+            refundMessage = "The refund will be redirected to the account within 10 working business days.";
+        } else {
+            if (journeyDate != null && !journeyDate.isBefore(today.plusDays(3))) {
+                refundPercentage = 100;
+                refundMessage = "Full refund will be credited to your account within 10 working business days.";
+            } else {
+                refundPercentage = 75;
+                refundMessage = "Only a 75% refund will be credited to your account within 10 working business days.";
+            }
+        }
+
+        String newCancelStatus = "admin".equalsIgnoreCase(reqType) ? "requested_by_admin" : "requested_by_user";
+        jdbc.update(
+            "UPDATE seat_booking SET cancellation_status = ?, cancellation_reason = ?, " +
+            "cancellation_requested_by = ?, cancellation_requested_at = NOW(), " +
+            "cancellation_reject_reason = NULL, refund_percentage = ? " +
+            "WHERE booking_reference = ?",
+            newCancelStatus, reason.trim(), reqType, refundPercentage, bookingRef
+        );
+
+        if ("user".equalsIgnoreCase(reqType)) {
+            notifications.toAllAdmins(
+                NotificationType.CANCELLATION,
+                "Cancellation Requested: " + bookingRef,
+                "Passenger requested cancellation for booking " + bookingRef + " (Seat " + booking.get("seat_number") + "). Reason: " + reason.trim() + ". Refund policy: " + refundPercentage + "%."
+            );
+        } else {
+            notifications.toPassenger(
+                toLongOrNull(booking.get("passenger_id")),
+                NotificationType.CANCELLATION,
+                "Admin Requested Cancellation: " + bookingRef,
+                "TrackNGo Admin requested cancellation for booking " + bookingRef + ". Reason: " + reason.trim() + ". " + refundMessage
+            );
+        }
+
+        return Map.of(
+            "bookingReference", bookingRef,
+            "cancellationStatus", newCancelStatus,
+            "cancellationReason", reason.trim(),
+            "refundPercentage", refundPercentage,
+            "refundMessage", refundMessage
+        );
+    }
+
+    @Transactional
+    public Map<String, Object> respondToCancellation(String bookingRef, String responderType, boolean accept, String rejectReason) {
+        Map<String, Object> booking = findBookingRow(
+                "SELECT sb.seat_booking_id, sb.passenger_id, sb.journey_date, sb.seat_number, sb.status, " +
+                "sb.cancellation_status, sb.cancellation_reason, sb.cancellation_requested_by, " +
+                "sb.refund_percentage, b.bus_number, b.driver_id " +
+                "FROM seat_booking sb JOIN bus b ON sb.bus_id = b.bus_id " +
+                "WHERE sb.booking_reference = ?",
+                bookingRef
+        );
+        if (booking == null) {
+            throw new RuntimeException("Booking not found");
+        }
+
+        if (accept) {
+            jdbc.update(
+                "UPDATE seat_booking SET status = 'cancelled', cancellation_status = 'accepted' " +
+                "WHERE booking_reference = ?",
+                bookingRef
+            );
+            jdbc.update(
+                "DELETE FROM seat_booking_seat WHERE seat_booking_id = " +
+                "(SELECT seat_booking_id FROM seat_booking WHERE booking_reference = ?)",
+                bookingRef
+            );
+
+            Integer refundPct = booking.get("refund_percentage") != null ? ((Number) booking.get("refund_percentage")).intValue() : 100;
+            String refundNotice = refundPct == 100
+                ? "Full refund will be redirected to the account within 10 working business days."
+                : "75% refund will be redirected to the account within 10 working business days.";
+
+            notifications.toPassenger(
+                toLongOrNull(booking.get("passenger_id")),
+                NotificationType.CANCELLATION,
+                "Booking Cancelled: " + bookingRef,
+                "Cancellation request for booking " + bookingRef + " has been accepted. " + refundNotice
+            );
+            notifications.toDriver(
+                toLongOrNull(booking.get("driver_id")),
+                NotificationType.CANCELLATION,
+                "Booking Cancelled on Your Bus",
+                "Seat(s) " + booking.get("seat_number") + " on bus " + booking.get("bus_number") + " were cancelled."
+            );
+            return Map.of("bookingReference", bookingRef, "cancellationStatus", "accepted", "status", "cancelled");
+        } else {
+            String rejReason = (rejectReason != null && !rejectReason.isBlank()) ? rejectReason.trim() : "Cancellation request declined.";
+            jdbc.update(
+                "UPDATE seat_booking SET cancellation_status = 'rejected', cancellation_reject_reason = ? " +
+                "WHERE booking_reference = ?",
+                rejReason, bookingRef
+            );
+
+            String requestedBy = (String) booking.get("cancellation_requested_by");
+            if ("user".equalsIgnoreCase(requestedBy)) {
+                notifications.toPassenger(
+                    toLongOrNull(booking.get("passenger_id")),
+                    NotificationType.CANCELLATION,
+                    "Cancellation Request Rejected: " + bookingRef,
+                    "Your cancellation request for booking " + bookingRef + " was rejected by admin. Reason: " + rejReason
+                );
+            } else {
+                notifications.toAllAdmins(
+                    NotificationType.CANCELLATION,
+                    "Cancellation Declined by Passenger: " + bookingRef,
+                    "Passenger declined admin cancellation request for booking " + bookingRef + ". Reason: " + rejReason
+                );
+            }
+            return Map.of("bookingReference", bookingRef, "cancellationStatus", "rejected", "rejectReason", rejReason);
+        }
+    }
+
+    private LocalDate toLocalDate(Object value) {
+        if (value == null) return null;
+        if (value instanceof LocalDate ld) return ld;
+        if (value instanceof java.sql.Date sqlDate) return sqlDate.toLocalDate();
+        return LocalDate.parse(value.toString());
     }
 
     public void markPassengerBoarded(Long seatBookingId) {

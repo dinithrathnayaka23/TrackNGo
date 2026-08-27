@@ -13,7 +13,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { searchBuses, type BusSearchResult } from '../../services/bookingFlowApi';
 import { getBusRouteLabel, getBusRouteWithSuffix } from '../../utils/routeDisplay';
 import { formatBusTypeLabel } from '../../utils/busLabels';
-import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { isUnbookableBookingDate, BOOKING_LEAD_TIME_MESSAGE, earliestBookableDateString } from '../../utils/bookingDate';
 import { LocalizedText as Text } from '../../utils/i18n';
 
 const AMENITY_ICONS: Record<string, { icon: React.ReactNode }> = {
@@ -57,7 +57,7 @@ export default function BusSelectionScreen() {
 
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? todayDateString();
+  const date = params.date ?? earliestBookableDateString();
   const passengers = params.passengers ?? '1';
   const adults = params.adults ?? '1';
   const children = params.children ?? '0';
@@ -70,7 +70,7 @@ export default function BusSelectionScreen() {
       ? busCategoryRaw
       : '';
 
-  const invalidBookingDate = isPastOrInvalidBookingDate(date);
+  const invalidBookingDate = isUnbookableBookingDate(date);
   const [buses, setBuses] = useState<BusSearchResult[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -117,7 +117,7 @@ export default function BusSelectionScreen() {
   useEffect(() => {
     if (invalidBookingDate) {
       setLoading(false);
-      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
       router.replace({ pathname: '/booking/search-buses' });
       return;
     }
@@ -126,10 +126,10 @@ export default function BusSelectionScreen() {
 
   const dateLabel = (() => {
     const d = new Date(date + 'T00:00:00');
-    const now = new Date();
-    const isToday = d.toDateString() === now.toDateString();
     const formatted = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
-    if (isToday) return `Today, ${formatted}`;
+    // Today can no longer reach this screen, so the earliest date the flow can
+    // carry is tomorrow. Label it the way the search screen does.
+    if (date === earliestBookableDateString()) return `Tomorrow, ${formatted}`;
     const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
     return `${weekday}, ${formatted}`;
   })();

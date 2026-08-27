@@ -15,7 +15,7 @@ import { getBusImage } from '../../utils/busImage';
 import { PromotionQuoteResult, quotePromotion } from '../../services/bookingFlowApi';
 import { useSession } from '../../store/sessionStore';
 import { getUserProfile } from '../../services/userProfileApi';
-import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { isUnbookableBookingDate, BOOKING_LEAD_TIME_MESSAGE, earliestBookableDateString } from '../../utils/bookingDate';
 import { formatBusTypeLabel } from '../../utils/busLabels';
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from '../../utils/i18n';
 
@@ -52,13 +52,13 @@ export default function BookingSummaryScreen() {
   const busId = params.busId ?? '0';
   const busType = params.busType ?? 'Super Luxury A/C';
   const depart = params.depart ?? '08:30';
-  const date = params.date ?? todayDateString();
+  const date = params.date ?? earliestBookableDateString();
   const seats = params.seats ? params.seats.split(',') : ['3A', '3B'];
   const pricePerSeat = Number(params.pricePerSeat ?? '1500') || 1500;
   const busBrand = params.busBrand ?? '';
   const amenities: string[] = (() => { try { return JSON.parse(params.amenities ?? '[]'); } catch { return []; } })();
   const busImage = getBusImage(busBrand, amenities);
-  const invalidBookingDate = isPastOrInvalidBookingDate(date);
+  const invalidBookingDate = isUnbookableBookingDate(date);
 
   // Form state for passenger contact details
   const [fullName, setFullName] = useState('');
@@ -83,7 +83,7 @@ export default function BookingSummaryScreen() {
 
   useEffect(() => {
     if (invalidBookingDate) {
-      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
       router.replace({ pathname: '/booking/search-buses' });
     }
   }, [invalidBookingDate, router]);
@@ -409,7 +409,7 @@ export default function BookingSummaryScreen() {
             disabled={!agreedToTerms || invalidBookingDate}
             onPress={() => {
               if (invalidBookingDate) {
-                Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+                Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
                 return;
               }
               // Prevents the payment step until the passenger details are complete.

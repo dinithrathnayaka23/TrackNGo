@@ -145,6 +145,7 @@ export default function NewContractScreen() {
 
   const initContractId = params.contractId ? parseInt(params.contractId as string, 10) : null;
   const initStep = params.step ? parseInt(params.step as string, 10) : 1;
+  const initRenewFromContractId = params.renewFrom ? parseInt(params.renewFrom as string, 10) : null;
 
   const [step, setStep] = useState(initStep);
   const [submitting, setSubmitting] = useState(false);
@@ -156,6 +157,8 @@ export default function NewContractScreen() {
   const [shiftType, setShiftType] = useState<ShiftType>("both");
   const [workingDays, setWorkingDays] = useState<WorkingDays>("weekdays");
   const [busType, setBusType] = useState<BusType>("standard");
+  const [busTypeFilter, setBusTypeFilter] = useState<"all" | "standard" | "mini">("all");
+  const [acFilter, setAcFilter] = useState<"all" | "ac" | "non_ac">("all");
 
   // 🔹 Route State — place-accurate Google Places selections per shift leg
   const [morningPickup, setMorningPickup] = useState<PlaceValue>(null);
@@ -195,6 +198,10 @@ export default function NewContractScreen() {
   const [selectedBusIds, setSelectedBusIds] = useState<number[]>([]);
   const [busSearch, setBusSearch] = useState("");
   const [busSort, setBusSort] = useState<"seats_desc" | "seats_asc">("seats_desc");
+
+  // 🔹 Renewal State — set only when arriving via "Proceed with Renewal"; tags
+  // the contract this submission creates so its approval skips the advance deposit.
+  const [renewedFromContractId] = useState<number | null>(initRenewFromContractId);
 
   // 🔹 Negotiation / Contract Submission State
   const [contractId, setContractId] = useState<number | null>(initContractId);
@@ -244,6 +251,42 @@ export default function NewContractScreen() {
       });
     }
   }, [initContractId, currentUser]);
+
+  // Prefill from a prior contract when proceeding with an approved renewal —
+  // this creates a brand-new contract (no contractId set), so the user
+  // starts at step 1 and can review or change everything, including the
+  // dates, before submitting. Unlike editing an existing pending request,
+  // the old dates aren't copied since they're expiring/expired.
+  useEffect(() => {
+    if (initRenewFromContractId && currentUser) {
+      getCorporateContractDetail(initRenewFromContractId, currentUser.userId).then((prior) => {
+        if (!prior) return;
+        setShiftType(prior.shiftType || "both");
+        setWorkingDays(prior.workingDays || "weekdays");
+        setBusType(prior.busType || "standard");
+        setSameAsMorningReversed(false);
+
+        const applyLeg = (
+          leg: typeof prior.morningPickup,
+          setPlace: (p: PlaceValue) => void,
+          setTime: (d: Date) => void,
+        ) => {
+          if (!leg) return;
+          setPlace({ name: leg.location, latitude: leg.latitude, longitude: leg.longitude });
+          if (leg.time) setTime(new Date(`1970-01-01T${leg.time}`));
+        };
+        applyLeg(prior.morningPickup, setMorningPickup, setMorningPickupObj);
+        applyLeg(prior.morningDropoff, setMorningDropoff, setMorningDropoffObj);
+        applyLeg(prior.eveningPickup, setEveningPickup, setEveningPickupObj);
+        applyLeg(prior.eveningDropoff, setEveningDropoff, setEveningDropoffObj);
+        setMorningDistanceKm(prior.morningDistanceKm ?? null);
+        setEveningDistanceKm(prior.eveningDistanceKm ?? null);
+
+        setSelectedBusIds(prior.busIds && prior.busIds.length > 0 ? prior.busIds : prior.busId ? [prior.busId] : []);
+        setEmployees(prior.employeeCount ? String(prior.employeeCount) : "");
+      });
+    }
+  }, [initRenewFromContractId, currentUser]);
 
   // Admin-configured support contact, editable from the admin dashboard
   // (Settings → Corporate Support Contact). Falls back to a safe default
@@ -486,9 +529,29 @@ export default function NewContractScreen() {
       setSubmittingContract(true);
       try {
         const formatApiDate = (dt: Date) => dt.toISOString().split('T')[0];
-        const routeName = (needsMorning ? morningPickup?.name : eveningPickup?.name) ?? "Corporate Route";
+        const cleanLoc = (raw?: string | null) => (raw ? raw.split(",")[0].trim() : "");
+        const mPick = cleanLoc(morningPickup?.name) || "Morning Pickup";
+        const mDrop = cleanLoc(morningDropoff?.name) || "Morning Drop-off";
+        const ePick = cleanLoc(useSameEveningRoute ? morningDropoff?.name : eveningPickup?.name) || "Evening Pickup";
+        const eDrop = cleanLoc(useSameEveningRoute ? morningPickup?.name : eveningDropoff?.name) || "Evening Drop-off";
+
+        let fullContractName = "Corporate Route Contract";
+        if (shiftType === "both") {
+          fullContractName = `${mPick} → ${mDrop} & ${ePick} → ${eDrop}`;
+        } else if (shiftType === "morning") {
+          fullContractName = `${mPick} → ${mDrop} (Morning)`;
+        } else if (shiftType === "evening") {
+          fullContractName = `${ePick} → ${eDrop} (Evening)`;
+        }
+
+        const anyMini = selectedBuses.some((b) => (b.busBrand ?? "").toLowerCase().includes("rosa"));
+        const anyAc = selectedBuses.some((b) => parseBusAmenities(b.amenities).some((a) => a.toLowerCase() === "ac"));
+
+        const contractBusType: BusType = anyMini ? "mini" : (busTypeFilter === "mini" ? "mini" : "standard");
+        const contractIsAc = anyAc || acFilter === "ac";
+
         const created = await createCorporateContract({
-          contractName: `${routeName} Corporate Contract`,
+          contractName: fullContractName,
           shiftType,
           morningPickup: needsMorning ? buildLeg(morningPickup, morningPickupObj) : null,
           morningDropoff: needsMorning ? buildLeg(morningDropoff, morningDropoffObj) : null,
@@ -498,11 +561,13 @@ export default function NewContractScreen() {
           eveningDistanceKm: needsEvening ? eveningDistanceKm : null,
           employeeCount: parseInt(employees, 10) || 0,
           workingDays,
-          busType,
+          busType: contractBusType,
+          isAc: contractIsAc,
           busIds: selectedBusIds,
           startDate: formatApiDate(startDateObj),
           endDate: formatApiDate(endDateObj),
           corporateUserId: currentUser.userId,
+          ...(renewedFromContractId ? { renewedFromContractId } : {}),
         });
 
         // Backend returns the created contract. If null (older backend), fall back to the latest one.
@@ -772,10 +837,9 @@ export default function NewContractScreen() {
     return `${months} Month${months === 1 ? "" : "s"}`;
   };
 
-  const busTypeDisplayLabel = (type: BusType | undefined) => {
-    if (type === "ac") return "AC (+25% surcharge)";
-    if (type === "mini") return "Mini Bus (+flat surcharge)";
-    return "Standard";
+  const busTypeDisplayLabel = (type: BusType | string | undefined, isAc?: boolean) => {
+    const base = type === "mini" ? "Mini Rosa Bus" : "Standard Bus";
+    return isAc ? `${base} (AC)` : `${base} (Non-AC)`;
   };
 
   // ─── Render Steps ─────────────────────────────────────────────────────────────
@@ -946,17 +1010,22 @@ export default function NewContractScreen() {
     );
   };
 
-  const busMatchesType = (bus: ContractBus, type: BusType) => {
+  const busMatchesFilter = (bus: ContractBus) => {
     const isMini = (bus.busBrand ?? "").toLowerCase().includes("rosa");
     const isAc = parseBusAmenities(bus.amenities).some((a) => a.toLowerCase() === "ac");
-    if (type === "mini") return isMini;
-    if (type === "ac") return isAc && !isMini;
-    return !isMini && !isAc;
+
+    if (busTypeFilter === "standard" && isMini) return false;
+    if (busTypeFilter === "mini" && !isMini) return false;
+
+    if (acFilter === "ac" && !isAc) return false;
+    if (acFilter === "non_ac" && isAc) return false;
+
+    return true;
   };
 
   const filteredBuses = availableBuses
     .filter((bus) => {
-      if (!busMatchesType(bus, busType)) return false;
+      if (!busMatchesFilter(bus)) return false;
       if (busSearch.trim().length > 0) {
         const q = busSearch.trim().toLowerCase();
         const haystack = `${bus.busNumber ?? ""} ${bus.busBrand ?? ""}`.toLowerCase();
@@ -1000,18 +1069,35 @@ export default function NewContractScreen() {
       </View>
 
       <Text style={styles.inputLabelOutside}>Bus Type</Text>
-      <View style={[styles.row, { gap: 8, marginBottom: 16 }]}>
+      <View style={[styles.row, { gap: 8, marginBottom: 14 }]}>
         {([
-          { key: "standard", label: "Standard" },
-          { key: "ac", label: "AC" },
-          { key: "mini", label: "Mini Bus" },
+          { key: "all", label: "All Buses" },
+          { key: "standard", label: "Standard Bus" },
+          { key: "mini", label: "Mini Rosa" },
         ] as const).map((opt) => (
           <TouchableOpacity
             key={opt.key}
-            style={[styles.shiftChip, busType === opt.key && styles.shiftChipActive]}
-            onPress={() => setBusType(opt.key)}
+            style={[styles.shiftChip, busTypeFilter === opt.key && styles.shiftChipActive]}
+            onPress={() => setBusTypeFilter(opt.key)}
           >
-            <Text style={[styles.shiftChipText, busType === opt.key && styles.shiftChipTextActive]}>{opt.label}</Text>
+            <Text style={[styles.shiftChipText, busTypeFilter === opt.key && styles.shiftChipTextActive]}>{opt.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.inputLabelOutside}>AC Option</Text>
+      <View style={[styles.row, { gap: 8, marginBottom: 16 }]}>
+        {([
+          { key: "all", label: "All" },
+          { key: "ac", label: "AC" },
+          { key: "non_ac", label: "Non-AC" },
+        ] as const).map((opt) => (
+          <TouchableOpacity
+            key={opt.key}
+            style={[styles.shiftChip, acFilter === opt.key && styles.shiftChipActive]}
+            onPress={() => setAcFilter(opt.key)}
+          >
+            <Text style={[styles.shiftChipText, acFilter === opt.key && styles.shiftChipTextActive]}>{opt.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -1128,6 +1214,11 @@ export default function NewContractScreen() {
   const renderStep3 = () => {
     const isApproved = contractStatus === "active";
     const submittedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const isRenewalContract = Boolean(
+      renewedFromContractId ||
+      createdContract?.renewedFromContractId ||
+      (createdContract?.carriedBalance != null && createdContract.carriedBalance > 0)
+    );
 
     return (
       <View style={styles.stepContainer}>
@@ -1215,8 +1306,14 @@ export default function NewContractScreen() {
         {/* Pricing Breakdown */}
         <Text style={styles.negoSectionLabel}>Estimated Monthly Bill</Text>
         <View style={styles.pricingCard}>
-          <Text style={styles.pricingTotal}>{formatAmount(monthlyAmount)}</Text>
-          <Text style={styles.pricingTotalSub}>per month, billed while the contract is active</Text>
+          <Text style={styles.pricingTotal}>
+            {formatAmount(monthlyAmount + (createdContract?.carriedBalance ?? 0))}
+          </Text>
+          <Text style={styles.pricingTotalSub}>
+            {(createdContract?.carriedBalance ?? 0) > 0
+              ? `1st month total (includes ${formatAmount(createdContract?.carriedBalance ?? 0)} predecessor worked days)`
+              : "per month, billed while the contract is active"}
+          </Text>
           <View style={styles.pricingDivider} />
           <View style={styles.pricingRow}>
             <Text style={styles.pricingRowLabel}>One-way distance</Text>
@@ -1224,7 +1321,7 @@ export default function NewContractScreen() {
           </View>
           <View style={styles.pricingRow}>
             <Text style={styles.pricingRowLabel}>Bus type</Text>
-            <Text style={styles.pricingRowValue}>{busTypeDisplayLabel(createdContract?.busType)}</Text>
+            <Text style={styles.pricingRowValue}>{busTypeDisplayLabel(createdContract?.busType, createdContract?.isAc)}</Text>
           </View>
           <View style={styles.pricingRow}>
             <Text style={styles.pricingRowLabel}>Working days / month</Text>
@@ -1242,7 +1339,7 @@ export default function NewContractScreen() {
                 <Text style={[styles.pricingRowValue, { color: "#10B981" }]}>−{formatAmount(createdContract?.discountAmount ?? 0)}</Text>
               </View>
               <View style={styles.pricingRow}>
-                <Text style={[styles.pricingRowLabel, { fontWeight: "700", color: "#0F172A" }]}>Total</Text>
+                <Text style={[styles.pricingRowLabel, { fontWeight: "700", color: "#0F172A" }]}>Monthly Total</Text>
                 <Text style={styles.pricingRowValue}>{formatAmount(monthlyAmount)}</Text>
               </View>
               {!!createdContract?.adminNote && (
@@ -1251,6 +1348,34 @@ export default function NewContractScreen() {
                   <Text style={styles.discountReasonText}>{createdContract.adminNote}</Text>
                 </View>
               )}
+            </>
+          )}
+          {isRenewalContract && (
+            <>
+              <View style={styles.pricingDivider} />
+              <View style={styles.pricingRow}>
+                <Text style={styles.pricingRowLabel}>New Contract Monthly Rate</Text>
+                <Text style={styles.pricingRowValue}>{formatAmount(monthlyAmount)}</Text>
+              </View>
+              <View style={styles.pricingRow}>
+                <Text style={styles.pricingRowLabel}>Predecessor Bus Worked Days</Text>
+                <Text style={[styles.pricingRowValue, { color: (createdContract?.carriedBalance ?? 0) > 0 ? "#EF4444" : "#059669", fontWeight: "700" }]}>
+                  +Rs. {(createdContract?.carriedBalance ?? 0).toLocaleString()}
+                </Text>
+              </View>
+              <View style={styles.pricingRow}>
+                <Text style={[styles.pricingRowLabel, { fontWeight: "700", color: "#0F172A" }]}>1st Month Total Due</Text>
+                <Text style={[styles.pricingRowValue, { fontWeight: "700", color: "#0F172A" }]}>{formatAmount(monthlyAmount + (createdContract?.carriedBalance ?? 0))}</Text>
+              </View>
+              <View style={styles.pricingRow}>
+                <Text style={[styles.pricingRowLabel, { color: "#059669", fontWeight: "600" }]}>From 2nd Month Onwards</Text>
+                <Text style={[styles.pricingRowValue, { color: "#059669", fontWeight: "600" }]}>{formatAmount(monthlyAmount)} / month</Text>
+              </View>
+              <View style={{ marginTop: 8, padding: 10, backgroundColor: "#FEF2F2", borderRadius: 8, borderWidth: 1, borderColor: "#FECACA" }}>
+                <Text style={{ fontSize: 11, color: "#991B1B", lineHeight: 16 }}>
+                  ℹ️ Renewed from Contract #{renewedFromContractId || createdContract?.renewedFromContractId || 'prior'}. {(createdContract?.carriedBalance ?? 0) > 0 ? `Charged +${formatAmount(createdContract?.carriedBalance ?? 0)} for days the bus operated before renewal (unworked days deducted).` : `Predecessor worked days balance is Rs. 0.00 (prior period had not commenced or was already settled).`} Starting from month 2, your regular monthly bill will be {formatAmount(monthlyAmount)}.
+                </Text>
+              </View>
             </>
           )}
           <Text style={styles.pricingHint}>
@@ -1312,6 +1437,11 @@ export default function NewContractScreen() {
 
   const depositStatus = createdContract?.advancePaymentStatus;
   const depositResolved = depositStatus === "waived" || depositStatus === "paid";
+  const isRenewalContract = Boolean(
+    renewedFromContractId ||
+    createdContract?.renewedFromContractId ||
+    (createdContract?.carriedBalance != null && createdContract.carriedBalance > 0)
+  );
 
   const renderStep4 = () => (
     <View style={styles.stepContainer}>
@@ -1362,6 +1492,38 @@ export default function NewContractScreen() {
           <Text style={styles.inclusionText}>Automated Monthly Billing Reports</Text>
         </View>
       </View>
+
+      {isRenewalContract && (
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryHeaderRow}>
+            <Ionicons name="receipt" size={20} color="#067BF9" />
+            <Text style={styles.summaryTitle}>1st Month Billing Breakdown</Text>
+          </View>
+          <View style={{ height: 12 }} />
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingRowLabel}>New Contract Monthly Rate</Text>
+            <Text style={styles.pricingRowValue}>Rs. {monthlyAmount.toLocaleString()}</Text>
+          </View>
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingRowLabel}>Predecessor Bus Worked Days</Text>
+            <Text style={[styles.pricingRowValue, { color: (createdContract?.carriedBalance ?? 0) > 0 ? "#EF4444" : "#059669", fontWeight: "700" }]}>
+              +Rs. {(createdContract?.carriedBalance ?? 0).toLocaleString()}
+            </Text>
+          </View>
+          <View style={styles.pricingDivider} />
+          <View style={styles.pricingRow}>
+            <Text style={[styles.pricingRowLabel, { fontWeight: "700", color: "#0F172A" }]}>1st Month Total Due</Text>
+            <Text style={[styles.pricingRowValue, { fontWeight: "700", color: "#0F172A" }]}>Rs. {(monthlyAmount + (createdContract?.carriedBalance ?? 0)).toLocaleString()}</Text>
+          </View>
+          <View style={styles.pricingRow}>
+            <Text style={[styles.pricingRowLabel, { color: "#059669", fontWeight: "600" }]}>From 2nd Month Onwards</Text>
+            <Text style={[styles.pricingRowValue, { color: "#059669", fontWeight: "600" }]}>Rs. {monthlyAmount.toLocaleString()} / month</Text>
+          </View>
+          <Text style={styles.pricingHint}>
+            ℹ️ Renewed from prior contract #{renewedFromContractId || createdContract?.renewedFromContractId || 'prior'}. {(createdContract?.carriedBalance ?? 0) > 0 ? `Includes days operated before renewal (unworked days were deducted).` : `Predecessor worked days balance is Rs. 0.00.`}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.summaryCard}>
         <View style={styles.summaryHeaderRow}>
@@ -1505,7 +1667,13 @@ export default function NewContractScreen() {
           <Ionicons name="chevron-back" size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {step === 3 ? "Negotiation" : step === 4 ? "Contract Proposal" : "New Contract"}
+          {step === 3
+            ? "Negotiation"
+            : step === 4
+            ? "Contract Proposal"
+            : renewedFromContractId
+            ? "Renew Contract"
+            : "New Contract"}
         </Text>
         <View style={styles.downloadBtn} />
       </View>

@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -46,7 +47,7 @@ public class CorporateService {
     private final CorporateInvoiceService corporateInvoiceService;
 
     private static final List<String> VALID_SHIFT_TYPES = List.of("morning", "evening", "both");
-    private static final List<String> VALID_BUS_TYPES = List.of("standard", "ac", "mini");
+    private static final List<String> VALID_BUS_TYPES = List.of("standard", "mini");
     private static final List<String> VALID_CONTRACT_STATUSES = List.of("pending", "active", "expired", "cancelled");
     private static final List<String> VALID_CANCEL_ROLES = List.of("admin", "corporate");
     private static final int MIN_ADMIN_CANCEL_NOTICE_DAYS = 14;
@@ -69,13 +70,13 @@ public class CorporateService {
                 evening_pickup_location, evening_pickup_lat, evening_pickup_lng, evening_pickup_time,
                 evening_dropoff_location, evening_dropoff_lat, evening_dropoff_lng, evening_dropoff_time,
                 evening_distance_km,
-                employee_count, working_days, bus_type, distance_km,
+                employee_count, working_days, bus_type, is_ac, distance_km,
                 status, finalized_at, billing_amount,
                 start_date, end_date, created_at, corporate_user_id, bus_id,
                 advance_amount, advance_payment_status, advance_paid_at,
-                original_billing_amount, discount_amount,
+                original_billing_amount, discount_amount, carried_balance, renewed_from_contract_id,
                 cancel_status, cancel_requested_by, cancel_reason, cancel_requested_at,
-                cancel_effective_date, cancel_response_reason
+                cancel_effective_date, cancel_response_reason, renewal_request_status
             """;
 
     private static final String CONTRACTS_SQL = """
@@ -89,13 +90,13 @@ public class CorporateService {
     private static final String ADMIN_CONTRACTS_BASE_SQL = """
             SELECT
                 c.contract_id, c.contract_name, c.starting_location, c.destination,
-                c.shift_type, c.employee_count, c.bus_type,
+                c.shift_type, c.employee_count, c.bus_type, c.is_ac,
                 c.distance_km, c.status, c.billing_amount, c.start_date, c.end_date,
                 c.created_at, c.corporate_user_id,
                 c.advance_amount, c.advance_payment_status, c.advance_paid_at,
-                c.original_billing_amount, c.discount_amount,
+                c.original_billing_amount, c.discount_amount, c.carried_balance, c.renewed_from_contract_id,
                 c.cancel_status, c.cancel_requested_by, c.cancel_reason, c.cancel_requested_at,
-                c.cancel_effective_date, c.cancel_response_reason,
+                c.cancel_effective_date, c.cancel_response_reason, c.renewal_request_status,
                 cu.company_name, cu.contact_person_name, cu.contact_phone,
                 (SELECT COUNT(*) FROM corporate_contract_bus ccb WHERE ccb.contract_id = c.contract_id) AS bus_count,
                 (SELECT GROUP_CONCAT(b.bus_number ORDER BY ccb.assigned_at SEPARATOR ', ')
@@ -115,7 +116,7 @@ public class CorporateService {
     private static final String INVOICES_SQL = """
             SELECT
                 i.invoice_number, i.contract_id, i.bus_id, b.bus_number, i.amount, i.status,
-                i.period_start, i.period_end, i.due_date, i.stripe_transaction_id, i.paid_at, i.created_at
+                i.period_start, i.period_end, i.due_date, i.invoice_type, i.stripe_transaction_id, i.paid_at, i.created_at
             FROM corporate_invoices i
             JOIN corporate_contract c ON i.contract_id = c.contract_id
             LEFT JOIN bus b ON b.bus_id = i.bus_id
@@ -126,7 +127,7 @@ public class CorporateService {
     private static final String CONTRACT_INVOICES_SQL = """
             SELECT
                 i.invoice_number, i.contract_id, i.bus_id, b.bus_number, i.amount, i.status,
-                i.period_start, i.period_end, i.due_date, i.stripe_transaction_id, i.paid_at, i.created_at
+                i.period_start, i.period_end, i.due_date, i.invoice_type, i.stripe_transaction_id, i.paid_at, i.created_at
             FROM corporate_invoices i
             LEFT JOIN bus b ON b.bus_id = i.bus_id
             WHERE i.contract_id = ?
@@ -143,13 +144,13 @@ public class CorporateService {
                 c.evening_pickup_location, c.evening_pickup_lat, c.evening_pickup_lng, c.evening_pickup_time,
                 c.evening_dropoff_location, c.evening_dropoff_lat, c.evening_dropoff_lng, c.evening_dropoff_time,
                 c.evening_distance_km,
-                c.employee_count, c.working_days, c.bus_type, c.distance_km,
+                c.employee_count, c.working_days, c.bus_type, c.is_ac, c.distance_km,
                 c.status, c.finalized_at, c.billing_amount,
                 c.start_date, c.end_date, c.created_at, c.corporate_user_id, c.bus_id,
                 c.advance_amount, c.advance_payment_status, c.advance_paid_at, c.advance_transaction_id,
-                c.original_billing_amount, c.discount_amount, c.admin_note,
+                c.original_billing_amount, c.discount_amount, c.carried_balance, c.renewed_from_contract_id, c.admin_note,
                 c.cancel_status, c.cancel_requested_by, c.cancel_reason, c.cancel_requested_at,
-                c.cancel_effective_date, c.cancel_response_reason,
+                c.cancel_effective_date, c.cancel_response_reason, c.renewal_request_status,
                 cu.company_name, cu.contact_person_name, cu.contact_phone
             FROM corporate_contract c
             LEFT JOIN corporate_user cu ON cu.corporate_user_id = c.corporate_user_id
@@ -328,6 +329,7 @@ public class CorporateService {
                 rs.getString("shift_type"),
                 rs.getInt("employee_count"),
                 rs.getString("bus_type"),
+                rs.getBoolean("is_ac"),
                 rs.getBigDecimal("distance_km"),
                 rs.getString("status"),
                 rs.getBigDecimal("billing_amount"),
@@ -342,7 +344,10 @@ public class CorporateService {
                 rs.getString("advance_paid_at"),
                 rs.getBigDecimal("original_billing_amount"),
                 rs.getBigDecimal("discount_amount"),
-                mapCancellation(rs)
+                rs.getBigDecimal("carried_balance"),
+                rs.getObject("renewed_from_contract_id") != null ? rs.getLong("renewed_from_contract_id") : null,
+                mapCancellation(rs),
+                rs.getString("renewal_request_status")
         ), params.toArray());
     }
 
@@ -364,6 +369,7 @@ public class CorporateService {
                 rs.getInt("employee_count"),
                 rs.getString("working_days"),
                 rs.getString("bus_type"),
+                rs.getBoolean("is_ac"),
                 rs.getBigDecimal("distance_km"),
                 rs.getString("status"),
                 rs.getString("finalized_at"),
@@ -379,7 +385,10 @@ public class CorporateService {
                 rs.getString("advance_paid_at"),
                 rs.getBigDecimal("original_billing_amount"),
                 rs.getBigDecimal("discount_amount"),
-                mapCancellation(rs)
+                rs.getBigDecimal("carried_balance"),
+                mapCancellation(rs),
+                rs.getObject("renewed_from_contract_id") != null ? rs.getLong("renewed_from_contract_id") : null,
+                rs.getString("renewal_request_status")
         );
     }
 
@@ -389,11 +398,12 @@ public class CorporateService {
                 base.shiftType(), base.startShiftTime(), base.endShiftTime(),
                 base.morningPickup(), base.morningDropoff(), base.morningDistanceKm(),
                 base.eveningPickup(), base.eveningDropoff(), base.eveningDistanceKm(),
-                base.employeeCount(), base.workingDays(), base.busType(), base.distanceKm(),
+                base.employeeCount(), base.workingDays(), base.busType(), base.isAc(), base.distanceKm(),
                 base.status(), base.finalizedAt(), base.billingAmount(), base.startDate(), base.endDate(),
                 base.createdAt(), base.corporateUserId(), base.busId(), busIds,
                 base.advanceAmount(), base.advancePaymentStatus(), base.advancePaidAt(),
-                base.originalBillingAmount(), base.discountAmount(), base.cancellation()
+                base.originalBillingAmount(), base.discountAmount(), base.carriedBalance(), base.cancellation(),
+                base.renewedFromContractId(), base.renewalRequestStatus()
         );
     }
 
@@ -423,6 +433,7 @@ public class CorporateService {
                 rs.getDate("period_start") != null ? rs.getDate("period_start").toLocalDate() : null,
                 rs.getDate("period_end") != null ? rs.getDate("period_end").toLocalDate() : null,
                 rs.getDate("due_date") != null ? rs.getDate("due_date").toLocalDate() : null,
+                rs.getString("invoice_type"),
                 rs.getString("stripe_transaction_id"),
                 rs.getString("paid_at"),
                 rs.getString("created_at")
@@ -437,7 +448,7 @@ public class CorporateService {
     public CorporateInvoiceDto getInvoice(Long invoiceNumber) {
         List<CorporateInvoiceDto> rows = jdbcTemplate.query("""
                 SELECT i.invoice_number, i.contract_id, i.bus_id, b.bus_number, i.amount, i.status,
-                       i.period_start, i.period_end, i.due_date, i.stripe_transaction_id, i.paid_at, i.created_at
+                       i.period_start, i.period_end, i.due_date, i.invoice_type, i.stripe_transaction_id, i.paid_at, i.created_at
                 FROM corporate_invoices i
                 LEFT JOIN bus b ON b.bus_id = i.bus_id
                 WHERE i.invoice_number = ?
@@ -489,6 +500,7 @@ public class CorporateService {
                     rs.getInt("employee_count"),
                     rs.getString("working_days"),
                     rs.getString("bus_type"),
+                    rs.getBoolean("is_ac"),
                     rs.getBigDecimal("distance_km"),
                     rs.getString("status"),
                     rs.getString("finalized_at"),
@@ -513,8 +525,11 @@ public class CorporateService {
                     rs.getString("advance_transaction_id"),
                     rs.getBigDecimal("original_billing_amount"),
                     rs.getBigDecimal("discount_amount"),
+                    rs.getBigDecimal("carried_balance"),
+                    rs.getObject("renewed_from_contract_id") != null ? rs.getLong("renewed_from_contract_id") : null,
                     rs.getString("admin_note"),
-                    mapCancellation(rs)
+                    mapCancellation(rs),
+                    rs.getString("renewal_request_status")
             );
         }, contractId);
 
@@ -547,6 +562,7 @@ public class CorporateService {
         validateContractDates(dto);
         List<ContractBusDto> assignedBuses = validateAndResolveBuses(dto);
         String busType = dto.busType() == null ? "standard" : dto.busType().toLowerCase();
+        boolean isAc = Boolean.TRUE.equals(dto.isAc());
 
         boolean needsMorning = needsMorning(dto.shiftType());
         boolean needsEvening = needsEvening(dto.shiftType());
@@ -554,7 +570,12 @@ public class CorporateService {
         if (needsMorning) totalDistanceKm = totalDistanceKm.add(dto.morningDistanceKm());
         if (needsEvening) totalDistanceKm = totalDistanceKm.add(dto.eveningDistanceKm());
 
-        BigDecimal billingAmount = pricingService.calculateMonthlyAmount(dto);
+        BigDecimal billingAmount = pricingService.calculateMonthlyAmount(dto, assignedBuses);
+
+        BigDecimal carriedBalance = BigDecimal.ZERO;
+        if (dto.renewedFromContractId() != null) {
+            carriedBalance = calculateFairCarriedBalance(dto.renewedFromContractId(), dto.startDate());
+        }
 
         String insertSql = """
                 INSERT INTO corporate_contract (
@@ -566,10 +587,10 @@ public class CorporateService {
                     evening_pickup_location, evening_pickup_lat, evening_pickup_lng, evening_pickup_time,
                     evening_dropoff_location, evening_dropoff_lat, evening_dropoff_lng, evening_dropoff_time,
                     evening_distance_km,
-                    employee_count, working_days, bus_type, distance_km,
+                    employee_count, working_days, bus_type, is_ac, distance_km,
                     billing_amount, start_date, end_date, corporate_user_id, status,
-                    original_billing_amount
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+                    original_billing_amount, carried_balance, renewed_from_contract_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
                 """;
         ShiftLegDto morningPickup = dto.morningPickup();
         ShiftLegDto morningDropoff = dto.morningDropoff();
@@ -578,6 +599,7 @@ public class CorporateService {
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         BigDecimal finalTotalDistanceKm = totalDistanceKm;
+        BigDecimal finalCarriedBalance = carriedBalance;
         jdbcTemplate.update(con -> {
             PreparedStatement ps = con.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, dto.contractName());
@@ -607,18 +629,29 @@ public class CorporateService {
             ps.setInt(25, dto.employeeCount());
             ps.setString(26, dto.workingDays());
             ps.setString(27, busType);
-            ps.setBigDecimal(28, finalTotalDistanceKm);
-            ps.setBigDecimal(29, billingAmount);
-            ps.setObject(30, dto.startDate());
-            ps.setObject(31, dto.endDate());
-            ps.setLong(32, dto.corporateUserId());
-            ps.setBigDecimal(33, billingAmount);
+            ps.setBoolean(28, isAc);
+            ps.setBigDecimal(29, finalTotalDistanceKm);
+            ps.setBigDecimal(30, billingAmount);
+            ps.setObject(31, dto.startDate());
+            ps.setObject(32, dto.endDate());
+            ps.setLong(33, dto.corporateUserId());
+            ps.setBigDecimal(34, billingAmount);
+            ps.setBigDecimal(35, finalCarriedBalance);
+            ps.setObject(36, dto.renewedFromContractId());
             return ps;
         }, keyHolder);
 
         long newId = keyHolder.getKey().longValue();
         assignBuses(newId, assignedBuses);
         notifyContractSubmitted(dto, newId);
+
+        if (dto.renewedFromContractId() != null) {
+            // The renewal request this new contract fulfills is now consumed —
+            // reset it so the old contract stops offering a "Proceed" action.
+            jdbcTemplate.update(
+                    "UPDATE corporate_contract SET renewal_request_status = 'none' WHERE contract_id = ?",
+                    dto.renewedFromContractId());
+        }
 
         CorporateContractDto created = jdbcTemplate.queryForObject(
                 "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
@@ -759,15 +792,29 @@ public class CorporateService {
         }
     }
 
-    /** Legacy starting_location column: the first pickup point of the day. */
+    /** Starting location: if both shifts, displays both pickup locations. */
     private static String resolveStartingLocation(CorporateContractDto dto) {
+        if ("both".equalsIgnoreCase(dto.shiftType())) {
+            String m = dto.morningPickup() != null ? dto.morningPickup().location() : "";
+            String e = dto.eveningPickup() != null ? dto.eveningPickup().location() : "";
+            if (!m.isBlank() && !e.isBlank()) {
+                return m + " (M) & " + e + " (E)";
+            }
+        }
         if (dto.morningPickup() != null) return dto.morningPickup().location();
         if (dto.eveningPickup() != null) return dto.eveningPickup().location();
         return null;
     }
 
-    /** Legacy destination column: the last drop-off point of the day. */
+    /** Destination: if both shifts, displays both drop-off locations. */
     private static String resolveDestination(CorporateContractDto dto) {
+        if ("both".equalsIgnoreCase(dto.shiftType())) {
+            String m = dto.morningDropoff() != null ? dto.morningDropoff().location() : "";
+            String e = dto.eveningDropoff() != null ? dto.eveningDropoff().location() : "";
+            if (!m.isBlank() && !e.isBlank()) {
+                return m + " (M) & " + e + " (E)";
+            }
+        }
         if (dto.eveningDropoff() != null) return dto.eveningDropoff().location();
         if (dto.morningDropoff() != null) return dto.morningDropoff().location();
         return null;
@@ -842,8 +889,16 @@ public class CorporateService {
      * expired and cancelled contracts are terminal and cannot be reopened.
      * On approval ("active"), the admin may also apply a manual discount off
      * the auto-calculated {@code original_billing_amount}, mirroring the
-     * discount already supported for trip bookings.
+     * discount already supported for trip bookings. A contract created as a
+     * renewal ({@code renewed_from_contract_id} set) skips the advance
+     * deposit on approval — it's a continuation of billing, not a fresh
+     * contract, so the client shouldn't have to pay again. Approving a
+     * renewal also deactivates the contract it renews (see
+     * {@link #deactivateRenewedContract}); the whole method is transactional
+     * so a failure partway through (e.g. a bus conflict) never leaves the
+     * client with neither contract active.
      */
+    @org.springframework.transaction.annotation.Transactional
     public CorporateContractDto updateContractStatus(Long contractId, ContractStatusUpdateRequest request) {
         String newStatus = request.status();
         if (newStatus == null || !VALID_CONTRACT_STATUSES.contains(newStatus.toLowerCase())) {
@@ -852,7 +907,7 @@ public class CorporateService {
         String normalized = newStatus.toLowerCase();
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT status, corporate_user_id, contract_name, original_billing_amount, cancel_status FROM corporate_contract WHERE contract_id = ?",
+                "SELECT status, corporate_user_id, contract_name, original_billing_amount, cancel_status, renewed_from_contract_id FROM corporate_contract WHERE contract_id = ?",
                 contractId);
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("Contract not found.");
@@ -869,6 +924,14 @@ public class CorporateService {
                     "Cannot change contract status from '" + currentStatus + "' to '" + normalized + "'.");
         }
         if ("active".equals(normalized)) {
+            boolean isRenewal = row.get("renewed_from_contract_id") != null;
+            if (isRenewal) {
+                // Deactivate the prior contract before the bus-conflict check below,
+                // so a renewal that starts while the old term is still technically
+                // active (same bus, adjoining dates) isn't blocked by its own predecessor.
+                Long renewedFromId = ((Number) row.get("renewed_from_contract_id")).longValue();
+                deactivateRenewedContract(renewedFromId, (String) row.get("contract_name"));
+            }
             requireNoBusConflicts(contractId);
             BigDecimal originalAmount = (BigDecimal) row.get("original_billing_amount");
             BigDecimal discount = request.discountAmount() == null ? BigDecimal.ZERO : request.discountAmount();
@@ -879,12 +942,22 @@ public class CorporateService {
                 throw new IllegalArgumentException("Discount cannot exceed the original monthly amount.");
             }
             BigDecimal newBilling = (originalAmount == null ? BigDecimal.ZERO : originalAmount).subtract(discount);
-            jdbcTemplate.update("""
-                    UPDATE corporate_contract
-                    SET status = ?, billing_amount = ?, discount_amount = ?, admin_note = ?,
-                        advance_amount = ?, advance_payment_status = 'pending'
-                    WHERE contract_id = ?
-                    """, normalized, newBilling, discount, request.adminNote(), newBilling, contractId);
+            if (isRenewal) {
+                jdbcTemplate.update("""
+                        UPDATE corporate_contract
+                        SET status = ?, billing_amount = ?, discount_amount = ?, admin_note = ?,
+                            advance_amount = ?, advance_payment_status = 'waived', advance_paid_at = CURRENT_TIMESTAMP,
+                            advance_transaction_id = 'RENEWAL'
+                        WHERE contract_id = ?
+                        """, normalized, newBilling, discount, request.adminNote(), newBilling, contractId);
+            } else {
+                jdbcTemplate.update("""
+                        UPDATE corporate_contract
+                        SET status = ?, billing_amount = ?, discount_amount = ?, admin_note = ?,
+                            advance_amount = ?, advance_payment_status = 'pending'
+                        WHERE contract_id = ?
+                        """, normalized, newBilling, discount, request.adminNote(), newBilling, contractId);
+            }
         } else {
             jdbcTemplate.update("UPDATE corporate_contract SET status = ? WHERE contract_id = ?", normalized, contractId);
         }
@@ -898,14 +971,56 @@ public class CorporateService {
     }
 
     /**
+     * Marks the contract a just-approved renewal replaces as expired, so it
+     * stops being treated as active (no longer blocks its buses for other
+     * contracts, no longer billed, no longer shown as running). A no-op if
+     * it's already left the active state some other way (e.g. the client
+     * cancelled it in the meantime).
+     */
+    private void deactivateRenewedContract(Long oldContractId, String newContractName) {
+        List<Map<String, Object>> oldRows = jdbcTemplate.queryForList(
+                "SELECT status, corporate_user_id, contract_name FROM corporate_contract WHERE contract_id = ?",
+                oldContractId);
+        if (oldRows.isEmpty()) {
+            return;
+        }
+        Map<String, Object> oldRow = oldRows.get(0);
+        if (!"active".equals(oldRow.get("status"))) {
+            return;
+        }
+        jdbcTemplate.update("UPDATE corporate_contract SET status = 'expired' WHERE contract_id = ?", oldContractId);
+        Long corporateUserId = ((Number) oldRow.get("corporate_user_id")).longValue();
+        String oldContractName = (String) oldRow.get("contract_name");
+        notifyRenewedContractDeactivated(oldContractId, corporateUserId, oldContractName, newContractName);
+    }
+
+    private void notifyRenewedContractDeactivated(
+            Long oldContractId, Long corporateUserId, String oldContractName, String newContractName) {
+        try {
+            NotificationDto notification = new NotificationDto();
+            notification.setNotificationType("system_alert");
+            notification.setTitle("Contract Renewed");
+            notification.setMessage("Your contract \"" + oldContractName
+                    + "\" has ended now that its renewal, \"" + newContractName + "\", is active.");
+            notification.setCorporateUserId(corporateUserId);
+            notification.setRead(false);
+            notificationService.create(notification);
+        } catch (Exception ex) {
+            log.warn("Failed to create renewal-deactivated notification for contract {}", oldContractId, ex);
+        }
+    }
+
+    /**
      * Either party requests to cancel a pending or active contract, with a
      * required reason. The other party must accept before anything changes
      * (see {@link #respondToCancellation}). An admin-initiated request on an
-     * already-active contract carries a minimum 2-week notice: the contract
-     * stays active with {@code cancel_effective_date} set, and the scheduled
-     * {@link #expireDueCancellations()} job cancels it once that date arrives.
-     * A corporate-initiated request, or an admin request on a still-pending
-     * contract, takes effect immediately once accepted (no notice needed).
+     * already-active contract lets the accepting corporate user choose, at
+     * accept time, between cancelling immediately or keeping the contract
+     * running for a minimum {@value #MIN_ADMIN_CANCEL_NOTICE_DAYS}-day notice
+     * period (the scheduled {@link #expireDueCancellations()} job cancels it
+     * once that date arrives). A corporate-initiated request, or an admin
+     * request on a still-pending contract, always takes effect immediately
+     * once accepted — no choice needed.
      */
     public CorporateContractDto requestCancellation(Long contractId, String role, String reason) {
         String normalizedRole = role == null ? "" : role.toLowerCase();
@@ -927,24 +1042,31 @@ public class CorporateService {
         if (!"pending".equals(status) && !"active".equals(status)) {
             throw new IllegalStateException("Only a pending or active contract can be cancelled.");
         }
-        if (!"none".equals(row.get("cancel_status"))) {
+        if (!"none".equals(row.get("cancel_status")) && !"rejected".equals(row.get("cancel_status"))) {
             throw new IllegalStateException("A cancellation request is already in progress for this contract.");
         }
 
-        LocalDate effectiveDate = "admin".equals(normalizedRole) && "active".equals(status)
-                ? LocalDate.now().plusDays(MIN_ADMIN_CANCEL_NOTICE_DAYS)
-                : null;
+        // Enforce payment settlement: all payments up to current billing period must be settled
+        Integer unpaidInvoices = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM corporate_invoices
+                WHERE contract_id = ? AND status IN ('pending', 'overdue') AND period_start <= CURRENT_DATE
+                """, Integer.class, contractId);
+        if (unpaidInvoices != null && unpaidInvoices > 0) {
+            throw new IllegalStateException("All monthly payments up to the current billing period must be settled before requesting cancellation. Please pay your outstanding invoices first.");
+        }
+
+        boolean offersNoticeChoice = "admin".equals(normalizedRole) && "active".equals(status);
 
         jdbcTemplate.update("""
                 UPDATE corporate_contract
                 SET cancel_status = 'pending', cancel_requested_by = ?, cancel_reason = ?,
-                    cancel_requested_at = CURRENT_TIMESTAMP, cancel_effective_date = ?, cancel_response_reason = NULL
+                    cancel_requested_at = CURRENT_TIMESTAMP, cancel_effective_date = NULL, cancel_response_reason = NULL
                 WHERE contract_id = ?
-                """, normalizedRole, reason.trim(), effectiveDate, contractId);
+                """, normalizedRole, reason.trim(), contractId);
 
         Long corporateUserId = ((Number) row.get("corporate_user_id")).longValue();
         String contractName = (String) row.get("contract_name");
-        notifyCancellationRequested(contractId, corporateUserId, contractName, normalizedRole, reason.trim(), effectiveDate);
+        notifyCancellationRequested(contractId, corporateUserId, contractName, normalizedRole, reason.trim(), offersNoticeChoice);
 
         return jdbcTemplate.queryForObject(
                 "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
@@ -955,18 +1077,22 @@ public class CorporateService {
      * The party who did NOT request cancellation accepts or rejects it.
      * Accepting a corporate-initiated request, or an admin request on a
      * still-pending contract, cancels the contract immediately. Accepting an
-     * admin request on an active contract leaves the contract running until
-     * {@code cancel_effective_date}. Rejecting resets the cancellation state
-     * to 'none' so a fresh request can be filed later.
+     * admin request on an active contract requires {@code cancelTiming}
+     * ("immediate" or "scheduled") so the accepting corporate user can choose
+     * between cancelling right away or keeping the contract running until a
+     * {@value #MIN_ADMIN_CANCEL_NOTICE_DAYS}-day notice period elapses.
+     * Rejecting sets the cancellation state to 'rejected' with the reason
+     * so the client can fulfill the requirement and request cancellation again.
      */
-    public CorporateContractDto respondToCancellation(Long contractId, String role, boolean accept, String responseReason) {
+    public CorporateContractDto respondToCancellation(
+            Long contractId, String role, boolean accept, String responseReason, String cancelTiming) {
         String normalizedRole = role == null ? "" : role.toLowerCase();
         if (!VALID_CANCEL_ROLES.contains(normalizedRole)) {
             throw new IllegalArgumentException("Role must be 'admin' or 'corporate'.");
         }
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT status, corporate_user_id, contract_name, cancel_status, cancel_requested_by, cancel_effective_date FROM corporate_contract WHERE contract_id = ?",
+                "SELECT status, corporate_user_id, contract_name, cancel_status, cancel_requested_by FROM corporate_contract WHERE contract_id = ?",
                 contractId);
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("Contract not found.");
@@ -979,22 +1105,44 @@ public class CorporateService {
         if (normalizedRole.equals(requestedBy)) {
             throw new IllegalStateException("You cannot respond to your own cancellation request.");
         }
+        String status = (String) row.get("status");
 
         Long corporateUserId = ((Number) row.get("corporate_user_id")).longValue();
         String contractName = (String) row.get("contract_name");
 
         if (!accept) {
+            if (responseReason == null || responseReason.isBlank()) {
+                throw new IllegalArgumentException("A reason is required when declining a cancellation request.");
+            }
             jdbcTemplate.update("""
                     UPDATE corporate_contract
-                    SET cancel_status = 'none', cancel_requested_by = NULL, cancel_reason = NULL,
-                        cancel_requested_at = NULL, cancel_effective_date = NULL, cancel_response_reason = ?
+                    SET cancel_status = 'rejected', cancel_response_reason = ?,
+                        cancel_requested_at = CURRENT_TIMESTAMP
                     WHERE contract_id = ?
-                    """, responseReason, contractId);
-            notifyCancellationDeclined(contractId, corporateUserId, contractName, requestedBy, responseReason);
+                    """, responseReason.trim(), contractId);
+            notifyCancellationDeclined(contractId, corporateUserId, contractName, requestedBy, responseReason.trim());
         } else {
-            java.sql.Date effectiveDateSql = (java.sql.Date) row.get("cancel_effective_date");
-            boolean takesEffectNow = effectiveDateSql == null;
-            if (takesEffectNow) {
+            boolean offersNoticeChoice = "admin".equals(requestedBy) && "active".equals(status);
+            boolean cancelNow = true;
+            LocalDate effectiveDate = null;
+            if (offersNoticeChoice) {
+                String normalizedTiming = cancelTiming == null ? "" : cancelTiming.toLowerCase();
+                if (!"immediate".equals(normalizedTiming) && !"scheduled".equals(normalizedTiming)) {
+                    throw new IllegalArgumentException("cancelTiming must be 'immediate' or 'scheduled'.");
+                }
+                cancelNow = "immediate".equals(normalizedTiming);
+                effectiveDate = cancelNow ? null : LocalDate.now().plusDays(MIN_ADMIN_CANCEL_NOTICE_DAYS);
+            }
+
+            if (cancelNow) {
+                // Enforce payment settlement when completing cancellation
+                Integer unpaidInvoices = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*) FROM corporate_invoices
+                        WHERE contract_id = ? AND status IN ('pending', 'overdue') AND period_start <= CURRENT_DATE
+                        """, Integer.class, contractId);
+                if (unpaidInvoices != null && unpaidInvoices > 0) {
+                    throw new IllegalStateException("All monthly payments up to the current billing period must be settled before cancelling this contract. Please settle outstanding invoices first.");
+                }
                 jdbcTemplate.update("""
                         UPDATE corporate_contract
                         SET status = 'cancelled', cancel_status = 'accepted', cancel_response_reason = ?
@@ -1004,10 +1152,10 @@ public class CorporateService {
             } else {
                 jdbcTemplate.update("""
                         UPDATE corporate_contract
-                        SET cancel_status = 'accepted', cancel_response_reason = ?
+                        SET cancel_status = 'accepted', cancel_effective_date = ?, cancel_response_reason = ?
                         WHERE contract_id = ?
-                        """, responseReason, contractId);
-                notifyCancellationAccepted(contractId, corporateUserId, contractName, effectiveDateSql.toLocalDate());
+                        """, effectiveDate, responseReason, contractId);
+                notifyCancellationAccepted(contractId, corporateUserId, contractName, effectiveDate);
             }
         }
 
@@ -1136,18 +1284,21 @@ public class CorporateService {
         if (newStart.isBefore(earliestAllowedStart)) {
             newStart = earliestAllowedStart;
         }
-        long termDays = java.time.temporal.ChronoUnit.DAYS.between(existing.startDate(), existing.endDate());
+        long termDays = ChronoUnit.DAYS.between(existing.startDate(), existing.endDate());
         LocalDate newEnd = newStart.plusDays(Math.min(Math.max(termDays, 30), 365));
+
+        BigDecimal carriedBalance = calculateFairCarriedBalance(contractId, newStart);
 
         CorporateContractDto renewalRequest = new CorporateContractDto(
                 null, existing.contractName(), null, null,
                 existing.shiftType(), null, null,
                 existing.morningPickup(), existing.morningDropoff(), existing.morningDistanceKm(),
                 existing.eveningPickup(), existing.eveningDropoff(), existing.eveningDistanceKm(),
-                existing.employeeCount(), existing.workingDays(), existing.busType(), existing.distanceKm(),
+                existing.employeeCount(), existing.workingDays(), existing.busType(), existing.isAc(), existing.distanceKm(),
                 null, null, null, newStart, newEnd,
                 null, existing.corporateUserId(), null, busIds,
-                null, null, null, null, null, null
+                null, null, null, null, null, carriedBalance, null,
+                existing.contractId(), null
         );
 
         CorporateContractDto created = createContract(renewalRequest);
@@ -1173,13 +1324,116 @@ public class CorporateService {
         }
     }
 
+    /**
+     * The corporate client asks admin for permission to renew an active
+     * contract. This is a lightweight yes/no ask — it doesn't create
+     * anything yet. Once admin approves (see {@link #respondToRenewalRequest})
+     * the client fills out and submits the actual renewal contract through
+     * the normal {@link #createContract} flow, tagged with
+     * {@code renewedFromContractId} so its approval skips the advance
+     * deposit. Available any time a contract is active, not just near its
+     * end date — the reminder in {@link #sendRenewalReminders()} is just a
+     * nudge, not a gate.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public CorporateContractDto requestRenewal(Long contractId, Long corporateUserId) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT status, corporate_user_id, contract_name, renewal_request_status FROM corporate_contract WHERE contract_id = ?",
+                contractId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("Contract not found.");
+        }
+        Map<String, Object> row = rows.get(0);
+        if (!"active".equalsIgnoreCase((String) row.get("status"))) {
+            throw new IllegalStateException("Only an active contract can be renewed.");
+        }
+        if (corporateUserId != null && !corporateUserId.equals(((Number) row.get("corporate_user_id")).longValue())) {
+            throw new IllegalStateException("You do not have access to this contract.");
+        }
+        String currentRenewalStatus = (String) row.get("renewal_request_status");
+        if ("requested".equals(currentRenewalStatus) || "approved".equals(currentRenewalStatus)) {
+            throw new IllegalStateException("A renewal request is already in progress for this contract.");
+        }
+
+        jdbcTemplate.update(
+                "UPDATE corporate_contract SET renewal_request_status = 'requested' WHERE contract_id = ?", contractId);
+
+        String contractName = (String) row.get("contract_name");
+        notifyRenewalRequested(contractId, contractName);
+
+        return jdbcTemplate.queryForObject(
+                "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
+                (rs, rowNum) -> mapContract(rs), contractId);
+    }
+
+    /** Admin accepts or declines a corporate client's renewal request. */
+    @org.springframework.transaction.annotation.Transactional
+    public CorporateContractDto respondToRenewalRequest(Long contractId, boolean approve) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT corporate_user_id, contract_name, renewal_request_status FROM corporate_contract WHERE contract_id = ?",
+                contractId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("Contract not found.");
+        }
+        Map<String, Object> row = rows.get(0);
+        if (!"requested".equals(row.get("renewal_request_status"))) {
+            throw new IllegalStateException("There is no pending renewal request on this contract.");
+        }
+
+        String newStatus = approve ? "approved" : "declined";
+        jdbcTemplate.update(
+                "UPDATE corporate_contract SET renewal_request_status = ? WHERE contract_id = ?", newStatus, contractId);
+
+        Long corporateUserId = ((Number) row.get("corporate_user_id")).longValue();
+        String contractName = (String) row.get("contract_name");
+        notifyRenewalResponse(contractId, corporateUserId, contractName, approve);
+
+        return jdbcTemplate.queryForObject(
+                "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
+                (rs, rowNum) -> mapContract(rs), contractId);
+    }
+
+    private void notifyRenewalRequested(Long contractId, String contractName) {
+        try {
+            for (Long adminId : allAdminUserIds()) {
+                NotificationDto notification = new NotificationDto();
+                notification.setNotificationType("system_alert");
+                notification.setTitle("Renewal Requested");
+                notification.setMessage("A corporate client has requested to renew contract \"" + contractName
+                        + "\" (#" + contractId + ").");
+                notification.setAdminId(adminId);
+                notification.setRead(false);
+                notificationService.create(notification);
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to create renewal-requested admin notification for contract {}", contractId, ex);
+        }
+    }
+
+    private void notifyRenewalResponse(Long contractId, Long corporateUserId, String contractName, boolean approve) {
+        try {
+            NotificationDto notification = new NotificationDto();
+            notification.setNotificationType("system_alert");
+            notification.setTitle(approve ? "Renewal Request Approved" : "Renewal Request Declined");
+            notification.setMessage(approve
+                    ? "Your request to renew contract \"" + contractName + "\" was approved. You can now submit your renewal."
+                    : "You can't renew contract \"" + contractName + "\" right now — please contact admin for more information.");
+            notification.setCorporateUserId(corporateUserId);
+            notification.setRead(false);
+            notificationService.create(notification);
+        } catch (Exception ex) {
+            log.warn("Failed to create renewal-response notification for contract {}", contractId, ex);
+        }
+    }
+
     private void notifyCancellationRequested(
             Long contractId, Long corporateUserId, String contractName,
-            String requestedByRole, String reason, LocalDate effectiveDate
+            String requestedByRole, String reason, boolean offersNoticeChoice
     ) {
         try {
-            String noticeText = effectiveDate != null
-                    ? (" It will take effect on " + effectiveDate + " if you accept.")
+            String noticeText = offersNoticeChoice
+                    ? (" If you accept, you can choose to cancel it immediately or keep it running for a "
+                            + MIN_ADMIN_CANCEL_NOTICE_DAYS + "-day notice period.")
                     : "";
             if ("admin".equals(requestedByRole)) {
                 NotificationDto notification = new NotificationDto();
@@ -1393,5 +1647,84 @@ public class CorporateService {
         } catch (Exception ex) {
             log.warn("Failed to create status-change notification for contract {}", contractId, ex);
         }
+    }
+
+    /**
+     * Calculates the fair prorated carried balance from a predecessor contract.
+     * Deducts any unused days from ongoing/future invoices so the client only pays
+     * for days of service actually consumed under the predecessor contract.
+     */
+    public BigDecimal calculateFairCarriedBalance(Long predecessorContractId, LocalDate cutoffDate) {
+        if (predecessorContractId == null) {
+            return BigDecimal.ZERO;
+        }
+        LocalDate effectiveCutoff = LocalDate.now();
+        if (cutoffDate != null && cutoffDate.isBefore(effectiveCutoff)) {
+            effectiveCutoff = cutoffDate;
+        }
+
+        List<Map<String, Object>> invoices = jdbcTemplate.queryForList("""
+                SELECT amount, status, period_start, period_end
+                FROM corporate_invoices
+                WHERE contract_id = ? AND status != 'cancelled'
+                """, predecessorContractId);
+
+        BigDecimal totalDebt = BigDecimal.ZERO;
+        BigDecimal totalCredit = BigDecimal.ZERO;
+
+        for (Map<String, Object> inv : invoices) {
+            BigDecimal amount = (BigDecimal) inv.get("amount");
+            String status = (String) inv.get("status");
+            java.sql.Date startSql = (java.sql.Date) inv.get("period_start");
+            java.sql.Date endSql = (java.sql.Date) inv.get("period_end");
+
+            if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            LocalDate periodStart = startSql != null ? startSql.toLocalDate() : null;
+            LocalDate periodEnd = endSql != null ? endSql.toLocalDate() : null;
+
+            if (periodStart == null || periodEnd == null || !periodEnd.isAfter(periodStart)) {
+                // Non-period or carried-balance invoice: full debt if unpaid
+                if ("pending".equalsIgnoreCase(status) || "overdue".equalsIgnoreCase(status)) {
+                    totalDebt = totalDebt.add(amount);
+                }
+                continue;
+            }
+
+            long totalDays = ChronoUnit.DAYS.between(periodStart, periodEnd);
+            if (totalDays <= 0) {
+                continue;
+            }
+
+            if (!effectiveCutoff.isAfter(periodStart)) {
+                // Period hasn't started yet relative to cutoff: 0 used days
+                if ("paid".equalsIgnoreCase(status)) {
+                    totalCredit = totalCredit.add(amount);
+                }
+            } else if (!effectiveCutoff.isBefore(periodEnd)) {
+                // Period completely elapsed: 100% used
+                if ("pending".equalsIgnoreCase(status) || "overdue".equalsIgnoreCase(status)) {
+                    totalDebt = totalDebt.add(amount);
+                }
+            } else {
+                // Cutoff falls in the middle of the billing period: prorate fairly based on days worked
+                long usedDays = ChronoUnit.DAYS.between(periodStart, effectiveCutoff);
+                BigDecimal usedRatio = BigDecimal.valueOf(usedDays)
+                        .divide(BigDecimal.valueOf(totalDays), 6, RoundingMode.HALF_UP);
+                BigDecimal usedAmount = amount.multiply(usedRatio).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal unusedAmount = amount.subtract(usedAmount);
+
+                if ("pending".equalsIgnoreCase(status) || "overdue".equalsIgnoreCase(status)) {
+                    totalDebt = totalDebt.add(usedAmount);
+                } else if ("paid".equalsIgnoreCase(status)) {
+                    totalCredit = totalCredit.add(unusedAmount);
+                }
+            }
+        }
+
+        BigDecimal netCarried = totalDebt.subtract(totalCredit);
+        return netCarried.compareTo(BigDecimal.ZERO) > 0 ? netCarried.setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     }
 }

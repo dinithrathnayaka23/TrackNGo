@@ -55,11 +55,12 @@ type ChatRoomListItem =
 const WAVEFORM_BARS = [10, 22, 12, 38, 18, 54, 26, 44, 14, 62, 34, 48, 20, 56, 28, 40, 16, 30];
 
 export default function ChatScreen() {
-  const { id, name, otherUserId, otherUserType } = useLocalSearchParams<{
+  const { id, name, otherUserId, otherUserType, avatarUri } = useLocalSearchParams<{
     id?: string;
     name?: string;
     otherUserId?: string;
     otherUserType?: string;
+    avatarUri?: string;
   }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -94,6 +95,11 @@ export default function ChatScreen() {
   const isRecording = !!recording;
   const headerTitle = name || `Chat ${id}`;
   const avatarFallback = getParticipantAvatarFallback(otherUserType);
+  // Passed through from the conversation list, which already resolved it to an
+  // absolute URL; the empty string it sends for "no photo" collapses to null.
+  const avatarPhotoUri = resolveAssetUrl(
+    Array.isArray(avatarUri) ? avatarUri[0] : avatarUri,
+  );
   const bottomInset = keyboardVisible ? 0 : insets.bottom;
   const keyboardLift =
     Platform.OS === 'android' && keyboardVisible
@@ -790,9 +796,13 @@ export default function ChatScreen() {
 
           <View style={styles.headerCenter}>
             <View style={styles.headerAvatarWrap}>
-              <View style={styles.headerAvatarFallback}>
-                <Text style={styles.headerAvatarFallbackText}>{avatarFallback}</Text>
-              </View>
+              {avatarPhotoUri ? (
+                <Image source={{ uri: avatarPhotoUri }} style={styles.headerAvatarImage} />
+              ) : (
+                <View style={styles.headerAvatarFallback}>
+                  <Text style={styles.headerAvatarFallbackText}>{avatarFallback}</Text>
+                </View>
+              )}
               {otherOnline ? <View style={styles.headerOnlineDot} /> : null}
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -850,6 +860,7 @@ export default function ChatScreen() {
               ) : (
                 <MessageRow
                   avatarFallback={avatarFallback}
+                  avatarPhotoUri={avatarPhotoUri}
                   message={item.message}
                   isOutgoing={item.message.senderId === user?.userId}
                   canDelete={
@@ -1008,6 +1019,7 @@ export default function ChatScreen() {
 
 function MessageRow({
   avatarFallback,
+  avatarPhotoUri,
   canDelete,
   deletedLabel,
   isAudioPlaying,
@@ -1019,6 +1031,7 @@ function MessageRow({
   onPressAudio,
 }: {
   avatarFallback: string;
+  avatarPhotoUri: string | null;
   canDelete: boolean;
   deletedLabel: string;
   isAudioPlaying: boolean;
@@ -1179,9 +1192,13 @@ function MessageRow({
 
   return (
     <View style={styles.messageRow}>
-      <View style={styles.avatarFallback}>
-        <Text style={styles.avatarFallbackText}>{avatarFallback}</Text>
-      </View>
+      {avatarPhotoUri ? (
+        <Image source={{ uri: avatarPhotoUri }} style={styles.avatarImage} />
+      ) : (
+        <View style={styles.avatarFallback}>
+          <Text style={styles.avatarFallbackText}>{avatarFallback}</Text>
+        </View>
+      )}
       {isVoice
         ? renderVoiceBubble()
         : isImage
@@ -1389,6 +1406,12 @@ const styles = StyleSheet.create({
   headerAvatarWrap: {
     position: 'relative',
   },
+  headerAvatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#DDE5F0',
+  },
   headerAvatarFallback: {
     width: 36,
     height: 36,
@@ -1463,6 +1486,12 @@ const styles = StyleSheet.create({
   },
   messageRowRight: {
     alignItems: 'flex-end',
+  },
+  avatarImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#DDE5F0',
   },
   avatarFallback: {
     width: 30,

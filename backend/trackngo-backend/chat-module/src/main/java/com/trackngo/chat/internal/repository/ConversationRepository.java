@@ -122,6 +122,14 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     @Query(value = "SELECT user_type FROM user WHERE user_id = :userId", nativeQuery = true)
     Optional<String> findUserTypeByUserId(@Param("userId") Long userId);
 
+    /**
+     * Resolves the display name and avatar for a participant in one pass.
+     *
+     * <p>The photo is stored on the role table that backs the user rather than
+     * on `user` itself, so all four are joined and coalesced the same way the
+     * user profile endpoint does it. A user only ever has one role row, so at
+     * most one branch of the COALESCE is non-null.
+     */
     @Query(value = """
             SELECT
                 COALESCE(
@@ -130,12 +138,16 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
                     NULLIF(cu.contact_person_name, ''),
                     NULLIF(u.email, ''),
                     CONCAT('User #', :userId)
-                )
+                ) AS displayName,
+                COALESCE(p.profile_photo, d.profile_photo, cu.profile_photo, a.profile_photo) AS profilePhoto
             FROM `user` u
+            LEFT JOIN passenger p ON p.passenger_id = u.user_id
+            LEFT JOIN driver d ON d.driver_id = u.user_id
             LEFT JOIN corporate_user cu ON cu.corporate_user_id = u.user_id
+            LEFT JOIN admin a ON a.admin_id = u.user_id
             WHERE u.user_id = :userId
             """, nativeQuery = true)
-    Optional<String> findDisplayNameByUserId(@Param("userId") Long userId);
+    Optional<ParticipantSummaryProjection> findParticipantSummaryByUserId(@Param("userId") Long userId);
 
     /**
      * Retrieves conversations attached to the shared admin-support user.

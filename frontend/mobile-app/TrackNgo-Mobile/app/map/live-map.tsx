@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Alert,
   Animated,
   Dimensions,
   Modal,
@@ -21,11 +22,14 @@ import { LocalizedText as Text } from "../../utils/i18n";
 import * as Location from "expo-location";
 import {
   BusTrackingSocket,
+  getBusDriver,
   getLatestBusLocation,
   getRouteGeometry,
   type LiveBusLocation,
   type RouteStopGeo,
 } from "../../services/trackingApi";
+import { createConversation } from "../../services/chatApi";
+import { useSession } from "../../store/sessionStore";
 import {
   MARKER_TRANSITION_MS,
   boardingEligibility,
@@ -168,6 +172,9 @@ export default function LiveMapScreen() {
   const boardingPulse = useRef(new Animated.Value(1)).current;
   // Pulsing animation for the bus marker on the map
   const busPulse = useRef(new Animated.Value(0)).current;
+
+  const { currentUser } = useSession();
+  const [openingChat, setOpeningChat] = useState(false);
 
   /* Derived Values */
   const busNumber = params.busNumber ?? "ND-4589";
@@ -595,6 +602,52 @@ export default function LiveMapScreen() {
       );
     }
   }, [isBoarded, busPosition]);
+
+  /* ── Message the driver ─────────────────────────────────── */
+  /* Opens the thread with whoever is driving the bus being tracked, creating
+     the conversation on first contact. The driver is resolved from the bus
+     number at press time rather than up front, so a driver reassigned mid
+     journey still gets the message. */
+  const openDriverChat = async () => {
+    if (!currentUser?.userId) {
+      Alert.alert(
+        "Sign in required",
+        "Please sign in again to message the driver.",
+      );
+      return;
+    }
+
+    setOpeningChat(true);
+    try {
+      const driver = await getBusDriver(busNumber);
+      if (!driver?.driverId) {
+        Alert.alert(
+          "Driver unavailable",
+          `No driver is assigned to ${busNumber} right now.`,
+        );
+        return;
+      }
+
+      const conversation = await createConversation({
+        user1Id: currentUser.userId,
+        user2Id: driver.driverId,
+      });
+      router.push({
+        pathname: "/chat/chat-room",
+        params: {
+          conversationId: String(conversation.conversationId),
+          otherUserId: String(driver.driverId),
+          otherUserType: "DRIVER",
+        },
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not open the driver chat.";
+      Alert.alert("Chat unavailable", message);
+    } finally {
+      setOpeningChat(false);
+    }
+  };
 
   /* ── Boarding confirmation ──────────────────────────────── */
   const handleBoardingConfirm = () => {
@@ -1044,11 +1097,14 @@ export default function LiveMapScreen() {
             </Pressable>
           )}
           <Pressable
-            style={styles.msgBtn}
-            onPress={() => router.push("/chat/chat-list")}
+            style={[styles.msgBtn, openingChat && styles.msgBtnDisabled]}
+            disabled={openingChat}
+            onPress={openDriverChat}
           >
             <Ionicons name="chatbubble-outline" size={16} color="#2F6BFF" />
-            <Text style={styles.msgBtnText}>Message</Text>
+            <Text style={styles.msgBtnText}>
+              {openingChat ? "Opening…" : "Message"}
+            </Text>
           </Pressable>
         </View>
       </Animated.View>
@@ -1475,6 +1531,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
+  },
+  msgBtnDisabled: {
+    opacity: 0.6,
   },
   msgBtnText: {
     fontSize: 14,

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 
 import {
   View,
@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
+  Modal,
   useWindowDimensions,
   Linking, // Import Linking to call phone
   Alert,
@@ -13,11 +15,13 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; //prevent content overlap
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { seatBookingService } from '@/services/seatBookingService';
+import { createConversation } from '@/services/chatApi';
 
 type SeatStatus = 'boarded' | 'booked' | 'blocked' | 'available'; // Define the possible seat statuses
 
@@ -58,6 +62,8 @@ interface PassengerDetails {
   dropoffLocation: string;
   seatNumber: string;
   specialRequest?: string;
+  passengerId?: number;
+  bookingReference?: string;
 }
 
 export default function DriverSeatLayoutScreen() { //main component
@@ -86,13 +92,18 @@ export default function DriverSeatLayoutScreen() { //main component
   const [bookedSeatsMap, setBookedSeatsMap] = useState<
     Map<string, { passenger: PassengerDetails; seatBookingId: number }>
   >(new Map());
+  const [actionSheetVisible, setActionSheetVisible] = useState(false); // controls the tap-to-open passenger actions sheet
+  const [isMessaging, setIsMessaging] = useState(false);
 
-  // Fetch data on component mount
-  useEffect(() => {
-    if (user?.userId) {
-      loadSeatLayoutData(); // first it chekc the id and load the func
-    }
-  }, [user?.userId]); //run when id changes
+  // Fetch data whenever this screen gains focus (initial mount, and whenever the
+  // driver returns from chat or the QR scanner) so boarded status stays current.
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.userId) {
+        loadSeatLayoutData();
+      }
+    }, [user?.userId])
+  );
 
   const loadSeatLayoutData = async () => {
     try {
@@ -206,6 +217,8 @@ export default function DriverSeatLayoutScreen() { //main component
               dropoffLocation: booking.toStop || t('common.notAvailable'),
               seatNumber: seatId,
               specialRequest: booking.specialRequest,
+              passengerId: booking.passengerId,
+              bookingReference: booking.bookingReference,
             },
             seatBookingId: booking.seatBookingId, // Store the seat booking ID for later use when marking as boarded
           });
@@ -392,40 +405,59 @@ export default function DriverSeatLayoutScreen() { //main component
     if (selectedPassenger?.phone) { // If the selected passenger has a phone number
       Linking.openURL(`tel:${selectedPassenger.phone}`);
     }
+    setActionSheetVisible(false);
   };
 
-  const handleMessage = () => {
-    router.push('/chat');
-  };
-
-  const handlePassengerOptions = () => {
-    if (!selectedSeat || !bookedSeatsMap.has(selectedSeat)) {
-      Alert.alert(t('allocations.error'), t('allocations.pleaseSelectBookedSeat'));
+  const handleMessagePassenger = async () => {
+    if (!selectedPassenger?.passengerId || !user?.userId || !user?.token) {
+      Alert.alert(t('allocations.error'), t('allocations.cannotOpenChat'));
       return;
-    } // If the selected seat is not found in the bookedSeatsMap, show an error message.
+    }
 
-    Alert.alert(
-      t('allocations.passengerOptions'),
-      t('allocations.chooseAnAction'),
-      [
-        {
-          text: t('allocations.scanQrCode'),
-          onPress: () => {
-            // TODO: Implement QR Scanner
-            console.log('Open QR Scanner for:', selectedSeat);
-          },
+    setActionSheetVisible(false);
+    try {
+      setIsMessaging(true);
+      const conversation = await createConversation({
+        token: user.token,
+        user1Id: user.userId,
+        user1Type: 'DRIVER',
+        user2Id: selectedPassenger.passengerId,
+        user2Type: 'PASSENGER',
+      });
+
+      router.push({
+        pathname: '/chat/[id]',
+        params: {
+          id: String(conversation.conversationId),
+          name: selectedPassenger.name,
+          otherUserId: String(selectedPassenger.passengerId),
+          otherUserType: 'PASSENGER',
         },
-        {
-          text: t('allocations.markAsBoarded'),
-          onPress: handleMarkBoarded,
-        },
-        {
-          text: t('common.cancel'),
-          onPress: () => { },
-        },
-      ]
-    );
-  }; // Handle the "Mark as Boarded" action when the driver selects this option for a passenger. This function checks if a seat is selected and if it is booked, then it calls the API to mark the passenger as boarded. If the API call is successful, it updates the local seat data to reflect the new status and updates the journey data to increment the boarded count. It also shows a success message to the driver. If there is an error during this process, it logs the error and shows an error message to the driver.
+      });
+    } catch (err) {
+      console.error('Error opening conversation with passenger:', err);
+      Alert.alert(t('allocations.error'), t('allocations.cannotOpenChat'));
+    } finally {
+      setIsMessaging(false);
+    }
+  };
+
+  const handleScanQr = () => {
+    if (!selectedSeat) return;
+    const bookedData = bookedSeatsMap.get(selectedSeat);
+    if (!bookedData) return;
+
+    setActionSheetVisible(false);
+    router.push({
+      pathname: '/qr-scan',
+      params: {
+        seatBookingId: String(bookedData.seatBookingId),
+        bookingReference: bookedData.passenger.bookingReference ?? '',
+        seatId: selectedSeat,
+        passengerName: bookedData.passenger.name,
+      },
+    });
+  };
 
   const handleMarkBoarded = async () => {
     if (!selectedSeat) return; // If no seat is selected, simply return and do nothing. This is a safety check to ensure that we don't attempt to mark a passenger as boarded without a valid seat selection, which could lead to errors or unintended behavior in the app.
@@ -436,6 +468,7 @@ export default function DriverSeatLayoutScreen() { //main component
       return;
     }
 
+    setActionSheetVisible(false);
     try {
       setLoading(true);
       const token = await seatBookingService.getToken(); // Get the JWT token for API authentication. This is necessary to authorize the request to mark the passenger as boarded in the backend.
@@ -495,6 +528,7 @@ export default function DriverSeatLayoutScreen() { //main component
     const passengerData = bookedSeatsMap.get(seatId);
     if (passengerData) {
       setSelectedPassenger(passengerData.passenger); // If the seat is booked and we have passenger data for it, set the selected passenger details in state. This will allow the UI to display the passenger's name, phone number, pickup and dropoff locations, seat number, and any special requests when a booked seat is selected.
+      setActionSheetVisible(true); // Booked/boarded seats immediately surface the call/message/scan/board actions.
     } else {
       setSelectedPassenger(null); // If the seat is not booked, clear the selected passenger details. This will ensure that when an available seat is selected, the UI does not show any passenger information, indicating that the seat is currently unoccupied.
     }
@@ -699,7 +733,7 @@ export default function DriverSeatLayoutScreen() { //main component
                 <Text style={styles.passengerName}>{selectedPassenger.name}</Text>
                 <Text style={styles.seatInfo}>{t('allocations.seatNumber', { seat: selectedSeat ?? '' })}</Text>
               </View>
-              <TouchableOpacity onPress={handlePassengerOptions}>
+              <TouchableOpacity onPress={() => setActionSheetVisible(true)}>
                 <MaterialCommunityIcons name="pencil" size={20} color="#2F6BFF" />
               </TouchableOpacity>
             </View>
@@ -742,38 +776,88 @@ export default function DriverSeatLayoutScreen() { //main component
           </View>
         )}
 
-        {/* Action Buttons */}
-        {selectedPassenger && (
-          <>
-            <View style={styles.actionButtonsSection}>
-              <TouchableOpacity style={styles.callButton} onPress={handleCall}>
-                <MaterialCommunityIcons name="phone" size={20} color="#FFF" />
-                <Text style={styles.callButtonText}>{t('allocations.call')}</Text>
-              </TouchableOpacity>
+        <View style={styles.spacer} />
+      </ScrollView>
 
-              <TouchableOpacity style={styles.messageButton} onPress={handleMessage}>
-                <MaterialCommunityIcons name="message-text" size={20} color={theme.text} />
-                <Text style={styles.messageButtonText}>{t('allocations.message')}</Text>
-              </TouchableOpacity>
-            </View>
+      {/* Passenger Actions Sheet: opens immediately when a booked/boarded seat is tapped */}
+      <Modal
+        transparent
+        visible={actionSheetVisible}
+        animationType="slide"
+        onRequestClose={() => setActionSheetVisible(false)}
+      >
+        <Pressable style={styles.actionSheetOverlay} onPress={() => setActionSheetVisible(false)}>
+          <Pressable style={styles.actionSheetContainer} onPress={() => {}}>
+            <View style={styles.actionSheetHandle} />
+            <Text style={styles.actionSheetTitle}>{selectedPassenger?.name}</Text>
+            <Text style={styles.actionSheetSubtitle}>
+              {t('allocations.seatNumber', { seat: selectedSeat ?? '' })}
+            </Text>
 
             <TouchableOpacity
-              style={styles.boardButton}
+              style={[styles.actionSheetItem, !selectedPassenger?.phone && styles.actionSheetItemDisabled]}
+              onPress={handleCall}
+              disabled={!selectedPassenger?.phone}
+            >
+              <View style={[styles.actionSheetIcon, { backgroundColor: '#DCFCE7' }]}>
+                <MaterialCommunityIcons name="phone" size={22} color="#16A34A" />
+              </View>
+              <Text style={styles.actionSheetItemText}>{t('allocations.call')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.actionSheetItem,
+                (isMessaging || !selectedPassenger?.passengerId) && styles.actionSheetItemDisabled,
+              ]}
+              onPress={() => void handleMessagePassenger()}
+              disabled={isMessaging || !selectedPassenger?.passengerId}
+            >
+              <View style={[styles.actionSheetIcon, { backgroundColor: '#DBEAFE' }]}>
+                {isMessaging ? (
+                  <ActivityIndicator size="small" color="#2563EB" />
+                ) : (
+                  <MaterialCommunityIcons name="message-text" size={22} color="#2563EB" />
+                )}
+              </View>
+              <Text style={styles.actionSheetItemText}>{t('allocations.message')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionSheetItem} onPress={handleScanQr}>
+              <View style={[styles.actionSheetIcon, { backgroundColor: '#EDE9FE' }]}>
+                <MaterialCommunityIcons name="qrcode-scan" size={22} color="#7C3AED" />
+              </View>
+              <Text style={styles.actionSheetItemText}>{t('allocations.scanQrCode')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.actionSheetItem,
+                seatData.find((s) => s.id === selectedSeat)?.status === 'boarded' &&
+                  styles.actionSheetItemDisabled,
+              ]}
               onPress={handleMarkBoarded}
               disabled={seatData.find((s) => s.id === selectedSeat)?.status === 'boarded'}
             >
-              <MaterialCommunityIcons name="check" size={20} color="#FFF" />
-              <Text style={styles.boardButtonText}>
+              <View style={[styles.actionSheetIcon, { backgroundColor: '#DCFCE7' }]}>
+                <MaterialCommunityIcons name="check-circle" size={22} color="#16A34A" />
+              </View>
+              <Text style={styles.actionSheetItemText}>
                 {seatData.find((s) => s.id === selectedSeat)?.status === 'boarded'
                   ? t('allocations.alreadyBoarded')
                   : t('allocations.markAsBoarded')}
               </Text>
             </TouchableOpacity>
-          </>
-        )}
 
-        <View style={styles.spacer} />
-      </ScrollView>
+            <TouchableOpacity
+              style={styles.actionSheetCancel}
+              onPress={() => setActionSheetVisible(false)}
+            >
+              <Text style={styles.actionSheetCancelText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1072,66 +1156,73 @@ function createStyles(theme: any, width: number) {
     color: theme.text,
     fontWeight: "600",
   },
-  actionButtonsSection: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 10,
-    marginVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  callButton: {
-    flex: 1,
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: '#22C55E',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  callButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  messageButton: {
-    flex: 1,
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: theme.card,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  messageButtonText: {
-    color: theme.text,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  boardButton: {
-    marginHorizontal: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: '#2F6BFF',
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  boardButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: "700",
-  },
   spacer: {
     height: 80,
+  },
+  actionSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  actionSheetContainer: {
+    backgroundColor: theme.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 28,
+  },
+  actionSheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.border,
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  actionSheetTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: theme.text,
+    textAlign: 'center',
+  },
+  actionSheetSubtitle: {
+    fontSize: 12,
+    color: theme.secondaryText,
+    textAlign: 'center',
+    marginTop: 2,
+    marginBottom: 16,
+  },
+  actionSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 12,
+  },
+  actionSheetItemDisabled: {
+    opacity: 0.4,
+  },
+  actionSheetIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionSheetItemText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.text,
+  },
+  actionSheetCancel: {
+    marginTop: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  actionSheetCancelText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: theme.secondaryText,
   },
   centerContainer: {
     flex: 1,

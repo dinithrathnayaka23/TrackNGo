@@ -1,8 +1,11 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faArrowRight,
+  faBullhorn,
   faCheckCircle,
+  faClockRotateLeft,
   faGear,
+  faHeadset,
   faPen,
   faPhoneVolume,
   faPlus,
@@ -19,7 +22,15 @@ import {
   type EmergencyNumber,
   type SaveEmergencyNumberRequest,
 } from '../../services/emergencyNumberService'
+import {
+  fetchSupportContact,
+  updateSupportContact,
+  type SaveSupportContactRequest,
+  type SupportContact,
+} from '../../services/supportContactService'
 import AdminProfileCard from '../../components/AdminProfileCard'
+import SosHistoryPanel from '../../components/SosHistoryPanel'
+import SendNotificationPanel from '../../components/SendNotificationPanel'
 
 const emptyForm: SaveEmergencyNumberRequest = {
   label: '',
@@ -34,9 +45,101 @@ function activeBadge(isActive: boolean) {
   return isActive ? 'bg-[#dcfce7] text-[#047857]' : 'bg-[#f1f5f9] text-[#64748b]'
 }
 
+const emptySupportContactForm: SaveSupportContactRequest = { name: '', role: '', phone: '' }
+
+/** The full-screen shell the settings sections open into, so each one only writes its body. */
+function SettingsModal({
+  title,
+  subtitle,
+  icon,
+  onClose,
+  children,
+}: {
+  title: string
+  subtitle: string
+  icon: typeof faGear
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-[2px]" />
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+        {/* Wide enough that the history table fits every column without sideways scrolling. */}
+        <div className="relative max-h-[90vh] w-full max-w-7xl overflow-hidden rounded-2xl bg-white shadow-xl">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-lg text-[#64748b] transition hover:bg-[#f1f5f9] hover:text-[#334155]"
+            aria-label={`Close ${title}`}
+          >
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+
+          <div className="max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center gap-3 pr-10">
+              <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#eef2ff] text-[#2642a6]">
+                <FontAwesomeIcon icon={icon} />
+              </div>
+              <div>
+                <h2 className="text-lg font-extrabold text-[#111827]">{title}</h2>
+                <p className="text-sm text-[#64748b]">{subtitle}</p>
+              </div>
+            </div>
+
+            <div className="mt-5">{children}</div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+/** One entry tile in the settings grid. */
+function SettingsCard({
+  icon,
+  tag,
+  title,
+  description,
+  onOpen,
+}: {
+  icon: typeof faGear
+  tag: string
+  title: string
+  description: string
+  onOpen: () => void
+}) {
+  return (
+    <article className="flex h-full flex-col rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[#eef2ff] text-[#2642a6]">
+          <FontAwesomeIcon icon={icon} />
+        </div>
+        <span className="rounded-full bg-[#f1f5f9] px-2.5 py-0.5 text-xs font-bold text-[#64748b]">{tag}</span>
+      </div>
+
+      <div className="mt-5 flex-1">
+        <h2 className="text-lg font-extrabold text-[#111827]">{title}</h2>
+        <p className="mt-1 text-sm text-[#64748b]">{description}</p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onOpen}
+        className="mt-5 inline-flex w-fit items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]"
+      >
+        Go
+        <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
+      </button>
+    </article>
+  )
+}
+
 function Settings() {
   const location = useLocation()
   const [modalOpen, setModalOpen] = useState(false)
+  const [sosHistoryOpen, setSosHistoryOpen] = useState(false)
+  const [broadcastOpen, setBroadcastOpen] = useState(false)
   const [rows, setRows] = useState<EmergencyNumber[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -45,6 +148,63 @@ function Settings() {
   const [formOpen, setFormOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+
+  const [supportContact, setSupportContact] = useState<SupportContact | null>(null)
+  const [supportContactModalOpen, setSupportContactModalOpen] = useState(false)
+  const [supportContactForm, setSupportContactForm] = useState<SaveSupportContactRequest>(emptySupportContactForm)
+  const [supportContactLoading, setSupportContactLoading] = useState(false)
+  const [supportContactError, setSupportContactError] = useState('')
+  const [supportContactSaving, setSupportContactSaving] = useState(false)
+  const [supportContactSaveError, setSupportContactSaveError] = useState('')
+
+  const loadSupportContact = useCallback(async () => {
+    try {
+      setSupportContactLoading(true)
+      setSupportContactError('')
+      const data = await fetchSupportContact()
+      setSupportContact(data)
+    } catch (err) {
+      setSupportContactError(err instanceof Error ? err.message : 'Failed to load support contact')
+    } finally {
+      setSupportContactLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadSupportContact()
+  }, [loadSupportContact])
+
+  function openSupportContactModal() {
+    setSupportContactForm({
+      name: supportContact?.name ?? '',
+      role: supportContact?.role ?? '',
+      phone: supportContact?.phone ?? '',
+    })
+    setSupportContactSaveError('')
+    setSupportContactModalOpen(true)
+  }
+
+  async function saveSupportContact() {
+    if (!supportContactForm.name.trim() || !supportContactForm.role.trim() || !supportContactForm.phone.trim()) {
+      setSupportContactSaveError('Name, role and phone are all required.')
+      return
+    }
+    try {
+      setSupportContactSaving(true)
+      setSupportContactSaveError('')
+      const updated = await updateSupportContact({
+        name: supportContactForm.name.trim(),
+        role: supportContactForm.role.trim(),
+        phone: supportContactForm.phone.trim(),
+      })
+      setSupportContact(updated)
+      setSupportContactModalOpen(false)
+    } catch (err) {
+      setSupportContactSaveError(err instanceof Error ? err.message : 'Failed to save support contact')
+    } finally {
+      setSupportContactSaving(false)
+    }
+  }
 
   const activeRow = rows.find((row) => row.isActive)
   const activeRowText = activeRow
@@ -204,6 +364,55 @@ function Settings() {
             >
               Go
               <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
+            </button>
+          </article>
+
+          <SettingsCard
+            icon={faClockRotateLeft}
+            tag="SOS"
+            title="SOS Alert History"
+            description="Review every alert ever raised and export the report."
+            onOpen={() => setSosHistoryOpen(true)}
+          />
+
+          <SettingsCard
+            icon={faBullhorn}
+            tag="Notify"
+            title="Send Notification"
+            description="Write a notice and send it to passengers, drivers, or corporate users."
+            onOpen={() => setBroadcastOpen(true)}
+          />
+
+          <article className="dashboard-card h-full rounded-xl border border-[#e5e7eb] bg-white p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[#eef2ff] text-[#2642a6]">
+                <FontAwesomeIcon icon={faHeadset} />
+              </div>
+              <span className="rounded-full bg-[#f1f5f9] px-2.5 py-1 text-xs font-bold text-[#64748b]">
+                Corporate
+              </span>
+            </div>
+
+            <div className="mt-5">
+              <h2 className="text-lg font-extrabold text-[#111827]">Corporate Support Contact</h2>
+              <p className="mt-1 text-sm text-[#64748b]">
+                {supportContactLoading
+                  ? 'Loading...'
+                  : supportContactError
+                    ? 'Unable to load contact'
+                    : supportContact
+                      ? `${supportContact.name} · ${supportContact.role}`
+                      : 'Not configured'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={openSupportContactModal}
+              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]"
+            >
+              Edit
+              <FontAwesomeIcon icon={faPen} className="text-xs" />
             </button>
           </article>
 
@@ -417,6 +626,118 @@ function Settings() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sosHistoryOpen && (
+        <SettingsModal
+          icon={faClockRotateLeft}
+          title="SOS Alert History"
+          subtitle="Every alert raised by a passenger or driver, with the report export."
+          onClose={() => setSosHistoryOpen(false)}
+        >
+          <SosHistoryPanel />
+        </SettingsModal>
+      )}
+
+      {broadcastOpen && (
+        <SettingsModal
+          icon={faBullhorn}
+          title="Send Notification"
+          subtitle="Compose a notice and deliver it to whole audiences at once."
+          onClose={() => setBroadcastOpen(false)}
+        >
+          <SendNotificationPanel />
+        </SettingsModal>
+      )}
+
+      {supportContactModalOpen && (
+        <div className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-[2px]" />
+      )}
+
+      {supportContactModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setSupportContactModalOpen(false)}
+              className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-lg text-[#64748b] transition hover:bg-[#f1f5f9] hover:text-[#334155]"
+              aria-label="Close support contact editor"
+            >
+              <FontAwesomeIcon icon={faXmark} />
+            </button>
+
+            <div className="p-6">
+              <div className="flex items-center gap-3 pr-10">
+                <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#eef2ff] text-[#2642a6]">
+                  <FontAwesomeIcon icon={faHeadset} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-extrabold text-[#111827]">Corporate Support Contact</h2>
+                  <p className="text-sm text-[#64748b]">
+                    Shown to corporate clients while their contract request is under review.
+                  </p>
+                </div>
+              </div>
+
+              {supportContactSaveError && (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                  {supportContactSaveError}
+                </div>
+              )}
+
+              <div className="mt-4 space-y-4">
+                <label className="block text-sm font-semibold text-[#334155]">
+                  Name
+                  <input
+                    type="text"
+                    value={supportContactForm.name}
+                    onChange={(event) => setSupportContactForm((cur) => ({ ...cur, name: event.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm font-normal outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                  />
+                </label>
+                <label className="block text-sm font-semibold text-[#334155]">
+                  Role / Title
+                  <input
+                    type="text"
+                    value={supportContactForm.role}
+                    onChange={(event) => setSupportContactForm((cur) => ({ ...cur, role: event.target.value }))}
+                    placeholder="e.g. Corporate Support Manager"
+                    className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm font-normal outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                  />
+                </label>
+                <label className="block text-sm font-semibold text-[#334155]">
+                  Phone
+                  <input
+                    type="tel"
+                    value={supportContactForm.phone}
+                    onChange={(event) => setSupportContactForm((cur) => ({ ...cur, phone: event.target.value }))}
+                    placeholder="+94..."
+                    className="mt-1 w-full rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm font-normal outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-5 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSupportContactModalOpen(false)}
+                  className="rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-bold text-[#334155] transition hover:bg-[#f1f5f9]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void saveSupportContact()}
+                  disabled={supportContactSaving}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {supportContactSaving && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />}
+                  {supportContactSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

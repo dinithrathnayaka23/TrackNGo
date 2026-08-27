@@ -82,8 +82,6 @@ export interface Translations {
     language: string;
     chooseLanguage: string;
     privacy: string;
-    shareLocation: string;
-    requiredForTracking: string;
     twoFactorAuth: string;
     supportAndLegal: string;
     helpAndSupport: string;
@@ -107,6 +105,14 @@ export interface Translations {
     uploadFailedMessage: string;
   };
   chat: {
+    delete: string;
+    deleteTitle: string;
+    deleteConfirm: string;
+    deleteFailedTitle: string;
+    deleteFailedMessage: string;
+    typing: string;
+    online: string;
+    offline: string;
     title: string;
     searchPlaceholder: string;
     noConversations: string;
@@ -198,6 +204,18 @@ export interface Translations {
     failedToMarkBoarded: string;
     blockedSeatTitle: string;
     blockedSeatMessage: string;
+    cannotOpenChat: string;
+    qrScanTitle: string;
+    qrScanInstructions: string;
+    qrScanMismatchTitle: string;
+    qrScanMismatchMessage: string;
+    qrScanInvalidTitle: string;
+    qrScanInvalidMessage: string;
+    qrScanSuccessMessage: string;
+    cameraPermissionTitle: string;
+    cameraPermissionMessage: string;
+    grantPermission: string;
+    scanAgain: string;
   };
 }
 
@@ -284,8 +302,6 @@ export const TRANSLATION_KEYS = [
   "settings.language",
   "settings.chooseLanguage",
   "settings.privacy",
-  "settings.shareLocation",
-  "settings.requiredForTracking",
   "settings.twoFactorAuth",
   "settings.supportAndLegal",
   "settings.helpAndSupport",
@@ -307,6 +323,14 @@ export const TRANSLATION_KEYS = [
   "settings.loginRequiredMessage",
   "settings.uploadFailedTitle",
   "settings.uploadFailedMessage",
+  "chat.delete",
+  "chat.deleteTitle",
+  "chat.deleteConfirm",
+  "chat.deleteFailedTitle",
+  "chat.deleteFailedMessage",
+  "chat.typing",
+  "chat.online",
+  "chat.offline",
   "chat.title",
   "chat.searchPlaceholder",
   "chat.noConversations",
@@ -394,6 +418,18 @@ export const TRANSLATION_KEYS = [
   "allocations.failedToMarkBoarded",
   "allocations.blockedSeatTitle",
   "allocations.blockedSeatMessage",
+  "allocations.cannotOpenChat",
+  "allocations.qrScanTitle",
+  "allocations.qrScanInstructions",
+  "allocations.qrScanMismatchTitle",
+  "allocations.qrScanMismatchMessage",
+  "allocations.qrScanInvalidTitle",
+  "allocations.qrScanInvalidMessage",
+  "allocations.qrScanSuccessMessage",
+  "allocations.cameraPermissionTitle",
+  "allocations.cameraPermissionMessage",
+  "allocations.grantPermission",
+  "allocations.scanAgain",
 ] as const;
 
 export type TranslationKey = (typeof TRANSLATION_KEYS)[number];

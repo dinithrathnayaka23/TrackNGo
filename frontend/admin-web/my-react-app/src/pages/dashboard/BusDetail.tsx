@@ -1328,11 +1328,10 @@ function BusDetail() {
             <button
               type="button"
               onClick={() => navigate('/dashboard/buses')}
-              className="flex items-center gap-2 text-sm text-[#111827] transition duration-200 hover:-translate-x-0.5"
-              aria-label="Go back"
+              className="grid h-9 w-9 place-items-center rounded-lg border border-[#d6dbe6] bg-white text-[#334155] transition hover:bg-[#f1f5f9]"
+              aria-label="Back to buses"
             >
               <FontAwesomeIcon icon={faArrowLeft} />
-              <span className="font-semibold">Back</span>
             </button>
 
             {/* Header Section - Bus image, status badge, and action buttons */}

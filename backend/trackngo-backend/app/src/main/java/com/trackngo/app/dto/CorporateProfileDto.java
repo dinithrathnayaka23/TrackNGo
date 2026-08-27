@@ -5,6 +5,8 @@ public record CorporateProfileDto(
         String businessRegistrationNumber,
         String industry,
         String address,
+        String website,
+        Integer employeeCount,
         String contactPersonName,
         String contactPersonDesignation,
         String contactPhone,

@@ -155,3 +155,13 @@ export function updateAdminDriver(id: number, driver: SaveAdminDriverRequest) {
     body: JSON.stringify(driver),
   })
 }
+
+/**
+ * Drivers cannot change their own picture - it belongs to the account an administrator
+ * maintains - so clearing one is an administrator action rather than a driver app one.
+ */
+export function deleteAdminDriverProfilePicture(id: number) {
+  return request<{ removed: boolean }>(`/${id}/profile-picture`, {
+    method: 'DELETE',
+  })
+}

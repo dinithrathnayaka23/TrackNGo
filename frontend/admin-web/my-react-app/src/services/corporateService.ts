@@ -16,6 +16,16 @@ export type CorporateProfile = {
   userType: string | null
 }
 
+/** Mutual-consent cancellation state for a corporate contract. */
+export type ContractCancellation = {
+  status: 'none' | 'pending' | 'accepted' | 'rejected'
+  requestedBy: 'admin' | 'corporate' | null
+  reason: string | null
+  requestedAt: string | null
+  effectiveDate: string | null
+  responseReason: string | null
+}
+
 export type CorporateContract = {
   contractId: number
   contractName: string
@@ -30,15 +40,22 @@ export type CorporateContract = {
   createdAt: string | null
   corporateUserId: number
   busId: number | null
+  busIds: number[] | null
+  cancellation: ContractCancellation
 }
 
 export type CorporateInvoice = {
   invoiceNumber: number
   contractId: number
+  busId: number | null
+  busNumber: string | null
   amount: number
   status: string
   date: string | null
+  periodEnd: string | null
   dueDate: string | null
+  stripeTransactionId: string | null
+  paidAt: string | null
   createdAt: string | null
 }
 
@@ -72,6 +89,8 @@ export type AdminContractSummary = {
   companyName: string | null
   contactPersonName: string | null
   contactPhone: string | null
+  startingLocation: string | null
+  destination: string | null
   shiftType: 'morning' | 'evening' | 'both'
   employeeCount: number
   busType: 'standard' | 'ac' | 'mini'
@@ -83,6 +102,13 @@ export type AdminContractSummary = {
   createdAt: string | null
   corporateUserId: number
   busCount: number
+  busNumbers: string | null
+  advanceAmount: number | null
+  advancePaymentStatus: 'pending' | 'paid' | 'waived' | 'refunded'
+  advancePaidAt: string | null
+  originalBillingAmount: number | null
+  discountAmount: number | null
+  cancellation: ContractCancellation
 }
 
 /** Full detail behind the admin "View" modal, including per-shift routes and assigned buses. */
@@ -98,6 +124,7 @@ export type CorporateContractDetail = CorporateContract & {
   workingDays: 'weekdays' | 'all_days'
   busType: 'standard' | 'ac' | 'mini'
   distanceKm: number | null
+  finalizedAt: string | null
   companyName: string | null
   contactPersonName: string | null
   contactPhone: string | null
@@ -107,6 +134,14 @@ export type CorporateContractDetail = CorporateContract & {
   totalBilled: number
   totalPaid: number
   outstandingAmount: number
+  advanceAmount: number | null
+  advancePaymentStatus: 'pending' | 'paid' | 'waived' | 'refunded'
+  advancePaidAt: string | null
+  advanceTransactionId: string | null
+  originalBillingAmount: number | null
+  discountAmount: number | null
+  adminNote: string | null
+  cancellation: ContractCancellation
 }
 
 type ApiResponse<T> = {
@@ -171,11 +206,62 @@ export function fetchCorporateContractDetail(contractId: number) {
   return request<CorporateContractDetail>(`/api/corporate/contracts/${contractId}`)
 }
 
-/** Approve, reject, cancel or expire a contract. */
-export function updateContractStatus(contractId: number, status: 'active' | 'cancelled' | 'expired') {
+export function finalizeCorporateContract(contractId: number) {
+  return request<CorporateContract>(`/api/corporate/contracts/${contractId}/finalize`, { method: 'PUT' })
+}
+
+export function waiveAdvanceDeposit(contractId: number) {
+  return request<CorporateContract>(`/api/corporate/contracts/${contractId}/waive-advance-payment`, { method: 'POST' })
+}
+
+/**
+ * Approve, reject, cancel or expire a contract. `discountAmount`/`adminNote`
+ * only apply when approving (status = 'active') — the admin's one chance to
+ * apply a manual discount off the auto-calculated monthly amount.
+ */
+export function updateContractStatus(
+  contractId: number,
+  status: 'active' | 'cancelled' | 'expired',
+  options?: { discountAmount?: number; adminNote?: string },
+) {
   return request<CorporateContract>(`/api/corporate/contracts/${contractId}/status`, {
     method: 'PUT',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, discountAmount: options?.discountAmount, adminNote: options?.adminNote }),
+  })
+}
+
+/**
+ * Requests to cancel a pending or active contract, with a required reason.
+ * The other party must accept via `respondToCancellation` before anything
+ * changes. An admin request on an already-active contract carries a minimum
+ * 2-week notice period, enforced server-side.
+ */
+export function requestContractCancellation(contractId: number, reason: string) {
+  return request<CorporateContract>(`/api/corporate/contracts/${contractId}/cancel-request`, {
+    method: 'POST',
+    body: JSON.stringify({ role: 'admin', reason }),
+  })
+}
+
+/** Accept or reject a cancellation request the corporate client filed. */
+export function respondToContractCancellation(contractId: number, accept: boolean, responseReason?: string) {
+  return request<CorporateContract>(`/api/corporate/contracts/${contractId}/cancel-response`, {
+    method: 'POST',
+    body: JSON.stringify({ role: 'admin', accept, responseReason }),
+  })
+}
+
+/**
+ * Renews a contract nearing its end date by submitting a new pending
+ * contract that continues from where this one leaves off, cloning its
+ * route/shift/bus setup. Goes through the same admin-approval flow as any
+ * new contract request — the same standardized process the corporate app
+ * uses when the client initiates the renewal themselves.
+ */
+export function renewContract(contractId: number) {
+  return request<CorporateContract>(`/api/corporate/contracts/${contractId}/renew`, {
+    method: 'POST',
+    body: JSON.stringify({ role: 'admin' }),
   })
 }
 

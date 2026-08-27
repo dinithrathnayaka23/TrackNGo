@@ -6,10 +6,15 @@ import java.time.LocalDate;
 public record CorporateInvoiceDto(
         Long invoiceNumber,
         Long contractId,
+        Long busId,
+        String busNumber,
         BigDecimal amount,
         String status,
         LocalDate date,
+        LocalDate periodEnd,
         LocalDate dueDate,
+        String stripeTransactionId,
+        String paidAt,
         String createdAt
 ) {
 }

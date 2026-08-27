@@ -4,6 +4,7 @@ package com.trackngo.auth.api;
 import com.trackngo.auth.api.dto.AdminRegisterRequest;
 import com.trackngo.auth.api.dto.AuthRequest;
 import com.trackngo.auth.api.dto.AuthResponse;
+import com.trackngo.auth.api.dto.ResendTwoFactorOtpRequest;
 import com.trackngo.auth.api.dto.TwoFactorVerifyRequest;
 
 public interface AuthService {
@@ -11,5 +12,6 @@ public interface AuthService {
     AuthResponse register(AuthRequest request);
     void registerAdmin(AdminRegisterRequest request);
     AuthResponse verifyTwoFactor(TwoFactorVerifyRequest request);
+    void resendTwoFactorOtp(ResendTwoFactorOtpRequest request);
 }
 

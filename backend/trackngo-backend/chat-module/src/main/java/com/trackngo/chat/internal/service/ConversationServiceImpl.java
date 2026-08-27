@@ -7,6 +7,7 @@ import com.trackngo.chat.api.dto.PagedResponseDto;
 import com.trackngo.chat.internal.entity.Conversation;
 import com.trackngo.chat.internal.entity.enums.ParticipantType;
 import com.trackngo.chat.internal.repository.ConversationRepository;
+import com.trackngo.chat.internal.repository.ParticipantSummaryProjection;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -152,6 +153,8 @@ public class ConversationServiceImpl implements ConversationService {
             unreadCount = entity.getParticipant2Unread();
         }
 
+        ParticipantSummaryProjection otherParticipant = resolveParticipantSummary(otherParticipantId);
+
         return ConversationDto.builder()
                 .conversationId(entity.getConversationId())
                 .participant1Id(entity.getParticipant1Id())
@@ -159,7 +162,8 @@ public class ConversationServiceImpl implements ConversationService {
                 .participant1Type(toApiParticipantType(entity.getParticipant1Type()))
                 .participant2Type(toApiParticipantType(entity.getParticipant2Type()))
                 .otherParticipantId(otherParticipantId)
-                .otherParticipantName(resolveDisplayName(otherParticipantId))
+                .otherParticipantName(resolveDisplayName(otherParticipantId, otherParticipant))
+                .otherParticipantPhoto(otherParticipant == null ? null : otherParticipant.getProfilePhoto())
                 .otherParticipantType(otherParticipantType)
                 .unreadCount(unreadCount)
                 .participant1Unread(entity.getParticipant1Unread())
@@ -184,12 +188,21 @@ public class ConversationServiceImpl implements ConversationService {
                 .orElse("passenger");
     }
 
-    private String resolveDisplayName(Long userId) {
+    private ParticipantSummaryProjection resolveParticipantSummary(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return conversationRepository.findParticipantSummaryByUserId(userId).orElse(null);
+    }
+
+    private String resolveDisplayName(Long userId, ParticipantSummaryProjection summary) {
         if (userId == null) {
             return "Unknown User";
         }
-        return conversationRepository.findDisplayNameByUserId(userId)
-                .orElse("User #" + userId);
+        if (summary == null || summary.getDisplayName() == null) {
+            return "User #" + userId;
+        }
+        return summary.getDisplayName();
     }
 
     private String toApiParticipantType(ParticipantType type) {

@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router'; // Navigate between screens in the app
 import { driverLogin } from "../services/auth"; //driverLogin function from the auth service 
 import AsyncStorage from "@react-native-async-storage/async-storage"; // For storing user data and token permanently on the device.
 import { useUser } from '@/context/UserContext'; //update user state across the app
+import { requestLocationOnSignIn } from '@/utils/locationSharing';
 
 const { width, height } = Dimensions.get('window'); // Get screen dimensions
 
@@ -38,7 +39,18 @@ export default function DriverLoginScreen() {   //default finction because we ar
 
     const authData = res.data || res; // Adjust based on actual response structure, if the response is just the data object, use res directly, otherwise use res.data
 
-    if (authData.userType === "driver") { 
+    if (authData.userType === "driver") {
+      if (authData.twoFactorRequired) {
+        // Password matched, but this driver has email two-factor authentication
+        // turned on, so a code was just emailed to them. They must verify it
+        // before we issue the real session token.
+        router.push({
+          pathname: "/two-factor-verification",
+          params: { challengeToken: authData.twoFactorToken, email: authData.email },
+        });
+        return;
+      }
+
       const userData = { // Adjust these fields based the actual response structure
         userId: authData.userId,
         firstName: authData.firstName,
@@ -47,17 +59,20 @@ export default function DriverLoginScreen() {   //default finction because we ar
         token: authData.token,
       };
 
-      
-      setUser(userData); // Update the user context 
+
+      setUser(userData); // Update the user context
 
       // Store in AsyncStorage for persistence
-      await AsyncStorage.setItem("user", JSON.stringify(userData)); //userData object into a string format to store 
-      await AsyncStorage.setItem("token", authData.token); // Store the token in AsyncStorage 
+      await AsyncStorage.setItem("user", JSON.stringify(userData)); //userData object into a string format to store
+      await AsyncStorage.setItem("token", authData.token); // Store the token in AsyncStorage
 
       router.replace("/(tabs)"); // Navigate to dashboard
+      // Raised after the transition rather than before it, so the dashboard is
+      // already behind the device's dialog when the choice is made.
+      void requestLocationOnSignIn();
     }
     else {
-      alert("Not a driver account"); 
+      alert("Not a driver account");
     }
 
   } catch (error: any) {  
@@ -68,9 +83,8 @@ export default function DriverLoginScreen() {   //default finction because we ar
   }
 };
 
-  const handleForgotPassword = () => {  
-    console.log('Forgot password link pressed');
-    // Navigate to forgot password screen
+  const handleForgotPassword = () => {
+    router.push('/forgot-password');
   };
 
   return (

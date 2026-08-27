@@ -24,6 +24,13 @@ export interface LiveBusLocation {
   stale?: boolean | null;
 }
 
+export interface BusDriver {
+  /** The driver's user id, which is also their chat participant id. */
+  driverId: number;
+  name: string | null;
+  profilePhoto: string | null;
+}
+
 export interface RouteStopGeo {
   name: string;
   latitude: number | null;
@@ -65,6 +72,17 @@ export async function getLatestBusLocation(
 ): Promise<LiveBusLocation | null> {
   const resp = await httpGet<ApiResponse<LiveBusLocation>>(
     `/api/tracking/live-location/${encodeURIComponent(busNumber)}`,
+  );
+  return resp.data ?? null;
+}
+
+/* Returns the driver assigned to a bus, or null when the bus is unknown or has
+   nobody assigned right now. */
+export async function getBusDriver(
+  busNumber: string,
+): Promise<BusDriver | null> {
+  const resp = await httpGet<ApiResponse<BusDriver>>(
+    `/api/tracking/buses/${encodeURIComponent(busNumber)}/driver`,
   );
   return resp.data ?? null;
 }

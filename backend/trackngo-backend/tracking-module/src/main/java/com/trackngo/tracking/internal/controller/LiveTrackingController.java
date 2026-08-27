@@ -2,12 +2,14 @@ package com.trackngo.tracking.internal.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper; // Jackson JSON library
 import com.trackngo.commons.ApiResponse;
+import com.trackngo.tracking.api.dto.BusDriverDto;
 import com.trackngo.tracking.api.dto.LiveBusLocationDto;
 import com.trackngo.tracking.api.dto.RouteGeometryDto;
 import com.trackngo.tracking.api.dto.RouteStopDto;
 import com.trackngo.tracking.internal.entity.Route;
 import com.trackngo.tracking.internal.entity.RouteStop;
 import com.trackngo.tracking.internal.repository.RouteRepository;
+import com.trackngo.tracking.internal.service.BusDriverLookupService;
 import com.trackngo.tracking.internal.service.LiveLocationQualityService;
 import com.trackngo.tracking.internal.websocket.TrackingWebSocketHandler;
 import jakarta.validation.Valid;
@@ -32,6 +34,7 @@ public class LiveTrackingController {
     private final RouteRepository routeRepository;
     private final ObjectMapper objectMapper;
     private final LiveLocationQualityService liveLocationQualityService;
+    private final BusDriverLookupService busDriverLookupService;
 
     /*
       POST /api/tracking/live-location
@@ -80,6 +83,22 @@ public class LiveTrackingController {
         return liveLocationQualityService.latest(busNumber, System.currentTimeMillis())
                 .map(location -> ResponseEntity.ok(ApiResponse.ok("Latest bus location", location)))
                 .orElseGet(() -> ResponseEntity.ok(ApiResponse.ok("No location available", null)));
+    }
+
+    /*
+      GET /api/tracking/buses/{busNumber}/driver
+      Returns the driver assigned to a bus so the passenger tracking that bus can
+      open a chat with them directly.
+
+      A bus with no driver assigned is not an error - the caller simply has
+      nobody to message - so this answers 200 with a null payload, matching the
+      live-location endpoint above.
+    */
+    @GetMapping("/buses/{busNumber}/driver")
+    public ResponseEntity<ApiResponse<BusDriverDto>> getBusDriver(@PathVariable String busNumber) {
+        return busDriverLookupService.findDriverForBus(busNumber)
+                .map(driver -> ResponseEntity.ok(ApiResponse.ok("Bus driver", driver)))
+                .orElseGet(() -> ResponseEntity.ok(ApiResponse.ok("No driver assigned", null)));
     }
 
     /*

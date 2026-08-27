@@ -26,7 +26,10 @@ import {
   type CorporateProfileDto,
   getCorporateProfile,
   updateCorporateProfile,
+  isRealProfileText,
+  isValidProfilePhone,
 } from "../../services/corporateApi";
+import { deleteProfilePicture } from "../../services/userProfileApi";
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
 function useFadeSlide(delay: number) {
@@ -104,8 +107,8 @@ export default function CorporateProfileScreen() {
     businessRegistrationNumber: "",
     industry: "",
     address: "",
-    website: "", // UI Only
-    employeeCount: "", // UI Only
+    website: "",
+    employeeCount: "",
     contactPersonName: "",
     contactPersonDesignation: "",
     contactPhone: "",
@@ -131,8 +134,8 @@ export default function CorporateProfileScreen() {
           businessRegistrationNumber: data.businessRegistrationNumber || "",
           industry: data.industry || "",
           address: data.address || "",
-          website: "",
-          employeeCount: "",
+          website: data.website || "",
+          employeeCount: data.employeeCount != null ? String(data.employeeCount) : "",
           contactPersonName: data.contactPersonName || "",
           contactPersonDesignation: data.contactPersonDesignation || "",
           contactPhone: data.contactPhone || "",
@@ -192,8 +195,63 @@ export default function CorporateProfileScreen() {
     }
   };
 
+  const handleRemoveImage = async () => {
+    try {
+      setSaving(true);
+      await deleteProfilePicture();
+      setForm((prev) => ({ ...prev, profilePhoto: "" }));
+      await loadProfile();
+    } catch (e) {
+      console.error("[CorporateProfile] Failed to remove photo:", e);
+      Alert.alert("Error", "Could not remove the profile picture.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // With a picture already set the avatar offers both actions; with none there is
+  // nothing to remove, so it opens the picker directly the way it always did.
+  const handleAvatarPress = () => {
+    if (!form.profilePhoto) {
+      void handlePickImage();
+      return;
+    }
+    Alert.alert("Profile picture", undefined, [
+      { text: "Choose a new photo", onPress: () => void handlePickImage() },
+      {
+        text: "Remove photo",
+        style: "destructive",
+        onPress: () =>
+          Alert.alert("Remove photo?", "Your profile picture will be deleted.", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Remove", style: "destructive", onPress: () => void handleRemoveImage() },
+          ]),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
+  const validateForm = (): string | null => {
+    if (!isRealProfileText(form.companyName, 2)) return "Enter your real company name.";
+    if (!isRealProfileText(form.businessRegistrationNumber, 3)) return "Enter a real business registration number.";
+    if (!isRealProfileText(form.industry, 2)) return "Select a real industry.";
+    if (!isRealProfileText(form.address, 5)) return "Enter your real company address.";
+    if (!isRealProfileText(form.contactPersonName, 2)) return "Enter the contact person's real name.";
+    if (!isRealProfileText(form.contactPersonDesignation, 2)) return "Enter a real designation.";
+    if (!isValidProfilePhone(form.contactPhone)) return "Enter a valid contact phone number.";
+    if (form.employeeCount && (!/^\d+$/.test(form.employeeCount.trim()) || Number(form.employeeCount) < 0)) {
+      return "Employee count must be a positive number.";
+    }
+    return null;
+  };
+
   const handleSave = async (closeModalFn: () => void) => {
     if (!currentUser?.userId) return;
+    const validationError = validateForm();
+    if (validationError) {
+      Alert.alert("Check your details", validationError);
+      return;
+    }
     setSaving(true);
     try {
       const updated = await updateCorporateProfile(currentUser.userId, {
@@ -201,6 +259,8 @@ export default function CorporateProfileScreen() {
         businessRegistrationNumber: form.businessRegistrationNumber,
         industry: form.industry,
         address: form.address,
+        website: form.website,
+        employeeCount: form.employeeCount ? parseInt(form.employeeCount, 10) : null,
         contactPersonName: form.contactPersonName,
         contactPersonDesignation: form.contactPersonDesignation,
         contactPhone: form.contactPhone,
@@ -211,7 +271,8 @@ export default function CorporateProfileScreen() {
       closeModalFn();
     } catch (err) {
       console.error("Save failed:", err);
-      Alert.alert("Error", "Failed to save profile updates.");
+      const message = err instanceof Error ? err.message : "Failed to save profile updates.";
+      Alert.alert("Error", message);
     } finally {
       setSaving(false);
     }
@@ -297,7 +358,7 @@ export default function CorporateProfileScreen() {
             { opacity: avatarAnim.opacity, transform: [{ translateY: avatarAnim.translateY }] },
           ]}
         >
-          <TouchableOpacity onPress={handlePickImage} style={styles.avatarWrapper}>
+          <TouchableOpacity onPress={handleAvatarPress} disabled={saving} style={styles.avatarWrapper}>
             <View style={styles.avatarCircle}>
               {loading ? (
                 <ActivityIndicator size="small" color="#2F6BFF" />
@@ -379,7 +440,7 @@ export default function CorporateProfileScreen() {
             {renderField("Industry", "industry", "Select your industry", "cog-outline", "default", true, true)}
             {renderField("Address", "address", "Company Headquarters Address", "location-outline", "default", true)}
             {renderField("Website", "website", "https://example.com", "globe-outline")}
-            {renderField("Employee Count", "employeeCount", "e.g., 500+", "people-outline")}
+            {renderField("Employee Count", "employeeCount", "e.g., 500", "people-outline", "numeric")}
           </ScrollView>
           <View style={styles.modalFooter}>
             <TouchableOpacity

@@ -35,12 +35,13 @@ public class UserSettingsService {
                         REFERENCES `user`(user_id) ON DELETE CASCADE
                 )
                 """);
-        addTwoFactorColumn("two_factor_secret VARCHAR(64) NULL");
-        addTwoFactorColumn("two_factor_pending_secret VARCHAR(64) NULL");
-        addTwoFactorColumn("two_factor_enabled_at TIMESTAMP NULL");
+        addColumnIfMissing("two_factor_secret VARCHAR(64) NULL");
+        addColumnIfMissing("two_factor_pending_secret VARCHAR(64) NULL");
+        addColumnIfMissing("two_factor_enabled_at TIMESTAMP NULL");
+        addColumnIfMissing("email_otp_login_enabled BOOLEAN NOT NULL DEFAULT FALSE");
     }
 
-    private void addTwoFactorColumn(String definition) {
+    private void addColumnIfMissing(String definition) {
         try {
             jdbcTemplate.execute("ALTER TABLE user_settings ADD COLUMN " + definition);
         } catch (Exception ignored) {

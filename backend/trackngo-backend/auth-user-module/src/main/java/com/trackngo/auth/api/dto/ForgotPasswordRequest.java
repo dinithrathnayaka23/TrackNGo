@@ -11,4 +11,7 @@ public class ForgotPasswordRequest {
 
     @NotBlank(message = "Channel is required")
     private String channel; // EMAIL or PHONE
+
+    // Optional. When set (e.g. "driver"), the account must match this user type.
+    private String expectedUserType;
 }

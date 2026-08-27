@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { httpPost } from "../../services/http";
 import { useSession } from "../../store/sessionStore";
+import { isRealProfileText, isValidProfilePhone } from "../../services/corporateApi";
 
 const INDUSTRIES = [
   "Telecommunications",
@@ -55,18 +56,18 @@ export default function CorporateRegistrationScreen() {
 
   function validate(): boolean {
     const nextErrors: Record<string, string> = {};
-    if (!companyName.trim()) nextErrors.companyName = "Company Name is required";
-    if (!brn.trim()) nextErrors.brn = "Business Registration Number is required";
+    if (!isRealProfileText(companyName, 2)) nextErrors.companyName = "Enter your real company name";
+    if (!isRealProfileText(brn, 3)) nextErrors.brn = "Enter a real business registration number";
     if (!industry.trim()) nextErrors.industry = "Industry is required";
-    if (!address.trim()) nextErrors.address = "Address is required";
+    if (!isRealProfileText(address, 5)) nextErrors.address = "Enter your real company address";
     if (!email.trim()) nextErrors.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
       nextErrors.email = "Enter a valid email address";
 
-    if (!contactName.trim()) nextErrors.contactName = "Full Name is required";
-    if (!designation.trim()) nextErrors.designation = "Designation is required";
+    if (!isRealProfileText(contactName, 2)) nextErrors.contactName = "Enter the contact person's real name";
+    if (!isRealProfileText(designation, 2)) nextErrors.designation = "Enter a real designation";
     if (!phone.trim()) nextErrors.phone = "Phone number is required";
-    else if (!/^\d{9,10}$/.test(phone.trim().replace(/[-\s+]/g, "")))
+    else if (!isValidProfilePhone(phone))
       nextErrors.phone = "Enter a valid phone number";
 
     setErrors(nextErrors);

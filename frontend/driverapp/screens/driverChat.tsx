@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -16,14 +17,19 @@ import { ADMIN_SUPPORT_USER_ID } from '@/config/env';
 import { useUser } from '@/context/UserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import type { TranslateFn } from '@/locales';
+import { resolveAssetUrl } from '@/utils/media';
 import {
   createConversation,
   getConversationMessages,
+  getPresenceSnapshot,
   type ChatMessageDto,
   getUserConversations,
   type ChatParticipantType,
   type ConversationDto,
+  type PresenceUpdate,
+  type TypingIndicator,
 } from '@/services/chatApi';
+import { chatSocket } from '@/services/chatSocket';
 
 interface Conversation {
   id: string;
@@ -33,6 +39,7 @@ interface Conversation {
   unreadCount: number;
   otherUserId?: number | null;
   otherUserType?: ChatParticipantType | null;
+  avatarUri?: string | null;
   isSupport: boolean;
   lastMessageSenderId?: number | null;
   lastMessageStatus?: string | null;
@@ -51,6 +58,9 @@ export default function DriverChatScreen() {
   const [page, setPage] = useState(0);
   const [last, setLast] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [onlineByUserId, setOnlineByUserId] = useState<Record<number, boolean>>({});
+  const [typingByConversationId, setTypingByConversationId] = useState<Record<number, boolean>>({});
+  const typingClearTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
   const trimmed = useMemo(() => query.trim(), [query]);
 
@@ -135,13 +145,146 @@ export default function DriverChatScreen() {
     useCallback(() => {
       void refreshConversations(0, true, conversations.length === 0);
 
+      /* The socket carries new messages and presence; this slower sweep is only a
+         safety net for anything the broker missed while the app was backgrounded. */
       const refreshTimer = setInterval(() => {
         void refreshConversations(0, true, false);
-      }, 4000);
+      }, 15000);
 
       return () => clearInterval(refreshTimer);
     }, [conversations.length, refreshConversations]),
   );
+
+  // Applies either a full online-user snapshot or a single presence delta.
+  const applyPresenceUpdate = useCallback((presence: PresenceUpdate) => {
+    if (Array.isArray(presence.onlineUserIds)) {
+      setOnlineByUserId(
+        presence.onlineUserIds.reduce<Record<number, boolean>>((next, userId) => {
+          const normalized = Number(userId);
+          if (Number.isFinite(normalized)) {
+            next[normalized] = true;
+          }
+          return next;
+        }, {}),
+      );
+      return;
+    }
+
+    setOnlineByUserId((current) => {
+      const normalized = Number(presence.userId);
+      if (!Number.isFinite(normalized)) {
+        return current;
+      }
+      if (presence.online) {
+        return current[normalized] ? current : { ...current, [normalized]: true };
+      }
+      if (!current[normalized]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[normalized];
+      return next;
+    });
+  }, []);
+
+  /*
+    A "typing" event never has a matching "stopped" event when the other person
+    simply closes the app, so each one is given a short expiry of its own rather
+    than waiting for a signal that may never arrive.
+  */
+  const setConversationTyping = useCallback((conversationId: number, typing: boolean) => {
+    const existingTimer = typingClearTimersRef.current[conversationId];
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      delete typingClearTimersRef.current[conversationId];
+    }
+
+    setTypingByConversationId((current) => {
+      if (typing) {
+        return current[conversationId] ? current : { ...current, [conversationId]: true };
+      }
+      if (!current[conversationId]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[conversationId];
+      return next;
+    });
+
+    if (typing) {
+      typingClearTimersRef.current[conversationId] = setTimeout(() => {
+        setTypingByConversationId((current) => {
+          if (!current[conversationId]) {
+            return current;
+          }
+          const next = { ...current };
+          delete next[conversationId];
+          return next;
+        });
+        delete typingClearTimersRef.current[conversationId];
+      }, 3500);
+    }
+  }, []);
+
+  const handleTyping = useCallback(
+    (typing: TypingIndicator) => {
+      if (!user?.userId || typing.userId === user.userId) {
+        return;
+      }
+      setConversationTyping(typing.conversationId, typing.typing);
+    },
+    [setConversationTyping, user?.userId],
+  );
+
+  const conversationIdsKey = useMemo(
+    () => conversations.map((item) => item.id).sort().join(','),
+    [conversations],
+  );
+
+  useEffect(() => {
+    if (!user?.userId || !user?.token) {
+      return undefined;
+    }
+
+    chatSocket.connect(user.userId);
+    const unsubscribePresence = chatSocket.subscribePresence(applyPresenceUpdate);
+    void getPresenceSnapshot({ token: user.token })
+      .then(applyPresenceUpdate)
+      .catch(() => undefined);
+
+    const unsubscribers = conversationIdsKey
+      .split(',')
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0)
+      .map((conversationId) =>
+        chatSocket.subscribeConversation(conversationId, {
+          onMessage: () => void refreshConversations(0, true, false),
+          onTyping: handleTyping,
+          onStatus: () => undefined,
+          onDeleted: () => void refreshConversations(0, true, false),
+        }),
+      );
+
+    return () => {
+      unsubscribePresence();
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      chatSocket.disconnect();
+    };
+  }, [
+    applyPresenceUpdate,
+    conversationIdsKey,
+    handleTyping,
+    refreshConversations,
+    user?.token,
+    user?.userId,
+  ]);
+
+  useEffect(() => {
+    const timers = typingClearTimersRef.current;
+    return () => {
+      Object.values(timers).forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
 
   const visibleConversations = useMemo(() => {
     if (!trimmed) {
@@ -163,6 +306,7 @@ export default function DriverChatScreen() {
         name: item.name,
         otherUserId: item.otherUserId ? String(item.otherUserId) : '',
         otherUserType: item.otherUserType ?? '',
+        avatarUri: item.avatarUri ?? '',
       },
     });
   };
@@ -209,13 +353,22 @@ export default function DriverChatScreen() {
               item.isSupport,
             );
             const isOutgoingLast = item.lastMessageSenderId === user?.userId;
+            const isOnline = item.otherUserId
+              ? onlineByUserId[Number(item.otherUserId)] === true
+              : false;
+            const isTyping = typingByConversationId[Number(item.id)] === true;
 
             return (
               <Pressable style={styles.chatItem} onPress={() => openConversation(item)}>
                 <View style={styles.avatarWrap}>
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarFallbackText}>{fallback}</Text>
-                  </View>
+                  {item.avatarUri ? (
+                    <Image source={{ uri: item.avatarUri }} style={styles.avatarImage} />
+                  ) : (
+                    <View style={styles.avatarFallback}>
+                      <Text style={styles.avatarFallbackText}>{fallback}</Text>
+                    </View>
+                  )}
+                  {isOnline ? <View style={styles.onlineDot} /> : null}
                 </View>
 
                 <View style={styles.chatBody}>
@@ -223,11 +376,17 @@ export default function DriverChatScreen() {
                     {title}
                   </Text>
                   <View style={styles.previewRow}>
-                    {isOutgoingLast ? (
+                    {/* While the other person is typing, that replaces the preview
+                        entirely - including the read tick, which describes a message
+                        that is no longer what the row is reporting. */}
+                    {isOutgoingLast && !isTyping ? (
                       <ListReadTick status={item.lastMessageStatus} />
                     ) : null}
-                    <Text style={styles.chatSubtitle} numberOfLines={1}>
-                      {item.message}
+                    <Text
+                      style={[styles.chatSubtitle, isTyping ? styles.chatSubtitleTyping : null]}
+                      numberOfLines={1}
+                    >
+                      {isTyping ? t('chat.typing') : item.message}
                     </Text>
                   </View>
                 </View>
@@ -416,6 +575,7 @@ function mapConversation(item: ConversationDto, currentUserId: number, t: Transl
     unreadCount: other.unreadCount,
     otherUserId: other.id ?? item.otherParticipantId,
     otherUserType: other.type ?? item.otherParticipantType,
+    avatarUri: resolveAssetUrl(item.otherParticipantPhoto),
     isSupport,
     lastMessageType: item.lastMessageType,
     lastMessageTimestamp: item.lastMessageTimestamp,
@@ -592,6 +752,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
   },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#DDE5F0',
+  },
   avatarFallback: {
     width: 44,
     height: 44,
@@ -604,6 +770,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     color: '#475569',
+  },
+  onlineDot: {
+    position: 'absolute',
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    bottom: 1,
+    right: 1,
   },
   chatBody: {
     flex: 1,
@@ -626,6 +803,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
     color: '#8A94A6',
+  },
+  chatSubtitleTyping: {
+    color: '#22C55E',
+    fontWeight: '600',
   },
   chatMeta: {
     minWidth: 42,

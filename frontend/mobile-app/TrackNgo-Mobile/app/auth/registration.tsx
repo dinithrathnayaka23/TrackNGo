@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
@@ -19,6 +20,7 @@ type UserType = "Passenger" | "Corporate";
 
 export default function RegistrationScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [userType, setUserType] = useState<UserType>("Passenger");
   const [firstName, setFirstName] = useState("");
@@ -30,7 +32,7 @@ export default function RegistrationScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -126,25 +128,32 @@ export default function RegistrationScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingTop: insets.top + 4 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <Pressable
-            onPress={() =>
-              router.canGoBack() ? router.back() : router.replace("/auth/welcome")
-            }
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            style={styles.backBtn}
-          >
-            <Ionicons name="arrow-back" size={22} color="#374151" />
-          </Pressable>
+          {/* Back button and title share one row: on its own line the button left a
+              48px band of empty space above a centred title. */}
+          <View style={styles.headerRow}>
+            <Pressable
+              onPress={() =>
+                router.canGoBack() ? router.back() : router.replace("/auth/welcome")
+              }
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              style={styles.backBtn}
+            >
+              <Ionicons name="arrow-back" size={22} color="#374151" />
+            </Pressable>
 
-          <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.title}>Create Account</Text>
+
+            {/* Balances the back button so the title stays optically centred. */}
+            <View style={styles.headerSpacer} />
+          </View>
 
           {/* Step indicator */}
           <View style={styles.stepRow}>
@@ -330,15 +339,15 @@ export default function RegistrationScreen() {
 
         {/* Next button */}
         <TouchableOpacity
-          style={[styles.nextBtn, submitting && { opacity: 0.7 }]}
+          style={[styles.nextBtn, !agreeTerms && styles.nextBtnLocked, submitting && { opacity: 0.7 }]}
           onPress={() => void handleNext()}
           activeOpacity={0.85}
-          disabled={submitting}
+          disabled={submitting || !agreeTerms}
         >
           {submitting ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text style={styles.nextBtnText}>Next</Text>
+            <Text style={[styles.nextBtnText, !agreeTerms && styles.nextBtnTextLocked]}>Next</Text>
           )}
         </TouchableOpacity>
 
@@ -362,34 +371,43 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 56,
+    // Top padding comes from the safe-area inset at render time; the old fixed 56
+    // cleared the status bar on one device and left a gap on every other.
     paddingBottom: 40,
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
   },
   backBtn: {
-    // Pulled left so the icon's optical edge lines up with the title below it
+    // Pulled left so the icon's optical edge lines up with the form fields below
     // rather than the touch target's edge.
     marginLeft: -8,
-    marginBottom: 8,
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     alignItems: "flex-start",
     justifyContent: "center",
   },
   title: {
-    fontSize: 24,
+    flex: 1,
+    fontSize: 22,
     fontWeight: "800",
     color: "#1F2937",
     textAlign: "center",
-    marginBottom: 16,
+  },
+  // Matches the back button's visible width (36 less its -8 offset).
+  headerSpacer: {
+    width: 28,
   },
   stepRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   stepLabel: {
     fontSize: 11,
@@ -404,7 +422,7 @@ const styles = StyleSheet.create({
   stepBarRow: {
     flexDirection: "row",
     gap: 6,
-    marginBottom: 24,
+    marginBottom: 14,
   },
   stepBar: {
     flex: 1,
@@ -416,10 +434,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#2F6BFF",
   },
   heading: {
-    fontSize: 24,
+    fontSize: 19,
     fontWeight: "800",
     color: "#1F2937",
-    lineHeight: 36,
+    lineHeight: 25,
   },
   label: {
     fontSize: 12,
@@ -560,6 +578,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  /* Until the terms are accepted the button reads as unavailable rather than
+     inviting a tap it would only reject. The lift and glow return with the colour. */
+  nextBtnLocked: {
+    backgroundColor: "#E2E8F0",
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  nextBtnTextLocked: {
+    color: "#94A3B8",
   },
   nextBtnText: {
     color: "#FFFFFF",

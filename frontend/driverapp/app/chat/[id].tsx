@@ -23,15 +23,21 @@ import * as Location from 'expo-location';
 import { Audio } from 'expo-av';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
+import { useLanguage } from '@/context/LanguageContext';
 import {
+  deleteMessage,
   getConversationMessages,
+  getPresenceSnapshot,
   markConversationDelivered,
   markConversationRead,
   sendConversationMessage,
   uploadMedia,
   type ChatMessageDto,
   type ChatMessageType,
+  type MessageStatusUpdate,
+  type PresenceUpdate,
 } from '@/services/chatApi';
+import { chatSocket } from '@/services/chatSocket';
 import { resolveAssetUrl } from '@/utils/media';
 
 type ChatRoomListItem =
@@ -49,17 +55,21 @@ type ChatRoomListItem =
 const WAVEFORM_BARS = [10, 22, 12, 38, 18, 54, 26, 44, 14, 62, 34, 48, 20, 56, 28, 40, 16, 30];
 
 export default function ChatScreen() {
-  const { id, name, otherUserId, otherUserType } = useLocalSearchParams<{
+  const { id, name, otherUserId, otherUserType, avatarUri } = useLocalSearchParams<{
     id?: string;
     name?: string;
     otherUserId?: string;
     otherUserType?: string;
+    avatarUri?: string;
   }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useUser();
+  const { t } = useLanguage();
   const soundRef = useRef<Audio.Sound | null>(null);
   const recordingStartedAtRef = useRef(0);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localTypingActiveRef = useRef(false);
   const [messages, setMessages] = useState<ChatMessageDto[]>([]);
   const [page, setPage] = useState(0);
   const [last, setLast] = useState(false);
@@ -75,6 +85,8 @@ export default function ChatScreen() {
   const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [otherOnline, setOtherOnline] = useState(false);
+  const [otherTyping, setOtherTyping] = useState(false);
 
   const conversationId = Number(id);
   const recipientId = Number(otherUserId);
@@ -83,6 +95,11 @@ export default function ChatScreen() {
   const isRecording = !!recording;
   const headerTitle = name || `Chat ${id}`;
   const avatarFallback = getParticipantAvatarFallback(otherUserType);
+  // Passed through from the conversation list, which already resolved it to an
+  // absolute URL; the empty string it sends for "no photo" collapses to null.
+  const avatarPhotoUri = resolveAssetUrl(
+    Array.isArray(avatarUri) ? avatarUri[0] : avatarUri,
+  );
   const bottomInset = keyboardVisible ? 0 : insets.bottom;
   const keyboardLift =
     Platform.OS === 'android' && keyboardVisible
@@ -185,12 +202,164 @@ export default function ChatScreen() {
   useEffect(() => {
     void loadMessages(0, true, true);
 
+    /*
+      The socket now carries messages, receipts and deletions as they happen. This
+      sweep stays only as a safety net for whatever the broker missed while the app
+      was backgrounded, so it runs at a fraction of the old three-second rate.
+    */
     const refreshTimer = setInterval(() => {
       void loadMessages(0, true, false);
-    }, 3000);
+    }, 15000);
 
     return () => clearInterval(refreshTimer);
   }, [loadMessages]);
+
+  // Presence arrives either as a full snapshot of everyone online or as one delta.
+  const applyPresenceUpdate = useCallback(
+    (presence: PresenceUpdate) => {
+      if (!hasRecipient) {
+        return;
+      }
+      if (Array.isArray(presence.onlineUserIds)) {
+        setOtherOnline(presence.onlineUserIds.some((id) => Number(id) === recipientId));
+        return;
+      }
+      if (Number(presence.userId) === recipientId) {
+        setOtherOnline(presence.online);
+      }
+    },
+    [hasRecipient, recipientId],
+  );
+
+  const applyStatusUpdates = useCallback((updates: MessageStatusUpdate[]) => {
+    if (updates.length === 0) {
+      return;
+    }
+    setMessages((current) =>
+      current.map((message) => {
+        const update = updates.find((item) => item.messageId === message.messageId);
+        return update ? { ...message, status: update.status } : message;
+      }),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!hasConversation || !user?.userId || !user?.token) {
+      return undefined;
+    }
+
+    const token = user.token;
+    const currentUserId = user.userId;
+
+    chatSocket.connect(currentUserId);
+    const unsubscribePresence = chatSocket.subscribePresence(applyPresenceUpdate);
+    void getPresenceSnapshot({ token }).then(applyPresenceUpdate).catch(() => undefined);
+
+    const unsubscribeConversation = chatSocket.subscribeConversation(conversationId, {
+      onMessage: (message) => {
+        setMessages((current) => mergeMessages(current, [message]));
+        if (message.senderId !== currentUserId) {
+          // Something just arrived while this thread is open, so it has been seen.
+          void markThreadSeen();
+        }
+      },
+      onTyping: (typing) => {
+        if (typing.userId !== currentUserId) {
+          setOtherTyping(typing.typing);
+        }
+      },
+      onStatus: applyStatusUpdates,
+      onDeleted: (event) => {
+        setMessages((current) =>
+          current.map((message) =>
+            message.messageId === event.messageId
+              ? {
+                  ...message,
+                  deleted: true,
+                  content: t('chat.messageDeleted'),
+                  mediaUrl: null,
+                  compressedMediaUrl: null,
+                  fileName: null,
+                  mediaMimeType: null,
+                  mediaSizeBytes: null,
+                  compressedSizeBytes: null,
+                  durationSeconds: null,
+                }
+              : message,
+          ),
+        );
+      },
+    });
+
+    return () => {
+      // Leaving mid-sentence would otherwise strand a "typing..." on the other screen.
+      if (localTypingActiveRef.current) {
+        chatSocket.publishTyping({
+          conversationId,
+          userId: currentUserId,
+          typing: false,
+        });
+        localTypingActiveRef.current = false;
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      unsubscribeConversation();
+      unsubscribePresence();
+      chatSocket.disconnect();
+    };
+  }, [
+    applyPresenceUpdate,
+    applyStatusUpdates,
+    conversationId,
+    hasConversation,
+    markThreadSeen,
+    t,
+    user?.token,
+    user?.userId,
+  ]);
+
+  /*
+    Typing is announced once when the driver starts and withdrawn after a pause,
+    rather than on every keystroke, so the broker sees two events per burst of
+    writing instead of one per character.
+  */
+  const handleInputChange = useCallback(
+    (value: string) => {
+      setInput(value);
+
+      if (!hasConversation || !user?.userId) {
+        return;
+      }
+
+      const typing = value.trim().length > 0;
+      if (typing !== localTypingActiveRef.current) {
+        chatSocket.publishTyping({ conversationId, userId: user.userId, typing });
+        localTypingActiveRef.current = typing;
+      }
+
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+
+      if (typing) {
+        typingTimeoutRef.current = setTimeout(() => {
+          if (localTypingActiveRef.current && user.userId) {
+            chatSocket.publishTyping({
+              conversationId,
+              userId: user.userId,
+              typing: false,
+            });
+            localTypingActiveRef.current = false;
+          }
+          typingTimeoutRef.current = null;
+        }, 2500);
+      }
+    },
+    [conversationId, hasConversation, user?.userId],
+  );
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -261,6 +430,72 @@ export default function ChatScreen() {
     [conversationId, loadMessages, user?.token, user?.userId],
   );
 
+  /**
+   * Hides the message locally before the request completes, so a long press feels
+   * immediate; the original is put back if the server refuses.
+   */
+  const confirmDeleteMessage = useCallback(
+    (message: ChatMessageDto) => {
+      const messageId = message.messageId;
+      if (!messageId || !user?.token || !user.userId) {
+        return;
+      }
+
+      const token = user.token;
+      const userId = user.userId;
+
+      Alert.alert(t('chat.deleteTitle'), t('chat.deleteConfirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('chat.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            setMessages((current) =>
+              current.map((item) =>
+                item.messageId === messageId
+                  ? {
+                      ...item,
+                      deleted: true,
+                      content: t('chat.messageDeleted'),
+                      mediaUrl: null,
+                      compressedMediaUrl: null,
+                      fileName: null,
+                      mediaMimeType: null,
+                      mediaSizeBytes: null,
+                      compressedSizeBytes: null,
+                      durationSeconds: null,
+                    }
+                  : item,
+              ),
+            );
+
+            try {
+              await deleteMessage({ token, messageId, userId });
+            } catch {
+              setMessages((current) =>
+                current.map((item) => (item.messageId === messageId ? message : item)),
+              );
+              Alert.alert(t('chat.deleteFailedTitle'), t('chat.deleteFailedMessage'));
+            }
+          },
+        },
+      ]);
+    },
+    [t, user?.token, user?.userId],
+  );
+
+  /** Withdraws the typing signal for the cases that clear the box without a keystroke. */
+  const stopTypingSignal = useCallback(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    if (localTypingActiveRef.current && hasConversation && user?.userId) {
+      chatSocket.publishTyping({ conversationId, userId: user.userId, typing: false });
+    }
+    localTypingActiveRef.current = false;
+  }, [conversationId, hasConversation, user?.userId]);
+
   const sendText = async () => {
     const content = input.trim();
     if (!content || !hasConversation || !user?.token || !user.userId || isSending) {
@@ -269,6 +504,7 @@ export default function ChatScreen() {
 
     setIsSending(true);
     setInput('');
+    stopTypingSignal();
     try {
       await persistOutgoingMessage(
         buildOutgoingMessage({
@@ -560,16 +796,33 @@ export default function ChatScreen() {
 
           <View style={styles.headerCenter}>
             <View style={styles.headerAvatarWrap}>
-              <View style={styles.headerAvatarFallback}>
-                <Text style={styles.headerAvatarFallbackText}>{avatarFallback}</Text>
-              </View>
+              {avatarPhotoUri ? (
+                <Image source={{ uri: avatarPhotoUri }} style={styles.headerAvatarImage} />
+              ) : (
+                <View style={styles.headerAvatarFallback}>
+                  <Text style={styles.headerAvatarFallbackText}>{avatarFallback}</Text>
+                </View>
+              )}
+              {otherOnline ? <View style={styles.headerOnlineDot} /> : null}
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.headerTitle} numberOfLines={1}>
                 {headerTitle}
               </Text>
-              <Text style={styles.headerStatusText} numberOfLines={1}>
-                {formatParticipantLabel(otherUserType)}
+              {/* Presence replaces the participant label, matching the passenger app:
+                  who someone is matters less mid-conversation than whether they are there. */}
+              <Text
+                style={[
+                  styles.headerStatusText,
+                  otherOnline ? styles.headerStatusOnlineText : styles.headerStatusOfflineText,
+                ]}
+                numberOfLines={1}
+              >
+                {otherTyping
+                  ? t('chat.typing')
+                  : otherOnline
+                    ? t('chat.online')
+                    : t('chat.offline')}
               </Text>
             </View>
           </View>
@@ -607,8 +860,15 @@ export default function ChatScreen() {
               ) : (
                 <MessageRow
                   avatarFallback={avatarFallback}
+                  avatarPhotoUri={avatarPhotoUri}
                   message={item.message}
                   isOutgoing={item.message.senderId === user?.userId}
+                  canDelete={
+                    item.message.senderId === user?.userId &&
+                    item.message.deleted !== true &&
+                    !!item.message.messageId
+                  }
+                  deletedLabel={t('chat.messageDeleted')}
                   isAudioPlaying={
                     item.message.messageType === 'VOICE' &&
                     !!item.message.mediaUrl &&
@@ -617,6 +877,7 @@ export default function ChatScreen() {
                   onPressAudio={playAudio}
                   onOpenImage={setViewerImageUrl}
                   onOpenLocation={openLocation}
+                  onLongPressDelete={() => confirmDeleteMessage(item.message)}
                 />
               )
             }
@@ -697,7 +958,7 @@ export default function ChatScreen() {
                 value={input}
                 placeholder={isRecording ? 'Recording voice...' : 'Type a message...'}
                 placeholderTextColor="#A6B0C3"
-                onChangeText={setInput}
+                onChangeText={handleInputChange}
                 editable={!isRecording && !isSending}
               />
             </View>
@@ -758,22 +1019,35 @@ export default function ChatScreen() {
 
 function MessageRow({
   avatarFallback,
+  avatarPhotoUri,
+  canDelete,
+  deletedLabel,
   isAudioPlaying,
   isOutgoing,
   message,
   onOpenImage,
   onOpenLocation,
+  onLongPressDelete,
   onPressAudio,
 }: {
   avatarFallback: string;
+  avatarPhotoUri: string | null;
+  canDelete: boolean;
+  deletedLabel: string;
   isAudioPlaying: boolean;
   isOutgoing: boolean;
   message: ChatMessageDto;
   onOpenImage: (url: string) => void;
   onOpenLocation: (message: ChatMessageDto) => void;
+  onLongPressDelete: () => void;
   onPressAudio: (url: string) => void;
 }) {
   const isDeleted = message.deleted === true;
+  // Spread onto each bubble so only the driver's own, still-present messages
+  // respond to a long press.
+  const deleteProps = canDelete
+    ? { delayLongPress: 250 as const, onLongPress: onLongPressDelete }
+    : undefined;
   const resolvedMediaUrl = resolveAssetUrl(message.mediaUrl ?? message.compressedMediaUrl);
   const isImage = !isDeleted && message.messageType === 'IMAGE' && !!resolvedMediaUrl;
   const isVoice = !isDeleted && message.messageType === 'VOICE' && !!resolvedMediaUrl;
@@ -800,14 +1074,14 @@ function MessageRow({
 
   const renderTextBubble = () => (
     <View>
-      <Pressable style={isOutgoing ? styles.bubbleRight : styles.bubbleLeft}>
+      <Pressable style={isOutgoing ? styles.bubbleRight : styles.bubbleLeft} {...deleteProps}>
         <Text
           style={[
             isOutgoing ? styles.bubbleRightText : styles.bubbleLeftText,
             isDeleted ? styles.deletedText : null,
           ]}
         >
-          {isDeleted ? 'Message deleted' : message.content || ' '}
+          {isDeleted ? deletedLabel : message.content || ' '}
         </Text>
       </Pressable>
       {isOutgoing ? renderOutgoingMeta() : renderIncomingMeta()}
@@ -822,6 +1096,7 @@ function MessageRow({
           isOutgoing ? styles.voiceBubbleOutgoing : styles.voiceBubbleIncoming,
         ]}
         onPress={() => resolvedMediaUrl && onPressAudio(resolvedMediaUrl)}
+        {...deleteProps}
       >
         <Pressable
           style={[
@@ -865,6 +1140,7 @@ function MessageRow({
         style={styles.imageBubble}
         onPress={() => resolvedMediaUrl && onOpenImage(resolvedMediaUrl)}
         disabled={!resolvedMediaUrl}
+        {...deleteProps}
       >
         <Image source={{ uri: resolvedMediaUrl! }} style={styles.messageImage} />
       </Pressable>
@@ -874,7 +1150,7 @@ function MessageRow({
 
   const renderLocationBubble = () => (
     <View>
-      <Pressable style={styles.locationCard} onPress={() => onOpenLocation(message)}>
+      <Pressable style={styles.locationCard} onPress={() => onOpenLocation(message)} {...deleteProps}>
         <View style={styles.locationMap}>
           <View style={[styles.mapRoad, styles.mapRoadOne]} />
           <View style={[styles.mapRoad, styles.mapRoadTwo]} />
@@ -916,9 +1192,13 @@ function MessageRow({
 
   return (
     <View style={styles.messageRow}>
-      <View style={styles.avatarFallback}>
-        <Text style={styles.avatarFallbackText}>{avatarFallback}</Text>
-      </View>
+      {avatarPhotoUri ? (
+        <Image source={{ uri: avatarPhotoUri }} style={styles.avatarImage} />
+      ) : (
+        <View style={styles.avatarFallback}>
+          <Text style={styles.avatarFallbackText}>{avatarFallback}</Text>
+        </View>
+      )}
       {isVoice
         ? renderVoiceBubble()
         : isImage
@@ -1097,22 +1377,6 @@ function getParticipantAvatarFallback(type?: string | string[]) {
   return 'P';
 }
 
-function formatParticipantLabel(type?: string | string[]) {
-  const normalizedType = Array.isArray(type) ? type[0] : type;
-  if (normalizedType === 'ADMIN') {
-    return 'Admin Support';
-  }
-  if (normalizedType === 'PASSENGER') {
-    return 'Passenger';
-  }
-  if (normalizedType === 'DRIVER') {
-    return 'Driver';
-  }
-  if (normalizedType === 'CORPORATE_USER') {
-    return 'Corporate User';
-  }
-  return 'Chat';
-}
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -1142,6 +1406,12 @@ const styles = StyleSheet.create({
   headerAvatarWrap: {
     position: 'relative',
   },
+  headerAvatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#DDE5F0',
+  },
   headerAvatarFallback: {
     width: 36,
     height: 36,
@@ -1160,10 +1430,27 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: '#1F2937',
   },
+  headerOnlineDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    bottom: 0,
+    right: 0,
+  },
   headerStatusText: {
     marginTop: 2,
     fontSize: 11,
     fontWeight: "600",
+    color: '#94A3B8',
+  },
+  headerStatusOnlineText: {
+    color: '#22C55E',
+  },
+  headerStatusOfflineText: {
     color: '#94A3B8',
   },
   headerSpacer: {
@@ -1199,6 +1486,12 @@ const styles = StyleSheet.create({
   },
   messageRowRight: {
     alignItems: 'flex-end',
+  },
+  avatarImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#DDE5F0',
   },
   avatarFallback: {
     width: 30,

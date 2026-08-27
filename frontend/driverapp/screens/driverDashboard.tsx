@@ -51,8 +51,7 @@ import {
   type RouteGeometry,
   type RouteStop,
 } from "@/utils/routeNavigation";
-
-const DRIVER_SHARE_LOCATION_KEY = "driverShareLocation";
+import { readShareLocation } from "@/utils/locationSharing";
 
 interface DriverProfile {
   firstName?: string;
@@ -156,15 +155,11 @@ export default function DriverDashboardScreen() {
     useCallback(() => {
       let isActive = true;
 
-      AsyncStorage.getItem(DRIVER_SHARE_LOCATION_KEY)
-        .then((value) => {
-          if (isActive) {
-            setShareLocationEnabled(value !== "false");
-          }
-        })
-        .catch((error) => {
-          console.warn("Failed to load location sharing preference:", error);
-        });
+      void readShareLocation().then((enabled) => {
+        if (isActive) {
+          setShareLocationEnabled(enabled);
+        }
+      });
 
       return () => {
         isActive = false;

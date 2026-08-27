@@ -23,6 +23,7 @@ import { useSession } from "../../store/sessionStore";
 import { useLanguage } from "../../utils/i18n";
 import { HttpError, setAuthToken } from "../../services/http";
 import {
+  deleteProfilePicture,
   getUserProfile,
   resolveProfilePhoto,
   updateUserProfile,
@@ -66,8 +67,6 @@ const profileCopy = {
     tamil: "Tamil",
     userId: "ID",
     privacy: "Privacy",
-    shareLocation: "Share Location",
-    shareLocationHint: "Required for tracking features",
     twoFactor: "Two-Factor Authentication",
     twoFactorSetupTitle: "Set up two-factor authentication",
     twoFactorSetupInstructions: "Scan this QR code with Google Authenticator, Aegis, or Microsoft Authenticator, then enter the 6-digit code.",
@@ -113,6 +112,12 @@ const profileCopy = {
     permissionRequired: "Permission required",
     photoPermission: "Allow photo access to change your profile picture.",
     updatePhotoError: "Could not update photo",
+    photoTitle: "Profile picture",
+    photoChoose: "Choose a new photo",
+    photoRemove: "Remove photo",
+    photoRemoveTitle: "Remove photo?",
+    photoRemoveConfirm: "Your profile picture will be deleted.",
+    removePhotoError: "Could not remove photo",
     saveSettingError: "Could not save setting",
     saveLanguageError: "Could not save language",
     completePassword: "Complete all password fields.",
@@ -143,8 +148,6 @@ const profileCopy = {
     tamil: "දෙමළ",
     userId: "හඳුනාගැනීමේ අංකය",
     privacy: "පෞද්ගලිකත්වය",
-    shareLocation: "ස්ථානය බෙදාගැනීම",
-    shareLocationHint: "ගමන් නිරීක්ෂණ පහසුකම් සඳහා අවශ්‍ය වේ",
     twoFactor: "ද්වි-සාධක සත්‍යාපනය",
     twoFactorSetupTitle: "ද්වි-සාධක සත්‍යාපනය සකසන්න",
     twoFactorSetupInstructions: "මෙම QR කේතය Google Authenticator, Aegis හෝ Microsoft Authenticator යෙදුමකින් ස්කෑන් කර අංක 6ක කේතය ඇතුළත් කරන්න.",
@@ -190,6 +193,12 @@ const profileCopy = {
     permissionRequired: "අවසර අවශ්‍යයි",
     photoPermission: "ඔබගේ පැතිකඩ ඡායාරූපය වෙනස් කිරීමට ඡායාරූප වෙත ප්‍රවේශ වීමට අවසර දෙන්න.",
     updatePhotoError: "ඡායාරූපය යාවත්කාලීන කළ නොහැක",
+    photoTitle: "පැතිකඩ ඡායාරූපය",
+    photoChoose: "නව ඡායාරූපයක් තෝරන්න",
+    photoRemove: "ඡායාරූපය ඉවත් කරන්න",
+    photoRemoveTitle: "ඡායාරූපය ඉවත් කරන්නද?",
+    photoRemoveConfirm: "ඔබගේ පැතිකඩ ඡායාරූපය මකා දමනු ලැබේ.",
+    removePhotoError: "ඡායාරූපය ඉවත් කළ නොහැක",
     saveSettingError: "සැකසුම සුරැකිය නොහැක",
     saveLanguageError: "භාෂාව සුරැකිය නොහැක",
     completePassword: "මුරපද ක්ෂේත්‍ර සියල්ල පුරවන්න.",
@@ -220,8 +229,6 @@ const profileCopy = {
     tamil: "தமிழ்",
     userId: "ஐடி",
     privacy: "தனியுரிமை",
-    shareLocation: "இருப்பிடத்தைப் பகிரவும்",
-    shareLocationHint: "கண்காணிப்பு அம்சங்களுக்கு தேவை",
     twoFactor: "இரு-காரணி அங்கீகாரம்",
     twoFactorSetupTitle: "இரு-காரணி அங்கீகாரத்தை அமைக்கவும்",
     twoFactorSetupInstructions: "Google Authenticator, Aegis அல்லது Microsoft Authenticator மூலம் இந்த QR குறியீட்டை ஸ்கேன் செய்து, 6 இலக்க குறியீட்டை உள்ளிடவும்.",
@@ -267,6 +274,12 @@ const profileCopy = {
     permissionRequired: "அனுமதி தேவை",
     photoPermission: "உங்கள் சுயவிவரப் படத்தை மாற்ற புகைப்படங்களை அணுக அனுமதிக்கவும்.",
     updatePhotoError: "படத்தை புதுப்பிக்க முடியவில்லை",
+    photoTitle: "சுயவிவரப் படம்",
+    photoChoose: "புதிய படத்தைத் தேர்ந்தெடுக்கவும்",
+    photoRemove: "படத்தை நீக்கவும்",
+    photoRemoveTitle: "படத்தை நீக்கவா?",
+    photoRemoveConfirm: "உங்கள் சுயவிவரப் படம் நீக்கப்படும்.",
+    removePhotoError: "படத்தை நீக்க முடியவில்லை",
     saveSettingError: "அமைப்பை சேமிக்க முடியவில்லை",
     saveLanguageError: "மொழியை சேமிக்க முடியவில்லை",
     completePassword: "அனைத்து கடவுச்சொல் புலங்களையும் நிரப்பவும்.",
@@ -501,6 +514,42 @@ export default function PassengerProfileScreen() {
     }
   };
 
+  const removePhoto = async () => {
+    if (!userId) return;
+    try {
+      setSaving(true);
+      await deleteProfilePicture();
+      // A previously broken photo is gone for good, so the failure it recorded goes too.
+      setFailedPhotoUri(null);
+      setProfile(await getUserProfile(userId));
+    } catch (error) {
+      Alert.alert(copy.removePhotoError, error instanceof Error ? error.message : copy.tryAgain);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmRemovePhoto = () => {
+    Alert.alert(copy.photoRemoveTitle, copy.photoRemoveConfirm, [
+      { text: copy.cancel, style: "cancel" },
+      { text: copy.photoRemove, style: "destructive", onPress: () => void removePhoto() },
+    ]);
+  };
+
+  // With a picture already stored the button offers both actions; with none there is
+  // nothing to remove, so it opens the picker directly the way it always did.
+  const openPhotoOptions = () => {
+    if (!profile?.profilePhoto) {
+      void pickPhoto();
+      return;
+    }
+    Alert.alert(copy.photoTitle, undefined, [
+      { text: copy.photoChoose, onPress: () => void pickPhoto() },
+      { text: copy.photoRemove, style: "destructive", onPress: confirmRemovePhoto },
+      { text: copy.cancel, style: "cancel" },
+    ]);
+  };
+
   const setSetting = async (key: keyof Omit<UserSettings, "userId" | "language">, value: boolean) => {
     if (!userId || !settings) return;
     const previous = settings;
@@ -665,7 +714,7 @@ export default function PassengerProfileScreen() {
                 onError={() => setFailedPhotoUri(photoUri)}
               />
             )}
-            <Pressable style={styles.photoButton} onPress={() => void pickPhoto()} disabled={saving}><Ionicons name="pencil" size={17} color="#FFFFFF" /></Pressable>
+            <Pressable style={styles.photoButton} onPress={openPhotoOptions} disabled={saving}><Ionicons name="pencil" size={17} color="#FFFFFF" /></Pressable>
           </View>
           <Text style={styles.name}>{profile.fullName || copy.passenger}</Text>
           <Text style={styles.userId}>{copy.userId}: PSG-{String(profile.userId).padStart(3, "0")}</Text>
@@ -689,7 +738,6 @@ export default function PassengerProfileScreen() {
 
         <Text style={styles.sectionTitle}>{copy.privacy}</Text>
         <View style={styles.card}>
-          <ToggleRow title={copy.shareLocation} subtitle={copy.shareLocationHint} value={settings.shareLocation} onValueChange={(value) => void setSetting("shareLocation", value)} />
           <ToggleRow title={copy.twoFactor} value={settings.twoFactorAuthentication} onValueChange={(value) => void handleTwoFactorToggle(value)} />
         </View>
 

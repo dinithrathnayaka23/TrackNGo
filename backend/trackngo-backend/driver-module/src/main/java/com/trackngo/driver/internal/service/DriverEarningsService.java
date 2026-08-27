@@ -64,13 +64,24 @@ public class DriverEarningsService {
                     CONCAT(tb.start_location, ' - ', tb.destination) AS route,
                     tb.start_date AS earning_date,
                     CAST(NULL AS TIME) AS earning_time,
-                    COALESCE(tb.final_price, p.amount, tb.advance_payment, 0) AS amount
+                    COALESCE(
+                        tb.final_price,
+                        (SELECT p.amount FROM payment p
+                            WHERE p.trip_booking_id = tb.trip_booking_id
+                              AND p.payment_status = 'success'
+                            ORDER BY p.payment_id DESC LIMIT 1),
+                        tb.advance_payment,
+                        0
+                    ) AS amount
                 FROM trip_booking tb
                 LEFT JOIN bus b ON b.bus_id = tb.bus_id
-                INNER JOIN payment p ON p.trip_booking_id = tb.trip_booking_id
-                    AND p.payment_status = 'success'
                 WHERE COALESCE(tb.driver_id, b.driver_id) = ?
                   AND tb.booking_status <> 'cancelled'
+                  AND EXISTS (
+                      SELECT 1 FROM payment p
+                      WHERE p.trip_booking_id = tb.trip_booking_id
+                        AND p.payment_status = 'success'
+                  )
                   AND (
                       tb.booking_status = 'completed'
                       OR COALESCE(tb.return_date, tb.start_date) < CURRENT_DATE

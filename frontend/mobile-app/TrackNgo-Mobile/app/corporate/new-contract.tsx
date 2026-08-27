@@ -145,6 +145,7 @@ export default function NewContractScreen() {
 
   const initContractId = params.contractId ? parseInt(params.contractId as string, 10) : null;
   const initStep = params.step ? parseInt(params.step as string, 10) : 1;
+  const initRenewFromContractId = params.renewFrom ? parseInt(params.renewFrom as string, 10) : null;
 
   const [step, setStep] = useState(initStep);
   const [submitting, setSubmitting] = useState(false);
@@ -196,6 +197,10 @@ export default function NewContractScreen() {
   const [busSearch, setBusSearch] = useState("");
   const [busSort, setBusSort] = useState<"seats_desc" | "seats_asc">("seats_desc");
 
+  // 🔹 Renewal State — set only when arriving via "Proceed with Renewal"; tags
+  // the contract this submission creates so its approval skips the advance deposit.
+  const [renewedFromContractId] = useState<number | null>(initRenewFromContractId);
+
   // 🔹 Negotiation / Contract Submission State
   const [contractId, setContractId] = useState<number | null>(initContractId);
   const [contractStatus, setContractStatus] = useState<string>("pending");
@@ -244,6 +249,42 @@ export default function NewContractScreen() {
       });
     }
   }, [initContractId, currentUser]);
+
+  // Prefill from a prior contract when proceeding with an approved renewal —
+  // this creates a brand-new contract (no contractId set), so the user
+  // starts at step 1 and can review or change everything, including the
+  // dates, before submitting. Unlike editing an existing pending request,
+  // the old dates aren't copied since they're expiring/expired.
+  useEffect(() => {
+    if (initRenewFromContractId && currentUser) {
+      getCorporateContractDetail(initRenewFromContractId, currentUser.userId).then((prior) => {
+        if (!prior) return;
+        setShiftType(prior.shiftType || "both");
+        setWorkingDays(prior.workingDays || "weekdays");
+        setBusType(prior.busType || "standard");
+        setSameAsMorningReversed(false);
+
+        const applyLeg = (
+          leg: typeof prior.morningPickup,
+          setPlace: (p: PlaceValue) => void,
+          setTime: (d: Date) => void,
+        ) => {
+          if (!leg) return;
+          setPlace({ name: leg.location, latitude: leg.latitude, longitude: leg.longitude });
+          if (leg.time) setTime(new Date(`1970-01-01T${leg.time}`));
+        };
+        applyLeg(prior.morningPickup, setMorningPickup, setMorningPickupObj);
+        applyLeg(prior.morningDropoff, setMorningDropoff, setMorningDropoffObj);
+        applyLeg(prior.eveningPickup, setEveningPickup, setEveningPickupObj);
+        applyLeg(prior.eveningDropoff, setEveningDropoff, setEveningDropoffObj);
+        setMorningDistanceKm(prior.morningDistanceKm ?? null);
+        setEveningDistanceKm(prior.eveningDistanceKm ?? null);
+
+        setSelectedBusIds(prior.busIds && prior.busIds.length > 0 ? prior.busIds : prior.busId ? [prior.busId] : []);
+        setEmployees(prior.employeeCount ? String(prior.employeeCount) : "");
+      });
+    }
+  }, [initRenewFromContractId, currentUser]);
 
   // Admin-configured support contact, editable from the admin dashboard
   // (Settings → Corporate Support Contact). Falls back to a safe default
@@ -503,6 +544,7 @@ export default function NewContractScreen() {
           startDate: formatApiDate(startDateObj),
           endDate: formatApiDate(endDateObj),
           corporateUserId: currentUser.userId,
+          ...(renewedFromContractId ? { renewedFromContractId } : {}),
         });
 
         // Backend returns the created contract. If null (older backend), fall back to the latest one.
@@ -1505,7 +1547,13 @@ export default function NewContractScreen() {
           <Ionicons name="chevron-back" size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {step === 3 ? "Negotiation" : step === 4 ? "Contract Proposal" : "New Contract"}
+          {step === 3
+            ? "Negotiation"
+            : step === 4
+            ? "Contract Proposal"
+            : renewedFromContractId
+            ? "Renew Contract"
+            : "New Contract"}
         </Text>
         <View style={styles.downloadBtn} />
       </View>

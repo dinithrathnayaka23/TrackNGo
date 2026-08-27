@@ -12,6 +12,8 @@ import com.trackngo.app.dto.CorporatePricingEstimateRequest;
 import com.trackngo.app.dto.CorporatePricingSettingsDto;
 import com.trackngo.app.dto.CorporateAdvancePaymentDto;
 import com.trackngo.app.dto.RenewalRequestDto;
+import com.trackngo.app.dto.RenewalIntentRequestDto;
+import com.trackngo.app.dto.RenewalResponseDto;
 import com.trackngo.app.service.CorporatePricingService;
 import com.trackngo.app.service.CorporateService;
 import com.trackngo.commons.ApiResponse;
@@ -133,7 +135,7 @@ public class CorporateController {
             @RequestBody CancellationResponseDto request) {
         try {
             CorporateContractDto updated = corporateService.respondToCancellation(
-                    contractId, request.role(), request.accept(), request.responseReason());
+                    contractId, request.role(), request.accept(), request.responseReason(), request.cancelTiming());
             return ApiResponse.ok("Cancellation response recorded successfully", updated);
         } catch (IllegalStateException | IllegalArgumentException ex) {
             return ApiResponse.fail(ex.getMessage());
@@ -153,6 +155,37 @@ public class CorporateController {
         try {
             CorporateContractDto renewed = corporateService.renewContract(contractId, request.userId(), request.role());
             return ApiResponse.ok("Renewal request submitted successfully", renewed);
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
+    /**
+     * The corporate client asks admin for permission to renew an active
+     * contract — always available, not just near its end date. Admin must
+     * approve via {@code /renewal-response} before the client can proceed to
+     * fill out and submit the actual renewal contract.
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/renewal-request")
+    public ApiResponse<CorporateContractDto> requestRenewal(
+            @PathVariable("contractId") Long contractId,
+            @RequestBody RenewalIntentRequestDto request) {
+        try {
+            CorporateContractDto updated = corporateService.requestRenewal(contractId, request.userId());
+            return ApiResponse.ok("Renewal request submitted successfully", updated);
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
+    /** Admin accepts or declines a corporate client's renewal request. */
+    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/renewal-response")
+    public ApiResponse<CorporateContractDto> respondToRenewalRequest(
+            @PathVariable("contractId") Long contractId,
+            @RequestBody RenewalResponseDto request) {
+        try {
+            CorporateContractDto updated = corporateService.respondToRenewalRequest(contractId, request.approve());
+            return ApiResponse.ok("Renewal response recorded successfully", updated);
         } catch (IllegalStateException | IllegalArgumentException ex) {
             return ApiResponse.fail(ex.getMessage());
         }

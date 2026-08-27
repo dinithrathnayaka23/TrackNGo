@@ -51,6 +51,8 @@ public record CorporateContractDetailDto(
         BigDecimal originalBillingAmount,
         BigDecimal discountAmount,
         String adminNote,
-        ContractCancellationDto cancellation
+        ContractCancellationDto cancellation,
+        /** "none", "requested", "approved" or "declined" — the corporate client's ask to renew this contract. */
+        String renewalRequestStatus
 ) {
 }

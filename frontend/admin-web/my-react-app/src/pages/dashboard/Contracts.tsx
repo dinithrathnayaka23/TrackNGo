@@ -33,6 +33,7 @@ import {
   renewContract,
   requestContractCancellation,
   respondToContractCancellation,
+  respondToContractRenewal,
   updateContractStatus,
   waiveAdvanceDeposit,
   type AdminContractSummary,
@@ -96,6 +97,18 @@ function statusIcon(status: ContractStatus) {
     default:
       return faSpinner
   }
+}
+
+/**
+ * True once the corporate user has accepted an admin-initiated cancellation
+ * of an active contract and chosen to keep it running until the notice
+ * period ends, rather than cancelling immediately. The contract is still
+ * `status = 'active'` until the scheduled job cancels it on
+ * `cancellation.effectiveDate`, so admin should see something other than
+ * plain "Active" in the meantime.
+ */
+function isScheduledForCancellation(contract: { status: string; cancellation: { status: string; effectiveDate: string | null } }) {
+  return contract.status === 'active' && contract.cancellation.status === 'accepted' && !!contract.cancellation.effectiveDate
 }
 
 function shiftLabel(shiftType: AdminContractSummary['shiftType']) {
@@ -222,7 +235,12 @@ function ViewContractModal({
             <p className="mt-0.5 text-sm text-white/70">{detail?.companyName ?? ''}</p>
           </div>
           <div className="flex items-center gap-2">
-            {detail && (
+            {detail && isScheduledForCancellation(detail) ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fef3c7] px-3 py-1 text-xs font-semibold text-[#b45309]">
+                <FontAwesomeIcon icon={faHourglassHalf} className="text-xs" />
+                Ending {formatDate(detail.cancellation.effectiveDate)}
+              </span>
+            ) : detail && (
               <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(detail.status as ContractStatus)}`}>
                 <FontAwesomeIcon icon={statusIcon(detail.status as ContractStatus)} className="text-xs" />
                 {statusLabel(detail.status as ContractStatus)}
@@ -606,6 +624,23 @@ function Contracts() {
     }
   }
 
+  const submitRenewalResponse = async (contract: AdminContractSummary, approve: boolean) => {
+    setActionBusyId(contract.contractId)
+    try {
+      await respondToContractRenewal(contract.contractId, approve)
+      setToastMessage(
+        approve
+          ? `Approved the renewal request for "${contract.contractName}".`
+          : `Declined the renewal request for "${contract.contractName}".`,
+      )
+      loadContracts()
+    } catch (err) {
+      setToastMessage(err instanceof Error ? err.message : 'Failed to respond to renewal request.')
+    } finally {
+      setActionBusyId(null)
+    }
+  }
+
   const renderActions = (contract: AdminContractSummary, compact?: boolean) => {
     const busy = actionBusyId === contract.contractId
     const btnBase = compact
@@ -692,6 +727,28 @@ function Contracts() {
               title="Decline cancellation request"
               disabled={busy}
               onClick={() => { setCancelRespondTarget({ contract, accept: false }); setCancelResponseReasonInput('') }}
+              className={`${btnBase} border-[#fecaca] text-[#dc2626] hover:bg-[#fef2f2] disabled:opacity-50`}
+            >
+              <FontAwesomeIcon icon={faThumbsDown} className="text-xs" />
+            </button>
+          </>
+        )}
+        {contract.renewalRequestStatus === 'requested' && (
+          <>
+            <button
+              type="button"
+              title="Approve renewal request"
+              disabled={busy}
+              onClick={() => submitRenewalResponse(contract, true)}
+              className={`${btnBase} border-[#bbf7d0] text-[#059669] hover:bg-[#f0fdf4] disabled:opacity-50`}
+            >
+              <FontAwesomeIcon icon={faThumbsUp} className="text-xs" />
+            </button>
+            <button
+              type="button"
+              title="Decline renewal request"
+              disabled={busy}
+              onClick={() => submitRenewalResponse(contract, false)}
               className={`${btnBase} border-[#fecaca] text-[#dc2626] hover:bg-[#fef2f2] disabled:opacity-50`}
             >
               <FontAwesomeIcon icon={faThumbsDown} className="text-xs" />
@@ -920,15 +977,20 @@ function Contracts() {
                             <td className="px-5 py-4 text-[#334155]">{contract.employeeCount}</td>
                             <td className="px-5 py-4">
                               <span
-                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(contract.status)}`}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                  isScheduledForCancellation(contract) ? 'bg-[#fef3c7] text-[#b45309]' : statusBadgeClass(contract.status)
+                                }`}
                               >
                                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                                {statusLabel(contract.status)}
+                                {isScheduledForCancellation(contract) ? `Ending ${formatDate(contract.cancellation.effectiveDate)}` : statusLabel(contract.status)}
                               </span>
                               {contract.cancellation.status === 'pending' && (
                                 <p className="mt-1 text-[10px] font-semibold text-[#b45309]">
                                   {contract.cancellation.requestedBy === 'admin' ? 'Cancellation sent — awaiting client' : 'Client requested cancellation'}
                                 </p>
+                              )}
+                              {contract.renewalRequestStatus === 'requested' && (
+                                <p className="mt-1 text-[10px] font-semibold text-[#1d4ed8]">Client requested renewal</p>
                               )}
                             </td>
                             <td className="px-5 py-4">
@@ -1015,10 +1077,12 @@ function Contracts() {
                             </div>
                           </div>
                           <span
-                            className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(contract.status)}`}
+                            className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              isScheduledForCancellation(contract) ? 'bg-[#fef3c7] text-[#b45309]' : statusBadgeClass(contract.status)
+                            }`}
                           >
                             <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                            {statusLabel(contract.status)}
+                            {isScheduledForCancellation(contract) ? `Ending ${formatDate(contract.cancellation.effectiveDate)}` : statusLabel(contract.status)}
                           </span>
                         </div>
 
@@ -1142,8 +1206,8 @@ function Contracts() {
               <h3 className="mt-4 text-base font-extrabold text-[#111827]">Request to cancel this contract?</h3>
               <p className="mt-2 text-sm text-[#64748b]">
                 The client must accept before "{cancelRequestTarget.contractName}" is actually cancelled.
-                {' '}Since this contract is active, cancellation won't take effect until at least{' '}
-                <strong>{new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</strong> (2 weeks' notice).
+                {' '}Since this contract is active, they'll be able to choose between cancelling right away or
+                keeping it running for a 2-week notice period.
               </p>
               <label className="mt-4 block text-xs font-semibold text-[#334155]">
                 Reason for cancellation

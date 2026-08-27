@@ -42,6 +42,8 @@ export type CorporateContract = {
   busId: number | null
   busIds: number[] | null
   cancellation: ContractCancellation
+  /** The corporate client's ask to renew this contract — always available while active, not just near its end date. */
+  renewalRequestStatus: 'none' | 'requested' | 'approved' | 'declined'
 }
 
 export type CorporateInvoice = {
@@ -109,6 +111,8 @@ export type AdminContractSummary = {
   originalBillingAmount: number | null
   discountAmount: number | null
   cancellation: ContractCancellation
+  /** The corporate client's ask to renew this contract — always available while active, not just near its end date. */
+  renewalRequestStatus: 'none' | 'requested' | 'approved' | 'declined'
 }
 
 /** Full detail behind the admin "View" modal, including per-shift routes and assigned buses. */
@@ -243,7 +247,13 @@ export function requestContractCancellation(contractId: number, reason: string) 
   })
 }
 
-/** Accept or reject a cancellation request the corporate client filed. */
+/**
+ * Accept or reject a cancellation request the corporate client filed. Admin
+ * only ever responds to corporate-initiated requests, which always take
+ * effect immediately — the immediate-vs-2-week-notice choice belongs to the
+ * corporate user when accepting an admin-initiated request instead, so no
+ * timing choice is needed here.
+ */
 export function respondToContractCancellation(contractId: number, accept: boolean, responseReason?: string) {
   return request<CorporateContract>(`/api/corporate/contracts/${contractId}/cancel-response`, {
     method: 'POST',
@@ -252,16 +262,25 @@ export function respondToContractCancellation(contractId: number, accept: boolea
 }
 
 /**
- * Renews a contract nearing its end date by submitting a new pending
- * contract that continues from where this one leaves off, cloning its
- * route/shift/bus setup. Goes through the same admin-approval flow as any
- * new contract request — the same standardized process the corporate app
- * uses when the client initiates the renewal themselves.
+ * Instantly renews a contract nearing its end date by submitting a new
+ * pending contract that continues from where this one leaves off, cloning
+ * its route/shift/bus setup — an admin shortcut that skips the client's own
+ * request/approval step. Goes through the same admin-approval flow as any
+ * new contract request. The corporate app instead has the client ask for
+ * permission first (see {@link respondToContractRenewal}).
  */
 export function renewContract(contractId: number) {
   return request<CorporateContract>(`/api/corporate/contracts/${contractId}/renew`, {
     method: 'POST',
     body: JSON.stringify({ role: 'admin' }),
+  })
+}
+
+/** Admin accepts or declines a corporate client's request to renew their contract. */
+export function respondToContractRenewal(contractId: number, approve: boolean) {
+  return request<CorporateContract>(`/api/corporate/contracts/${contractId}/renewal-response`, {
+    method: 'POST',
+    body: JSON.stringify({ approve }),
   })
 }
 

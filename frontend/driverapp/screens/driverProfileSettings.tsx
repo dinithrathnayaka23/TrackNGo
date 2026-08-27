@@ -573,28 +573,6 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>{t('sos.settingsSection')}</Text>
-            {/* Only the bus number is passed: the backend resolves the route's
-                start and end from it when stamping the alert, so this screen
-                does not need route geometry it never loads. */}
-            <TouchableOpacity
-              style={[styles.rowButton, styles.sosRowButton]}
-              onPress={() =>
-                router.push({
-                  pathname: '/sos',
-                  params: { busNumber: assignment?.busNumber ?? '' },
-                })
-              }
-            >
-              <MaterialCommunityIcons name="alert-octagon" size={20} color="#DC2626" />
-              <Text style={[styles.rowButtonText, styles.sosRowButtonText]}>
-                {t('sos.settingsRow')}
-              </Text>
-              <MaterialCommunityIcons name="chevron-right" size={20} color="#DC2626" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.card}>
             <Text style={styles.sectionTitle}>{t('settings.feedback')}</Text>
             <TouchableOpacity style={styles.rowButton} onPress={() => router.push('/reviews-and-ratings')}>
               <MaterialCommunityIcons name="star-half" size={20} color="#2F6BFF" />
@@ -1108,17 +1086,6 @@ function createStyles({
       fontWeight: "700",
       color: theme.text,
       minWidth: 0,
-    },
-    sosRowButton: {
-      backgroundColor: '#FEF2F2',
-      borderWidth: 1,
-      borderColor: '#FECACA',
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
-    },
-    sosRowButtonText: {
-      color: '#DC2626',
     },
     settingContent: {
       flex: 1,

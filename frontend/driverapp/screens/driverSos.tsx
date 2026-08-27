@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from "react-native";
@@ -26,6 +25,7 @@ import {
 } from "@/services/sosApi";
 
 const RED = "#DC2626";
+const GREEN = "#22C55E";
 
 type QuickAction = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -158,19 +158,6 @@ export default function DriverSosScreen() {
     t,
   ]);
 
-  /* An accidental SOS pulls the control room away from a real emergency, so the
-     button asks once before firing. */
-  const confirmSos = () => {
-    Alert.alert(t("sos.confirmTitle"), t("sos.confirmMessage"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("sos.confirmSend"),
-        style: "destructive",
-        onPress: () => void sendSos(),
-      },
-    ]);
-  };
-
   const callNumber = async (number: string) => {
     try {
       await Linking.openURL(`tel:${number}`);
@@ -197,7 +184,13 @@ export default function DriverSosScreen() {
           { paddingBottom: bottom + 24 },
         ]}
       >
-        <Text style={styles.subtitle}>{t("sos.subtitle")}</Text>
+        <Text style={styles.subtitle}>
+          {sosSent
+            ? t("sos.sentMessage")
+            : triggering
+              ? t("sos.sending")
+              : "Tap in case of emergency"}
+        </Text>
 
         {busNumber ? (
           <View style={styles.busChip}>
@@ -209,42 +202,47 @@ export default function DriverSosScreen() {
         ) : null}
 
         <Pressable
+          testID="trigger-sos-button"
           style={[
-            styles.sosButton,
-            (triggering || sosSent) && styles.sosButtonDisabled,
+            styles.sosRing,
+            sosSent ? styles.sosRingSuccess : undefined,
+            triggering ? styles.sosRingDisabled : undefined,
           ]}
           disabled={triggering || sosSent}
-          onPress={confirmSos}
+          onPress={() => void sendSos()}
         >
-          {triggering ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <MaterialCommunityIcons
-              name={sosSent ? "check-circle-outline" : "alert-octagon"}
-              size={44}
-              color="#FFFFFF"
-            />
-          )}
-          <Text style={styles.sosButtonText}>
-            {triggering
-              ? t("sos.sending")
-              : sosSent
-                ? t("sos.sentTitle")
-                : t("sos.emergencyButton")}
-          </Text>
+          <View style={[styles.sosCore, sosSent ? styles.sosCoreSuccess : undefined]}>
+            {triggering ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <MaterialCommunityIcons
+                name={sosSent ? "shield-check" : "bell"}
+                size={28}
+                color="#FFFFFF"
+              />
+            )}
+          </View>
         </Pressable>
 
-        <View style={styles.notifyRow}>
-          <View style={styles.notifyTextWrap}>
-            <Text style={styles.notifyLabel}>{t("sos.notifyContacts")}</Text>
-            <Text style={styles.notifyHint}>{t("sos.notifyContactsHint")}</Text>
+        {sosSent ? <Text style={styles.calmText}>{t("sos.sentMessage")}</Text> : null}
+
+        <Pressable
+          testID="inform-emergency-contacts-toggle"
+          style={styles.checkboxRow}
+          onPress={() => setNotifyContacts((prev) => !prev)}
+          disabled={triggering || sosSent}
+        >
+          <View style={[styles.checkbox, !notifyContacts && styles.checkboxUnchecked]}>
+            {notifyContacts ? (
+              <MaterialCommunityIcons name="check" size={12} color="#FFFFFF" />
+            ) : null}
           </View>
-          <Switch
-            value={notifyContacts}
-            onValueChange={setNotifyContacts}
-            disabled={triggering}
-          />
-        </View>
+          <Text style={styles.checkboxText}>{t("sos.notifyContacts")}</Text>
+        </Pressable>
+
+        <Pressable onPress={() => router.push("/emergency-contacts")}>
+          <Text style={styles.manageText}>Manage emergency contacts</Text>
+        </Pressable>
 
         <Text style={styles.sectionTitle}>{t("sos.quickCall")}</Text>
 
@@ -324,49 +322,70 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1D4ED8",
   },
-  sosButton: {
+  sosRing: {
+    marginTop: 10,
     alignSelf: "center",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "#F87171",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sosRingDisabled: {
+    opacity: 0.7,
+  },
+  sosRingSuccess: {
+    backgroundColor: "#86EFAC",
+  },
+  sosCore: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: RED,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    shadowColor: RED,
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
   },
-  sosButtonDisabled: {
-    opacity: 0.6,
+  sosCoreSuccess: {
+    backgroundColor: GREEN,
   },
-  sosButtonText: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#FFFFFF",
+  calmText: {
+    marginTop: -8,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#15803D",
+    textAlign: "center",
   },
-  notifyRow: {
+  checkboxRow: {
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
+  },
+  checkbox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: RED,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxUnchecked: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
   },
-  notifyTextWrap: {
-    flex: 1,
-  },
-  notifyLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  notifyHint: {
+  checkboxText: {
     fontSize: 12,
-    color: "#6B7280",
-    marginTop: 2,
+    fontWeight: "600",
+    color: "#4B5563",
+  },
+  manageText: {
+    alignSelf: "center",
+    marginTop: -8,
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#1A73E8",
   },
   sectionTitle: {
     fontSize: 15,

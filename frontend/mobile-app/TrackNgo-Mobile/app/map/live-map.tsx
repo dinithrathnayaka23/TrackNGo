@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LocalizedText as Text } from "../../utils/i18n";
 import * as Location from "expo-location";
@@ -39,6 +39,7 @@ import {
   trackingFreshness,
   type LatLng,
 } from "../../utils/liveTracking";
+import { readShareLocation } from "../../utils/locationSharing";
 
 /* ── Constants ────────────────────────────────────────────── */
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -138,6 +139,10 @@ export default function LiveMapScreen() {
   const [isBoarded, setIsBoarded] = useState(false);
   const [showBoardingModal, setShowBoardingModal] = useState(false);
   const [locationError, setLocationError] = useState(false);
+  /* Share Location, in the profile's Privacy section, decides whether this screen may
+     read the phone's position at all. The bus still tracks either way; only the
+     passenger's own dot and the distances measured from it depend on it. */
+  const [shareLocation, setShareLocation] = useState(true);
   const [wsConnected, setWsConnected] = useState(false); // WebSocket connection status
 
   /* Where the bus marker is drawn right now. This trails busLocation: each new
@@ -407,9 +412,29 @@ export default function LiveMapScreen() {
     return () => loop.stop();
   }, [busPulse]);
 
+  /* Re-read on focus so a change made in the profile takes hold the moment the
+     passenger comes back to the map, without a restart. */
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void readShareLocation().then((enabled) => {
+        if (active) setShareLocation(enabled);
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
   // User location tracking
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
+    if (!shareLocation) {
+      /* Drop the last fix along with the watcher: leaving the dot on screen would
+         keep displaying a position the passenger has asked us to stop using. */
+      setUserLocation(null);
+      return;
+    }
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
@@ -435,7 +460,7 @@ export default function LiveMapScreen() {
     return () => {
       subscription?.remove();
     };
-  }, []);
+  }, [shareLocation]);
 
   /* Slide the marker from where it is drawn to the newest fix.
      Fixes arrive every few seconds; without this the marker would sit still

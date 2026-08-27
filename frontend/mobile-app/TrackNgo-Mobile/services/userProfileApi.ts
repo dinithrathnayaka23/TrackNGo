@@ -1,6 +1,6 @@
 import type { UserProfile, UserType } from "../types/chat";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { httpGet, httpPostForm, httpPut } from "./http";
+import { httpDelete, httpGet, httpPostForm, httpPut } from "./http";
 import { API_BASE_URL } from "../config/env";
 
 const profileCache = new Map<number, UserProfile>();
@@ -78,4 +78,17 @@ export async function uploadProfilePicture(uri: string): Promise<ProfilePictureU
   );
   profileCache.clear();
   return response.data;
+}
+
+/**
+ * Clears the signed-in user's profile picture. Resolves even when there was nothing
+ * stored, so a stale screen tapping remove twice is not treated as a failure.
+ */
+export async function deleteProfilePicture(): Promise<void> {
+  await httpDelete<ApiResponse<{ removed: boolean }>>(
+    "/api/profile/picture",
+    undefined,
+    await authHeaders(),
+  );
+  profileCache.clear();
 }

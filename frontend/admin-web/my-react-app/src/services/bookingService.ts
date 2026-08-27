@@ -106,6 +106,71 @@ async function fetchLegacyTripBookingRequests(token: string): Promise<AdminBooki
     }))
 }
 
+type AdminContractSummary = {
+  contractId: number
+  contractName: string
+  companyName: string | null
+  contactPersonName: string | null
+  startingLocation: string | null
+  destination: string | null
+  shiftType: string
+  employeeCount: number
+  busType: string
+  status: string
+  billingAmount: number
+  startDate: string | null
+  endDate: string | null
+  busCount: number
+  busNumbers: string | null
+  advancePaymentStatus: string
+}
+
+/**
+ * Corporate contracts, reshaped into the same generic `AdminBooking` row the
+ * Bookings screen already renders for trip/seat bookings — reuses the
+ * existing `/api/corporate/contracts/admin` endpoint (the one `Contracts.tsx`
+ * calls) rather than adding a new backend read path.
+ */
+export async function fetchAdminCorporateBookings(): Promise<AdminBooking[]> {
+  const token = authService.getToken()
+  if (!token) throw new Error('Your admin session is missing. Please sign in again.')
+  const response = await fetch('/api/corporate/contracts/admin', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const text = await response.text()
+  let body: ApiResponse<AdminContractSummary[]> | null = null
+  if (text.trim()) {
+    try {
+      body = JSON.parse(text) as ApiResponse<AdminContractSummary[]>
+    } catch {
+      throw new Error(`The server returned an invalid response (${response.status}).`)
+    }
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new Error('Your admin session has expired or does not have permission to view corporate bookings.')
+  }
+  if (!response.ok || !body?.success) {
+    throw new Error(body?.message || `Could not load corporate bookings (HTTP ${response.status}).`)
+  }
+  const contracts = Array.isArray(body.data) ? body.data : []
+  return contracts.map((contract) => ({
+    bookingId: `CORP-${contract.contractId}`,
+    passengerName: contract.contactPersonName || contract.companyName || 'Corporate client',
+    route: contract.startingLocation && contract.destination
+      ? `${contract.startingLocation} → ${contract.destination}`
+      : contract.contractName,
+    bus: contract.busNumbers || (contract.busCount ? `${contract.busCount} bus${contract.busCount === 1 ? '' : 'es'}` : 'Not assigned'),
+    busType: contract.busType,
+    journeyDate: contract.startDate,
+    journeyTime: null,
+    seats: `${contract.employeeCount} employees`,
+    amount: contract.billingAmount,
+    paymentStatus: contract.advancePaymentStatus,
+    status: contract.status,
+    category: 'Corporate Bookings',
+  }))
+}
+
 export type TripBookingReviewRequest = {
   finalPrice?: number
   discountAmount?: number

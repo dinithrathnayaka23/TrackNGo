@@ -458,7 +458,15 @@ export default function BookATrip() {
   const [duration, setDuration] = useState<number>(3);
   const [passengers, setPassengers] = useState<number>(2);
   const [passengersText, setPassengersText] = useState<string>("2");
-  const [selectedRequirement, setSelectedRequirement] = useState<string | null>("AC");
+  /*
+    Bus size and air conditioning are two separate questions. They used to share one
+    list of "Standard | AC | Mini Bus", which meant asking for a mini bus silently
+    gave up any say over air conditioning. They travel to the backend as one
+    comma-separated requirement string so the stored booking shape is unchanged.
+  */
+  const [busType, setBusType] = useState<"Standard" | "Mini Bus">("Standard");
+  const [acPreference, setAcPreference] = useState<"AC" | "Non-AC">("AC");
+  const selectedRequirement = `${busType}, ${acPreference}`;
 
   // ── Derived / computed ────────────────────────────────────
   const [errors, setErrors] = useState<any>({});
@@ -565,16 +573,16 @@ export default function BookATrip() {
       const days = duration || 1;
       const ratePerKm = passengers <= 20 ? 250 : 400;
       let distanceCost = distance * ratePerKm;
-      if (selectedRequirement === "AC") distanceCost *= 1.25;
-      let total = dailyRate * days + distanceCost;
-      if (selectedRequirement === "WIFI") total += 1000;
-      if (selectedRequirement && selectedRequirement !== "AC" && selectedRequirement !== "First Aid")
-        total += 1500;
+      // Mirrors calculateFare on the backend, so the estimate shown here matches
+      // the price the booking comes back with.
+      if (acPreference === "AC") distanceCost *= 1.25;
+      if (busType === "Mini Bus") distanceCost += 1500;
+      const total = dailyRate * days + distanceCost;
       setEstimatedPrice(Math.round(total));
     } else {
       setEstimatedPrice(0);
     }
-  }, [distance, passengers, selectedRequirement, duration]);
+  }, [distance, passengers, acPreference, busType, duration]);
 
   // ── Form validation live check ─────────────────────────────
   useEffect(() => {
@@ -585,10 +593,11 @@ export default function BookATrip() {
       returnDate !== null &&
       duration > 0 &&
       passengers > 0 &&
-      selectedRequirement !== null &&
       !(returnDate && depart && returnDate < depart)
     );
-  }, [pickup, drop, depart, returnDate, duration, passengers, selectedRequirement]);
+    // Vehicle preference is no longer part of this check: both dimensions always
+    // hold a value, so there is nothing left for the passenger to omit.
+  }, [pickup, drop, depart, returnDate, duration, passengers]);
 
   // ── Passenger count ───────────────────────────────────────
   // Typed rather than stepped: private trips are booked for whole groups, so
@@ -629,7 +638,6 @@ export default function BookATrip() {
     if (depart && returnDate && returnDate < depart) e.returnDate = "Return cannot be before departure";
     if (duration < 1) e.duration = "Duration must be at least 1 day";
     if (passengers < 1) e.passengers = "At least 1 passenger required";
-    if (!selectedRequirement) e.requirements = "Select at least one bus requirement";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -657,7 +665,7 @@ export default function BookATrip() {
         startDate: depart!.toISOString().split("T")[0],
         returnDate: returnDate!.toISOString().split("T")[0],
         passengerCount: passengers,
-        requirement: selectedRequirement!,
+        requirement: selectedRequirement,
         distanceKm: distance,
         startLatitude: pickup?.latitude,
         startLongitude: pickup?.longitude,
@@ -678,7 +686,7 @@ export default function BookATrip() {
         returnDate: savedBooking.returnDate || returnDate!.toISOString().split("T")[0],
         duration,
         passengers,
-        selectedRequirement: selectedRequirement!,
+        selectedRequirement,
         distance,
         totalPayment,
         advancePayment,
@@ -996,43 +1004,81 @@ export default function BookATrip() {
         {/* ── Requirements ──────────────────────────────── */}
         <View style={{ backgroundColor: "white", padding: 16, borderRadius: 18, marginTop: 14, zIndex: 1, borderWidth: 1, borderColor: "#EEF2F7" }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><View style={{ flexDirection: "row", alignItems: "center" }}><View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="options-outline" size={18} color="#2563EB" /></View><View style={{ marginLeft: 10 }}><Text style={{ fontWeight: "800", color: "#111827", fontSize: 16 }}>Vehicle preference</Text><Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 2 }}>Choose what suits your group</Text></View></View><Ionicons name="chevron-down" size={18} color="#CBD5E1" /></View>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 14, gap: 8 }}>
-            {["Standard", "AC", "Mini Bus"].map((req) => (
+          <Text style={{ fontSize: 11, fontWeight: "700", color: "#64748B", marginTop: 14, textTransform: "uppercase", letterSpacing: 0.4 }}>
+            Bus type
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8, gap: 8 }}>
+            {(["Standard", "Mini Bus"] as const).map((option) => (
               <TouchableOpacity
-                key={req}
-                onPress={() => setSelectedRequirement(req)}
+                key={option}
+                onPress={() => setBusType(option)}
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  backgroundColor: selectedRequirement === req ? "#2563EB" : "#F8FAFC",
+                  backgroundColor: busType === option ? "#2563EB" : "#F8FAFC",
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                   borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: selectedRequirement === req ? "#2563EB" : "#E2E8F0",
+                  borderColor: busType === option ? "#2563EB" : "#E2E8F0",
                 }}
               >
                 <Ionicons
-                  name={req === "AC" ? "snow-outline" : req === "Mini Bus" ? "bus-outline" : "speedometer-outline"}
+                  name={option === "Mini Bus" ? "bus-outline" : "speedometer-outline"}
                   size={16}
-                  color={selectedRequirement === req ? "#FFFFFF" : "#64748B"}
+                  color={busType === option ? "#FFFFFF" : "#64748B"}
                 />
                 <Text
                   style={{
                     marginLeft: 7,
-                    color: selectedRequirement === req ? "#FFFFFF" : "#475569",
+                    color: busType === option ? "#FFFFFF" : "#475569",
                     fontSize: 12,
                     fontWeight: "700",
                   }}
                 >
-                  {req}
+                  {option}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-          {errors.requirements && (
-            <Text style={{ color: "red", fontSize: 11, marginTop: 4 }}>{errors.requirements}</Text>
-          )}
+
+          <Text style={{ fontSize: 11, fontWeight: "700", color: "#64748B", marginTop: 14, textTransform: "uppercase", letterSpacing: 0.4 }}>
+            Air conditioning
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8, gap: 8 }}>
+            {(["AC", "Non-AC"] as const).map((option) => (
+              <TouchableOpacity
+                key={option}
+                onPress={() => setAcPreference(option)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: acPreference === option ? "#2563EB" : "#F8FAFC",
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: acPreference === option ? "#2563EB" : "#E2E8F0",
+                }}
+              >
+                <Ionicons
+                  name={option === "AC" ? "snow-outline" : "sunny-outline"}
+                  size={16}
+                  color={acPreference === option ? "#FFFFFF" : "#64748B"}
+                />
+                <Text
+                  style={{
+                    marginLeft: 7,
+                    color: acPreference === option ? "#FFFFFF" : "#475569",
+                    fontSize: 12,
+                    fontWeight: "700",
+                  }}
+                >
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <View style={{ flexDirection: "row", alignItems: "center", marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#F1F5F9" }}><Ionicons name="information-circle-outline" size={14} color="#94A3B8" /><Text style={{ fontSize: 11, color: "#94A3B8", marginLeft: 5 }}>The final vehicle is selected from our active fleet.</Text></View>
         </View>
 

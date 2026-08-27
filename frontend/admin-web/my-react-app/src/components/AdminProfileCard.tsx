@@ -34,8 +34,14 @@ export default function AdminProfileCard() {
 
   useEffect(() => {
     const handlePhotoUpdate = (event: Event) => {
-      const detail = (event as CustomEvent<string>).detail
-      setPhotoOverride(detail || localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY))
+      const detail = (event as CustomEvent<string | null>).detail
+      const cached = localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY)
+      setPhotoOverride(detail || cached)
+      if (!detail && !cached) {
+        // The photo was removed, so the profile loaded at mount has to drop it too,
+        // otherwise its stale URL would keep the deleted picture on screen.
+        setProfile((current) => (current ? { ...current, profilePhoto: null } : current))
+      }
     }
     const handleStorageUpdate = () => {
       setPhotoOverride(localStorage.getItem(ADMIN_PROFILE_PHOTO_KEY))

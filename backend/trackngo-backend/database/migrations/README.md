@@ -88,8 +88,53 @@ earnings and promotion eligibility, which both filter on `status = 'completed'`.
 this migration only repairs rows that predate it. It is idempotent, safe to
 re-run, and never touches cancelled bookings.
 
+Before deploying the corporate advance-payment flow, run
+`V18__corporate_advance_payment.sql`. It adds the deposit amount, its payment
+status, the paid-at timestamp and the gateway transaction id to
+`corporate_contract`, so a finalized contract can record the one-month advance
+the corporate user pays before the service starts.
+
+Before deploying the admin-editable support contact feature, run
+`V19__support_contact_settings.sql`. It creates the single-row
+`support_contact_settings` table (name, role, phone) that the corporate
+contract negotiation screen now reads instead of a hardcoded contact, and
+seeds it with the values that were previously hardcoded so nothing changes
+until an admin edits it from Settings.
+
+Before deploying the corporate contract discount feature, run
+`V20__corporate_contract_discount.sql`. It adds `original_billing_amount`,
+`discount_amount` and `admin_note` to `corporate_contract` so an admin can
+apply a manual discount when approving a contract, mirroring the discount
+already supported for trip bookings. Existing rows are backfilled with
+`original_billing_amount = billing_amount` so nothing changes until a
+discount is applied.
+
+Before deploying the corporate profile validation fix, run
+`V21__corporate_profile_extra_fields.sql`. It adds `website` and
+`employee_count` to `corporate_user` — fields the mobile edit form already
+collected but silently discarded, since no column backed them.
+
+Before deploying mutual-consent contract cancellation, run
+`V22__corporate_contract_cancellation.sql`. It adds `cancel_status`,
+`cancel_requested_by`, `cancel_reason`, `cancel_requested_at`,
+`cancel_effective_date` and `cancel_response_reason` to `corporate_contract`
+so either party can request cancellation with a reason and the other must
+accept before it takes effect.
+
+Before deploying monthly per-bus corporate billing, run
+`V23__corporate_invoice_billing.sql`. It drops and recreates
+`corporate_invoices` (previously only a dump/seed artifact with no real
+migration history or writer) as the real table backing one invoice per
+assigned bus per billing period, paid via Stripe.
+
+Before deploying the corporate renewal reminder, run
+`V24__corporate_contract_renewal_reminder.sql`. It adds
+`renewal_reminder_sent_at` to `corporate_contract` so
+`CorporateRenewalReminderScheduler` sends the "expiring soon" notice to the
+admin and the corporate client once per contract instead of every day it runs.
+
 Before deploying email-based (non-authenticator) two-factor login, run
-`V18__email_otp_login.sql`. It adds `user_settings.email_otp_login_enabled`
+`V25__email_otp_login.sql`. It adds `user_settings.email_otp_login_enabled`
 and the `login_otp` table backing the one-time codes AuthServiceImpl emails
 at login time when an account has this enabled — currently surfaced as the
 "Two-Factor Authentication" toggle in the driver app's profile settings. Both
@@ -100,7 +145,7 @@ project's dev environments reject that syntax on `ADD COLUMN`. Skip that
 statement by hand if the column is already present.
 
 Before deploying the driver app's "Mark as Boarded" action, run
-`V19__seat_booking_boarded_status.sql`. It widens `seat_booking.status` to
+`V26__seat_booking_boarded_status.sql`. It widens `seat_booking.status` to
 include `'boarded'` — several services (`BookingCompletionService`,
 `DriverEarningsService`, `BookingRepository`) already query for that status,
 but nothing had ever added it to the enum, so

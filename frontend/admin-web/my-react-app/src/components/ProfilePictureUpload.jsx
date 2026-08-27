@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import imageCompression from 'browser-image-compression'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCamera, faUser } from '@fortawesome/free-solid-svg-icons'
+import { faCamera, faTrash, faUser } from '@fortawesome/free-solid-svg-icons'
 import adminProfileImage from '../assets/images/adminProfilePlaceholder.svg'
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -110,14 +110,19 @@ async function processImageForUpload(file) {
   })
 }
 
-export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuccess }) {
+export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuccess, onRemoveSuccess }) {
   const fileInputRef = useRef(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isRemoving, setIsRemoving] = useState(false)
   const [error, setError] = useState('')
   const [sizeInfo, setSizeInfo] = useState('')
   const [previewUrl, setPreviewUrl] = useState(() => localStorage.getItem(STORAGE_KEY) || currentImageUrl || adminProfileImage)
 
   const effectivePreview = useMemo(() => previewUrl || currentImageUrl || adminProfileImage, [previewUrl, currentImageUrl])
+  // Keyed to what is stored rather than to what renders, so a photo whose URL no longer
+  // loads can still be cleared instead of being stuck behind the placeholder.
+  const storedPhoto = localStorage.getItem(STORAGE_KEY) || currentImageUrl
+  const hasPhoto = Boolean(storedPhoto) && storedPhoto !== adminProfileImage
 
   useEffect(() => {
     setPreviewUrl(localStorage.getItem(STORAGE_KEY) || currentImageUrl || adminProfileImage)
@@ -182,6 +187,41 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
     }
   }
 
+  async function handleRemove() {
+    if (!window.confirm('Remove your profile picture? This cannot be undone.')) return
+
+    setError('')
+    setSizeInfo('')
+    setIsRemoving(true)
+
+    try {
+      const token = localStorage.getItem('jwtToken')
+      const response = await fetch('/api/profile/picture', {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload?.message || 'Failed to remove profile picture.')
+      }
+
+      // The header avatar reads the same cached URL, so it is cleared and told to refresh.
+      localStorage.removeItem(STORAGE_KEY)
+      window.dispatchEvent(new CustomEvent('admin-profile-photo-updated', { detail: null }))
+      setPreviewUrl(adminProfileImage)
+      setSizeInfo('Profile picture removed')
+
+      if (typeof onRemoveSuccess === 'function') {
+        onRemoveSuccess()
+      }
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'Failed to remove profile picture.')
+    } finally {
+      setIsRemoving(false)
+    }
+  }
+
   return (
     <div className="flex h-full flex-col rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]">
       <div className="flex items-start justify-between gap-4">
@@ -224,15 +264,29 @@ export default function ProfilePictureUpload({ currentImageUrl = '', onUploadSuc
             className="hidden"
           />
 
-          <button
-            type="button"
-            disabled={isUploading}
-            onClick={() => fileInputRef.current?.click()}
-            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <FontAwesomeIcon icon={faCamera} className="text-xs" />
-            {isUploading ? 'Processing...' : 'Upload New Photo'}
-          </button>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={isUploading || isRemoving}
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FontAwesomeIcon icon={faCamera} className="text-xs" />
+              {isUploading ? 'Processing...' : 'Upload New Photo'}
+            </button>
+
+            {hasPhoto ? (
+              <button
+                type="button"
+                disabled={isUploading || isRemoving}
+                onClick={handleRemove}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#fecaca] bg-white px-4 py-2 text-sm font-semibold text-[#dc2626] transition hover:-translate-y-0.5 hover:bg-[#fef2f2] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FontAwesomeIcon icon={faTrash} className="text-xs" />
+                {isRemoving ? 'Removing...' : 'Remove Photo'}
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 

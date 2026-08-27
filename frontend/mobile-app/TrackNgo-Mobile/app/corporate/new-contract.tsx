@@ -359,7 +359,12 @@ export default function NewContractScreen() {
   // ─── Fetch buses free for the contract's whole term when entering Step 2 ───
   const loadAvailableBuses = useCallback(() => {
     if (!startDateObj || !endDateObj) return;
-    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    const fmt = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
     setBusesLoading(true);
     setBusesError(null);
     getAvailableCorporateBuses(fmt(startDateObj), fmt(endDateObj))
@@ -528,7 +533,12 @@ export default function NewContractScreen() {
       if (!currentUser || !startDateObj || !endDateObj) return;
       setSubmittingContract(true);
       try {
-        const formatApiDate = (dt: Date) => dt.toISOString().split('T')[0];
+        const formatApiDate = (dt: Date) => {
+          const year = dt.getFullYear();
+          const month = String(dt.getMonth() + 1).padStart(2, "0");
+          const day = String(dt.getDate()).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        };
         const cleanLoc = (raw?: string | null) => (raw ? raw.split(",")[0].trim() : "");
         const mPick = cleanLoc(morningPickup?.name) || "Morning Pickup";
         const mDrop = cleanLoc(morningDropoff?.name) || "Morning Drop-off";

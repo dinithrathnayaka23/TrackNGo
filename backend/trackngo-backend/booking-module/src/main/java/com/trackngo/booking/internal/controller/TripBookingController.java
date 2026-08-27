@@ -26,8 +26,11 @@ public class TripBookingController {
     @GetMapping("/available-buses")
     public List<TripBusResponse> getAvailableBuses(
             @RequestParam(defaultValue = "1") int passengers,
-            @RequestParam(required = false) String requirement) {
-        return tripBookingService.getAvailableBuses(passengers, requirement);
+            @RequestParam(required = false) String requirement,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate returnDate,
+            @RequestParam(required = false) Long bookingId) {
+        return tripBookingService.getAvailableBuses(passengers, requirement, startDate, returnDate, bookingId);
     }
 
     @PostMapping("/book")
@@ -79,6 +82,29 @@ public class TripBookingController {
             throw new SecurityException("You cannot access another passenger's bookings.");
         }
         return tripBookingService.getBookingsForPassenger(passengerId);
+    }
+
+    @PostMapping("/book/{id}/cancellation-request")
+    public TripBooking requestCancellation(
+            @PathVariable Long id,
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            Authentication authentication
+    ) {
+        String requesterType = isAdmin(authentication) ? "admin" : "user";
+        String reason = body != null && body.containsKey("reason") ? body.get("reason") : "Cancellation requested";
+        return tripBookingService.requestCancellation(id, requesterType, reason);
+    }
+
+    @PostMapping("/book/{id}/cancellation-response")
+    public TripBooking respondToCancellation(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, Object> body,
+            Authentication authentication
+    ) {
+        String responderType = isAdmin(authentication) ? "admin" : "user";
+        boolean accept = body != null && Boolean.TRUE.equals(body.get("accept"));
+        String rejectReason = body != null && body.containsKey("rejectReason") ? (String) body.get("rejectReason") : null;
+        return tripBookingService.respondToCancellation(id, responderType, accept, rejectReason);
     }
 
     @GetMapping(value = "/verify/{id}", produces = "text/html")

@@ -65,6 +65,24 @@ public class TripBooking {
     @Column(name = "booking_status")
     private String bookingStatus;
 
+    @Column(name = "cancellation_status")
+    private String cancellationStatus = "none";
+
+    @Column(name = "cancellation_reason")
+    private String cancellationReason;
+
+    @Column(name = "cancellation_requested_by")
+    private String cancellationRequestedBy;
+
+    @Column(name = "cancellation_requested_at")
+    private LocalDateTime cancellationRequestedAt;
+
+    @Column(name = "cancellation_reject_reason")
+    private String cancellationRejectReason;
+
+    @Column(name = "refund_percentage")
+    private Integer refundPercentage;
+
     // 5. This stores exactly when the record was created
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

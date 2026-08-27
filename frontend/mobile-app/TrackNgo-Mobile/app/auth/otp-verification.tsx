@@ -16,6 +16,7 @@ import { extractApiMessage, httpPost, setAuthToken } from "../../services/http";
 import { resendRegistrationOtp, verifyRegistrationOtp } from "../../services/registrationOtpApi";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text } from "../../utils/i18n";
+import { requestLocationOnSignIn } from "../../utils/locationSharing";
 
 const OTP_LENGTH = 6;
 // Must match RegistrationOtpServiceImpl.RESEND_COOLDOWN_SECONDS on the backend.
@@ -167,6 +168,9 @@ export default function OtpVerificationScreen() {
             } else {
               router.replace("/tabs");
             }
+            // Verifying signs the new account straight in, so it is the same moment
+            // to ask about location as an ordinary log-in.
+            void requestLocationOnSignIn();
           },
         },
       ]);

@@ -17,6 +17,7 @@ import { getTrustedDeviceToken, saveTrustedDeviceToken } from "../../services/tr
 import { useSession } from "../../store/sessionStore";
 import type { UserType } from "../../types/chat";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
+import { requestLocationOnSignIn } from "../../utils/locationSharing";
 
 interface LoginApiData {
   token: string;
@@ -107,6 +108,9 @@ export default function LoginScreen() {
       } else {
         router.replace("/tabs");
       }
+      // Raised after the transition rather than before it, so the landing screen is
+      // already behind the device's dialog when the choice is made.
+      void requestLocationOnSignIn();
     } catch (error: unknown) {
       let message = "Login failed. Please check your credentials and try again.";
       if (error instanceof Error) {

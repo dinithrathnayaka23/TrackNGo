@@ -48,6 +48,12 @@ export const ADMIN_SUPPORT_USER_ID = Number(
   env.EXPO_PUBLIC_ADMIN_SUPPORT_USER_ID ?? '1'
 );
 
+/* Chat websocket wiring. These must match StompWebSocketConfig on the backend and
+   the passenger app's own constants, since all three apps share one broker. */
+export const SOCKJS_ENDPOINT = '/chat';
+export const STOMP_APP_PREFIX = '/app';
+export const STOMP_TOPIC_PREFIX = '/topic';
+
 export function apiUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${API_BASE_URL}${normalizedPath}`;

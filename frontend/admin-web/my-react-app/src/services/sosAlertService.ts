@@ -1,3 +1,5 @@
+import authService from './authService'
+
 export const SOS_API_BASE = 'http://127.0.0.1:8080'
 
 export type EmergencyContact = {
@@ -74,6 +76,48 @@ export async function fetchActiveEmergencyNumbers(): Promise<Partial<EmergencySe
     return null
   }
   return json.data
+}
+
+export type SosHistoryStatus = 'triggered' | 'resolved' | 'false_alarm'
+export type SosHistoryTriggeredBy = 'passenger' | 'driver'
+
+export type SosHistoryFilters = {
+  /** Inclusive YYYY-MM-DD bounds; an empty string leaves that end of the range open. */
+  from?: string
+  to?: string
+  status?: SosHistoryStatus | ''
+  triggeredBy?: SosHistoryTriggeredBy | ''
+}
+
+/**
+ * Loads past SOS alerts for the admin history report.
+ *
+ * Unlike the live-alert calls above, this endpoint names the people involved and their
+ * phone numbers, so it is admin-only and goes through the proxied path with the admin's
+ * bearer token rather than the open SOS base URL.
+ */
+export async function fetchSosAlertHistory(filters: SosHistoryFilters = {}): Promise<SosAlertData[]> {
+  const token = authService.getToken()
+  if (!token) {
+    throw new Error('Your admin session has expired. Please sign in again.')
+  }
+
+  const query = new URLSearchParams()
+  if (filters.from) query.set('from', filters.from)
+  if (filters.to) query.set('to', filters.to)
+  if (filters.status) query.set('status', filters.status)
+  if (filters.triggeredBy) query.set('triggeredBy', filters.triggeredBy)
+
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  const res = await fetch(`/api/admin/sos-alerts/history${suffix}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  const json = await readApiResponse<SosAlertData[]>(res)
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.message || `Could not load SOS history (HTTP ${res.status}).`)
+  }
+  return json.data ?? []
 }
 
 // Sends the selected resolve or dismiss action for the current SOS alert.

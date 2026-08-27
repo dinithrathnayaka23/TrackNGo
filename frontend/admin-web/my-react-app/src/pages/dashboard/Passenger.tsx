@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faArrowLeft, faCalendarDays, faChevronDown, faChevronLeft, faChevronRight, faMagnifyingGlass, faSpinner } from '@fortawesome/free-solid-svg-icons'
+import { faArrowLeft, faCalendarDays, faChevronDown, faChevronLeft, faChevronRight, faComments, faMagnifyingGlass, faSpinner } from '@fortawesome/free-solid-svg-icons'
 import { fetchAdminUsers, type AdminUser } from '../../services/userService'
+import { getAdminChatPath } from '../../utils/adminChatNavigation'
 
 type PassengerStatus = 'Active' | 'Suspended' | 'Inactive'
 type StatusFilter = PassengerStatus | 'All'
@@ -102,6 +103,10 @@ function PassengerManagement() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize)
   const activeCount = passengers.filter((passenger) => passenger.status === 'Active').length
+  const openPassengerChat = (passenger: Passenger) => {
+    const path = getAdminChatPath(passenger.id, 'Passenger')
+    if (path) navigate(path)
+  }
 
   return (
     <section className="mx-auto w-full max-w-7xl space-y-5">
@@ -134,7 +139,7 @@ function PassengerManagement() {
               {loading && <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-[#64748b]"><FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />Loading passengers...</td></tr>}
               {!loading && error && <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-red-600">{error}</td></tr>}
               {!loading && !error && visible.length === 0 && <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-[#64748b]">No passengers match your filters.</td></tr>}
-              {!loading && !error && visible.map((passenger) => <tr key={passenger.id} className="border-b border-[#e5e7eb] text-sm hover:bg-[#f8faff]"><td className="px-6 py-4"><p className="font-semibold text-[#111827]">{passenger.name}</p><p className="text-xs text-[#64748b]">ID: {passenger.userId}</p></td><td className="px-6 py-4"><p className="text-[#334155]">{passenger.email}</p><p className="text-[#64748b]">{passenger.phone}</p></td><td className="px-6 py-4 font-semibold text-[#334155]">{formatDate(passenger.registeredDate)}</td><td className="px-6 py-4"><p className="text-[#334155]">{formatLastTrip(passenger.lastTripDate)}</p><p className="text-[#64748b]">{passenger.lastRoute}</p></td><td className="px-6 py-4"><span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${statusClass(passenger.status)}`}>{passenger.status}</span></td><td className="px-6 py-4 font-semibold text-[#111827]">{passenger.bookingsCount}</td></tr>)}
+              {!loading && !error && visible.map((passenger) => <tr key={passenger.id} className="border-b border-[#e5e7eb] text-sm hover:bg-[#f8faff]"><td className="px-6 py-4"><p className="font-semibold text-[#111827]">{passenger.name}</p><div className="mt-1 flex flex-wrap items-center gap-2"><p className="text-xs text-[#64748b]">ID: {passenger.userId}</p><button type="button" onClick={() => openPassengerChat(passenger)} className="inline-flex items-center gap-1 rounded-md border border-[#d6dbe6] bg-white px-2 py-1 text-xs font-semibold text-[#2642a6] transition hover:bg-[#eef2ff]" aria-label={`Chat with ${passenger.name}`}><FontAwesomeIcon icon={faComments} className="text-[10px]" />Chat</button></div></td><td className="px-6 py-4"><p className="text-[#334155]">{passenger.email}</p><p className="text-[#64748b]">{passenger.phone}</p></td><td className="px-6 py-4 font-semibold text-[#334155]">{formatDate(passenger.registeredDate)}</td><td className="px-6 py-4"><p className="text-[#334155]">{formatLastTrip(passenger.lastTripDate)}</p><p className="text-[#64748b]">{passenger.lastRoute}</p></td><td className="px-6 py-4"><span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${statusClass(passenger.status)}`}>{passenger.status}</span></td><td className="px-6 py-4 font-semibold text-[#111827]">{passenger.bookingsCount}</td></tr>)}
             </tbody>
           </table>
         </div>

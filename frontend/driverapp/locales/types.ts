@@ -217,6 +217,35 @@ export interface Translations {
     grantPermission: string;
     scanAgain: string;
   };
+  sos: {
+    title: string;
+    settingsSection: string;
+    settingsRow: string;
+    subtitle: string;
+    emergencyButton: string;
+    sending: string;
+    sentTitle: string;
+    sentMessage: string;
+    confirmTitle: string;
+    confirmMessage: string;
+    confirmSend: string;
+    quickCall: string;
+    ambulance: string;
+    police: string;
+    helpCenter: string;
+    fireBrigade: string;
+    notifyContacts: string;
+    notifyContactsHint: string;
+    currentBus: string;
+    loginRequiredTitle: string;
+    loginRequiredMessage: string;
+    locationRequiredTitle: string;
+    locationRequiredMessage: string;
+    failedTitle: string;
+    failedMessage: string;
+    callFailedTitle: string;
+    callFailedMessage: string;
+  };
 }
 
 /**
@@ -430,6 +459,33 @@ export const TRANSLATION_KEYS = [
   "allocations.cameraPermissionMessage",
   "allocations.grantPermission",
   "allocations.scanAgain",
+  "sos.title",
+  "sos.settingsSection",
+  "sos.settingsRow",
+  "sos.subtitle",
+  "sos.emergencyButton",
+  "sos.sending",
+  "sos.sentTitle",
+  "sos.sentMessage",
+  "sos.confirmTitle",
+  "sos.confirmMessage",
+  "sos.confirmSend",
+  "sos.quickCall",
+  "sos.ambulance",
+  "sos.police",
+  "sos.helpCenter",
+  "sos.fireBrigade",
+  "sos.notifyContacts",
+  "sos.notifyContactsHint",
+  "sos.currentBus",
+  "sos.loginRequiredTitle",
+  "sos.loginRequiredMessage",
+  "sos.locationRequiredTitle",
+  "sos.locationRequiredMessage",
+  "sos.failedTitle",
+  "sos.failedMessage",
+  "sos.callFailedTitle",
+  "sos.callFailedMessage",
 ] as const;
 
 export type TranslationKey = (typeof TRANSLATION_KEYS)[number];

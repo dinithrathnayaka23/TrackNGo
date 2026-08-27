@@ -15,6 +15,7 @@ import {
   fetchPresenceSnapshot,
   fetchSupportConversations,
   markConversationRead,
+  openSupportConversation,
   sendConversationMessage,
   type ChatMessage,
   type ConversationDto,
@@ -35,6 +36,7 @@ vi.mock('../../../services/chatAdminService', async () => ({
   fetchPresenceSnapshot: vi.fn(),
   fetchSupportConversations: vi.fn(),
   markConversationRead: vi.fn(),
+  openSupportConversation: vi.fn(),
   sendConversationMessage: vi.fn(),
   uploadChatMedia: vi.fn(),
   deleteConversationMessage: vi.fn(),
@@ -45,6 +47,7 @@ const mockedFetchPresenceSnapshot = vi.mocked(fetchPresenceSnapshot)
 const mockedFetchChatUserProfile = vi.mocked(fetchChatUserProfile)
 const mockedFetchConversationMessages = vi.mocked(fetchConversationMessages)
 const mockedMarkConversationRead = vi.mocked(markConversationRead)
+const mockedOpenSupportConversation = vi.mocked(openSupportConversation)
 const mockedSendConversationMessage = vi.mocked(sendConversationMessage)
 
 class MockWebSocket {
@@ -95,6 +98,17 @@ describe('Chat page', () => {
       return buildProfiles()[userId]
     })
     mockedFetchConversationMessages.mockImplementation(async (conversationId: number) => {
+      if (conversationId === 204) {
+        return {
+          content: [],
+          page: 0,
+          size: 80,
+          totalElements: 0,
+          totalPages: 1,
+          last: true,
+        }
+      }
+
       if (conversationId === 202) {
         return {
           content: [
@@ -134,6 +148,16 @@ describe('Chat page', () => {
       }
     })
     mockedMarkConversationRead.mockResolvedValue([] as MessageStatusUpdate[])
+    mockedOpenSupportConversation.mockResolvedValue(
+      buildConversation({
+        conversationId: 204,
+        participant2Id: 44,
+        participant2Type: 'CORPORATE_USER',
+        lastMessage: null,
+        lastMessageType: null,
+        lastMessageTimestamp: null,
+      }),
+    )
     mockedSendConversationMessage.mockImplementation(async (_conversationId, message) => {
       return {
         ...message,
@@ -145,6 +169,7 @@ describe('Chat page', () => {
 
   /** Restores global browser stubs after each admin chat page test. */
   afterEach(() => {
+    window.history.pushState({}, '', '/')
     vi.unstubAllGlobals()
   })
 
@@ -190,6 +215,25 @@ describe('Chat page', () => {
     await waitFor(() => expect(mockedFetchConversationMessages).toHaveBeenCalledWith(202))
     await waitFor(() => expect(mockedMarkConversationRead).toHaveBeenCalledWith(202))
     expect(screen.getByText('Please confirm the pickup point.')).toBeInTheDocument()
+  })
+
+  it('opens a targeted support conversation from user management query params', async () => {
+    window.history.pushState({}, '', '/dashboard/chat?userId=44&userType=CORPORATE_USER')
+    mockedFetchSupportConversations.mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 60,
+      totalElements: 0,
+      totalPages: 1,
+      last: true,
+    })
+
+    render(<Chat />)
+
+    await waitFor(() => expect(mockedOpenSupportConversation).toHaveBeenCalledWith(44, 'CORPORATE_USER'))
+    await waitFor(() => expect(mockedFetchConversationMessages).toHaveBeenCalledWith(204))
+    expect(screen.getAllByText('Mega Logistics - Corporate User').length).toBeGreaterThan(0)
+    expect(screen.getByText('No messages yet.')).toBeInTheDocument()
   })
 
   /** Verifies that typing and sending a message posts the admin payload and clears the composer. */
@@ -348,6 +392,16 @@ describe('Chat page', () => {
         email: 'ayesha.passenger@example.com',
         profilePhoto: null,
         userType: 'PASSENGER',
+      },
+      44: {
+        userId: 44,
+        fullName: null,
+        phoneNumber: '0112345678',
+        email: 'ops@mega.example.com',
+        profilePhoto: null,
+        companyName: 'Mega Logistics',
+        contactPersonName: null,
+        userType: 'CORPORATE_USER',
       },
     }
   }

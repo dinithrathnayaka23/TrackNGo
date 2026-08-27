@@ -27,6 +27,7 @@ import {
   fetchSupportConversations,
   getSupportUnread,
   markConversationRead,
+  openSupportConversation,
   sendConversationMessage,
   uploadChatMedia,
 } from '../../services/chatAdminService'
@@ -141,7 +142,7 @@ export function getOtherParticipant(conversation: ConversationDto) {
 
 // Chooses the best human-readable participant name from profile data.
 function getParticipantName(userId: number, profile?: UserProfile) {
-  return profile?.contactPersonName?.trim() || profile?.fullName?.trim() || `User ${userId}`
+  return profile?.contactPersonName?.trim() || profile?.companyName?.trim() || profile?.fullName?.trim() || `User ${userId}`
 }
 
 // Builds the participant title shown in the chat list and active-chat header.
@@ -229,6 +230,15 @@ function hasMessages(conversation: ConversationDto) {
     conversation.lastMessageType ||
     conversation.lastMessage?.trim(),
   )
+}
+
+function getRequestedChatTarget(): { userId: number; userType: UserType } | null {
+  const params = new URLSearchParams(window.location.search)
+  const userId = Number(params.get('userId'))
+  const userType = normalizeUserType((params.get('userType') ?? '') as UserType)
+  if (!Number.isInteger(userId) || userId <= 0) return null
+  if (!['PASSENGER', 'DRIVER', 'CORPORATE_USER'].includes(userType)) return null
+  return { userId, userType }
 }
 
 // Converts timestamps into sortable numeric values when conversation previews update.
@@ -378,6 +388,7 @@ function Chat() {
   const localTypingActiveRef = useRef(false)
   const localTypingConversationIdRef = useRef<number | null>(null)
   const localTypingTimeoutRef = useRef<number | null>(null)
+  const requestedChatTargetRef = useRef(getRequestedChatTarget())
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId
@@ -451,15 +462,31 @@ function Chat() {
   const loadConversations = useCallback(async () => {
     setLoadingConversations(true)
     try {
+      const requestedTarget = requestedChatTargetRef.current
+      let requestedConversation: ConversationDto | null = null
+      if (requestedTarget) {
+        requestedConversation = await openSupportConversation(requestedTarget.userId, requestedTarget.userType)
+        requestedChatTargetRef.current = null
+      }
+
       const response = await fetchSupportConversations({
         page: 0,
         size: 60,
       })
-      const visibleConversations = response.content.filter(hasMessages)
+      const inboxConversations = response.content.filter(
+        (conversation) => hasMessages(conversation) || conversation.conversationId === requestedConversation?.conversationId,
+      )
+      const visibleConversations =
+        requestedConversation && !inboxConversations.some((item) => item.conversationId === requestedConversation.conversationId)
+          ? [requestedConversation, ...inboxConversations]
+          : inboxConversations
       setConversations(visibleConversations)
       setError(null)
       await loadProfiles(visibleConversations)
       setActiveConversationId((current) => {
+        if (requestedConversation) {
+          return requestedConversation.conversationId
+        }
         if (current && visibleConversations.some((item) => item.conversationId === current)) {
           return current
         }
@@ -732,6 +759,7 @@ function Chat() {
     const socket = new WebSocket(getWsUrl())
     socketRef.current = socket
     let closing = false
+    let closeTimer: number | null = null
     setSocketReady(false)
 
     const sendPresence = (online: boolean) => {
@@ -752,7 +780,7 @@ function Chat() {
         })
       }
       subscribedConversationIdsRef.current.clear()
-      window.setTimeout(() => {
+      closeTimer = window.setTimeout(() => {
         if (socket.readyState !== WebSocket.CLOSING && socket.readyState !== WebSocket.CLOSED) {
           socket.close()
         }
@@ -851,6 +879,12 @@ function Chat() {
     return () => {
       window.removeEventListener(ADMIN_FORCE_OFFLINE_EVENT, goOffline)
       goOffline()
+      if (closeTimer !== null) {
+        window.clearTimeout(closeTimer)
+      }
+      if (socket.readyState !== WebSocket.CLOSING && socket.readyState !== WebSocket.CLOSED) {
+        socket.close()
+      }
     }
   }, [])
 

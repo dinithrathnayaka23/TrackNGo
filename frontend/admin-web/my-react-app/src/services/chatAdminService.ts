@@ -171,6 +171,19 @@ export async function fetchSupportConversations(params: {
   )
 }
 
+export async function openSupportConversation(userId: number, userType: UserType) {
+  return fetchChatJson<ConversationDto>(
+    '/api/conversations',
+    { method: 'POST' },
+    {
+      user1Id: SUPPORT_ADMIN_ID,
+      user1Type: 'ADMIN',
+      user2Id: userId,
+      user2Type: userType,
+    },
+  )
+}
+
 // Loads the latest message page for the selected support conversation.
 export async function fetchConversationMessages(conversationId: number) {
   return fetchChatJson<PagedResponse<ChatMessage>>(

@@ -7,6 +7,7 @@ import {
   fetchPresenceSnapshot,
   fetchSupportConversations,
   markConversationRead,
+  openSupportConversation,
   sendConversationMessage,
   uploadChatMedia,
 } from '../../services/chatAdminService'
@@ -39,6 +40,24 @@ describe('chatAdminService', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/admin/support/conversations?supportAdminId=1&page=2&size=20&q=driver',
       {
+        headers: {
+          Accept: 'application/json',
+        },
+      },
+    )
+  })
+
+  it('opens or creates a support conversation for a selected user', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      buildJsonResponse(true, { conversationId: 88 }),
+    )
+
+    await openSupportConversation(44, 'CORPORATE_USER')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/conversations?user1Id=1&user1Type=ADMIN&user2Id=44&user2Type=CORPORATE_USER',
+      {
+        method: 'POST',
         headers: {
           Accept: 'application/json',
         },

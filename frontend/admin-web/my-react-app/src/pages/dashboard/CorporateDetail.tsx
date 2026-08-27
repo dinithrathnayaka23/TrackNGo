@@ -8,6 +8,7 @@ import {
   faCalendarDays,
   faCircleCheck,
   faClipboardList,
+  faComments,
   faClock,
   faDollarSign,
   faEnvelope,
@@ -19,6 +20,7 @@ import {
   faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons'
 import { fetchAdminUsers, updateAdminUserStatus, type AdminUser, type AdminUserStatus } from '../../services/userService'
+import { getAdminChatPath } from '../../utils/adminChatNavigation'
 import {
   fetchCorporateContracts,
   fetchCorporateInvoices,
@@ -166,9 +168,10 @@ function CorporateDetail() {
   const contactEmail = cleanText(profile.email || account.email)
   const accountStatus = label(account.status)
   const tabs: Array<{ key: Tab; label: string }> = [{ key: 'overview', label: 'Overview' }, { key: 'contracts', label: 'Contracts' }, { key: 'billing', label: 'Billing' }]
+  const chatPath = getAdminChatPath(account.id, 'Corporate')
 
   return <section className="mx-auto w-full max-w-[1280px] space-y-5">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div className="flex min-w-0 items-start gap-3"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#e0e7ff] text-sm font-bold text-[#2642a6]">{initials(company)}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-3"><h1 className="truncate text-xl font-extrabold tracking-tight text-[#111827]">{company}</h1><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(account.status)}`}>{accountStatus}</span></div><p className="mt-1 text-sm text-[#64748b]">Corporate ID: #CORP-{account.id} <span className="mx-1">•</span> Created: {formatDate(account.joinedAt)}</p></div></div><div className="flex flex-wrap items-center justify-end gap-2"><button type="button" onClick={() => navigate('/dashboard/corporate')} className="inline-flex items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] hover:bg-[#f1f5f9]"><FontAwesomeIcon icon={faArrowLeft} className="text-xs" />Back</button><button type="button" disabled={statusUpdating} onClick={() => void toggleStatus()} className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold disabled:cursor-wait disabled:opacity-60 ${String(account.status).toLowerCase() === 'suspended' ? 'border-[#bbf7d0] bg-white text-[#047857] hover:bg-[#f0fdf4]' : 'border-[#fecaca] bg-white text-[#dc2626] hover:bg-[#fef2f2]'}`}><FontAwesomeIcon icon={String(account.status).toLowerCase() === 'suspended' ? faCircleCheck : faBan} className="text-xs" />{statusUpdating ? 'Updating...' : String(account.status).toLowerCase() === 'suspended' ? 'Reactivate Account' : 'Suspend Account'}</button></div></header>
+    <header className="flex flex-wrap items-start justify-between gap-4"><div className="flex min-w-0 items-start gap-3"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#e0e7ff] text-sm font-bold text-[#2642a6]">{initials(company)}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-3"><h1 className="truncate text-xl font-extrabold tracking-tight text-[#111827]">{company}</h1><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(account.status)}`}>{accountStatus}</span></div><p className="mt-1 text-sm text-[#64748b]">Corporate ID: #CORP-{account.id} <span className="mx-1">•</span> Created: {formatDate(account.joinedAt)}</p></div></div><div className="flex flex-wrap items-center justify-end gap-2"><button type="button" onClick={() => navigate('/dashboard/corporate')} className="inline-flex items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#334155] hover:bg-[#f1f5f9]"><FontAwesomeIcon icon={faArrowLeft} className="text-xs" />Back</button>{chatPath ? <button type="button" onClick={() => navigate(chatPath)} className="inline-flex items-center gap-2 rounded-lg border border-[#d6dbe6] bg-white px-4 py-2 text-sm font-semibold text-[#2642a6] hover:bg-[#eef2ff]" aria-label={`Chat with ${company}`}><FontAwesomeIcon icon={faComments} className="text-xs" />Chat</button> : null}<button type="button" disabled={statusUpdating} onClick={() => void toggleStatus()} className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold disabled:cursor-wait disabled:opacity-60 ${String(account.status).toLowerCase() === 'suspended' ? 'border-[#bbf7d0] bg-white text-[#047857] hover:bg-[#f0fdf4]' : 'border-[#fecaca] bg-white text-[#dc2626] hover:bg-[#fef2f2]'}`}><FontAwesomeIcon icon={String(account.status).toLowerCase() === 'suspended' ? faCircleCheck : faBan} className="text-xs" />{statusUpdating ? 'Updating...' : String(account.status).toLowerCase() === 'suspended' ? 'Reactivate Account' : 'Suspend Account'}</button></div></header>
     {statusError ? <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert"><FontAwesomeIcon icon={faTriangleExclamation} className="mr-2" />{statusError}</p> : null}
     <div className="border-b border-[#e5e7eb]"><nav className="-mb-px flex gap-6 overflow-x-auto">{tabs.map((tab) => <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`whitespace-nowrap border-b-2 pb-3 text-sm font-semibold transition ${activeTab === tab.key ? 'border-[#2642a6] text-[#2642a6]' : 'border-transparent text-[#64748b] hover:text-[#334155]'}`}>{tab.label}</button>)}</nav></div>
 

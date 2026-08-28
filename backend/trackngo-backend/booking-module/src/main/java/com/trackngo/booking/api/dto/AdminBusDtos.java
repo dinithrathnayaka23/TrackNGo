@@ -90,4 +90,26 @@ public final class AdminBusDtos {
     /* ── Simple dropdown items ────────────────────────────── */
     public record DriverOption(Long driverId, String name) {}
     public record RouteOption(Long routeId, String routeName, Integer durationMins) {}
+
+    /* ── One day of takings for a bus ─────────────────────── */
+    public record BusRevenuePoint(
+            String date,
+            BigDecimal revenue,
+            int seatsSold
+    ) {}
+
+    /* ── Revenue over a window, with its totals ───────────── */
+    public record BusRevenueSummary(
+            List<BusRevenuePoint> points,
+            BigDecimal totalRevenue,
+            BigDecimal averagePerDay,
+            int totalSeatsSold
+    ) {}
+
+    /* ── Seats already sold on one scheduled departure ────── */
+    public record BusDepartureBookings(
+            String journeyDate,
+            String journeyTime,
+            int bookedSeats
+    ) {}
 }

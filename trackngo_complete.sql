@@ -422,6 +422,23 @@ CREATE TABLE trip_booking (
     INDEX idx_created (created_at DESC)
 );
 
+-- One row per calendar day a private trip booking holds its assigned bus.
+-- The unique (bus_id, reserved_date) key is the database-level concurrency
+-- guard preventing two trip bookings from double-booking the same bus/day.
+CREATE TABLE trip_bus_reservation (
+    reservation_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    trip_booking_id BIGINT NOT NULL,
+    bus_id BIGINT NOT NULL,
+    reserved_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (trip_booking_id) REFERENCES trip_booking(trip_booking_id) ON DELETE CASCADE,
+    FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,
+    UNIQUE KEY uq_trip_bus_reserved_date (bus_id, reserved_date),
+    INDEX idx_trip_bus_reservation_booking (trip_booking_id),
+    INDEX idx_trip_bus_reservation_date (bus_id, reserved_date)
+);
+
 CREATE TABLE chat_message (
     message_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     conversation_id BIGINT NOT NULL,
@@ -708,6 +725,21 @@ CREATE TABLE corporate_pricing_settings (
 
     CONSTRAINT chk_corporate_pricing_settings_single_row CHECK (id = 1)
 );
+
+-- Admin-editable "who to contact" details shown to clients while a booking
+-- or contract is awaiting review. Single-row settings table (id is always 1).
+CREATE TABLE support_contact_settings (
+    id TINYINT PRIMARY KEY DEFAULT 1,
+    name VARCHAR(120) NOT NULL,
+    role VARCHAR(120) NOT NULL,
+    phone VARCHAR(30) NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_support_contact_settings_single_row CHECK (id = 1)
+);
+
+INSERT INTO support_contact_settings (id, name, role, phone)
+VALUES (1, 'Dinith Rathnayaka', 'Main Admin', '+94701803826');
 
 
 -- =============================================

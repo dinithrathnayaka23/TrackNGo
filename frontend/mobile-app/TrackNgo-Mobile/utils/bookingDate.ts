@@ -8,8 +8,19 @@
  */
 export const MIN_BOOKING_LEAD_DAYS = 1;
 
+/**
+ * Without a ceiling a journey date could be set arbitrarily far out, long
+ * past any schedule the operator can actually commit to. Keep this in step
+ * with MAX_BOOKING_LEAD_DAYS on the backend's BookingFlowService, which
+ * enforces the same rule for callers that bypass the app.
+ */
+export const MAX_BOOKING_LEAD_DAYS = 90;
+
 export const BOOKING_LEAD_TIME_MESSAGE =
   'Bookings must be made at least one day in advance. Please choose tomorrow or a later date.';
+
+export const BOOKING_MAX_LEAD_TIME_MESSAGE =
+  `Bookings can only be made up to ${MAX_BOOKING_LEAD_DAYS} days in advance.`;
 
 export function startOfToday(): Date {
   const now = new Date();
@@ -20,6 +31,12 @@ export function startOfToday(): Date {
 export function earliestBookableDate(): Date {
   const today = startOfToday();
   return new Date(today.getFullYear(), today.getMonth(), today.getDate() + MIN_BOOKING_LEAD_DAYS);
+}
+
+/** The last journey date a passenger is allowed to book. */
+export function latestBookableDate(): Date {
+  const today = startOfToday();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate() + MAX_BOOKING_LEAD_DAYS);
 }
 
 export function formatLocalDate(date: Date): string {
@@ -55,13 +72,21 @@ export function isBeforeEarliestBookableDate(date: Date): boolean {
   return selected.getTime() < earliestBookableDate().getTime();
 }
 
+/** True once a date is further out than the booking window allows. */
+export function isAfterLatestBookableDate(date: Date): boolean {
+  const selected = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return selected.getTime() > latestBookableDate().getTime();
+}
+
 export function isUnbookableBookingDate(dateText?: string | null): boolean {
   const parsed = parseBookingDate(dateText);
-  return !parsed || isBeforeEarliestBookableDate(parsed);
+  return !parsed || isBeforeEarliestBookableDate(parsed) || isAfterLatestBookableDate(parsed);
 }
 
 export function normalizeBookableDate(date: Date): Date {
-  return isBeforeEarliestBookableDate(date) ? earliestBookableDate() : date;
+  if (isBeforeEarliestBookableDate(date)) return earliestBookableDate();
+  if (isAfterLatestBookableDate(date)) return latestBookableDate();
+  return date;
 }
 
 export function earliestBookableDateString(): string {

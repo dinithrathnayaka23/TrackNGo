@@ -10,6 +10,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import AuthLayout from '../../components/layout/AuthLayout'
 import authService from '../../services/authService'
+import { isValidEmail } from '../../utils/validators'
 
 type LoginForm = {
   email: string
@@ -17,10 +18,6 @@ type LoginForm = {
 }
 
 type LoginErrors = Partial<Record<keyof LoginForm, string>>
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
 
 function validateLogin(form: LoginForm): LoginErrors {
   const errors: LoginErrors = {}

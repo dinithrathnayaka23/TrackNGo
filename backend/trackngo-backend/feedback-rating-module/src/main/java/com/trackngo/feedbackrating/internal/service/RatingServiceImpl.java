@@ -132,6 +132,7 @@ public class RatingServiceImpl implements RatingService {
             requireRatingValue(dto.getBusRating(), "Bus rating");
         }
         requireRatingValue(dto.getJourneyRating(), "Journey rating");
+        requireValidCommentLength(dto.getComment());
 
         Rating entity = repository
             .findByBookingReferenceAndPassengerId(ctx.bookingReference(), passengerId)
@@ -339,6 +340,15 @@ public class RatingServiceImpl implements RatingService {
     private void requireRatingValue(Integer value, String label) {
         if (value == null || value < 1 || value > 5) {
             throw new BusinessException(label + " must be between 1 and 5");
+        }
+    }
+
+    /** Mirrors MAX_COMMENT_LENGTH on the passenger app's rate-trip screen. */
+    private static final int MAX_COMMENT_LENGTH = 500;
+
+    private void requireValidCommentLength(String comment) {
+        if (comment != null && comment.length() > MAX_COMMENT_LENGTH) {
+            throw new BusinessException("Comment must be " + MAX_COMMENT_LENGTH + " characters or fewer");
         }
     }
 

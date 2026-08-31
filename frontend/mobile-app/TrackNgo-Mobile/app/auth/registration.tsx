@@ -71,9 +71,10 @@ export default function RegistrationScreen() {
       if (!contactPhone.trim()) next.contactPhone = "Phone number is required";
       else if (!isValidSriLankanPhone(contactPhone)) next.contactPhone = "Enter a valid Sri Lankan phone number";
     } else {
-      if (!firstName.trim()) next.firstName = "First name is required";
-      if (!lastName.trim()) next.lastName = "Last name is required";
+      if (!isRealProfileText(firstName, 2)) next.firstName = "Enter your real first name";
+      if (!isRealProfileText(lastName, 2)) next.lastName = "Enter your real last name";
       if (!phone.trim()) next.phone = "Phone number is required";
+      else if (!isValidSriLankanPhone(phone)) next.phone = "Enter a valid Sri Lankan phone number";
     }
 
     if (!email.trim()) next.email = "Email is required";

@@ -9,6 +9,7 @@ import {
   Dimensions, // To get screen dimensions for responsive design
   Platform, // To adjust keyboard behavior based on platform
   KeyboardAvoidingView, // To avoid keyboard overlap
+  Alert,
 } from 'react-native'; // To build UI
 import { Ionicons,MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router'; // Navigate between screens in the app
@@ -19,17 +20,33 @@ import { requestLocationOnSignIn } from '@/utils/locationSharing';
 
 const { width, height } = Dimensions.get('window'); // Get screen dimensions
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function DriverLoginScreen() {   //default finction because we are using expo router
   const router = useRouter();  //expo router, file based nav
   const { setUser } = useUser(); // Get the setUser function from the user context(store user data and token)
   const [email, setEmail] = useState<string>('');  //must be a string
   const [password, setPassword] = useState<string>('');
-  const [showPassword, setShowPassword] = useState(false); 
-  const [rememberMe, setRememberMe] = useState(false); 
-  const [isLoading, setIsLoading] = useState(false);  
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
+  const clearError = (field: 'email' | 'password') => {
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+  };
 
-  const handleLogin = async () => { 
+  const validate = (): boolean => {
+    const next: { email?: string; password?: string } = {};
+    if (!email.trim()) next.email = 'Email is required';
+    else if (!EMAIL_PATTERN.test(email.trim())) next.email = 'Enter a valid email address';
+    if (!password) next.password = 'Password is required';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const handleLogin = async () => {
+  if (!validate()) return;
   setIsLoading(true); //when login process starts
 
   try {
@@ -72,12 +89,12 @@ export default function DriverLoginScreen() {   //default finction because we ar
       void requestLocationOnSignIn();
     }
     else {
-      alert("Not a driver account");
+      Alert.alert("Login Failed", "Not a driver account");
     }
 
-  } catch (error: any) {  
+  } catch (error: any) {
     console.log("LOGIN ERROR:", error.message);
-    alert(error.message || "Login failed");
+    Alert.alert("Login Failed", error.message || "Login failed");
   } finally {
     setIsLoading(false); // Reset loading state 
   }
@@ -110,7 +127,7 @@ export default function DriverLoginScreen() {   //default finction because we ar
         {/* Email/Phone Input */}
         <View style={styles.formContainer}>
           <Text style={styles.label}>Email</Text>
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, errors.email && styles.inputContainerError]}>
             <MaterialCommunityIcons
               name="email-outline"
               size={21}
@@ -121,16 +138,19 @@ export default function DriverLoginScreen() {   //default finction because we ar
               style={styles.input}
               placeholder="Enter your email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => { setEmail(text); clearError('email'); }}
               placeholderTextColor="#999"
               keyboardType="email-address" // Show email keyboard
+              autoCapitalize="none"
+              autoCorrect={false}
               editable={!isLoading}  // Disable input when loading
             />
           </View>
+          {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
           {/* Password Input */}
           <Text style={styles.label}>Password</Text>
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, errors.password && styles.inputContainerError]}>
             <MaterialCommunityIcons
               name="lock-outline"
               size={21}
@@ -141,23 +161,24 @@ export default function DriverLoginScreen() {   //default finction because we ar
               style={styles.input}
               placeholder="Enter password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => { setPassword(text); clearError('password'); }}
               placeholderTextColor="#999"
               secureTextEntry={!showPassword} // Hide password when showPassword is false
-              editable={!isLoading} 
+              editable={!isLoading}
             />
             <TouchableOpacity
               style={styles.eyeIcon}
               onPress={() => setShowPassword(!showPassword)} // Toggle password visibility
               disabled={isLoading}
             >
-              <MaterialCommunityIcons 
-                name={showPassword ? 'eye-off' : 'eye'} 
+              <MaterialCommunityIcons
+                name={showPassword ? 'eye-off' : 'eye'}
                 size={24}
                 color="#333"
               />
             </TouchableOpacity>
           </View>
+          {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
 
           {/* Remember Me & Forgot Password */}
           <View style={styles.bottomOptionsContainer}>
@@ -262,6 +283,16 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 10,
     overflow: 'hidden',
+  },
+  inputContainerError: {
+    borderColor: '#EF4444',
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginTop: -14,
+    marginBottom: 14,
   },
   inputIcon: {
     marginRight: 2,

@@ -18,6 +18,7 @@ import { useSession } from "../../store/sessionStore";
 import type { UserType } from "../../types/chat";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 import { requestLocationOnSignIn } from "../../utils/locationSharing";
+import { isValidProfileEmail, isValidSriLankanPhone } from "../../services/corporateApi";
 
 interface LoginApiData {
   token: string;
@@ -58,8 +59,15 @@ export default function LoginScreen() {
 
   function validate(): boolean {
     const next: { identifier?: string; password?: string } = {};
-    if (!identifier.trim()) {
+    const trimmedIdentifier = identifier.trim();
+    if (!trimmedIdentifier) {
       next.identifier = "Email or phone number is required";
+    } else if (trimmedIdentifier.includes("@")) {
+      if (!isValidProfileEmail(trimmedIdentifier)) {
+        next.identifier = "Enter a valid email address";
+      }
+    } else if (!isValidSriLankanPhone(trimmedIdentifier)) {
+      next.identifier = "Enter a valid email or phone number";
     }
     if (!password) {
       next.password = "Password is required";

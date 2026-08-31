@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,8 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
-import * as Print from "expo-print";
-import { downloadTicketPdf, shareTicketPdf } from "../../utils/ticketPdf";
+import { downloadTicketPdf, generateTicketPdf, shareTicketPdf } from "../../utils/ticketPdf";
 import {
   getPastBookings,
   getUpcomingBookings,
@@ -30,6 +31,9 @@ import { getUserProfile } from "../../services/userProfileApi";
 import { formatBusTypeLabel } from "../../utils/busLabels";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text } from "../../utils/i18n";
+
+// Mirrors MAX_CANCEL_REASON_LENGTH in the backend's BookingFlowService/TripBookingService.
+const MAX_CANCEL_REASON_LENGTH = 300;
 
 type TicketQueryParams = {
   bookingRef?: string;
@@ -327,9 +331,7 @@ export default function ViewTicketScreen() {
       try {
         const profile = await getUserProfile(currentUser.userId);
         if (!active) return;
-        const resolvedName =
-          profile.fullName?.trim() ||
-          `${profile.firstName?.trim() ?? ""} ${profile.lastName?.trim() ?? ""}`.trim();
+        const resolvedName = profile.fullName?.trim();
         if (resolvedName) {
           setPassengerName(resolvedName);
         }
@@ -373,7 +375,7 @@ export default function ViewTicketScreen() {
   const handleDownload = useCallback(async () => {
     try {
       const qrDataUrl = await captureQrDataUrl();
-      const uri = await downloadTicketPdf({
+      const uri = await generateTicketPdf({
         bookingRef: ticket.bookingRef,
         from: ticket.from,
         to: ticket.to,
@@ -387,7 +389,7 @@ export default function ViewTicketScreen() {
         busType: ticket.busType,
         qrDataUrl,
       });
-      await Print.printAsync({ uri });
+      await downloadTicketPdf(uri, `TrackNGo-Ticket-${ticket.bookingRef}.pdf`);
     } catch (error) {
       console.error("[ViewTicket] Download ticket failed", error);
       Alert.alert("Error", "Could not generate or open the PDF.");
@@ -397,7 +399,7 @@ export default function ViewTicketScreen() {
   const handleShare = useCallback(async () => {
     try {
       const qrDataUrl = await captureQrDataUrl();
-      await shareTicketPdf({
+      const uri = await generateTicketPdf({
         bookingRef: ticket.bookingRef,
         from: ticket.from,
         to: ticket.to,
@@ -411,6 +413,7 @@ export default function ViewTicketScreen() {
         busType: ticket.busType,
         qrDataUrl,
       });
+      await shareTicketPdf(uri, "Share your TrackNGo bus ticket");
     } catch (error) {
       console.error("[ViewTicket] Share ticket failed", error);
       Alert.alert("Error", "Could not share the ticket PDF.");
@@ -701,7 +704,10 @@ export default function ViewTicketScreen() {
           if (!submittingCancel) setCancelModalVisible(false);
         }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderIcon}>
@@ -746,12 +752,14 @@ export default function ViewTicketScreen() {
               placeholder="Please explain why you need to cancel this booking..."
               placeholderTextColor="#94A3B8"
               value={cancelReason}
-              onChangeText={setCancelReason}
+              onChangeText={(text) => setCancelReason(text.slice(0, MAX_CANCEL_REASON_LENGTH))}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
               editable={!submittingCancel}
+              maxLength={MAX_CANCEL_REASON_LENGTH}
             />
+            <Text style={styles.charCount}>{cancelReason.length}/{MAX_CANCEL_REASON_LENGTH}</Text>
 
             {/* Modal Actions */}
             <View style={styles.modalActions}>
@@ -799,7 +807,7 @@ export default function ViewTicketScreen() {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Decline Admin Cancellation Modal */}
@@ -811,7 +819,10 @@ export default function ViewTicketScreen() {
           if (!submittingDecline) setDeclineModalVisible(false);
         }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View style={[styles.modalHeaderIcon, { backgroundColor: "#FEF2F2" }]}>
@@ -836,12 +847,14 @@ export default function ViewTicketScreen() {
               placeholder="State why you wish to keep this booking active..."
               placeholderTextColor="#94A3B8"
               value={declineReason}
-              onChangeText={setDeclineReason}
+              onChangeText={(text) => setDeclineReason(text.slice(0, MAX_CANCEL_REASON_LENGTH))}
               multiline
               numberOfLines={3}
               textAlignVertical="top"
               editable={!submittingDecline}
+              maxLength={MAX_CANCEL_REASON_LENGTH}
             />
+            <Text style={styles.charCount}>{declineReason.length}/{MAX_CANCEL_REASON_LENGTH}</Text>
 
             <View style={styles.modalActions}>
               <Pressable
@@ -864,7 +877,7 @@ export default function ViewTicketScreen() {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -1401,7 +1414,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#0F172A",
     minHeight: 80,
-    marginBottom: 18,
+    marginBottom: 4,
+  },
+  charCount: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#94A3B8",
+    textAlign: "right",
+    marginBottom: 14,
   },
   modalActions: {
     flexDirection: "row",

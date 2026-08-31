@@ -48,9 +48,6 @@ public class ProfilePictureService {
 
         User currentUser = getCurrentUser();
         String normalizedType = normalizeUserType(currentUser.getUserType());
-        if ("driver".equals(normalizedType)) {
-            throw new BusinessException(DRIVER_SELF_SERVICE_MESSAGE);
-        }
 
         try {
             Path baseDir = profilePictureDir();

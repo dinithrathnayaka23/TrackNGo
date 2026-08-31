@@ -101,6 +101,7 @@ export const ta: Translations = {
     logoutConfirmMessage: "நீங்கள் வெளியேற விரும்புகிறீர்களா?",
     permissionRequiredTitle: "அனுமதி தேவை",
     permissionRequiredMessage: "தயவுசெய்து படத் தொகுப்பு அணுகலை அனுமதிக்கவும்.",
+    photoUploadFailed: "உங்கள் சுயவிவரப் படத்தை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
     loginRequiredTitle: "உள்நுழைவு தேவை",
     loginRequiredMessage:
       "உங்கள் சுயவிவரப் படத்தைப் புதுப்பிக்கும் முன் மீண்டும் உள்நுழையவும்.",

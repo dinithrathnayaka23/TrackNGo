@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ADMIN_SUPPORT_USER_ID } from '@/config/env';
 import { useUser } from '@/context/UserContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useLanguage } from '@/context/LanguageContext';
 import type { TranslateFn } from '@/locales';
 import {
@@ -47,7 +48,23 @@ interface Conversation {
 export default function DriverChatScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const { darkMode } = useTheme();
   const { t } = useLanguage();
+  const theme = useMemo(
+    () => ({
+      background: darkMode ? '#111318' : '#F7F9FC',
+      card: darkMode ? '#1E1E1E' : '#FFFFFF',
+      border: darkMode ? '#333333' : '#E6ECF3',
+      text: darkMode ? '#FFFFFF' : '#1F2937',
+      secondaryText: darkMode ? '#9AA4B2' : '#8A94A6',
+      mutedText: darkMode ? '#7A8494' : '#94A3B8',
+      placeholder: darkMode ? '#6B7280' : '#A6B0C3',
+      avatarBg: darkMode ? '#2A2E35' : '#DDE5F0',
+      avatarText: darkMode ? '#CBD5E1' : '#475569',
+    }),
+    [darkMode]
+  );
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [query, setQuery] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -311,20 +328,20 @@ export default function DriverChatScreen() {
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.headerRow}>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <MaterialCommunityIcons name="arrow-left" size={22} color="#1F2937" />
+          <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
         </Pressable>
         <Text style={styles.headerTitle}>{t('chat.title')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.searchBar}>
-        <MaterialCommunityIcons name="magnify" size={18} color="#94A3B8" />
+        <MaterialCommunityIcons name="magnify" size={18} color={theme.secondaryText} />
         <TextInput
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
           placeholder={t('chat.searchPlaceholder')}
-          placeholderTextColor="#A6B0C3"
+          placeholderTextColor={theme.placeholder}
           returnKeyType="search"
         />
       </View>
@@ -675,10 +692,23 @@ function ListReadTick({ status }: { status?: string | null }) {
   );
 }
 
-const styles = StyleSheet.create({
+type ChatListTheme = {
+  background: string;
+  card: string;
+  border: string;
+  text: string;
+  secondaryText: string;
+  mutedText: string;
+  placeholder: string;
+  avatarBg: string;
+  avatarText: string;
+};
+
+function createStyles(theme: ChatListTheme) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7F9FC',
+    backgroundColor: theme.background,
   },
   headerRow: {
     minHeight: 52,
@@ -696,7 +726,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: '#1F2937',
+    color: theme.text,
   },
   headerSpacer: {
     width: 34,
@@ -706,9 +736,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: '#E6ECF3',
+    borderColor: theme.border,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -718,7 +748,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: "600",
-    color: '#1F2937',
+    color: theme.text,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -731,10 +761,10 @@ const styles = StyleSheet.create({
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E6ECF3',
+    borderColor: theme.border,
     padding: 12,
     gap: 10,
   },
@@ -747,14 +777,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#DDE5F0',
+    backgroundColor: theme.avatarBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarFallbackText: {
     fontSize: 16,
     fontWeight: "800",
-    color: '#475569',
+    color: theme.avatarText,
   },
   onlineDot: {
     position: 'absolute',
@@ -774,7 +804,7 @@ const styles = StyleSheet.create({
   chatTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: '#1F2937',
+    color: theme.text,
   },
   previewRow: {
     marginTop: 4,
@@ -787,7 +817,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: 13,
     fontWeight: "500",
-    color: '#8A94A6',
+    color: theme.secondaryText,
   },
   chatSubtitleTyping: {
     color: '#22C55E',
@@ -802,7 +832,7 @@ const styles = StyleSheet.create({
   chatTime: {
     fontSize: 11,
     fontWeight: "500",
-    color: '#94A3B8',
+    color: theme.mutedText,
   },
   unreadBadge: {
     minWidth: 18,
@@ -828,7 +858,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#6C8195',
+    color: theme.secondaryText,
     fontSize: 14, fontWeight: "600",
   },
   errorText: {
@@ -847,7 +877,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: "600",
   },
-});
+  });
+}
 
 const stylesStatic = StyleSheet.create({
   listTick: {

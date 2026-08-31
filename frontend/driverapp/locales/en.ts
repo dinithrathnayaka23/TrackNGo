@@ -101,6 +101,7 @@ export const en: Translations = {
     logoutConfirmMessage: "Are you sure you want to logout?",
     permissionRequiredTitle: "Permission Required",
     permissionRequiredMessage: "Please allow gallery access.",
+    photoUploadFailed: "Could not update your profile picture. Please try again.",
     loginRequiredTitle: "Login Required",
     loginRequiredMessage:
       "Please log in again before updating your profile photo.",

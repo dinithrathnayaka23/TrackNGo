@@ -101,6 +101,7 @@ export const si: Translations = {
     logoutConfirmMessage: "ඔබට පිටවීමට අවශ්‍ය බව විශ්වාසද?",
     permissionRequiredTitle: "අවසරය අවශ්‍යයි",
     permissionRequiredMessage: "කරුණාකර ගැලරි ප්‍රවේශය ලබා දෙන්න.",
+    photoUploadFailed: "ඔබගේ පැතිකඩ පින්තූරය යාවත්කාලීන කළ නොහැකි විය. නැවත උත්සාහ කරන්න.",
     loginRequiredTitle: "පිවිසීම අවශ්‍යයි",
     loginRequiredMessage:
       "ඔබේ පැතිකඩ ඡායාරූපය යාවත්කාලීන කිරීමට පෙර කරුණාකර නැවත පිවිසෙන්න.",

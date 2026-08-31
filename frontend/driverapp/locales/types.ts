@@ -99,6 +99,7 @@ export interface Translations {
     logoutConfirmMessage: string;
     permissionRequiredTitle: string;
     permissionRequiredMessage: string;
+    photoUploadFailed: string;
     loginRequiredTitle: string;
     loginRequiredMessage: string;
     uploadFailedTitle: string;
@@ -319,6 +320,7 @@ export const TRANSLATION_KEYS = [
   "settings.logoutConfirmMessage",
   "settings.permissionRequiredTitle",
   "settings.permissionRequiredMessage",
+  "settings.photoUploadFailed",
   "settings.loginRequiredTitle",
   "settings.loginRequiredMessage",
   "settings.uploadFailedTitle",

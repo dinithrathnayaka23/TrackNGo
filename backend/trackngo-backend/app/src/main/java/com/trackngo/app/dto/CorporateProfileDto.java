@@ -10,6 +10,7 @@ public record CorporateProfileDto(
         String contactPersonName,
         String contactPersonDesignation,
         String contactPhone,
+        String contactEmail,
         String profilePhoto
 ) {
 }

@@ -72,10 +72,13 @@ CREATE TABLE corporate_user (
     profile_photo TEXT,
     contact_person_name VARCHAR(255) NOT NULL,
     contact_phone VARCHAR(20) NOT NULL,
+    contact_email VARCHAR(255),
     contact_person_designation VARCHAR(100),
     status ENUM('active', 'inactive', 'pending_verification', 'suspended') DEFAULT 'pending_verification',
     business_registration_number VARCHAR(100) UNIQUE NOT NULL,
     industry VARCHAR(100),
+    website VARCHAR(255),
+    employee_count INT,
 
     FOREIGN KEY (corporate_user_id) REFERENCES user(user_id) ON DELETE CASCADE,
     INDEX idx_status (status),
@@ -401,6 +404,12 @@ CREATE TABLE trip_booking (
     passenger_id BIGINT NOT NULL,
     driver_id BIGINT,
     bus_id BIGINT,
+    cancellation_status VARCHAR(32) DEFAULT 'none',
+    cancellation_reason TEXT,
+    cancellation_requested_by VARCHAR(32),
+    cancellation_requested_at DATETIME,
+    cancellation_reject_reason TEXT,
+    refund_percentage INT,
 
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
     FOREIGN KEY (driver_id) REFERENCES driver(driver_id) ON DELETE SET NULL,
@@ -479,7 +488,8 @@ CREATE TABLE corporate_contract (
 
     employee_count INT NOT NULL DEFAULT 0,
     working_days ENUM('weekdays', 'all_days') NOT NULL DEFAULT 'weekdays',
-    bus_type ENUM('standard', 'ac', 'mini') NOT NULL DEFAULT 'standard',
+    bus_type ENUM('standard', 'mini') NOT NULL DEFAULT 'standard',
+    is_ac BOOLEAN NOT NULL DEFAULT false,
     distance_km DECIMAL(6, 2) NULL,
     status ENUM('pending', 'active', 'expired', 'cancelled') DEFAULT 'pending',
     finalized_at TIMESTAMP NULL,
@@ -489,6 +499,23 @@ CREATE TABLE corporate_contract (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     corporate_user_id BIGINT NOT NULL,
     bus_id BIGINT,
+    advance_amount DECIMAL(10, 2) NULL COMMENT 'Deposit = 1x monthly billing_amount',
+    advance_payment_status ENUM('pending', 'paid', 'waived', 'refunded') NOT NULL DEFAULT 'pending',
+    advance_paid_at TIMESTAMP NULL,
+    advance_transaction_id VARCHAR(255) NULL,
+    original_billing_amount DECIMAL(12, 2) NULL,
+    discount_amount DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+    admin_note VARCHAR(500) NULL,
+    cancel_status ENUM('none', 'pending', 'accepted', 'rejected') NOT NULL DEFAULT 'none',
+    cancel_requested_by ENUM('admin', 'corporate') NULL,
+    cancel_reason VARCHAR(500) NULL,
+    cancel_requested_at TIMESTAMP NULL,
+    cancel_effective_date DATE NULL,
+    cancel_response_reason VARCHAR(500) NULL,
+    renewal_reminder_sent_at DATETIME NULL,
+    renewal_request_status ENUM('none', 'requested', 'approved', 'declined') NOT NULL DEFAULT 'none',
+    renewed_from_contract_id BIGINT NULL,
+    carried_balance DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
 
     FOREIGN KEY (corporate_user_id) REFERENCES corporate_user(corporate_user_id) ON DELETE CASCADE,
     FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE SET NULL,
@@ -558,6 +585,11 @@ CREATE TABLE seat_booking (
     to_stop VARCHAR(255) COMMENT 'Passenger alighting stop name',
     cancellation_reason TEXT,
     restoration_notified_at TIMESTAMP NULL,
+    cancellation_status VARCHAR(32) DEFAULT 'none',
+    cancellation_requested_by VARCHAR(32),
+    cancellation_requested_at DATETIME,
+    cancellation_reject_reason TEXT,
+    refund_percentage INT,
 
     FOREIGN KEY (passenger_id) REFERENCES passenger(passenger_id) ON DELETE CASCADE,
     FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,
@@ -632,19 +664,24 @@ CREATE TABLE rating (
 );
 
 CREATE TABLE corporate_invoices (
-    invoice_number BIGINT NOT NULL,
+    invoice_number BIGINT AUTO_INCREMENT PRIMARY KEY,
     contract_id BIGINT NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    status ENUM('pending', 'paid', 'overdue', 'cancelled') DEFAULT 'pending',
-    date DATE NOT NULL,
-    due_date DATE,
+    bus_id BIGINT NULL,
+    amount DECIMAL(12, 2) NOT NULL,
+    status ENUM('pending', 'paid', 'overdue', 'cancelled') NOT NULL DEFAULT 'pending',
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    due_date DATE NOT NULL,
+    stripe_transaction_id VARCHAR(255) NULL,
+    paid_at TIMESTAMP NULL,
+    invoice_type VARCHAR(32) NOT NULL DEFAULT 'monthly',
+    reminder_sent_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    PRIMARY KEY (contract_id, invoice_number),
     FOREIGN KEY (contract_id) REFERENCES corporate_contract(contract_id) ON DELETE CASCADE,
-    INDEX idx_status (status),
-    INDEX idx_date (date DESC),
-    INDEX idx_due_date (due_date)
+    FOREIGN KEY (bus_id) REFERENCES bus(bus_id) ON DELETE RESTRICT,
+    INDEX idx_contract (contract_id),
+    INDEX idx_bus (bus_id)
 );
 
 CREATE TABLE corporate_contract_bus (
@@ -660,13 +697,13 @@ CREATE TABLE corporate_contract_bus (
 
 CREATE TABLE corporate_pricing_settings (
     id TINYINT PRIMARY KEY DEFAULT 1,
-    small_bus_rate_per_km DECIMAL(10, 2) NOT NULL DEFAULT 250.00,
-    large_bus_rate_per_km DECIMAL(10, 2) NOT NULL DEFAULT 400.00,
-    small_bus_max_employees INT NOT NULL DEFAULT 20,
     ac_surcharge_percent DECIMAL(5, 2) NOT NULL DEFAULT 25.00,
-    mini_bus_flat_surcharge DECIMAL(10, 2) NOT NULL DEFAULT 1500.00,
     weekdays_per_month INT NOT NULL DEFAULT 22,
     all_days_per_month INT NOT NULL DEFAULT 30,
+    standard_bus_rate_per_km DECIMAL(10, 2) NOT NULL DEFAULT 250.00,
+    mini_bus_rate_per_km DECIMAL(10, 2) NOT NULL DEFAULT 200.00,
+    platform_fee_percent DECIMAL(5, 2) NOT NULL DEFAULT 5.00,
+    tax_percent DECIMAL(5, 2) NOT NULL DEFAULT 0.00,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_corporate_pricing_settings_single_row CHECK (id = 1)

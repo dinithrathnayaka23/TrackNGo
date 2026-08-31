@@ -3,18 +3,22 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
+  FlatList,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
 import { sendRegistrationOtp } from "../../services/registrationOtpApi";
+import { isRealProfileText, isValidProfileEmail, isValidSriLankanPhone } from "../../services/corporateApi";
+import { SRI_LANKAN_INDUSTRIES } from "../../utils/industries";
 
 type UserType = "Passenger" | "Corporate";
 
@@ -23,11 +27,27 @@ export default function RegistrationScreen() {
   const insets = useSafeAreaInsets();
 
   const [userType, setUserType] = useState<UserType>("Passenger");
+
+  // Passenger fields
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+
+  // Corporate — Company Information
+  const [companyName, setCompanyName] = useState("");
+  const [brn, setBrn] = useState("");
+  const [industry, setIndustry] = useState("Private Transport");
+  const [address, setAddress] = useState("");
+  const [showIndustryModal, setShowIndustryModal] = useState(false);
+
+  // Corporate — Contact Person
+  const [contactName, setContactName] = useState("");
+  const [designation, setDesignation] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+
+  // Shared — account credentials
   const [email, setEmail] = useState("");
   const [countryCode] = useState("+94");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -36,14 +56,29 @@ export default function RegistrationScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
+  const isCorporate = userType === "Corporate";
+
   function validate(): boolean {
     const next: Record<string, string> = {};
-    if (!firstName.trim()) next.firstName = "First name is required";
-    if (!lastName.trim()) next.lastName = "Last name is required";
+
+    if (isCorporate) {
+      if (!isRealProfileText(companyName, 2)) next.companyName = "Enter your real company name";
+      if (!isRealProfileText(brn, 3)) next.brn = "Enter a real business registration number";
+      if (!SRI_LANKAN_INDUSTRIES.includes(industry)) next.industry = "Select an industry from the list";
+      if (!isRealProfileText(address, 5)) next.address = "Enter your real company address";
+      if (!isRealProfileText(contactName, 2)) next.contactName = "Enter the contact person's real name";
+      if (!isRealProfileText(designation, 2)) next.designation = "Enter a real designation";
+      if (!contactPhone.trim()) next.contactPhone = "Phone number is required";
+      else if (!isValidSriLankanPhone(contactPhone)) next.contactPhone = "Enter a valid Sri Lankan phone number";
+    } else {
+      if (!firstName.trim()) next.firstName = "First name is required";
+      if (!lastName.trim()) next.lastName = "Last name is required";
+      if (!phone.trim()) next.phone = "Phone number is required";
+    }
+
     if (!email.trim()) next.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
-      next.email = "Enter a valid email";
-    if (!phone.trim()) next.phone = "Phone number is required";
+    else if (!isValidProfileEmail(email)) next.email = "Enter a valid email";
+
     if (!password) next.password = "Password is required";
     else if (password.length < 6)
       next.password = "Password must be at least 6 characters";
@@ -63,14 +98,27 @@ export default function RegistrationScreen() {
       await sendRegistrationOtp(trimmedEmail);
       router.push({
         pathname: "/auth/otp-verification",
-        params: {
-          phone: `${countryCode} ${phone}`,
-          email: trimmedEmail,
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          userType,
-          password,
-        },
+        params: isCorporate
+          ? {
+              email: trimmedEmail,
+              userType,
+              password,
+              companyName: companyName.trim(),
+              businessRegistrationNumber: brn.trim(),
+              industry,
+              address: address.trim(),
+              contactPersonName: contactName.trim(),
+              contactPersonDesignation: designation.trim(),
+              contactPhone: contactPhone.trim(),
+            }
+          : {
+              phone: `${countryCode} ${phone}`,
+              email: trimmedEmail,
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              userType,
+              password,
+            },
       });
     } catch (error) {
       showSendOtpError(error, trimmedEmail);
@@ -158,7 +206,7 @@ export default function RegistrationScreen() {
           {/* Step indicator */}
           <View style={styles.stepRow}>
             <Text style={styles.stepLabel}>Step 1 of 3</Text>
-            <Text style={styles.stepName}>Personal Info</Text>
+            <Text style={styles.stepName}>{isCorporate ? "Company Details" : "Personal Info"}</Text>
           </View>
           <View style={styles.stepBarRow}>
             <View style={[styles.stepBar, styles.stepBarActive]} />
@@ -200,76 +248,205 @@ export default function RegistrationScreen() {
           })}
         </View>
 
-        {/* Name row */}
-        <View style={styles.nameRow}>
-          <View style={styles.nameCol}>
-            <Text style={styles.label}>First Name</Text>
-            <View style={[styles.inputRow, errors.firstName ? styles.inputRowError : null]}>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Kasun"
-                placeholderTextColor="#B0BAC9"
-                value={firstName}
-                onChangeText={(t) => { setFirstName(t); clearError("firstName"); }}
-                autoCapitalize="words"
-              />
-            </View>
-            {errors.firstName ? <Text style={styles.errorText}>{errors.firstName}</Text> : null}
-          </View>
-          <View style={styles.nameCol}>
-            <Text style={styles.label}>Last Name</Text>
-            <View style={[styles.inputRow, errors.lastName ? styles.inputRowError : null]}>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Perera"
-                placeholderTextColor="#B0BAC9"
-                value={lastName}
-                onChangeText={(t) => { setLastName(t); clearError("lastName"); }}
-                autoCapitalize="words"
-              />
-            </View>
-            {errors.lastName ? <Text style={styles.errorText}>{errors.lastName}</Text> : null}
-          </View>
-        </View>
+        {isCorporate ? (
+          <>
+            {/* Company Information */}
+            <Text style={styles.sectionTitle}>Company Information</Text>
 
-        {/* Email */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Email</Text>
-          <View style={[styles.inputRow, errors.email ? styles.inputRowError : null]}>
-            <Ionicons name="mail" size={18} color="#9AA4B2" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="name@example.com"
-              placeholderTextColor="#B0BAC9"
-              value={email}
-              onChangeText={(t) => { setEmail(t); clearError("email"); }}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoCorrect={false}
-            />
-          </View>
-          {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
-        </View>
-
-        {/* Mobile Number */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Mobile Number</Text>
-          <View style={[styles.inputRow, errors.phone ? styles.inputRowError : null]}>
-            <View style={styles.codeBox}>
-              <Text style={styles.codeText}>{countryCode}</Text>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Company Name</Text>
+              <View style={[styles.inputRow, errors.companyName ? styles.inputRowError : null]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Ceylon Cargo Solutions (Pvt) Ltd"
+                  placeholderTextColor="#B0BAC9"
+                  value={companyName}
+                  onChangeText={(t) => { setCompanyName(t); clearError("companyName"); }}
+                />
+              </View>
+              {errors.companyName ? <Text style={styles.errorText}>{errors.companyName}</Text> : null}
             </View>
-            <View style={styles.codeDivider} />
-            <TextInput
-              style={styles.input}
-              placeholder="77 123 4567"
-              placeholderTextColor="#B0BAC9"
-              value={phone}
-              onChangeText={(t) => { setPhone(t); clearError("phone"); }}
-              keyboardType="phone-pad"
-            />
-          </View>
-          {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
-        </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Business Registration No.</Text>
+              <View style={[styles.inputRow, errors.brn ? styles.inputRowError : null]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. PV 00123456"
+                  placeholderTextColor="#B0BAC9"
+                  value={brn}
+                  onChangeText={(t) => { setBrn(t); clearError("brn"); }}
+                  autoCapitalize="characters"
+                />
+              </View>
+              {errors.brn ? <Text style={styles.errorText}>{errors.brn}</Text> : null}
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Industry</Text>
+              <Pressable
+                style={[styles.inputRow, errors.industry ? styles.inputRowError : null]}
+                onPress={() => setShowIndustryModal(true)}
+              >
+                <Text style={styles.dropdownText}>{industry}</Text>
+                <Ionicons name="chevron-down" size={20} color="#6B7280" />
+              </Pressable>
+              {errors.industry ? <Text style={styles.errorText}>{errors.industry}</Text> : null}
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Address</Text>
+              <View style={[styles.inputRow, errors.address ? styles.inputRowError : null]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. No. 45, Galle Road, Colombo 03"
+                  placeholderTextColor="#B0BAC9"
+                  value={address}
+                  onChangeText={(t) => { setAddress(t); clearError("address"); }}
+                />
+              </View>
+              {errors.address ? <Text style={styles.errorText}>{errors.address}</Text> : null}
+            </View>
+
+            {/* Contact Person */}
+            <Text style={styles.sectionTitle}>Contact Person</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Full Name</Text>
+              <View style={[styles.inputRow, errors.contactName ? styles.inputRowError : null]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Kasun Perera"
+                  placeholderTextColor="#B0BAC9"
+                  value={contactName}
+                  onChangeText={(t) => { setContactName(t); clearError("contactName"); }}
+                  autoCapitalize="words"
+                />
+              </View>
+              {errors.contactName ? <Text style={styles.errorText}>{errors.contactName}</Text> : null}
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Designation</Text>
+              <View style={[styles.inputRow, errors.designation ? styles.inputRowError : null]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. HR Manager"
+                  placeholderTextColor="#B0BAC9"
+                  value={designation}
+                  onChangeText={(t) => { setDesignation(t); clearError("designation"); }}
+                />
+              </View>
+              {errors.designation ? <Text style={styles.errorText}>{errors.designation}</Text> : null}
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <View style={[styles.inputRow, errors.email ? styles.inputRowError : null]}>
+                <Ionicons name="mail" size={18} color="#9AA4B2" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. hr@company.lk"
+                  placeholderTextColor="#B0BAC9"
+                  value={email}
+                  onChangeText={(t) => { setEmail(t); clearError("email"); }}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoCorrect={false}
+                />
+              </View>
+              {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Phone Number</Text>
+              <View style={[styles.inputRow, errors.contactPhone ? styles.inputRowError : null]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. +94 77 123 4567"
+                  placeholderTextColor="#B0BAC9"
+                  value={contactPhone}
+                  onChangeText={(t) => { setContactPhone(t); clearError("contactPhone"); }}
+                  keyboardType="phone-pad"
+                />
+              </View>
+              {errors.contactPhone ? <Text style={styles.errorText}>{errors.contactPhone}</Text> : null}
+            </View>
+          </>
+        ) : (
+          <>
+            {/* Name row */}
+            <View style={styles.nameRow}>
+              <View style={styles.nameCol}>
+                <Text style={styles.label}>First Name</Text>
+                <View style={[styles.inputRow, errors.firstName ? styles.inputRowError : null]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. Kasun"
+                    placeholderTextColor="#B0BAC9"
+                    value={firstName}
+                    onChangeText={(t) => { setFirstName(t); clearError("firstName"); }}
+                    autoCapitalize="words"
+                  />
+                </View>
+                {errors.firstName ? <Text style={styles.errorText}>{errors.firstName}</Text> : null}
+              </View>
+              <View style={styles.nameCol}>
+                <Text style={styles.label}>Last Name</Text>
+                <View style={[styles.inputRow, errors.lastName ? styles.inputRowError : null]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. Perera"
+                    placeholderTextColor="#B0BAC9"
+                    value={lastName}
+                    onChangeText={(t) => { setLastName(t); clearError("lastName"); }}
+                    autoCapitalize="words"
+                  />
+                </View>
+                {errors.lastName ? <Text style={styles.errorText}>{errors.lastName}</Text> : null}
+              </View>
+            </View>
+
+            {/* Email */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Email</Text>
+              <View style={[styles.inputRow, errors.email ? styles.inputRowError : null]}>
+                <Ionicons name="mail" size={18} color="#9AA4B2" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="name@example.com"
+                  placeholderTextColor="#B0BAC9"
+                  value={email}
+                  onChangeText={(t) => { setEmail(t); clearError("email"); }}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoCorrect={false}
+                />
+              </View>
+              {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+            </View>
+
+            {/* Mobile Number */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Mobile Number</Text>
+              <View style={[styles.inputRow, errors.phone ? styles.inputRowError : null]}>
+                <View style={styles.codeBox}>
+                  <Text style={styles.codeText}>{countryCode}</Text>
+                </View>
+                <View style={styles.codeDivider} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="77 123 4567"
+                  placeholderTextColor="#B0BAC9"
+                  value={phone}
+                  onChangeText={(t) => { setPhone(t); clearError("phone"); }}
+                  keyboardType="phone-pad"
+                />
+              </View>
+              {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
+            </View>
+          </>
+        )}
 
         {/* Password */}
         <View style={styles.fieldGroup}>
@@ -359,6 +536,39 @@ export default function RegistrationScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Industry Dropdown Modal */}
+      <Modal visible={showIndustryModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Industry</Text>
+              <TouchableOpacity onPress={() => setShowIndustryModal(false)}>
+                <Ionicons name="close" size={24} color="#1F2937" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={SRI_LANKAN_INDUSTRIES}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setIndustry(item);
+                    clearError("industry");
+                    setShowIndustryModal(false);
+                  }}
+                >
+                  <Text style={[styles.modalItemText, industry === item && styles.modalItemTextActive]}>
+                    {item}
+                  </Text>
+                  {industry === item && <Ionicons name="checkmark" size={20} color="#2F6BFF" />}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -446,6 +656,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 4,
   },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#1F2937",
+    marginTop: 12,
+    marginBottom: 4,
+  },
   typeRow: {
     flexDirection: "row",
     gap: 12,
@@ -509,6 +726,11 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   input: {
+    flex: 1,
+    fontSize: 14,
+    color: "#1F2937",
+  },
+  dropdownText: {
     flex: 1,
     fontSize: 14,
     color: "#1F2937",
@@ -609,5 +831,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#2F6BFF",
+  },
+  // Industry dropdown modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "70%",
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1F2937",
+  },
+  modalItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: "#374151",
+  },
+  modalItemTextActive: {
+    color: "#2F6BFF",
+    fontWeight: "600",
   },
 });

@@ -221,5 +221,7 @@ export const en: Translations = {
     cameraPermissionMessage: "Please allow camera access to scan passenger tickets.",
     grantPermission: "Grant Permission",
     scanAgain: "Scan Again",
+    outboundLeg: "Outbound Trip",
+    returnLeg: "Return Trip",
   },
 };

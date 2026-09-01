@@ -244,7 +244,7 @@ describe('saveSeatLayout', () => {
 
 describe('fetchDriverOptions', () => {
   it('returns driver option list', async () => {
-    const drivers: DriverOption[] = [{ driverId: 1, name: 'John Doe' }];
+    const drivers: DriverOption[] = [{ driverId: 1, name: 'John Doe', assignedBusNumber: null }];
     (global.fetch as jest.Mock).mockResolvedValue(mockFetchOk(drivers));
 
     const result = await fetchDriverOptions();

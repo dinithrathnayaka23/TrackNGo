@@ -221,5 +221,7 @@ export const ta: Translations = {
     cameraPermissionMessage: "பயணி டிக்கெட்டுகளை ஸ்கேன் செய்ய கேமரா அணுகலை அனுமதிக்கவும்.",
     grantPermission: "அனுமதி வழங்கவும்",
     scanAgain: "மீண்டும் ஸ்கேன் செய்யவும்",
+    outboundLeg: "செல்லும் பயணம்",
+    returnLeg: "திரும்பும் பயணம்",
   },
 };

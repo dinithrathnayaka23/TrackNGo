@@ -221,5 +221,7 @@ export const si: Translations = {
     cameraPermissionMessage: "මගී ටිකට් ස්කෑන් කිරීමට කැමරා ප්‍රවේශය ලබා දෙන්න.",
     grantPermission: "අවසරය ලබා දෙන්න",
     scanAgain: "නැවත ස්කෑන් කරන්න",
+    outboundLeg: "යන ගමන",
+    returnLeg: "එන ගමන",
   },
 };

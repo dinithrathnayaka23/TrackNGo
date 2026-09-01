@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.booking.api.dto.AdminBusDtos.*;
 import com.trackngo.commons.booking.BookingDisruptionHandler;
+import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.notification.api.NotificationDispatcher;
 import com.trackngo.notification.api.NotificationType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,8 +19,10 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Time;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 @Service
@@ -148,6 +151,8 @@ public class AdminBusService {
 
     /* ── Create bus ───────────────────────────────────────── */
     public Long createBus(SaveBusRequest req) {
+        assertDriverNotAlreadyAssigned(req.driverId(), null);
+        assertInsuranceNotExpired(req.insuranceExpDate());
         String amenitiesJson = toJson(req.amenities());
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(con -> {
@@ -180,6 +185,8 @@ public class AdminBusService {
     /* ── Update bus ───────────────────────────────────────── */
     @Transactional
     public void updateBus(Long busId, SaveBusRequest req) {
+        assertDriverNotAlreadyAssigned(req.driverId(), busId);
+        assertInsuranceNotExpired(req.insuranceExpDate());
         String amenitiesJson = toJson(req.amenities());
         // The driver and bus number are read alongside the status because the
         // update overwrites all three, and the driver has to be told about it.
@@ -262,8 +269,13 @@ public class AdminBusService {
     public void deleteBus(Long busId) {
         disruptionHandler.cancelFutureBookingsForBus(busId, "the bus was removed from service");
         jdbc.update("DELETE FROM seat_layout WHERE bus_id = ?", busId);
-        // Keep the bus row for booking/refund/audit history; deletion becomes a
-        // safe soft-removal because bus_id is referenced by historical bookings.
+        // Keep the bus row (and its driver_id) for booking/refund/audit history -
+        // driver earnings are computed by joining historical bookings back to
+        // bus.driver_id, so clearing it here would erase that driver's past
+        // earnings for this bus. The one-driver-one-bus unique index only
+        // applies to non-inactive buses (see V27 migration), so an inactive
+        // bus keeping its driver_id does not block that driver being assigned
+        // to a new bus.
         jdbc.update("UPDATE bus SET status = 'inactive' WHERE bus_id = ?", busId);
     }
 
@@ -362,15 +374,63 @@ public class AdminBusService {
         }
     }
 
+    /**
+     * A driver can only be responsible for one bus at a time - drivers rely on a
+     * single fixed schedule/route/seat-layout for their day. Reject the save
+     * before it touches the bus row if the requested driver is already on a
+     * different, still-in-service bus.
+     */
+    private void assertDriverNotAlreadyAssigned(Long driverId, Long excludeBusId) {
+        if (driverId == null) {
+            return;
+        }
+        String sql = "SELECT bus_number FROM bus WHERE driver_id = ? AND status <> 'inactive'"
+                + (excludeBusId != null ? " AND bus_id <> ?" : "");
+        List<Map<String, Object>> rows = excludeBusId != null
+                ? jdbc.queryForList(sql, driverId, excludeBusId)
+                : jdbc.queryForList(sql, driverId);
+        if (!rows.isEmpty()) {
+            throw new BusinessException(
+                    "This driver is already assigned to bus " + rows.get(0).get("bus_number")
+                            + ". Unassign them from that bus first.");
+        }
+    }
+
+    /**
+     * A bus with expired (or same-day-expiring) insurance should never be put
+     * into service - the form's date input already blocks picking a past
+     * date, but this is the guard that actually matters since nothing else
+     * stops an API call from bypassing the UI.
+     */
+    private void assertInsuranceNotExpired(String insuranceExpDate) {
+        if (insuranceExpDate == null || insuranceExpDate.isBlank()) {
+            throw new BusinessException("Insurance expiry date is required.");
+        }
+        LocalDate expiry;
+        try {
+            expiry = LocalDate.parse(insuranceExpDate);
+        } catch (DateTimeParseException e) {
+            throw new BusinessException("Insurance expiry date is invalid.");
+        }
+        if (!expiry.isAfter(LocalDate.now())) {
+            throw new BusinessException(
+                    "Insurance expiry date must be after today - this bus's insurance is expired or expires today.");
+        }
+    }
+
     /* ── Dropdown options ─────────────────────────────────── */
     public List<DriverOption> getDriverOptions() {
         String sql = """
-                SELECT d.driver_id, CONCAT(u.first_name, ' ', u.last_name) AS name
+                SELECT d.driver_id, CONCAT(u.first_name, ' ', u.last_name) AS name,
+                       (SELECT b.bus_number FROM bus b
+                        WHERE b.driver_id = d.driver_id AND b.status <> 'inactive'
+                        ORDER BY b.bus_id LIMIT 1) AS assigned_bus_number
                 FROM driver d
                 JOIN `user` u ON d.driver_id = u.user_id
                 ORDER BY name
                 """;
-        return jdbc.query(sql, (rs, rowNum) -> new DriverOption(rs.getLong("driver_id"), rs.getString("name")));
+        return jdbc.query(sql, (rs, rowNum) -> new DriverOption(
+                rs.getLong("driver_id"), rs.getString("name"), rs.getString("assigned_bus_number")));
     }
 
     public List<RouteOption> getRouteOptions() {

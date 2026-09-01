@@ -217,6 +217,8 @@ export interface Translations {
     cameraPermissionMessage: string;
     grantPermission: string;
     scanAgain: string;
+    outboundLeg: string;
+    returnLeg: string;
   };
 }
 
@@ -432,6 +434,8 @@ export const TRANSLATION_KEYS = [
   "allocations.cameraPermissionMessage",
   "allocations.grantPermission",
   "allocations.scanAgain",
+  "allocations.outboundLeg",
+  "allocations.returnLeg",
 ] as const;
 
 export type TranslationKey = (typeof TRANSLATION_KEYS)[number];

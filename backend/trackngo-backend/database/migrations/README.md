@@ -152,6 +152,19 @@ but nothing had ever added it to the enum, so
 `BookingFlowService.markPassengerBoarded()` fails outright on any database
 created from the original schema.
 
+Run `V27__bus_driver_single_assignment.sql` as soon as possible — it fixes a
+live 500 error, not just a future deploy. Nothing previously stopped a driver
+from being assigned to more than one bus, and `BusRepository` assumed at most
+one row per driver; a driver on two or more buses makes the driver app's
+assignment/profile screens throw `IncorrectResultSizeDataAccessException`
+(a 500) on every load. The migration repairs any existing duplicates
+(keeping one bus per driver, preferring an `active` one) and adds a unique
+index that only applies to non-`inactive` buses, so retired buses kept for
+history never block their old driver from a new assignment. `AdminBusService`
+also now rejects assigning a driver who is already on another in-service bus
+before this migration is even needed, but the database constraint is the
+backstop for any other writer.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

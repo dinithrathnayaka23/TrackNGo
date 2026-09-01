@@ -78,6 +78,23 @@ function formatTimeRange(start?: string | null, end?: string | null) {
   return `-- - ${formatClockTime(end)}`
 }
 
+function todayLocalDate() {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+// The <input type="date"> min bound is inclusive, so it needs tomorrow's
+// date to actually exclude "today" - insurance expiring today is rejected.
+function tomorrowLocalDate() {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const month = String(tomorrow.getMonth() + 1).padStart(2, '0')
+  const day = String(tomorrow.getDate()).padStart(2, '0')
+  return `${tomorrow.getFullYear()}-${month}-${day}`
+}
+
 function formatBusTypeChipLabel(busType?: string | null) {
   if (!busType) return 'Bus'
 
@@ -176,6 +193,10 @@ function Buses() {
   const handleAddBus = async () => {
     if (!form.busNumber.trim() || !form.busBrand.trim() || !form.registrationNumber.trim()) {
       setSaveError('Bus number, brand, and registration number are required.')
+      return
+    }
+    if (!form.insuranceExpDate || form.insuranceExpDate <= todayLocalDate()) {
+      setSaveError("Insurance expiry date must be a future date - it can't be today or already expired.")
       return
     }
     setSaving(true)
@@ -640,10 +661,12 @@ function Buses() {
                 <label className="mb-1 block text-sm font-semibold text-[#334155]">Insurance Expiry</label>
                 <input
                   type="date"
+                  min={tomorrowLocalDate()}
                   value={form.insuranceExpDate}
                   onChange={(e) => setForm({ ...form, insuranceExpDate: e.target.value })}
                   className="w-full rounded-lg border border-[#d6dbe6] px-3 py-2 text-sm outline-none focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
                 />
+                <p className="mt-1 text-xs text-[#94a3b8]">Must be a future date - an expired or same-day insurance can't be added.</p>
               </div>
 
               {/* Start Time input */}
@@ -700,9 +723,12 @@ function Buses() {
                 >
                   <option value="">Unassigned</option>
                   {driverOptions.map((d) => (
-                    <option key={d.driverId} value={d.driverId}>{d.name}</option>
+                    <option key={d.driverId} value={d.driverId} disabled={!!d.assignedBusNumber}>
+                      {d.name}{d.assignedBusNumber ? ` (already on bus ${d.assignedBusNumber})` : ''}
+                    </option>
                   ))}
                 </select>
+                <p className="mt-1 text-xs text-[#94a3b8]">A driver can only be assigned to one bus at a time.</p>
               </div>
 
               {/* Route selection */}

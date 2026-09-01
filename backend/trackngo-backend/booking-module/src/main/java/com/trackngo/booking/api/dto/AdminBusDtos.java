@@ -88,6 +88,6 @@ public final class AdminBusDtos {
     ) {}
 
     /* ── Simple dropdown items ────────────────────────────── */
-    public record DriverOption(Long driverId, String name) {}
+    public record DriverOption(Long driverId, String name, String assignedBusNumber) {}
     public record RouteOption(Long routeId, String routeName, Integer durationMins) {}
 }

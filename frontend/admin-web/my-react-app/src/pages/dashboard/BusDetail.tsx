@@ -203,7 +203,12 @@ import {
   saveSeatLayout as saveSeatLayoutApi,
   fetchDriverOptions,
   fetchRouteOptions,
+  fetchBusRevenue,
+  fetchUpcomingBookings,
   type BusDetail as BusDetailDto,
+  type BusRevenuePoint,
+  type BusRevenueSummary,
+  type BusDepartureBookings,
   type SeatLayoutRow as ApiSeatLayoutRow,
   type DriverOption,
   type RouteOption,
@@ -272,12 +277,6 @@ type BusInfo = {
 
 // Dashboard Tab Types - Navigation states for different views
 type DashboardTab = "overview" | "schedule" | "revenue";
-
-// BusRevenuePoint - Single data point for revenue chart
-type BusRevenuePoint = {
-  date: string;
-  revenue: number;
-};
 
 // SeatLayoutRow - Representation of a single row of seats
 type SeatLayoutRow = {
@@ -385,37 +384,10 @@ const initialAmenities: Amenity[] = [
   { key: "cctv", name: "CCTV", icon: faVideo, enabled: false },
 ];
 
-/*
-  Revenue Generation - Generates mock revenue data for charts
-  
-  Creates a 30-day revenue history using a deterministic algorithm
-  that factors in weekday patterns, trends, and seasonal variations.
-  This is used for the revenue dashboard chart visualization.
-  
-  @param seed Base value for deterministic random generation
-  @returns Array of 30 daily revenue points
- */
-const generateBusRevenue = (seed: number): BusRevenuePoint[] => {
-  const start = new Date("2026-01-26");
-  // Weekday factors: weekends have higher revenue (1.18-1.28x), weekdays lower (0.9-1.12x)
-  const weekdayFactor = [0.9, 0.95, 1, 1.05, 1.12, 1.28, 1.18];
-
-  return Array.from({ length: 30 }, (_, index) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index);
-
-    // Calculate revenue with trend, seasonal, and weekday factors
-    const dayFactor = weekdayFactor[date.getDay()];
-    const trend = 7800 + seed * 200 + index * 85;
-    const seasonal = (((index * 37 + seed * 13) % 540) - 220);
-    const revenue = Math.round((trend + seasonal) * dayFactor);
-
-    return {
-      date: date.toISOString().slice(0, 10),
-      revenue,
-    };
-  });
-};
+// How far back the revenue chart looks, and how many days of departures the
+// schedule tab shows. Both are passed to the API so server and UI agree.
+const REVENUE_WINDOW_DAYS = 30;
+const SCHEDULE_WINDOW_DAYS = 4;
 
 // Chart label indices - Show labels at these revenue data points
 const revenueChartLabelIndexes = [0, 5, 10, 15, 20, 25, 29];
@@ -490,6 +462,9 @@ function BusDetail() {
     useState<LayoutConfig>(defaultLayoutConfig);
   const [layoutConfigError, setLayoutConfigError] = useState("");
   const [blockedSeats, setBlockedSeats] = useState<Set<number>>(new Set());
+  const [revenue, setRevenue] = useState<BusRevenueSummary | null>(null);
+  const [departureBookings, setDepartureBookings] = useState<BusDepartureBookings[]>([]);
+  const [analyticsError, setAnalyticsError] = useState("");
 
   // ── Load bus data from API ────────────────────────────────────
   useEffect(() => {
@@ -499,6 +474,19 @@ function BusDetail() {
 
     setLoading(true);
     setApiError("");
+
+    // Revenue and booking counts are fetched separately: they are supporting
+    // analytics, so a failure there should not blank out the whole bus page.
+    setAnalyticsError("");
+    Promise.all([
+      fetchBusRevenue(numericId, REVENUE_WINDOW_DAYS),
+      fetchUpcomingBookings(numericId, SCHEDULE_WINDOW_DAYS),
+    ])
+      .then(([revenueSummary, bookings]) => {
+        setRevenue(revenueSummary);
+        setDepartureBookings(bookings);
+      })
+      .catch((e: Error) => setAnalyticsError(e.message));
 
     Promise.all([
       fetchBusDetail(numericId),
@@ -1100,6 +1088,32 @@ function BusDetail() {
     const driverLabel = assignedDriver.name || "Unassigned";
     const today = new Date();
 
+    // Seats sold per departure, keyed "YYYY-MM-DD HH:mm" so each scheduled
+    // departure can look up its own real booking count.
+    const bookedByDeparture = new Map(
+      departureBookings.map((entry) => [
+        `${entry.journeyDate} ${entry.journeyTime ?? ""}`,
+        entry.bookedSeats,
+      ]),
+    );
+
+    /** Local calendar date N days out, as YYYY-MM-DD (not UTC, which can shift the day). */
+    const isoDate = (daysFromNow: number): string => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + daysFromNow);
+      return [
+        d.getFullYear(),
+        String(d.getMonth() + 1).padStart(2, "0"),
+        String(d.getDate()).padStart(2, "0"),
+      ].join("-");
+    };
+
+    /** Seats sold on a given day's departure; 0 when nothing is booked yet. */
+    const bookedFor = (daysFromNow: number, timeStr: string | null): number => {
+      if (!timeStr) return 0;
+      return bookedByDeparture.get(`${isoDate(daysFromNow)} ${timeStr.slice(0, 5)}`) ?? 0;
+    };
+
     /**
      * Formats a date as "Today", "Tomorrow", or "Weekday, DD Mon"
      * 
@@ -1132,7 +1146,7 @@ function BusDetail() {
     const forwardTime = fmt12(busInfo.startTime);
     const returnTime = fmt12(busInfo.returnStartTime);
 
-    const items = Array.from({ length: 4 }, (_, i) => {
+    const items = Array.from({ length: SCHEDULE_WINDOW_DAYS }, (_, i) => {
       const day = formatDay(i);
       const dayItems: Array<{
         time: string;
@@ -1147,7 +1161,7 @@ function BusDetail() {
           time: `${day}, ${forwardTime}`,
           route: `${routeLabel} (Forward)`,
           driver: driverLabel,
-          bookedText: `${Math.floor(Math.random() * capacity) || 0}/${capacity} Booked`,
+          bookedText: `${bookedFor(i, busInfo.startTime)}/${capacity} Booked`,
           highlighted: i === 0,
         });
       }
@@ -1157,7 +1171,7 @@ function BusDetail() {
           time: `${day}, ${returnTime}`,
           route: `${routeLabel} (Return)`,
           driver: driverLabel,
-          bookedText: `${Math.floor(Math.random() * capacity) || 0}/${capacity} Booked`,
+          bookedText: `${bookedFor(i, busInfo.returnStartTime)}/${capacity} Booked`,
           highlighted: false,
         });
       }
@@ -1172,7 +1186,14 @@ function BusDetail() {
       bookedText: `0/${capacity} Booked`,
       highlighted: true,
     }];
-  }, [busInfo.startTime, busInfo.returnStartTime, busInfo.routeName, busInfo.seats, assignedDriver.name]);
+  }, [
+    busInfo.startTime,
+    busInfo.returnStartTime,
+    busInfo.routeName,
+    busInfo.seats,
+    assignedDriver.name,
+    departureBookings,
+  ]);
 
   /**
    * Determine which schedule items to show based on view state
@@ -1182,32 +1203,17 @@ function BusDetail() {
     ? scheduleItems
     : scheduleItems.slice(0, 2);
 
-  // ── Revenue Analytics Computation ────────────────────────────
+  // ── Revenue Analytics ────────────────────────────────────────
+  // Figures come from paid, uncancelled seat bookings on this bus, attributed to
+  // the journey date. See AdminBusService.getRevenue.
 
-  /**
-   * Generate 30 days of revenue data for the chart
-   */
-  const revenuePoints = useMemo(
-    () => generateBusRevenue(busData?.busId ?? 0),
-    [busData],
-  );
-
-  /**
-   * Calculate total revenue over last 30 days
-   */
-  const totalRevenueLast30Days = useMemo(
-    () => revenuePoints.reduce((sum, point) => sum + point.revenue, 0),
-    [revenuePoints],
-  );
-
-  /**
-   * Calculate average revenue per day
-   */
-  const averageRevenuePerDay = useMemo(
-    () =>
-      Math.round(totalRevenueLast30Days / Math.max(revenuePoints.length, 1)),
-    [totalRevenueLast30Days, revenuePoints.length],
-  );
+  // Memoised so the empty-array fallback keeps a stable identity between renders,
+  // which downstream useMemo hooks depend on.
+  const revenuePoints = useMemo(() => revenue?.points ?? [], [revenue]);
+  const totalRevenueLast30Days = revenue?.totalRevenue ?? 0;
+  const averageRevenuePerDay = Math.round(revenue?.averagePerDay ?? 0);
+  const totalSeatsSold = revenue?.totalSeatsSold ?? 0;
+  const hasRevenue = revenuePoints.some((point) => point.revenue > 0);
 
   /**
    * Extract chart label data at specific intervals
@@ -1253,9 +1259,12 @@ function BusDetail() {
   const plotHeight = chartHeight - chartPadding.top - chartPadding.bottom;
   const plotWidth = chartWidth - chartPadding.left - chartPadding.right;
 
-  // Find Y-axis range with padding
-  const minRevenue = Math.min(...revenuePoints.map((point) => point.revenue));
-  const maxRevenue = Math.max(...revenuePoints.map((point) => point.revenue));
+  // Find Y-axis range with padding. Guarded against an empty series: while the
+  // revenue request is in flight Math.min/max of no arguments yield +/-Infinity,
+  // which would propagate NaN into every SVG coordinate.
+  const revenueValues = revenuePoints.map((point) => point.revenue);
+  const minRevenue = revenueValues.length > 0 ? Math.min(...revenueValues) : 0;
+  const maxRevenue = revenueValues.length > 0 ? Math.max(...revenueValues) : 0;
   const yMin = Math.max(0, Math.floor((minRevenue - 800) / 500) * 500);
   const yMax = Math.ceil((maxRevenue + 800) / 500) * 500;
   const yRange = Math.max(1, yMax - yMin);
@@ -1660,7 +1669,8 @@ function BusDetail() {
                             Revenue Trends
                           </h3>
                           <p className="text-sm text-[#94a3b8]">
-                            Revenue earned by this bus over the last 30 days
+                            Paid, uncancelled seat bookings for this bus over the last{" "}
+                            {REVENUE_WINDOW_DAYS} days
                           </p>
                         </div>
                         <button
@@ -1765,8 +1775,16 @@ function BusDetail() {
                         </g>
                       </svg>
 
+                      {!hasRevenue ? (
+                        <p className="mt-2 rounded-lg bg-[#f1f5f9] px-4 py-2 text-center text-sm font-semibold text-[#64748b]">
+                          {analyticsError
+                            ? `Revenue unavailable: ${analyticsError}`
+                            : "No paid bookings for this bus in this period."}
+                        </p>
+                      ) : null}
+
                       {/* Revenue Summary Statistics */}
-                      <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#f1f5f9] pt-3 text-center">
+                      <div className="mt-2 grid grid-cols-3 gap-4 border-t border-[#f1f5f9] pt-3 text-center">
                         <div>
                           <p className="text-sm text-[#94a3b8]">
                             Total Revenue
@@ -1779,6 +1797,12 @@ function BusDetail() {
                           <p className="text-sm text-[#94a3b8]">Avg. Per Day</p>
                           <p className="text-sm font-extrabold text-[#111827]">
                             Rs.{averageRevenuePerDay.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-[#94a3b8]">Seats Sold</p>
+                          <p className="text-sm font-extrabold text-[#111827]">
+                            {totalSeatsSold.toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -2005,7 +2029,8 @@ function BusDetail() {
                             Revenue Trends
                           </h3>
                           <p className="text-sm text-[#94a3b8]">
-                            Revenue earned by this bus over the last 30 days
+                            Paid, uncancelled seat bookings for this bus over the last{" "}
+                            {REVENUE_WINDOW_DAYS} days
                           </p>
                         </div>
                         <button
@@ -2101,7 +2126,15 @@ function BusDetail() {
                         </g>
                       </svg>
 
-                      <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#f1f5f9] pt-3 text-center">
+                      {!hasRevenue ? (
+                        <p className="mt-2 rounded-lg bg-[#f1f5f9] px-4 py-2 text-center text-sm font-semibold text-[#64748b]">
+                          {analyticsError
+                            ? `Revenue unavailable: ${analyticsError}`
+                            : "No paid bookings for this bus in this period."}
+                        </p>
+                      ) : null}
+
+                      <div className="mt-2 grid grid-cols-3 gap-4 border-t border-[#f1f5f9] pt-3 text-center">
                         <div>
                           <p className="text-sm text-[#94a3b8]">
                             Total Revenue
@@ -2114,6 +2147,12 @@ function BusDetail() {
                           <p className="text-sm text-[#94a3b8]">Avg. Per Day</p>
                           <p className="text-sm font-extrabold text-[#111827]">
                             Rs.{averageRevenuePerDay.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-[#94a3b8]">Seats Sold</p>
+                          <p className="text-sm font-extrabold text-[#111827]">
+                            {totalSeatsSold.toLocaleString()}
                           </p>
                         </div>
                       </div>

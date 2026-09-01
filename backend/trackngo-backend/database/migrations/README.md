@@ -152,6 +152,27 @@ but nothing had ever added it to the enum, so
 `BookingFlowService.markPassengerBoarded()` fails outright on any database
 created from the original schema.
 
+Before deploying two-step contract renewal, run
+`V27__corporate_contract_renewal_request.sql`. It adds `renewal_request_status`
+and `renewed_from_contract_id` to `corporate_contract`, so the corporate
+client can ask admin for permission to renew before filling out the actual
+renewal terms, and so a contract created as a renewal skips the advance
+deposit when approved (it's a continuation of billing, not a fresh contract).
+
+Before deploying independent AC/Mini Bus selection, run
+`V28__corporate_contract_ac_mini_independent.sql`. It adds `is_ac` to
+`corporate_contract` and narrows `bus_type` to `('standard', 'mini')`,
+backfilling existing `'ac'` rows to `bus_type = 'standard', is_ac = true` so
+their pricing is unchanged. Before this, a bus could only be "Standard",
+"AC" or "Mini" — never AC *and* Mini — because the surcharges were mutually
+exclusive in code. Now both apply together when relevant.
+
+Before deploying the corporate contact-person email field, run
+`V32__corporate_contact_email.sql`. It adds `contact_email` to
+`corporate_user` so the corporate sign-up and profile screens' "Contact
+Person Email Address" field actually persists, instead of being held in UI
+state only and discarded on save.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

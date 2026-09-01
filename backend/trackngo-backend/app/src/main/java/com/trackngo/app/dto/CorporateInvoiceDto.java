@@ -13,6 +13,7 @@ public record CorporateInvoiceDto(
         LocalDate date,
         LocalDate periodEnd,
         LocalDate dueDate,
+        String invoiceType,
         String stripeTransactionId,
         String paidAt,
         String createdAt

@@ -20,6 +20,8 @@ public record AdminContractSummaryDto(
         String shiftType,
         Integer employeeCount,
         String busType,
+        /** Independent of busType (size) — a bus of either size can also have AC. */
+        Boolean isAc,
         BigDecimal distanceKm,
         String status,
         BigDecimal billingAmount,
@@ -34,6 +36,10 @@ public record AdminContractSummaryDto(
         String advancePaidAt,
         BigDecimal originalBillingAmount,
         BigDecimal discountAmount,
-        ContractCancellationDto cancellation
+        BigDecimal carriedBalance,
+        Long renewedFromContractId,
+        ContractCancellationDto cancellation,
+        /** "none", "requested", "approved" or "declined" — the corporate client's ask to renew this contract. */
+        String renewalRequestStatus
 ) {
 }

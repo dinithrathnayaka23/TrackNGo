@@ -40,6 +40,8 @@ export default function RootLayout() {
                 <Stack.Screen name="navigation" />
                 <Stack.Screen name="notifications" />
                 <Stack.Screen name="reviews-and-ratings" />
+                <Stack.Screen name="sos" />
+                <Stack.Screen name="emergency-contacts" />
                 <Stack.Screen
                   name="modal"
                   options={{

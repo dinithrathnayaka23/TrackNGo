@@ -41,7 +41,11 @@ export type CorporateContract = {
   corporateUserId: number
   busId: number | null
   busIds: number[] | null
+  carriedBalance: number
+  renewedFromContractId?: number | null
   cancellation: ContractCancellation
+  /** The corporate client's ask to renew this contract — always available while active, not just near its end date. */
+  renewalRequestStatus: 'none' | 'requested' | 'approved' | 'declined'
 }
 
 export type CorporateInvoice = {
@@ -54,6 +58,7 @@ export type CorporateInvoice = {
   date: string | null
   periodEnd: string | null
   dueDate: string | null
+  invoiceType?: 'monthly' | 'carried_balance' | 'adjustment'
   stripeTransactionId: string | null
   paidAt: string | null
   createdAt: string | null
@@ -108,7 +113,11 @@ export type AdminContractSummary = {
   advancePaidAt: string | null
   originalBillingAmount: number | null
   discountAmount: number | null
+  carriedBalance: number
+  renewedFromContractId?: number | null
   cancellation: ContractCancellation
+  /** The corporate client's ask to renew this contract — always available while active, not just near its end date. */
+  renewalRequestStatus: 'none' | 'requested' | 'approved' | 'declined'
 }
 
 /** Full detail behind the admin "View" modal, including per-shift routes and assigned buses. */
@@ -243,7 +252,13 @@ export function requestContractCancellation(contractId: number, reason: string) 
   })
 }
 
-/** Accept or reject a cancellation request the corporate client filed. */
+/**
+ * Accept or reject a cancellation request the corporate client filed. Admin
+ * only ever responds to corporate-initiated requests, which always take
+ * effect immediately — the immediate-vs-2-week-notice choice belongs to the
+ * corporate user when accepting an admin-initiated request instead, so no
+ * timing choice is needed here.
+ */
 export function respondToContractCancellation(contractId: number, accept: boolean, responseReason?: string) {
   return request<CorporateContract>(`/api/corporate/contracts/${contractId}/cancel-response`, {
     method: 'POST',
@@ -252,11 +267,12 @@ export function respondToContractCancellation(contractId: number, accept: boolea
 }
 
 /**
- * Renews a contract nearing its end date by submitting a new pending
- * contract that continues from where this one leaves off, cloning its
- * route/shift/bus setup. Goes through the same admin-approval flow as any
- * new contract request — the same standardized process the corporate app
- * uses when the client initiates the renewal themselves.
+ * Instantly renews a contract nearing its end date by submitting a new
+ * pending contract that continues from where this one leaves off, cloning
+ * its route/shift/bus setup — an admin shortcut that skips the client's own
+ * request/approval step. Goes through the same admin-approval flow as any
+ * new contract request. The corporate app instead has the client ask for
+ * permission first (see {@link respondToContractRenewal}).
  */
 export function renewContract(contractId: number) {
   return request<CorporateContract>(`/api/corporate/contracts/${contractId}/renew`, {
@@ -265,13 +281,21 @@ export function renewContract(contractId: number) {
   })
 }
 
+/** Admin accepts or declines a corporate client's request to renew their contract. */
+export function respondToContractRenewal(contractId: number, approve: boolean) {
+  return request<CorporateContract>(`/api/corporate/contracts/${contractId}/renewal-response`, {
+    method: 'POST',
+    body: JSON.stringify({ approve }),
+  })
+}
+
 /** Admin-configurable rates driving the corporate contract pricing formula. */
 export type CorporatePricingSettings = {
-  smallBusRatePerKm: number
-  largeBusRatePerKm: number
-  smallBusMaxEmployees: number
+  standardBusRatePerKm: number
+  miniBusRatePerKm: number
   acSurchargePercent: number
-  miniBusFlatSurcharge: number
+  platformFeePercent: number
+  taxPercent: number
   weekdaysPerMonth: number
   allDaysPerMonth: number
   updatedAt: string | null

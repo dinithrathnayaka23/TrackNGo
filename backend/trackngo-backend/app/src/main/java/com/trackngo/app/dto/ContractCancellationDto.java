@@ -6,9 +6,11 @@ import java.time.LocalDate;
  * Mutual-consent cancellation state for a corporate contract. {@code status}
  * is one of "none", "pending", "accepted", "rejected". {@code requestedBy}
  * is "admin" or "corporate" — whoever asked to cancel — and is null when
- * status is "none". {@code effectiveDate} is only set for an admin-initiated
- * request on an already-active contract (minimum 2 weeks out); it stays
- * active in the meantime and a scheduled job cancels it once that date arrives.
+ * status is "none". {@code effectiveDate} is only set when the corporate user
+ * accepts an admin-initiated request on an already-active contract and chooses
+ * to keep it running rather than cancel immediately (minimum 2 weeks out); the
+ * contract stays active in the meantime and a scheduled job cancels it once
+ * that date arrives.
  */
 public record ContractCancellationDto(
         String status,

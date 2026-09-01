@@ -325,7 +325,10 @@ export default function HomeScreen() {
 
     try {
       const data = await getRecentUpcomingBookings(currentUser.userId);
-      const next = data.map(toDashboardRecentBooking);
+      const uniqueData = Array.from(
+        new Map(data.map((item) => [item.bookingReference, item])).values(),
+      );
+      const next = uniqueData.map(toDashboardRecentBooking);
       setNow(new Date());
       setRecentBookings((previous) =>
         recentBookingsSignature(previous) === recentBookingsSignature(next)
@@ -589,158 +592,173 @@ export default function HomeScreen() {
             </Text>
           ) : null}
 
-          {visibleRecentBookings.map((booking) => (
-            <View
-              key={booking.id}
-              style={[styles.bookingCard, { backgroundColor: booking.base }]}
-            >
-              <View style={styles.cardTopRow}>
-                <View style={styles.badgeRow}>
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>Upcoming</Text>
-                  </View>
-                  <View style={[styles.badge, styles.badgeSoft]}>
-                    <Text style={styles.badgeText}>{booking.badge}</Text>
-                  </View>
-                </View>
-                <Text style={styles.refText}>Ref: {booking.id}</Text>
-              </View>
+          {visibleRecentBookings.map((booking) => {
+            const isTripNegotiation =
+              booking.busType === "trip_booking" &&
+              !["success", "paid"].includes(String(booking.paymentStatus ?? "").toLowerCase());
+            const tripId = booking.id.replace("BK-", "");
 
-              <View style={styles.tripRow}>
-                <View style={styles.tripEndpoint}>
-                  <Text style={styles.tripLabel}>From</Text>
-                  <Text style={styles.tripValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{booking.from}</Text>
-                </View>
-                <View style={styles.tripLineWrap}>
-                  <View style={styles.tripLine} />
-                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                </View>
-                <View style={styles.tripEndpoint}>
-                  <Text style={[styles.tripLabel, styles.tripTextEnd]}>To</Text>
-                  <Text style={[styles.tripValue, styles.tripTextEnd]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{booking.to}</Text>
-                </View>
-              </View>
+            const handleTripNegotiationPress = () => {
+              router.push({
+                pathname: "/trips/NegotiationScreen",
+                params: {
+                  tripDetails: JSON.stringify({
+                    bookingId: tripId,
+                    pickup: booking.from,
+                    drop: booking.to,
+                    depart: booking.dateLabel,
+                    busBrand: "Standard",
+                    busNumber: booking.busNumber !== "PENDING" ? booking.busNumber : "Pending Assignment",
+                    totalPayment: 0,
+                    advancePayment: 0,
+                    dueAmount: 0,
+                  }),
+                },
+              });
+            };
 
-              <View style={styles.cardBottomRow}>
-                <Text style={styles.timeText}>
-                  {booking.dateLabel} | {booking.timeLabel}
-                </Text>
-                <View style={styles.cardActions}>
-                  {booking.busType === "trip_booking" &&
-                  !["success", "paid"].includes(String(booking.paymentStatus ?? "").toLowerCase()) ? (
-                    <PressScale
-                      style={styles.actionButton}
-                      onPress={() => {
-                        const tripId = booking.id.replace("BK-", "");
-                        router.push({
-                          pathname: "/trips/NegotiationScreen",
-                          params: {
-                            tripDetails: JSON.stringify({
-                              bookingId: tripId,
-                              pickup: booking.from,
-                              drop: booking.to,
-                              depart: booking.dateLabel,
-                              busBrand: "Standard",
-                              busNumber: "Pending Assignment",
-                              totalPayment: 0,
-                              advancePayment: 0,
-                              dueAmount: 0
+            const cardView = (
+              <View
+                style={[styles.bookingCard, { backgroundColor: booking.base }]}
+              >
+                <View style={styles.cardTopRow}>
+                  <View style={styles.badgeRow}>
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>
+                        {isTripNegotiation ? "Pending Trip" : "Upcoming"}
+                      </Text>
+                    </View>
+                    <View style={[styles.badge, styles.badgeSoft]}>
+                      <Text style={styles.badgeText}>
+                        {isTripNegotiation ? "Negotiation" : booking.badge}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.refText}>Ref: {booking.id}</Text>
+                </View>
+
+                <View style={styles.tripRow}>
+                  <View style={styles.tripEndpoint}>
+                    <Text style={styles.tripLabel}>From</Text>
+                    <Text style={styles.tripValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{booking.from}</Text>
+                  </View>
+                  <View style={styles.tripLineWrap}>
+                    <View style={styles.tripLine} />
+                    <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.tripEndpoint}>
+                    <Text style={[styles.tripLabel, styles.tripTextEnd]}>To</Text>
+                    <Text style={[styles.tripValue, styles.tripTextEnd]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{booking.to}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardBottomRow}>
+                  <Text style={styles.timeText}>
+                    {booking.dateLabel} | {booking.timeLabel}
+                  </Text>
+                  <View style={styles.cardActions}>
+                    {isTripNegotiation ? (
+                      <View style={styles.actionButton}>
+                        <View style={styles.smallButton}>
+                          <Ionicons
+                            name="chatbubbles-outline"
+                            size={13}
+                            color={booking.base}
+                          />
+                          <Text
+                            style={[
+                              styles.smallButtonText,
+                              { color: booking.base },
+                            ]}
+                          >
+                            Review & Pay
+                          </Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <>
+                        <PressScale
+                          style={styles.actionButton}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/map/live-map",
+                              params: {
+                                busNumber: booking.busNumber,
+                                startLocation: booking.from,
+                                endLocation: booking.to,
+                                journeyDate: booking.journeyDate,
+                                journeyTime: booking.journeyTime,
+                              },
                             })
                           }
-                        });
-                      }}
-                    >
-                      <View style={styles.smallButton}>
-                        <Ionicons
-                          name="chatbubbles-outline"
-                          size={13}
-                          color={booking.base}
-                        />
-                        <Text
-                          style={[
-                            styles.smallButtonText,
-                            { color: booking.base },
-                          ]}
                         >
-                          {booking.busNumber === "PENDING" ? "Review Booking" : "Open Booking Review"}
-                        </Text>
-                      </View>
-                    </PressScale>
-                  ) : (
-                    <>
-                      <PressScale
-                        style={styles.actionButton}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/map/live-map",
-                            params: {
-                              busNumber: booking.busNumber,
-                              startLocation: booking.from,
-                              endLocation: booking.to,
-                              // Boarding is limited to the trip the seat is
-                              // booked on, so the map needs its departure time.
-                              journeyDate: booking.journeyDate,
-                              journeyTime: booking.journeyTime,
-                            },
-                          })
-                        }
-                      >
-                        <View style={styles.smallButton}>
-                          <Ionicons
-                            name="location"
-                            size={13}
-                            color={booking.base}
-                          />
-                          <Text
-                            style={[
-                              styles.smallButtonText,
-                              { color: booking.base },
-                            ]}
-                          >
-                            Track Live
-                          </Text>
-                        </View>
-                      </PressScale>
-                      <PressScale
-                        style={styles.actionButton}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/booking/view-ticket",
-                            params: {
-                              bookingRef: booking.id,
-                              from: booking.from,
-                              to: booking.to,
-                              busNumber: booking.busNumber,
-                              date: booking.dateLabel,
-                              depart: booking.timeLabel,
-                              busType: booking.busType,
-                              passengerName: displayName,
-                            },
-                          })
-                        }
-                      >
-                        <View style={styles.smallButton}>
-                          <Text
-                            style={[
-                              styles.smallButtonText,
-                              { color: booking.base },
-                            ]}
-                          >
-                            View Ticket
-                          </Text>
-                          <Ionicons
-                            name="arrow-forward"
-                            size={13}
-                            color={booking.base}
-                          />
-                        </View>
-                      </PressScale>
-                    </>
-                  )}
+                          <View style={styles.smallButton}>
+                            <Ionicons
+                              name="location"
+                              size={13}
+                              color={booking.base}
+                            />
+                            <Text
+                              style={[
+                                styles.smallButtonText,
+                                { color: booking.base },
+                              ]}
+                            >
+                              Track Live
+                            </Text>
+                          </View>
+                        </PressScale>
+                        <PressScale
+                          style={styles.actionButton}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/booking/view-ticket",
+                              params: {
+                                bookingRef: booking.id,
+                                from: booking.from,
+                                to: booking.to,
+                                busNumber: booking.busNumber,
+                                date: booking.dateLabel,
+                                depart: booking.timeLabel,
+                                busType: booking.busType,
+                                passengerName: displayName,
+                              },
+                            })
+                          }
+                        >
+                          <View style={styles.smallButton}>
+                            <Text
+                              style={[
+                                styles.smallButtonText,
+                                { color: booking.base },
+                              ]}
+                            >
+                              View Ticket
+                            </Text>
+                            <Ionicons
+                              name="arrow-forward"
+                              size={13}
+                              color={booking.base}
+                            />
+                          </View>
+                        </PressScale>
+                      </>
+                    )}
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
+            );
+
+            return isTripNegotiation ? (
+              <PressScale key={booking.id} onPress={handleTripNegotiationPress}>
+                {cardView}
+              </PressScale>
+            ) : (
+              <View key={booking.id}>
+                {cardView}
+              </View>
+            );
+          })}
         </Animated.View>
       </ScrollView>
     </SafeAreaView>

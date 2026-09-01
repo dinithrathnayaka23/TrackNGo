@@ -18,6 +18,8 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Time;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -377,6 +379,100 @@ public class AdminBusService {
         String sql = "SELECT route_id, route_name, estimated_time_duration FROM route WHERE is_active = 1 ORDER BY route_name";
         return jdbc.query(sql, (rs, rowNum) -> new RouteOption(rs.getLong("route_id"), rs.getString("route_name"),
                 rs.getObject("estimated_time_duration", Integer.class)));
+    }
+
+    /* ── Revenue for one bus ──────────────────────────────── */
+
+    /**
+     * Daily takings for a bus over the last {@code days} days, ending today.
+     *
+     * Only seats that were actually paid for count: a booking contributes when it
+     * has a successful payment and has not been cancelled. Revenue is attributed
+     * to the journey date rather than the payment date, so a day's figure is what
+     * the bus earned for running that day.
+     *
+     * Days with no bookings are returned as zero rather than omitted, so the chart
+     * shows a real gap instead of silently joining across it.
+     */
+    public BusRevenueSummary getRevenue(Long busId, int days) {
+        int window = Math.min(Math.max(days, 1), 365);
+        LocalDate today = LocalDate.now();
+        LocalDate from = today.minusDays(window - 1L);
+
+        String sql = """
+                SELECT sb.journey_date AS journey_date,
+                       SUM(sb.total_amount) AS revenue,
+                       COUNT(*) AS seats_sold
+                FROM seat_booking sb
+                JOIN payment p ON p.payment_id = sb.payment_id
+                WHERE sb.bus_id = ?
+                  AND sb.status <> 'cancelled'
+                  AND p.payment_status = 'success'
+                  AND sb.journey_date BETWEEN ? AND ?
+                GROUP BY sb.journey_date
+                """;
+
+        Map<LocalDate, BusRevenuePoint> byDate = new HashMap<>();
+        jdbc.query(sql, rs -> {
+            LocalDate date = rs.getDate("journey_date").toLocalDate();
+            byDate.put(date, new BusRevenuePoint(
+                    date.toString(),
+                    toBigDecimal(rs.getObject("revenue")),
+                    rs.getInt("seats_sold")));
+        }, busId, java.sql.Date.valueOf(from), java.sql.Date.valueOf(today));
+
+        List<BusRevenuePoint> points = new ArrayList<>(window);
+        BigDecimal total = BigDecimal.ZERO;
+        int seats = 0;
+        for (int i = 0; i < window; i++) {
+            LocalDate date = from.plusDays(i);
+            BusRevenuePoint point = byDate.get(date);
+            if (point == null) {
+                point = new BusRevenuePoint(date.toString(), BigDecimal.ZERO, 0);
+            }
+            points.add(point);
+            total = total.add(point.revenue());
+            seats += point.seatsSold();
+        }
+
+        BigDecimal average = total.divide(BigDecimal.valueOf(window), 2, RoundingMode.HALF_UP);
+        return new BusRevenueSummary(points, total, average, seats);
+    }
+
+    /* ── Seats sold on upcoming departures ────────────────── */
+
+    /**
+     * Seats already booked on each upcoming departure of a bus, covering today
+     * through the next {@code days - 1} days. Keyed by journey date and time so the
+     * caller can line each count up against the bus's scheduled departures.
+     *
+     * Cancelled bookings are excluded, but unpaid ones are not: a held seat is
+     * unavailable regardless of whether its payment has settled yet.
+     */
+    public List<BusDepartureBookings> getUpcomingBookings(Long busId, int days) {
+        int window = Math.min(Math.max(days, 1), 60);
+        LocalDate today = LocalDate.now();
+        LocalDate until = today.plusDays(window - 1L);
+
+        String sql = """
+                SELECT sb.journey_date AS journey_date,
+                       sb.journey_time AS journey_time,
+                       COUNT(*) AS booked_seats
+                FROM seat_booking sb
+                WHERE sb.bus_id = ?
+                  AND sb.status <> 'cancelled'
+                  AND sb.journey_date BETWEEN ? AND ?
+                GROUP BY sb.journey_date, sb.journey_time
+                ORDER BY sb.journey_date, sb.journey_time
+                """;
+
+        return jdbc.query(sql, (rs, rowNum) -> {
+            Time time = rs.getTime("journey_time");
+            return new BusDepartureBookings(
+                    rs.getDate("journey_date").toLocalDate().toString(),
+                    time == null ? null : time.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")),
+                    rs.getInt("booked_seats"));
+        }, busId, java.sql.Date.valueOf(today), java.sql.Date.valueOf(until));
     }
 
     /* ── Helpers ──────────────────────────────────────────── */

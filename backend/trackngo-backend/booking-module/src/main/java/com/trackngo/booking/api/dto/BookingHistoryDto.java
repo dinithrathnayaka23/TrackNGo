@@ -20,4 +20,9 @@ public class BookingHistoryDto {
     private String status;
     private String transactionId;
     private String paymentStatus;
+    private String cancellationStatus;
+    private String cancellationReason;
+    private String cancellationRequestedBy;
+    private String cancellationRejectReason;
+    private Integer refundPercentage;
 }

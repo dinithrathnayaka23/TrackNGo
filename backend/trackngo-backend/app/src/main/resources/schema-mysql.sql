@@ -151,3 +151,17 @@ CREATE TABLE IF NOT EXISTS ai_domain_knowledge (
     FULLTEXT KEY ft_ai_domain_knowledge (title, content),
     INDEX idx_ai_domain_knowledge_active (active, priority)
 );
+
+ALTER TABLE seat_booking ADD COLUMN IF NOT EXISTS cancellation_status VARCHAR(32) DEFAULT 'none';
+ALTER TABLE seat_booking ADD COLUMN IF NOT EXISTS cancellation_requested_by VARCHAR(32) NULL;
+ALTER TABLE seat_booking ADD COLUMN IF NOT EXISTS cancellation_requested_at DATETIME NULL;
+ALTER TABLE seat_booking ADD COLUMN IF NOT EXISTS cancellation_reject_reason TEXT NULL;
+ALTER TABLE seat_booking ADD COLUMN IF NOT EXISTS refund_percentage INT NULL;
+
+ALTER TABLE trip_booking ADD COLUMN IF NOT EXISTS cancellation_status VARCHAR(32) DEFAULT 'none';
+ALTER TABLE trip_booking ADD COLUMN IF NOT EXISTS cancellation_reason TEXT NULL;
+ALTER TABLE trip_booking ADD COLUMN IF NOT EXISTS cancellation_requested_by VARCHAR(32) NULL;
+ALTER TABLE trip_booking ADD COLUMN IF NOT EXISTS cancellation_requested_at DATETIME NULL;
+ALTER TABLE trip_booking ADD COLUMN IF NOT EXISTS cancellation_reject_reason TEXT NULL;
+ALTER TABLE trip_booking ADD COLUMN IF NOT EXISTS refund_percentage INT NULL;
+

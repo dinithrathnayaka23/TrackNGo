@@ -36,6 +36,7 @@ export interface CorporateProfileDto {
   contactPersonName: string | null;
   contactPersonDesignation: string | null;
   contactPhone: string | null;
+  contactEmail: string | null;
   address: string | null;
   businessRegistrationNumber: string | null;
   industry: string | null;
@@ -47,7 +48,7 @@ export interface CorporateProfileDto {
 export type ContractStatus = "pending" | "active" | "expired" | "cancelled";
 export type ShiftType = "morning" | "evening" | "both";
 export type WorkingDays = "weekdays" | "all_days";
-export type BusType = "standard" | "ac" | "mini";
+export type BusType = "standard" | "mini";
 
 /** One pickup or drop-off point: a Google Places result plus the shift time. */
 export interface ShiftLeg {
@@ -74,6 +75,8 @@ export interface CorporateContract {
   employeeCount: number;
   workingDays: WorkingDays;
   busType: BusType;
+  /** True when the selected bus has air conditioning — independent of bus size. */
+  isAc: boolean;
   distanceKm: number | null;
   status: ContractStatus;
   /** Set once the corporate user confirms the final offer after admin approval. */
@@ -90,7 +93,11 @@ export interface CorporateContract {
   advancePaidAt: string | null;
   originalBillingAmount: number | null;
   discountAmount: number | null;
+  carriedBalance: number;
+  renewedFromContractId?: number | null;
   cancellation: ContractCancellation;
+  /** The corporate client's ask to renew this contract — always available while active, not just near its end date. */
+  renewalRequestStatus: 'none' | 'requested' | 'approved' | 'declined';
 }
 
 /** Mutual-consent cancellation state for a corporate contract. */
@@ -115,6 +122,7 @@ export interface CorporateInvoice {
   date: string;       // "YYYY-MM-DD" — period start
   periodEnd: string | null;
   dueDate: string | null;
+  invoiceType?: 'monthly' | 'carried_balance' | 'adjustment';
   stripeTransactionId: string | null;
   paidAt: string | null;
   createdAt: string;
@@ -160,10 +168,14 @@ export interface CreateContractRequest {
   employeeCount: number;
   workingDays: WorkingDays;
   busType: BusType;
+  /** True when the selected bus has air conditioning — drives the AC surcharge. */
+  isAc: boolean;
   busIds: number[];
   startDate: string;
   endDate: string;
   corporateUserId: number;
+  /** Set when submitting a renewal (after admin approved the renewal request) so its approval skips the advance deposit. */
+  renewedFromContractId?: number;
 }
 
 /**
@@ -189,6 +201,8 @@ export interface PricingEstimateRequest {
   shiftType: ShiftType;
   workingDays: WorkingDays;
   busType: BusType;
+  /** True when the selected bus has air conditioning — drives the AC surcharge. */
+  isAc: boolean;
 }
 
 /**
@@ -204,6 +218,22 @@ export async function estimateContractPricing(
     "/api/corporate/contracts/estimate",
     undefined,
     request,
+  );
+  return res.data ?? 0;
+}
+
+/**
+ * Calculates fair prorated carried balance from predecessor contract,
+ * deducting any unused days.
+ * GET /api/corporate/contracts/carried-balance
+ */
+export async function getCarriedBalance(
+  predecessorContractId: number,
+  startDate?: string,
+): Promise<number> {
+  const res = await httpGet<ApiResponse<number>>(
+    "/api/corporate/contracts/carried-balance",
+    { predecessorContractId, startDate },
   );
   return res.data ?? 0;
 }
@@ -258,6 +288,7 @@ export async function updateCorporateProfile(
     contactPersonName: data.contactPersonName ?? existing?.contactPersonName ?? "",
     contactPersonDesignation: data.contactPersonDesignation ?? existing?.contactPersonDesignation ?? "",
     contactPhone: data.contactPhone ?? existing?.contactPhone ?? "",
+    contactEmail: data.contactEmail ?? existing?.contactEmail ?? "",
     profilePhoto: data.profilePhoto ?? existing?.profilePhoto ?? "",
   };
   await httpPost<any>(`/api/users/${userId}/corporate`, undefined, payload);
@@ -325,18 +356,24 @@ export async function requestContractCancellation(
 }
 
 /**
- * Accepts or declines a cancellation request admin filed.
+ * Accepts or declines a cancellation request admin filed. When accepting an
+ * admin-initiated cancellation of an already-active contract, `cancelTiming`
+ * ("immediate" or "scheduled") is required so the corporate user can choose
+ * between cancelling right away or keeping the contract running for the
+ * standard notice period; it's ignored for every other case, since those
+ * always take effect immediately.
  * POST /api/corporate/contracts/{contractId}/cancel-response
  */
 export async function respondToContractCancellation(
   contractId: number,
   accept: boolean,
   responseReason?: string,
+  cancelTiming?: "immediate" | "scheduled",
 ): Promise<CorporateContract> {
   const res = await httpPost<ApiResponse<CorporateContract>>(
     `/api/corporate/contracts/${contractId}/cancel-response`,
     undefined,
-    { role: "corporate", accept, responseReason },
+    { role: "corporate", accept, responseReason, cancelTiming },
   );
   if (!res.success || !res.data) {
     throw new Error(res.message || "Failed to respond to cancellation request.");
@@ -362,6 +399,28 @@ export async function renewContract(
   );
   if (!res.success || !res.data) {
     throw new Error(res.message || "Failed to submit renewal request.");
+  }
+  return res.data;
+}
+
+/**
+ * Asks admin for permission to renew an active contract — available any
+ * time, not just near its end date. Admin must accept before the client can
+ * proceed to fill out and submit the actual renewal contract (see
+ * {@link createCorporateContract}'s `renewedFromContractId`).
+ * POST /api/corporate/contracts/{contractId}/renewal-request
+ */
+export async function requestContractRenewal(
+  contractId: number,
+  userId: number,
+): Promise<CorporateContract> {
+  const res = await httpPost<ApiResponse<CorporateContract>>(
+    `/api/corporate/contracts/${contractId}/renewal-request`,
+    undefined,
+    { userId },
+  );
+  if (!res.success || !res.data) {
+    throw new Error(res.message || "Failed to send renewal request.");
   }
   return res.data;
 }
@@ -523,9 +582,25 @@ export function isRealProfileText(value: string, minLength: number): boolean {
   return new Set(trimmed.split("")).size > 1;
 }
 
-export function isValidProfilePhone(value: string): boolean {
+/**
+ * Mirrors the backend's `ProfileValidation.isValidSriLankanPhone`: a 9-digit
+ * subscriber number (first digit 1-9) optionally prefixed with a trunk "0"
+ * or the "+94"/"94" country code, e.g. "0771234567" or "+94 77 123 4567".
+ */
+export function isValidSriLankanPhone(value: string): boolean {
   const digits = value.replace(/[^0-9]/g, "");
-  return digits.length >= 7 && digits.length <= 15;
+  let local = digits;
+  if (local.startsWith("94") && local.length === 11) {
+    local = local.slice(2);
+  } else if (local.startsWith("0") && local.length === 10) {
+    local = local.slice(1);
+  }
+  return /^[1-9]\d{8}$/.test(local);
+}
+
+/** Mirrors the backend's `ProfileValidation.isValidEmail` — a plausible "local@domain.tld" shape. */
+export function isValidProfileEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
@@ -659,6 +734,22 @@ export function isContractEnded(contract: CorporateContract): boolean {
  */
 export function isAwaitingFinalization(contract: CorporateContract): boolean {
   return contract.status?.toLowerCase() === "active" && !contract.finalizedAt;
+}
+
+/**
+ * True once the corporate user has accepted an admin-initiated cancellation
+ * of an active contract and chosen to keep it running until the notice
+ * period ends, rather than cancelling immediately. The contract is still
+ * `status = 'active'` in the DB until the scheduled job cancels it on
+ * `cancellation.effectiveDate`, so it should read as something other than
+ * plain "Active" in the meantime.
+ */
+export function isScheduledForCancellation(contract: CorporateContract): boolean {
+  return (
+    contract.status?.toLowerCase() === "active" &&
+    contract.cancellation.status === "accepted" &&
+    !!contract.cancellation.effectiveDate
+  );
 }
 
 /**

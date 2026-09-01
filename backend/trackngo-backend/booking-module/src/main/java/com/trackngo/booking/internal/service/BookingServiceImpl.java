@@ -96,7 +96,12 @@ public class BookingServiceImpl implements BookingService {
                     COALESCE(p.payment_status, 'unpaid') AS payment_status,
                     sb.status,
                     CASE WHEN LOWER(b.bus_type) IN ('highway', 'long_distance')
-                         THEN 'Highway/Long-distance' ELSE 'All Bookings' END AS category
+                         THEN 'Highway/Long-distance' ELSE 'All Bookings' END AS category,
+                    sb.cancellation_status,
+                    sb.cancellation_reason,
+                    sb.cancellation_requested_by,
+                    sb.cancellation_reject_reason,
+                    sb.refund_percentage
                 FROM seat_booking sb
                 JOIN passenger pa ON pa.passenger_id = sb.passenger_id
                 JOIN `user` u ON u.user_id = pa.passenger_id
@@ -118,7 +123,12 @@ public class BookingServiceImpl implements BookingService {
                     COALESCE(tb.final_price, 0) AS amount,
                     COALESCE(p.payment_status, 'unpaid') AS payment_status,
                     tb.booking_status AS status,
-                    'Trip Bookings' AS category
+                    'Trip Bookings' AS category,
+                    tb.cancellation_status,
+                    tb.cancellation_reason,
+                    tb.cancellation_requested_by,
+                    tb.cancellation_reject_reason,
+                    tb.refund_percentage
                 FROM trip_booking tb
                 JOIN passenger pa ON pa.passenger_id = tb.passenger_id
                 JOIN `user` u ON u.user_id = pa.passenger_id
@@ -139,7 +149,12 @@ public class BookingServiceImpl implements BookingService {
                 rs.getBigDecimal("amount"),
                 rs.getString("payment_status"),
                 rs.getString("status"),
-                rs.getString("category")
+                rs.getString("category"),
+                rs.getString("cancellation_status"),
+                rs.getString("cancellation_reason"),
+                rs.getString("cancellation_requested_by"),
+                rs.getString("cancellation_reject_reason"),
+                rs.getObject("refund_percentage") != null ? rs.getInt("refund_percentage") : null
         ));
     }
 
@@ -158,14 +173,17 @@ public class BookingServiceImpl implements BookingService {
                     COALESCE(tb.final_price, 0) AS amount,
                     'unpaid' AS payment_status,
                     tb.booking_status AS status,
-                    'Trip Bookings' AS category
+                    'Trip Bookings' AS category,
+                    tb.cancellation_status,
+                    tb.cancellation_reason,
+                    tb.cancellation_requested_by,
+                    tb.cancellation_reject_reason,
+                    tb.refund_percentage
                 FROM trip_booking tb
                 JOIN passenger pa ON pa.passenger_id = tb.passenger_id
                 JOIN `user` u ON u.user_id = pa.passenger_id
                 LEFT JOIN bus b ON b.bus_id = tb.bus_id
                 WHERE tb.booking_status IN ('pending', 'confirmed')
-                  AND tb.bus_id IS NOT NULL
-                  AND tb.negotiated_at IS NULL
                   AND NOT EXISTS (
                       SELECT 1 FROM payment paid
                       WHERE paid.trip_booking_id = tb.trip_booking_id
@@ -184,7 +202,12 @@ public class BookingServiceImpl implements BookingService {
                 rs.getBigDecimal("amount"),
                 rs.getString("payment_status"),
                 rs.getString("status"),
-                rs.getString("category")
+                rs.getString("category"),
+                rs.getString("cancellation_status"),
+                rs.getString("cancellation_reason"),
+                rs.getString("cancellation_requested_by"),
+                rs.getString("cancellation_reject_reason"),
+                rs.getObject("refund_percentage") != null ? rs.getInt("refund_percentage") : null
         ));
     }
 
@@ -237,6 +260,12 @@ public class BookingServiceImpl implements BookingService {
                 dto.setJourneyDate(item.getJourneyDate());
                 dto.setJourneyTime(item.getJourneyTime());
                 dto.setPaymentStatus(item.getPaymentStatus());
+                dto.setStatus(item.getStatus());
+                dto.setCancellationStatus(item.getCancellationStatus());
+                dto.setCancellationReason(item.getCancellationReason());
+                dto.setCancellationRequestedBy(item.getCancellationRequestedBy());
+                dto.setCancellationRejectReason(item.getCancellationRejectReason());
+                dto.setRefundPercentage(item.getRefundPercentage());
                 return dto;
             })
             .toList();
@@ -292,6 +321,11 @@ public class BookingServiceImpl implements BookingService {
         dto.setStatus(item.getStatus());
         dto.setTransactionId(item.getTransactionId());
         dto.setPaymentStatus(item.getPaymentStatus());
+        dto.setCancellationStatus(item.getCancellationStatus());
+        dto.setCancellationReason(item.getCancellationReason());
+        dto.setCancellationRequestedBy(item.getCancellationRequestedBy());
+        dto.setCancellationRejectReason(item.getCancellationRejectReason());
+        dto.setRefundPercentage(item.getRefundPercentage());
         return dto;
     }
 

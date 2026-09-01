@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/booking-flow")
@@ -120,10 +121,34 @@ public class BookingFlowController {
         return ApiResponse.ok("Booking cancelled", null);
     }
 
+    @PostMapping("/bookings/{bookingRef}/cancellation-request")
+    public ApiResponse<Map<String, Object>> requestCancellation(
+            @PathVariable String bookingRef,
+            @RequestBody(required = false) Map<String, String> body
+    ) {
+        String requesterType = body != null && body.containsKey("requesterType") ? body.get("requesterType") : "user";
+        String reason = body != null && body.containsKey("reason") ? body.get("reason") : "Cancellation requested";
+        Map<String, Object> result = service.requestCancellation(bookingRef, requesterType, reason);
+        return ApiResponse.ok("Cancellation requested", result);
+    }
+
+    @PostMapping("/bookings/{bookingRef}/cancellation-response")
+    public ApiResponse<Map<String, Object>> respondToCancellation(
+            @PathVariable String bookingRef,
+            @RequestBody Map<String, Object> body
+    ) {
+        String responderType = body != null && body.containsKey("responderType") ? (String) body.get("responderType") : "admin";
+        boolean accept = body != null && Boolean.TRUE.equals(body.get("accept"));
+        String rejectReason = body != null && body.containsKey("rejectReason") ? (String) body.get("rejectReason") : null;
+        Map<String, Object> result = service.respondToCancellation(bookingRef, responderType, accept, rejectReason);
+        return ApiResponse.ok("Cancellation response processed", result);
+    }
+
     @PutMapping("/bookings/{seatBookingId}/boarded")
     public ApiResponse<Void> markPassengerBoarded(@PathVariable Long seatBookingId) {
         service.markPassengerBoarded(seatBookingId);
         return ApiResponse.ok("Passenger marked as boarded", null);
     }
 }
+
 

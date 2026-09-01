@@ -23,6 +23,11 @@ export type TripBooking = {
   busBrand?: string | null;
   paymentStatus?: string | null;
   transactionId?: string | null;
+  cancellationStatus?: string | null;
+  cancellationReason?: string | null;
+  cancellationRequestedBy?: string | null;
+  cancellationRejectReason?: string | null;
+  refundPercentage?: number | null;
 };
 
 export type TripBus = {
@@ -70,10 +75,22 @@ export async function createTripBooking(request: CreateTripBookingRequest): Prom
   return unwrap(result);
 }
 
-export async function getAvailableTripBuses(passengers: number, requirement: string): Promise<TripBus[]> {
+export async function getAvailableTripBuses(
+  passengers: number,
+  requirement: string,
+  startDate?: string,
+  returnDate?: string,
+  bookingId?: number,
+): Promise<TripBus[]> {
   const result = await httpGet<TripBus[] | { data?: TripBus[] }>(
     "/api/trips/available-buses",
-    { passengers, requirement },
+    {
+      passengers,
+      requirement: requirement || undefined,
+      startDate: startDate || undefined,
+      returnDate: returnDate || undefined,
+      bookingId: bookingId || undefined,
+    },
     await authHeaders(),
   );
   return unwrap(result) ?? [];
@@ -106,3 +123,28 @@ export async function confirmTripPayment(bookingId: number, sessionId: string): 
   );
   return unwrap(result);
 }
+
+export async function requestTripCancellation(bookingId: number, reason: string): Promise<TripBooking> {
+  const result = await httpPost<TripBooking | { data: TripBooking }>(
+    `/api/trips/book/${bookingId}/cancellation-request`,
+    undefined,
+    { reason, requesterType: "user" },
+    await authHeaders(),
+  );
+  return unwrap(result);
+}
+
+export async function respondToTripCancellation(
+  bookingId: number,
+  accept: boolean,
+  rejectReason?: string,
+): Promise<TripBooking> {
+  const result = await httpPost<TripBooking | { data: TripBooking }>(
+    `/api/trips/book/${bookingId}/cancellation-response`,
+    undefined,
+    { accept, rejectReason, responderType: "user" },
+    await authHeaders(),
+  );
+  return unwrap(result);
+}
+

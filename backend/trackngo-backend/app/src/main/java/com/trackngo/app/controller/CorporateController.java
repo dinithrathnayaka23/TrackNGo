@@ -12,13 +12,17 @@ import com.trackngo.app.dto.CorporatePricingEstimateRequest;
 import com.trackngo.app.dto.CorporatePricingSettingsDto;
 import com.trackngo.app.dto.CorporateAdvancePaymentDto;
 import com.trackngo.app.dto.RenewalRequestDto;
+import com.trackngo.app.dto.RenewalIntentRequestDto;
+import com.trackngo.app.dto.RenewalResponseDto;
 import com.trackngo.app.service.CorporatePricingService;
 import com.trackngo.app.service.CorporateService;
 import com.trackngo.commons.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,6 +35,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/corporate")
+@Slf4j
 @RequiredArgsConstructor
 public class CorporateController {
 
@@ -63,7 +68,8 @@ public class CorporateController {
         try {
             CorporateContractDto updated = corporateService.updateContractStatus(contractId, request);
             return ApiResponse.ok("Contract status updated successfully", updated);
-        } catch (IllegalStateException | IllegalArgumentException ex) {
+        } catch (Exception ex) {
+            log.error("Error updating contract status for {}: {}", contractId, ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
@@ -79,30 +85,33 @@ public class CorporateController {
         try {
             CorporateContractDto finalized = corporateService.finalizeContract(contractId, userId);
             return ApiResponse.ok("Contract finalized successfully", finalized);
-        } catch (IllegalStateException | IllegalArgumentException ex) {
+        } catch (Exception ex) {
+            log.error("Error finalizing contract {}: {}", contractId, ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
 
-    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/advance-payment")
+    @PostMapping("/contracts/{contractId}/advance-payment")
     public ApiResponse<CorporateContractDto> processAdvancePayment(
             @PathVariable("contractId") Long contractId,
             @RequestBody CorporateAdvancePaymentDto request) {
         try {
             CorporateContractDto updated = corporateService.processAdvancePayment(contractId, request);
             return ApiResponse.ok("Advance payment processed successfully", updated);
-        } catch (IllegalStateException | IllegalArgumentException ex) {
+        } catch (Exception ex) {
+            log.error("Error processing advance payment for contract {}: {}", contractId, ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
 
-    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/waive-advance-payment")
+    @PostMapping("/contracts/{contractId}/waive-advance-payment")
     public ApiResponse<CorporateContractDto> waiveAdvancePayment(
             @PathVariable("contractId") Long contractId) {
         try {
             CorporateContractDto updated = corporateService.waiveAdvancePayment(contractId);
             return ApiResponse.ok("Advance payment waived successfully", updated);
-        } catch (IllegalStateException | IllegalArgumentException ex) {
+        } catch (Exception ex) {
+            log.error("Error waiving advance payment for contract {}: {}", contractId, ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
@@ -112,14 +121,15 @@ public class CorporateController {
      * required reason. The other party must accept via {@code /cancel-response}
      * before anything changes.
      */
-    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/cancel-request")
+    @PostMapping("/contracts/{contractId}/cancel-request")
     public ApiResponse<CorporateContractDto> requestCancellation(
             @PathVariable("contractId") Long contractId,
             @RequestBody CancellationRequestDto request) {
         try {
             CorporateContractDto updated = corporateService.requestCancellation(contractId, request.role(), request.reason());
             return ApiResponse.ok("Cancellation requested successfully", updated);
-        } catch (IllegalStateException | IllegalArgumentException ex) {
+        } catch (Exception ex) {
+            log.error("Error requesting cancellation for contract {}: {}", contractId, ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
@@ -127,15 +137,16 @@ public class CorporateController {
     /**
      * The party who did not request cancellation accepts or rejects it.
      */
-    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/cancel-response")
+    @PostMapping("/contracts/{contractId}/cancel-response")
     public ApiResponse<CorporateContractDto> respondToCancellation(
             @PathVariable("contractId") Long contractId,
             @RequestBody CancellationResponseDto request) {
         try {
             CorporateContractDto updated = corporateService.respondToCancellation(
-                    contractId, request.role(), request.accept(), request.responseReason());
+                    contractId, request.role(), request.accept(), request.responseReason(), request.cancelTiming());
             return ApiResponse.ok("Cancellation response recorded successfully", updated);
-        } catch (IllegalStateException | IllegalArgumentException ex) {
+        } catch (Exception ex) {
+            log.error("Error responding to cancellation for contract {}: {}", contractId, ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
@@ -146,14 +157,48 @@ public class CorporateController {
      * route/shift/bus setup. Callable by either the corporate client or an
      * admin — both follow the same renewal flow.
      */
-    @org.springframework.web.bind.annotation.PostMapping("/contracts/{contractId}/renew")
+    @PostMapping("/contracts/{contractId}/renew")
     public ApiResponse<CorporateContractDto> renewContract(
             @PathVariable("contractId") Long contractId,
             @RequestBody RenewalRequestDto request) {
         try {
             CorporateContractDto renewed = corporateService.renewContract(contractId, request.userId(), request.role());
             return ApiResponse.ok("Renewal request submitted successfully", renewed);
-        } catch (IllegalStateException | IllegalArgumentException ex) {
+        } catch (Exception ex) {
+            log.error("Error renewing contract {}: {}", contractId, ex.getMessage(), ex);
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
+    /**
+     * The corporate client asks admin for permission to renew an active
+     * contract — always available, not just near its end date. Admin must
+     * approve via {@code /renewal-response} before the client can proceed to
+     * fill out and submit the actual renewal contract.
+     */
+    @PostMapping("/contracts/{contractId}/renewal-request")
+    public ApiResponse<CorporateContractDto> requestRenewal(
+            @PathVariable("contractId") Long contractId,
+            @RequestBody RenewalIntentRequestDto request) {
+        try {
+            CorporateContractDto updated = corporateService.requestRenewal(contractId, request.userId());
+            return ApiResponse.ok("Renewal request submitted successfully", updated);
+        } catch (Exception ex) {
+            log.error("Error requesting renewal for contract {}: {}", contractId, ex.getMessage(), ex);
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
+    /** Admin accepts or declines a corporate client's renewal request. */
+    @PostMapping("/contracts/{contractId}/renewal-response")
+    public ApiResponse<CorporateContractDto> respondToRenewalRequest(
+            @PathVariable("contractId") Long contractId,
+            @RequestBody RenewalResponseDto request) {
+        try {
+            CorporateContractDto updated = corporateService.respondToRenewalRequest(contractId, request.approve());
+            return ApiResponse.ok("Renewal response recorded successfully", updated);
+        } catch (Exception ex) {
+            log.error("Error responding to renewal for contract {}: {}", contractId, ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
@@ -183,14 +228,15 @@ public class CorporateController {
         return ApiResponse.ok("Invoice fetched successfully", invoice);
     }
 
-    @org.springframework.web.bind.annotation.PostMapping("/invoices/{invoiceNumber}/pay")
+    @PostMapping("/invoices/{invoiceNumber}/pay")
     public ApiResponse<Void> payInvoice(
             @PathVariable("invoiceNumber") Long invoiceNumber,
             @RequestBody CorporateAdvancePaymentDto request) {
         try {
             corporateService.payInvoice(invoiceNumber, request.sessionId());
             return ApiResponse.ok("Invoice paid successfully", null);
-        } catch (IllegalStateException | IllegalArgumentException ex) {
+        } catch (Exception ex) {
+            log.error("Error paying invoice {}: {}", invoiceNumber, ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
@@ -210,59 +256,69 @@ public class CorporateController {
         try {
             List<ContractBusDto> buses = corporateService.getAvailableBuses(startDate, endDate, minSeats, search, amenity);
             return ApiResponse.ok("Available buses fetched successfully", buses);
-        } catch (IllegalArgumentException ex) {
+        } catch (Exception ex) {
+            log.error("Error fetching available buses: {}", ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
 
-    @org.springframework.web.bind.annotation.PostMapping("/contracts")
-    public ApiResponse<CorporateContractDto> createContract(@org.springframework.web.bind.annotation.RequestBody CorporateContractDto contractDto) {
+    @PostMapping("/contracts")
+    public ApiResponse<CorporateContractDto> createContract(@RequestBody CorporateContractDto request) {
         try {
-            CorporateContractDto created = corporateService.createContract(contractDto);
-            return ApiResponse.ok("Contract created successfully", created);
-        } catch (IllegalStateException | IllegalArgumentException ex) {
+            CorporateContractDto created = corporateService.createContract(request);
+            return ApiResponse.ok("Contract request submitted successfully", created);
+        } catch (Exception ex) {
+            log.error("Error creating corporate contract: {}", ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
 
-    /**
-     * Previews the standard monthly billing amount for a contract before it is
-     * submitted, so the mobile app can show a live estimate as the corporate
-     * user fills in the route, shift type and employee count.
-     */
-    @org.springframework.web.bind.annotation.PostMapping("/contracts/estimate")
-    public ApiResponse<BigDecimal> estimatePricing(
-            @org.springframework.web.bind.annotation.RequestBody CorporatePricingEstimateRequest request) {
+    @GetMapping("/contracts/carried-balance")
+    public ApiResponse<BigDecimal> getCarriedBalance(
+            @RequestParam("predecessorContractId") Long predecessorContractId,
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate) {
         try {
-            BigDecimal amount = pricingService.calculateMonthlyAmount(
+            BigDecimal fairBalance = corporateService.calculateFairCarriedBalance(predecessorContractId, startDate);
+            return ApiResponse.ok("Carried balance calculated", fairBalance);
+        } catch (Exception ex) {
+            log.error("Error calculating carried balance: {}", ex.getMessage(), ex);
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
+    @PostMapping("/contracts/estimate")
+    public ApiResponse<BigDecimal> estimateMonthlyAmount(@RequestBody CorporatePricingEstimateRequest request) {
+        if (request.morningDistanceKm() == null && request.eveningDistanceKm() == null) {
+            return ApiResponse.fail("At least one shift distance is required.");
+        }
+        try {
+            BigDecimal estimated = pricingService.calculateMonthlyAmount(
                     request.morningDistanceKm(),
                     request.eveningDistanceKm(),
-                    request.employeeCount() == null ? 0 : request.employeeCount(),
                     request.shiftType(),
                     request.workingDays(),
-                    request.busType()
+                    request.busType(),
+                    request.isAc()
             );
-            return ApiResponse.ok("Estimate calculated", amount);
-        } catch (IllegalArgumentException ex) {
+            return ApiResponse.ok("Estimate calculated", estimated);
+        } catch (Exception ex) {
+            log.error("Error calculating monthly estimate: {}", ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }
 
-    /**
-     * The admin-configurable rates driving the pricing formula (rate per km
-     * by bus size, AC/Mini Bus surcharges, working-days-per-month).
-     */
     @GetMapping("/pricing-settings")
     public ApiResponse<CorporatePricingSettingsDto> getPricingSettings() {
         return ApiResponse.ok("Pricing settings fetched successfully", pricingService.getSettings());
     }
 
     @PutMapping("/pricing-settings")
-    public ApiResponse<CorporatePricingSettingsDto> updatePricingSettings(
-            @RequestBody CorporatePricingSettingsDto request) {
+    public ApiResponse<CorporatePricingSettingsDto> updatePricingSettings(@RequestBody CorporatePricingSettingsDto request) {
         try {
-            return ApiResponse.ok("Pricing settings updated successfully", pricingService.updateSettings(request));
-        } catch (IllegalArgumentException ex) {
+            CorporatePricingSettingsDto updated = pricingService.updateSettings(request);
+            return ApiResponse.ok("Pricing settings updated successfully", updated);
+        } catch (Exception ex) {
+            log.error("Error updating pricing settings: {}", ex.getMessage(), ex);
             return ApiResponse.fail(ex.getMessage());
         }
     }

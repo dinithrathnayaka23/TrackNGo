@@ -20,7 +20,7 @@ import { getUserProfile } from '../../services/userProfileApi';
 // PlacesInput uses Google Places with route-stop fallback suggestions.
 import PlacesInput from '../../components/PlacesInput';
 import { httpGet } from '../../services/http';
-import { formatLocalDate, isPastCalendarDate, normalizeBookableDate, PAST_BOOKING_DATE_MESSAGE, startOfToday } from '../../utils/bookingDate';
+import { earliestBookableDate, latestBookableDate, formatLocalDate, isAfterLatestBookableDate, isBeforeEarliestBookableDate, normalizeBookableDate, BOOKING_LEAD_TIME_MESSAGE, BOOKING_MAX_LEAD_TIME_MESSAGE } from '../../utils/bookingDate';
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from '../../utils/i18n';
 import { useTimeOfDayGreeting } from '../../utils/greeting';
 
@@ -74,7 +74,7 @@ export default function SearchBusesScreen() {
   const { busCategory } = useLocalSearchParams<{ busCategory?: string }>();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [selectedDate, setSelectedDate] = useState(startOfToday());
+  const [selectedDate, setSelectedDate] = useState(earliestBookableDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
@@ -148,17 +148,19 @@ export default function SearchBusesScreen() {
   rangeRef.current = range;
 
   const dateLabel = useMemo(() => {
-    const now = new Date();
-    const isToday =
-      now.getFullYear() === selectedDate.getFullYear() &&
-      now.getMonth() === selectedDate.getMonth() &&
-      now.getDate() === selectedDate.getDate();
+    // Today can no longer be booked, so the friendly label calls out the
+    // earliest date a passenger may actually travel on instead.
+    const earliest = earliestBookableDate();
+    const isEarliest =
+      earliest.getFullYear() === selectedDate.getFullYear() &&
+      earliest.getMonth() === selectedDate.getMonth() &&
+      earliest.getDate() === selectedDate.getDate();
     const formatted = selectedDate.toLocaleDateString('en-US', {
       day: '2-digit',
       month: 'short',
     });
-    if (isToday) {
-      return `Today, ${formatted}`;
+    if (isEarliest) {
+      return `Tomorrow, ${formatted}`;
     }
     const weekday = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
     return `${weekday}, ${formatted}`;
@@ -253,9 +255,9 @@ export default function SearchBusesScreen() {
       return;
     }
 
-    if (isPastCalendarDate(selectedDate)) {
-      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
-      setSelectedDate(startOfToday());
+    if (isBeforeEarliestBookableDate(selectedDate)) {
+      Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
+      setSelectedDate(earliestBookableDate());
       return;
     }
 
@@ -640,13 +642,15 @@ export default function SearchBusesScreen() {
               </View>
               <DateTimePicker
                 value={selectedDate}
-                minimumDate={startOfToday()}
+                minimumDate={earliestBookableDate()}
+                maximumDate={latestBookableDate()}
                 mode="date"
                 display="inline"
                 onChange={(_, date) => {
                   if (date) {
                     setSelectedDate(normalizeBookableDate(date));
-                    if (isPastCalendarDate(date)) Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+                    if (isBeforeEarliestBookableDate(date)) Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
+                    else if (isAfterLatestBookableDate(date)) Alert.alert('Invalid date', BOOKING_MAX_LEAD_TIME_MESSAGE);
                   }
                 }}
               />
@@ -658,7 +662,8 @@ export default function SearchBusesScreen() {
       {showDatePicker && Platform.OS !== 'ios' && (
         <DateTimePicker
           value={selectedDate}
-          minimumDate={startOfToday()}
+          minimumDate={earliestBookableDate()}
+          maximumDate={latestBookableDate()}
           mode="date"
           display="calendar"
           onChange={(event, date) => {
@@ -668,7 +673,8 @@ export default function SearchBusesScreen() {
             }
             if (date) {
               setSelectedDate(normalizeBookableDate(date));
-              if (isPastCalendarDate(date)) Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+              if (isBeforeEarliestBookableDate(date)) Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
+              else if (isAfterLatestBookableDate(date)) Alert.alert('Invalid date', BOOKING_MAX_LEAD_TIME_MESSAGE);
             }
             setShowDatePicker(false);
           }}

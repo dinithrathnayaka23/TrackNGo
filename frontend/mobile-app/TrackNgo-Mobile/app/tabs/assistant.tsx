@@ -15,6 +15,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { sendAiAssistantMessage } from "../../services/aiAssistantApi";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text, LocalizedTextInput as TextInput, useLanguage } from "../../utils/i18n";
+import { TAB_BAR_CONTENT_HEIGHT } from "../../utils/tabBar";
 
 interface AssistantMessage {
   id: string;
@@ -128,7 +129,6 @@ export default function AssistantScreen() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "welcome",
@@ -157,10 +157,20 @@ export default function AssistantScreen() {
     (message) => message.role === "user",
   );
   const bottomInset = keyboardVisible ? 0 : insets.bottom;
-  const keyboardLift =
-    Platform.OS === "android" && keyboardVisible
-      ? Math.max(0, keyboardHeight - insets.bottom)
-      : 0;
+
+  // Android already makes room for the keyboard on its own: the app is configured
+  // with softwareKeyboardLayoutMode "resize", so the window shrinks to the space
+  // above it, and the tab bar hides itself via tabBarHideOnKeyboard. This screen
+  // used to add a further padding of one keyboard height beneath the composer,
+  // which lifted the input a second time inside the already-shortened window and
+  // pushed the message list off the top of the screen.
+  //
+  // iOS does not resize, so KeyboardAvoidingView pads the layout there instead. It
+  // measures from the bottom of the window, which on a tab screen sits behind the
+  // tab bar, so the bar's height is subtracted or the composer floats above the
+  // keyboard by that much.
+  const keyboardOffset =
+    Platform.OS === "ios" ? TAB_BAR_CONTENT_HEIGHT + insets.bottom : 0;
 
   const helperText = useMemo(() => {
     if (!currentUser) {
@@ -178,14 +188,12 @@ export default function AssistantScreen() {
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent =
       Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSubscription = Keyboard.addListener(showEvent, (event) => {
+    const showSubscription = Keyboard.addListener(showEvent, () => {
       setKeyboardVisible(true);
-      setKeyboardHeight(event.endCoordinates.height);
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     });
     const hideSubscription = Keyboard.addListener(hideEvent, () => {
       setKeyboardVisible(false);
-      setKeyboardHeight(0);
     });
 
     return () => {
@@ -252,7 +260,7 @@ export default function AssistantScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         enabled={Platform.OS === "ios"}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={keyboardOffset}
         style={styles.keyboard}
       >
         <View style={styles.header}>
@@ -318,7 +326,7 @@ export default function AssistantScreen() {
         <View
           style={[
             styles.composer,
-            { paddingBottom: 14 + bottomInset + keyboardLift },
+            { paddingBottom: 14 + bottomInset },
           ]}
         >
           <TextInput

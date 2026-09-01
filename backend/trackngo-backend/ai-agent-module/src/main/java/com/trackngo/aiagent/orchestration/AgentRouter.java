@@ -1,5 +1,7 @@
 package com.trackngo.aiagent.orchestration;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.aiagent.context.AgentExecutionContext;
 import com.trackngo.aiagent.agents.NotificationAgent;
@@ -23,6 +25,7 @@ import com.trackngo.complaint.api.dto.ComplaintDto;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -49,6 +52,24 @@ import java.util.regex.Pattern;
 @Service
 @Slf4j
 public class AgentRouter {
+
+    /**
+     * Asked when a passenger describes a problem but has not named the trip it
+     * happened on. Held as a constant because the next turn is matched against it to
+     * recognise the passenger answering the question.
+     */
+    private static final String COMPLAINT_REFERENCE_PROMPT =
+            "I can submit this complaint for admin review. Please send the booking reference for the past trip, "
+            + "for example BK-20250501-ABCD, and include any extra details you want admin to see.";
+
+    /** Mirrors MAX_DESCRIPTION_LENGTH in ComplaintServiceImpl, which rejects anything longer. */
+    private static final int COMPLAINT_DESCRIPTION_LIMIT = 500;
+
+    /** "from X to Y" — the shape of a concrete journey request. */
+    private static final Pattern ROUTE_MENTION = Pattern.compile("(?i)\\bfrom\\s+.+?\\s+to\\s+.+");
+
+    /** A bus registration such as NB-0012, which only appears in operational questions. */
+    private static final Pattern BUS_MENTION = Pattern.compile("(?i)\\b[a-z]{2}-?\\d{3,4}\\b");
 
     private final ChatClient primaryChatClient;
     private final String fallbackModelName;
@@ -136,10 +157,29 @@ public class AgentRouter {
         }
 
         long startedAt = System.nanoTime();
-        String detectedIntent = detectIntent(userQuery);
+
+        // Checked before the current turn is recorded, so the lookup sees the
+        // previous exchange rather than this message.
+        Optional<String> complaintFollowUp = complaintContinuation(userQuery, chatId);
+        String routedQuery = complaintFollowUp.orElse(userQuery);
+
+        Understanding understanding;
+        if (complaintFollowUp.isPresent()) {
+            understanding = new Understanding("COMPLAINT", null, null, null);
+        } else if (isAdminOpsIntent(userQuery.toLowerCase(Locale.ROOT))
+                || (isAdminContext() && isAdminDashboardQuestion(userQuery.toLowerCase(Locale.ROOT)))) {
+            // Admin operations stay on the keyword path: they are phrased in a fixed
+            // internal vocabulary and must never be reached by a passenger.
+            understanding = new Understanding("ADMIN_OPS", null, null, null);
+        } else {
+            understanding = understand(userQuery, chatId);
+        }
+        String detectedIntent = understanding.intent();
+
         memoryService.recordMessage(chatId, "user", userQuery);
 
-        Optional<String> deterministicReply = tryDeterministicToolPath(userQuery, chatId, detectedIntent);
+        Optional<String> deterministicReply =
+                tryDeterministicToolPath(routedQuery, chatId, detectedIntent, understanding);
         if (deterministicReply.isPresent()) {
             String reply = deterministicReply.get();
             memoryService.recordMessage(chatId, "assistant", reply);
@@ -186,17 +226,44 @@ public class AgentRouter {
         return deterministicFallback(userQuery == null ? "" : userQuery, normalizeLanguage(language));
     }
 
-    private Optional<String> tryDeterministicToolPath(String userQuery, String chatId, String detectedIntent) {
+    /**
+     * Recognises a passenger supplying the booking reference the assistant just
+     * asked for, and rebuilds the full complaint from both turns.
+     *
+     * Intent is otherwise decided from one message in isolation, so a reply of just
+     * "BK-20260829-CAE6" matched no complaint keyword, fell through to the model,
+     * and the model — which has no tools and no way to know that — announced the
+     * complaint had been submitted. Nothing was ever written. Carrying the earlier
+     * description forward means the reference arrives at the complaint agent with
+     * the account of what happened still attached.
+     */
+    private Optional<String> complaintContinuation(String userQuery, String chatId) {
+        if (parseBookingReference(userQuery).isEmpty()) {
+            return Optional.empty();
+        }
+        boolean awaitingReference = memoryService.lastMessageByRole(chatId, "assistant")
+                .map(COMPLAINT_REFERENCE_PROMPT::equals)
+                .orElse(false);
+        if (!awaitingReference) {
+            return Optional.empty();
+        }
+        String description = memoryService.lastMessageByRole(chatId, "user").orElse("").trim();
+        return Optional.of(description.isEmpty() ? userQuery : description + " " + userQuery.trim());
+    }
+
+    private Optional<String> tryDeterministicToolPath(
+            String userQuery, String chatId, String detectedIntent, Understanding understanding) {
+        ExtractedComplaint extractedComplaint = understanding == null ? null : understanding.complaint();
         return switch (detectedIntent) {
-            case "TRIP_PLANNING" -> parseRouteRequest(userQuery)
+            case "TRIP_PLANNING" -> resolveRouteRequest(userQuery, understanding)
                     .map(tripPlanningAgentService::findRoutes)
                     .map(this::formatRouteResponse);
-            case "BOOKING" -> Optional.of(handleBookingIntent(userQuery));
+            case "BOOKING" -> Optional.of(handleBookingIntent(userQuery, understanding));
             case "ADMIN_OPS" -> Optional.of(handleAdminOpsIntent(userQuery));
-            case "ETA" -> parseBusReference(userQuery)
+            case "ETA" -> resolveBusReference(userQuery, understanding)
                     .map(busId -> trafficEtaAgentService.getLiveEta(new TrafficEtaAgent.EtaRequest(busId)))
                     .map(this::formatEtaResponse);
-            case "COMPLAINT" -> Optional.of(handleComplaintIntent(userQuery));
+            case "COMPLAINT" -> Optional.of(handleComplaintIntent(userQuery, extractedComplaint));
             case "RECOMMENDATION" -> Optional.of(formatRecommendationResponse(recommendationAgentService.generateRecommendations(
                     new RecommendationRequest(currentUserId(), userQuery, userQuery, List.of()))));
             case "NOTIFICATION" -> Optional.of(handleNotificationIntent(userQuery));
@@ -243,9 +310,9 @@ public class AgentRouter {
                 delivery,
                 response.suggestedRoute().isBlank() ? "" : "\n- **Suggested route:** " + response.suggestedRoute());
     }
-    private String handleBookingIntent(String userQuery) {
+    private String handleBookingIntent(String userQuery, Understanding understanding) {
         ParsedBookingRequest booking = parseNaturalLanguageBooking(userQuery);
-        Optional<TripPlanningAgent.RouteRequest> routeRequest = parseRouteRequest(userQuery);
+        Optional<TripPlanningAgent.RouteRequest> routeRequest = resolveRouteRequest(userQuery, understanding);
 
         if (routeRequest.isEmpty()) {
             return "I can help you book in plain English. Please include **source**, **destination**, **travel date**, and **seat count**.\n\nExample: **Book 2 seats from Colombo Fort to Kandy tomorrow morning**.";
@@ -581,6 +648,12 @@ public class AgentRouter {
         return Optional.empty();
     }
 
+    /** The bus the passenger named, preferring the model's reading over the regex. */
+    private Optional<String> resolveBusReference(String userQuery, Understanding understanding) {
+        return parseBusReference(userQuery)
+                .or(() -> Optional.ofNullable(understanding == null ? null : understanding.busReference()));
+    }
+
     private String formatEtaResponse(TrafficEtaAgent.EtaResponse response) {
         return "%s\nDelay estimate: %d minutes\nLocation: %s".formatted(
                 response.message(),
@@ -588,28 +661,62 @@ public class AgentRouter {
                 response.currentLocation());
     }
 
-    private String handleComplaintIntent(String userQuery) {
+    private String handleComplaintIntent(String userQuery, ExtractedComplaint alreadyExtracted) {
         ComplaintAnalysisResponse analysis = complaintAgentService.analyzeComplaint(
                 new ComplaintAnalysisRequest(userQuery, currentUserId(), "mobile"));
-        Optional<String> bookingReference = parseBookingReference(userQuery);
+
+        // Classification already read the message and pulled the details out; only
+        // the multi-turn path, which never went through it, needs its own extraction.
+        ExtractedComplaint extracted = alreadyExtracted != null
+                ? alreadyExtracted
+                : extractComplaint(userQuery);
+
+        // The regex is the more reliable reader of a reference, since it matches the
+        // exact issued format; the model fills in only when no reference was typed
+        // in a recognisable shape.
+        Optional<String> bookingReference = parseBookingReference(userQuery)
+                .or(() -> Optional.ofNullable(extracted.bookingReference()).filter(ref -> !ref.isBlank()));
+
         AgentExecutionContext.Context context = AgentExecutionContext.get();
 
         if (context == null || context.email() == null || context.email().isBlank()) {
             return "I can help submit this complaint, but please sign in first so I can attach it to your passenger account.";
         }
+
+        String description = extracted.description() == null ? "" : extracted.description().trim();
+        if (description.isEmpty()) {
+            return bookingReference
+                    .map(ref -> "I have the booking reference **%s**. What went wrong on that trip? Describe the problem and I will file it.".formatted(ref))
+                    .orElse(COMPLAINT_REFERENCE_PROMPT);
+        }
         if (bookingReference.isEmpty()) {
-            return "I can submit this complaint for admin review. Please send the booking reference for the past trip, for example BK-20250501-ABCD, and include any extra details you want admin to see.";
+            return """
+                    I have this complaint ready to file:
+
+                    > %s
+
+                    Which trip was it about? Send me the booking reference, for example BK-20250501-ABCD, and I will submit it."""
+                    .formatted(description);
         }
 
         boolean urgentSafetyEscalation = isUrgentSafetyComplaint(userQuery, analysis);
-        String complaintType = urgentSafetyEscalation ? "safety_concern" : toManualComplaintType(analysis.category());
-        String priority = urgentSafetyEscalation ? "high" : toManualPriority(analysis.priority());
+
+        // What the passenger explicitly asked for wins over what triage inferred:
+        // saying "priority high" is a request, not a hint.
+        String complaintType = firstNonBlank(
+                urgentSafetyEscalation ? "safety_concern" : null,
+                normalizeComplaintType(extracted.complaintType()),
+                toManualComplaintType(analysis.category()));
+        String priority = firstNonBlank(
+                urgentSafetyEscalation ? "high" : null,
+                normalizePriority(extracted.priority()),
+                toManualPriority(analysis.priority()));
 
         ComplaintDto request = new ComplaintDto();
         request.setBookingReference(bookingReference.get());
         request.setComplaintType(complaintType);
         request.setPriority(priority);
-        request.setDescription(buildComplaintDescription(userQuery, analysis, urgentSafetyEscalation));
+        request.setDescription(buildComplaintDescription(description, analysis, urgentSafetyEscalation));
 
         try {
             ComplaintDto created = complaintSubmissionService.create(context.email(), request);
@@ -638,6 +745,307 @@ public class AgentRouter {
         } catch (RuntimeException ex) {
             return "I could not submit the complaint yet: %s. Please check the booking reference and make sure it belongs to a past trip, then send the complaint again.".formatted(ex.getMessage());
         }
+    }
+
+    /** The parts of a complaint, pulled out of whatever the passenger happened to write. */
+    private record ExtractedComplaint(
+            String description,
+            String bookingReference,
+            String complaintType,
+            String priority) {
+
+        static ExtractedComplaint empty() {
+            return new ExtractedComplaint(null, null, null, null);
+        }
+    }
+
+    /** The journey a passenger described, however they phrased it. */
+    private record ExtractedJourney(
+            String origin,
+            String destination,
+            String date,
+            String timeOfDay,
+            String busCategory) {
+
+        boolean hasRoute() {
+            return origin != null && !origin.isBlank() && destination != null && !destination.isBlank();
+        }
+    }
+
+    /** What the passenger wants, plus whatever details were found while working it out. */
+    private record Understanding(
+            String intent,
+            ExtractedComplaint complaint,
+            ExtractedJourney journey,
+            String busReference) {}
+
+    /**
+     * Works out what the passenger is asking for, using the model rather than
+     * keywords.
+     *
+     * Keyword matching decided intent from isolated words, and the failures were not
+     * edge cases: "the AC was not working on my trip, booking BK-1234" is plainly a
+     * complaint, but carries no complaint keyword and does carry "booking", so it
+     * was routed to the booking agent. Adding more keywords only moves the boundary;
+     * the model reads the sentence instead.
+     *
+     * Complaint details are extracted in the same call rather than a second one, so
+     * understanding a message costs one round trip. Recent conversation is included
+     * so a reply that only supplies a missing detail is read as continuing the
+     * previous request.
+     *
+     * Falls back to the keyword classifier whenever the model is unreachable or
+     * returns something unusable, so the assistant degrades to its previous
+     * behaviour rather than failing.
+     */
+    private Understanding understand(String userQuery, String chatId) {
+        String instruction = """
+                Classify what this passenger of a Sri Lankan bus service wants, and extract
+                any complaint details. Reply with a JSON object only, no prose, no code fences.
+
+                Keys:
+                  "intent": exactly one of
+                     TRIP_PLANNING   - looking for buses, routes, times or fares for a journey
+                     BOOKING         - wants to reserve seats, or is confirming a reservation
+                     ETA             - asking where a bus is, or why it is late
+                     COMPLAINT       - reporting a problem with a trip that already happened
+                     RECOMMENDATION  - asking what route or trip to take
+                     NOTIFICATION    - asking to be alerted or reminded about something
+                     GENERAL         - anything else, including questions about policies,
+                                       refunds, rules, or how the service works
+                  "complaint": present only when intent is COMPLAINT, otherwise null. An object with:
+                     "description"       - the grievance in the passenger's own words, as a clean
+                                           statement of what went wrong. Exclude phrases asking to
+                                           file a complaint, the booking reference, and any stated
+                                           priority. Empty string if no grievance is described.
+                     "bookingReference"  - the booking reference if one appears, else "".
+                     "complaintType"     - one of driver_behavior, bus_condition, route_issue,
+                                           late_arrival, payment_issue, booking_issue,
+                                           safety_concern, other.
+                     "priority"          - low, medium or high. Use what the passenger asked for
+                                           if they stated one, otherwise judge from severity.
+                  "journey": present when the message describes a journey, otherwise null. An object with:
+                     "origin"      - where they are travelling from, as a place name, else "".
+                     "destination" - where they are travelling to, else "".
+                     "date"        - "today", "tomorrow", or an exact date as YYYY-MM-DD. Resolve
+                                     relative wording such as "this Friday" against today's date.
+                                     Empty string if no date was given.
+                     "timeOfDay"   - morning, afternoon, evening or night if stated, else "".
+                     "busCategory" - highway, long_distance, luxury or semi_luxury if stated, else "".
+                  "busReference": a bus number such as NB-0012 if the message names one, else "".
+
+                Asking what the refund or cancellation rules are is GENERAL, not COMPLAINT.
+                Reporting that a past trip went wrong is COMPLAINT even if the word
+                "complaint" never appears.
+                Read the journey whatever the word order: "to Kandy from Colombo" and "Colombo
+                to Kandy" describe the same trip. If only a destination is given, leave origin
+                empty rather than guessing one.
+
+                Today is %s in Sri Lanka.
+
+                %s
+                Passenger message:
+                %s
+                """.formatted(
+                        LocalDate.now(ZoneId.of("Asia/Colombo")),
+                        memoryService.recentConversationDigest(chatId, 4),
+                        userQuery.trim());
+
+        try {
+            String raw = callModelWithTimeout(() -> callModel(
+                    "You classify intent and extract structured data. You reply with JSON only.",
+                    instruction,
+                    primaryModelName,
+                    0.0));
+            JsonNode node = readJsonObject(raw);
+            String intent = normalizeIntent(node.path("intent").asText(""));
+            if (intent == null) {
+                return keywordUnderstanding(userQuery);
+            }
+            ExtractedComplaint complaint = node.hasNonNull("complaint") && node.get("complaint").isObject()
+                    ? toExtractedComplaint(node.get("complaint"))
+                    : null;
+            ExtractedJourney journey = node.hasNonNull("journey") && node.get("journey").isObject()
+                    ? toExtractedJourney(node.get("journey"))
+                    : null;
+            String busReference = node.path("busReference").asText("");
+            return new Understanding(intent, complaint, journey, blankToNull(busReference));
+        } catch (Exception ex) {
+            log.warn("Intent classification failed, falling back to keywords: {}", ex.getMessage());
+            return keywordUnderstanding(userQuery);
+        }
+    }
+
+    /** The pre-model behaviour, used whenever the model cannot be reached. */
+    private Understanding keywordUnderstanding(String userQuery) {
+        return new Understanding(detectIntent(userQuery), null, null, null);
+    }
+
+    private ExtractedJourney toExtractedJourney(JsonNode node) {
+        return new ExtractedJourney(
+                blankToNull(node.path("origin").asText("")),
+                blankToNull(node.path("destination").asText("")),
+                blankToNull(node.path("date").asText("")),
+                blankToNull(node.path("timeOfDay").asText("")),
+                blankToNull(node.path("busCategory").asText("")));
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /**
+     * The journey to act on, preferring what the model read from the sentence.
+     *
+     * The regex only matches a literal "from X to Y", so "I need to go to Kandy from
+     * Colombo Fort" and "show me buses to Galle" matched nothing and fell through to
+     * a generic model answer instead of a real timetable lookup. It is kept as the
+     * fallback for when the model is unavailable.
+     */
+    private Optional<TripPlanningAgent.RouteRequest> resolveRouteRequest(String userQuery, Understanding understanding) {
+        ExtractedJourney journey = understanding == null ? null : understanding.journey();
+        if (journey != null && journey.hasRoute()) {
+            return Optional.of(new TripPlanningAgent.RouteRequest(
+                    resolveStopName(journey.origin()),
+                    resolveStopName(journey.destination()),
+                    journey.date() == null ? "today" : journey.date(),
+                    journey.busCategory() != null ? journey.busCategory() : parseBusCategory(userQuery),
+                    journey.timeOfDay()));
+        }
+        return parseRouteRequest(userQuery);
+    }
+
+    /** Keeps only intents the router has a branch for. */
+    private String normalizeIntent(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "TRIP_PLANNING", "BOOKING", "ETA", "COMPLAINT",
+                 "RECOMMENDATION", "NOTIFICATION", "GENERAL" -> normalized;
+            default -> null;
+        };
+    }
+
+    private ExtractedComplaint toExtractedComplaint(JsonNode node) {
+        return new ExtractedComplaint(
+                node.path("description").asText(""),
+                node.path("bookingReference").asText(""),
+                node.path("complaintType").asText(""),
+                node.path("priority").asText(""));
+    }
+
+    /**
+     * Pulls the JSON object out of a model reply. Models wrap JSON in prose or code
+     * fences despite instructions, so the object is located by its outermost braces.
+     */
+    private JsonNode readJsonObject(String raw) throws JsonProcessingException {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalStateException("Model returned an empty response");
+        }
+        int start = raw.indexOf('{');
+        int end = raw.lastIndexOf('}');
+        if (start < 0 || end <= start) {
+            throw new IllegalStateException("Model response contained no JSON object");
+        }
+        return objectMapper.readTree(raw.substring(start, end + 1));
+    }
+
+    /**
+     * Separates the actual grievance from the instructions wrapped around it.
+     *
+     * A passenger writes one sentence that mixes several things: "I want to submit a
+     * complaint, my booking ID is BK-1234, the driver was drunk, priority high".
+     * Storing that verbatim gave admin a record whose description repeated the
+     * booking reference and the word "priority" instead of just saying what
+     * happened. The model is asked to return the complaint itself, with the request
+     * wording, the reference, and the stated priority lifted into their own fields —
+     * which is also how a passenger naming a priority gets that priority, rather
+     * than whatever triage guessed.
+     *
+     * Falls back to the passenger's raw words if the model is unreachable or answers
+     * with something unparseable, so a complaint is never lost to an extraction
+     * failure.
+     */
+    private ExtractedComplaint extractComplaint(String userQuery) {
+        if (userQuery == null || userQuery.isBlank()) {
+            return ExtractedComplaint.empty();
+        }
+
+        String instruction = """
+                Extract the complaint from this passenger message for a Sri Lankan bus service.
+
+                Return only a JSON object, no prose and no code fences, with these keys:
+                  "description": the complaint itself in the passenger's own words, as a clean
+                      statement of what went wrong. Exclude phrases asking to file a complaint,
+                      the booking reference, and any stated priority. Empty string if the
+                      message contains no actual grievance.
+                  "bookingReference": the booking reference if one appears, else "".
+                  "complaintType": one of driver_behavior, bus_condition, route_issue,
+                      late_arrival, payment_issue, booking_issue, safety_concern, other.
+                  "priority": low, medium or high. Use what the passenger asked for if they
+                      stated one, otherwise judge it from severity.
+
+                Passenger message:
+                %s
+                """.formatted(userQuery.trim());
+
+        try {
+            String raw = callModelWithTimeout(() -> callModel(
+                    "You extract structured data and reply with JSON only.",
+                    instruction,
+                    primaryModelName,
+                    0.0));
+            return parseExtractedComplaint(raw);
+        } catch (Exception ex) {
+            log.warn("Complaint extraction failed, using the raw message: {}", ex.getMessage());
+            return new ExtractedComplaint(userQuery.trim(), null, null, null);
+        }
+    }
+
+    private ExtractedComplaint parseExtractedComplaint(String raw) {
+        try {
+            return toExtractedComplaint(readJsonObject(raw));
+        } catch (Exception ex) {
+            log.warn("Could not parse extracted complaint JSON: {}", ex.getMessage());
+            return ExtractedComplaint.empty();
+        }
+    }
+
+    /** Keeps only values the complaint_type column accepts. */
+    private String normalizeComplaintType(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "driver_behavior", "bus_condition", "route_issue", "late_arrival",
+                 "payment_issue", "booking_issue", "safety_concern", "other" -> normalized;
+            default -> null;
+        };
+    }
+
+    /** Keeps only values the priority column accepts. */
+    private String normalizePriority(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "low", "medium", "high" -> normalized;
+            case "urgent", "critical" -> "high";
+            default -> null;
+        };
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "other";
     }
 
     private String formatRecommendationResponse(RecommendationResponse response) {
@@ -684,6 +1092,24 @@ public class AgentRouter {
     }
 
     private String callOpenAiCompatibleModel(String enrichedPrompt, String modelName) {
+        return callModel(
+                "You are TrackNGo AI, a concise Sri Lankan bus travel assistant. "
+                + "You answer questions but cannot perform actions: you cannot book, cancel, refund, "
+                + "or submit complaints. Never claim such an action has been done or is in progress, "
+                + "and never invent a reference number.",
+                enrichedPrompt,
+                modelName,
+                0.3);
+    }
+
+    /**
+     * One chat completion against the configured OpenAI-compatible provider.
+     *
+     * Kept separate from the conversational path so extraction work can use its own
+     * system prompt and a lower temperature, where the answer has to be machine
+     * readable rather than friendly.
+     */
+    private String callModel(String systemMessage, String userPrompt, String modelName, double temperature) {
         if (modelApiKey == null || modelApiKey.isBlank()) {
             throw new IllegalStateException("AI API key is not configured");
         }
@@ -694,10 +1120,10 @@ public class AgentRouter {
         Map<String, Object> requestBody = Map.of(
                 "model", modelName,
                 "messages", List.of(
-                        Map.of("role", "system", "content", "You are TrackNGo AI, a concise Sri Lankan bus travel assistant."),
-                        Map.of("role", "user", "content", enrichedPrompt)
+                        Map.of("role", "system", "content", systemMessage),
+                        Map.of("role", "user", "content", userPrompt)
                 ),
-                "temperature", 0.3
+                "temperature", temperature
         );
 
         DirectChatResponse response;
@@ -821,7 +1247,55 @@ public class AgentRouter {
         if (source.isBlank() || destination.isBlank()) {
             return Optional.empty();
         }
-        return Optional.of(new TripPlanningAgent.RouteRequest(source, destination, date, parseBusCategory(query), preferredTime));
+        return Optional.of(new TripPlanningAgent.RouteRequest(
+                resolveStopName(source), resolveStopName(destination), date, parseBusCategory(query), preferredTime));
+    }
+
+    /**
+     * Maps what a passenger typed onto a stop name the booking search will actually
+     * match.
+     *
+     * Bus search compares stop names for equality after stripping spaces and
+     * hyphens, so a passenger asking for "Colombo" finds nothing even though
+     * "Colombo Fort" is on the route: people name cities, while the timetable names
+     * stops. Matching is tried from most to least precise — exact, then stop names
+     * that begin with what was typed, then names that contain it — and the shortest
+     * candidate wins so "Colombo" resolves to "Colombo Fort" rather than a longer
+     * stop that merely mentions it.
+     *
+     * The original text is returned unchanged when nothing matches, which leaves the
+     * caller free to report "no buses found" with the words the passenger used.
+     */
+    private String resolveStopName(String rawName) {
+        String normalized = normalizeStopKey(rawName);
+        if (normalized.isBlank()) {
+            return rawName;
+        }
+        try {
+            List<String> matches = jdbcTemplate.query("""
+                    SELECT DISTINCT name
+                    FROM route_stop
+                    WHERE LOWER(REPLACE(REPLACE(TRIM(name), '-', ''), ' ', '')) = ?
+                       OR LOWER(REPLACE(REPLACE(TRIM(name), '-', ''), ' ', '')) LIKE CONCAT(?, '%')
+                       OR LOWER(REPLACE(REPLACE(TRIM(name), '-', ''), ' ', '')) LIKE CONCAT('%', ?, '%')
+                    ORDER BY CHAR_LENGTH(name)
+                    LIMIT 1
+                    """,
+                    (rs, rowNum) -> rs.getString("name"),
+                    normalized, normalized, normalized);
+            return matches.isEmpty() ? rawName : matches.get(0);
+        } catch (DataAccessException ex) {
+            log.warn("Stop name resolution failed for '{}': {}", rawName, ex.getMessage());
+            return rawName;
+        }
+    }
+
+    /** Same normalisation the booking search applies, so both sides agree on a match. */
+    private String normalizeStopKey(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().toLowerCase(Locale.ROOT).replace("-", "").replace(" ", "");
     }
 
     private String resolveTravelDate(String date) {
@@ -904,15 +1378,31 @@ public class AgentRouter {
         };
     }
 
-    private String buildComplaintDescription(String userQuery, ComplaintAnalysisResponse analysis, boolean urgentSafetyEscalation) {
-        return "Submitted through TrackNGo AI.\n\nPassenger message: %s\n\nAI triage:\n- Category: %s\n- Priority: %s\n- Routing target: %s\n- Summary: %s\n- Suggested admin action: %s%s".formatted(
-                userQuery.trim(),
+    /**
+     * Composes the complaint text stored against the booking, within the 500
+     * character limit ComplaintServiceImpl enforces.
+     *
+     * The previous format spelled out every triage field over several labelled
+     * lines and, added to the passenger's own words, reliably exceeded that limit —
+     * so submitting a complaint through the assistant failed outright whenever a
+     * booking reference was supplied. Triage is now one compact line, and the
+     * passenger's message is what gets trimmed if anything still has to give, since
+     * the category and priority are also stored in their own columns while the
+     * passenger's account of what happened exists nowhere else.
+     */
+    private String buildComplaintDescription(String complaintText, ComplaintAnalysisResponse analysis, boolean urgentSafetyEscalation) {
+        String triage = "\n\n[AI triage: %s / %s%s]".formatted(
                 analysis.category(),
-                urgentSafetyEscalation ? "HIGH" : analysis.priority(),
-                urgentSafetyEscalation ? "SAFETY_ESCALATION" : analysis.routingTarget(),
-                analysis.summary(),
-                analysis.suggestedAction(),
-                urgentSafetyEscalation ? "\n- Escalation note: Passenger message contains safety-critical language and was automatically moved to under review." : "");
+                urgentSafetyEscalation ? "HIGH — safety escalation" : analysis.priority(),
+                urgentSafetyEscalation ? "" : " / " + analysis.routingTarget());
+
+        String prefix = "Via TrackNGo AI: ";
+        String message = complaintText == null ? "" : complaintText.trim();
+        int roomForMessage = COMPLAINT_DESCRIPTION_LIMIT - prefix.length() - triage.length();
+        if (message.length() > roomForMessage) {
+            message = message.substring(0, Math.max(0, roomForMessage - 3)) + "...";
+        }
+        return prefix + message + triage;
     }
 
     private boolean isUrgentSafetyComplaint(String userQuery, ComplaintAnalysisResponse analysis) {
@@ -962,9 +1452,10 @@ public class AgentRouter {
                 Respond entirely in %s. When the requested language is Sinhala or Tamil, use natural words and native script for that language; keep TrackNGo, route names, bus numbers, booking references, currency codes, and technical identifiers unchanged.
                 Use Sri Lankan places, LKR fares, local operators, and practical transport wording.
                 Prefer tool results and database facts over general model knowledge. If details are missing, ask the passenger for the exact missing information.
-                For bookings, never invent a confirmation number; use reserveSeat and report its exact result.
-                For delays, combine getLiveEta with route alternatives where useful.
-                When multiple agents/tools contribute, summarize their contributions in concise labels.
+
+                You are answering in an informational capacity only. You cannot book seats, submit complaints, cancel trips, issue refunds, or send notifications yourself: those are carried out by TrackNGo's booking and complaint systems, not by you.
+                Never state or imply that any such action has been taken, is being processed, or has been passed to a team. Never invent a booking reference, complaint id, confirmation number, or promised follow-up.
+                When a passenger wants one of those actions, tell them what you need in order to proceed, or point them to the relevant screen, and stop there.
                 Today is %s in Sri Lanka.
 
                 User context:
@@ -1013,6 +1504,14 @@ public class AgentRouter {
         String lower = query.toLowerCase();
         if (isAdminOpsIntent(lower) || (isAdminContext() && isAdminDashboardQuestion(lower))) {
             return "ADMIN_OPS";
+        }
+        // A question about how the rules work is answered by the model from grounded
+        // policy knowledge. Sending it to a tool produces a form to fill in instead
+        // of an answer: "what is the refund policy if I cancel my booking" matches
+        // the complaint keyword "refund" and the booking keyword "book", so it has
+        // to be recognised as a question before any tool keyword is considered.
+        if (isPolicyQuestion(lower)) {
+            return "GENERAL";
         }
         if (isComplaintIntent(lower)) {
             return "COMPLAINT";
@@ -1079,6 +1578,42 @@ public class AgentRouter {
                 || lower.contains("reckless")
                 || lower.contains("overcrowded")
                 || lower.contains("over crowded");
+    }
+
+    /**
+     * Whether the passenger is asking how something works rather than reporting that
+     * it went wrong. Requires both a question opener and a policy-flavoured noun, so
+     * "how do I get a refund" is informational while "I want a refund for this trip"
+     * still reaches the complaint agent.
+     */
+    private boolean isPolicyQuestion(String lower) {
+        // Naming a journey or a bus makes the question operational rather than
+        // informational: "how much is the fare from Colombo Fort to Kandy" wants a
+        // real search over today's buses, not the pricing rulebook.
+        if (ROUTE_MENTION.matcher(lower).find() || BUS_MENTION.matcher(lower).find()) {
+            return false;
+        }
+        boolean asksAQuestion = lower.startsWith("what")
+                || lower.startsWith("how")
+                || lower.startsWith("when")
+                || lower.startsWith("can i")
+                || lower.startsWith("do i")
+                || lower.startsWith("is there")
+                || lower.startsWith("explain")
+                || lower.startsWith("tell me about");
+        if (!asksAQuestion) {
+            return false;
+        }
+        return lower.contains("policy")
+                || lower.contains("policies")
+                || lower.contains("rule")
+                || lower.contains("charge")
+                || lower.contains("fee")
+                || lower.contains("percentage")
+                || lower.contains("how much")
+                || lower.contains("eligible")
+                || lower.contains("entitled")
+                || lower.contains("work");
     }
 
     private int elapsedMs(long startedAt) {

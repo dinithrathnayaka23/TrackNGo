@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -36,6 +37,35 @@ public class AiConversationMemoryService {
                     LocalDateTime.now());
         } catch (DataAccessException ex) {
             log.warn("Unable to persist AI chat message for chatId {}: {}", chatId, ex.getMessage());
+        }
+    }
+
+    /**
+     * The most recent thing said in this conversation by the given role.
+     *
+     * Lets the router see what it last asked for, so a reply that only supplies the
+     * missing detail can be understood as continuing that request rather than being
+     * classified on its own words. Call before recording the current turn.
+     */
+    public Optional<String> lastMessageByRole(String chatId, String role) {
+        if (isBlank(chatId) || isBlank(role)) {
+            return Optional.empty();
+        }
+        try {
+            List<String> rows = jdbc.query("""
+                    SELECT content
+                    FROM ai_chat_message
+                    WHERE chat_id = ? AND role = ?
+                    ORDER BY created_at DESC, ai_chat_message_id DESC
+                    LIMIT 1
+                    """,
+                    (rs, rowNum) -> rs.getString("content"),
+                    chatId,
+                    role);
+            return rows.isEmpty() ? Optional.empty() : Optional.ofNullable(rows.get(0));
+        } catch (DataAccessException ex) {
+            log.warn("Unable to read last {} message for chatId {}: {}", role, chatId, ex.getMessage());
+            return Optional.empty();
         }
     }
 

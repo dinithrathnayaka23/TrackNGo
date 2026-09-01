@@ -83,6 +83,9 @@ const profileCopy = {
     twoFactorDisabled: "Two-factor authentication disabled",
     twoFactorDisabledMessage: "Authenticator verification has been removed from login.",
     twoFactorError: "Could not update two-factor authentication",
+    safety: "Safety",
+    emergencyContacts: "Emergency Contacts",
+    emergencyContactsHint: "Manage the people we notify in an SOS",
     supportLegal: "Support & Legal",
     terms: "Terms & Conditions",
     termsHint: "View our terms and conditions",
@@ -164,6 +167,9 @@ const profileCopy = {
     twoFactorDisabled: "ද්වි-සාධක සත්‍යාපනය අක්‍රියයි",
     twoFactorDisabledMessage: "ඇතුළු වීමේදී Authenticator සත්‍යාපනය ඉවත් කරන ලදී.",
     twoFactorError: "ද්වි-සාධක සත්‍යාපනය යාවත්කාලීන කළ නොහැක",
+    safety: "ආරක්ෂාව",
+    emergencyContacts: "හදිසි ඇමතුම් සම්බන්ධතා",
+    emergencyContactsHint: "SOS අවස්ථාවකදී අප දැනුම් දෙන පුද්ගලයින් කළමනාකරණය කරන්න",
     supportLegal: "සහාය සහ නීතිමය තොරතුරු",
     terms: "නියමයන් සහ කොන්දේසි",
     termsHint: "අපගේ නියමයන් සහ කොන්දේසි බලන්න",
@@ -245,6 +251,9 @@ const profileCopy = {
     twoFactorDisabled: "இரு-காரணி அங்கீகாரம் முடக்கப்பட்டது",
     twoFactorDisabledMessage: "உள்நுழைவிலிருந்து அங்கீகார சரிபார்ப்பு அகற்றப்பட்டது.",
     twoFactorError: "இரு-காரணி அங்கீகாரத்தை புதுப்பிக்க முடியவில்லை",
+    safety: "பாதுகாப்பு",
+    emergencyContacts: "அவசர தொடர்புகள்",
+    emergencyContactsHint: "SOS நேரத்தில் நாங்கள் அறிவிக்கும் நபர்களை நிர்வகிக்கவும்",
     supportLegal: "ஆதரவு & சட்டம்",
     terms: "விதிமுறைகள் மற்றும் நிபந்தனைகள்",
     termsHint: "எங்கள் விதிமுறைகள் மற்றும் நிபந்தனைகளைக் காண்க",
@@ -739,6 +748,16 @@ export default function PassengerProfileScreen() {
         <Text style={styles.sectionTitle}>{copy.privacy}</Text>
         <View style={styles.card}>
           <ToggleRow title={copy.twoFactor} value={settings.twoFactorAuthentication} onValueChange={(value) => void handleTwoFactorToggle(value)} />
+        </View>
+
+        <Text style={styles.sectionTitle}>{copy.safety}</Text>
+        <View style={styles.card}>
+          <DetailRow
+            icon="people-circle-outline"
+            label={copy.emergencyContacts}
+            value={copy.emergencyContactsHint}
+            onPress={() => router.push("/sos/emergency-contacts")}
+          />
         </View>
 
         <Text style={styles.sectionTitle}>{copy.supportLegal}</Text>

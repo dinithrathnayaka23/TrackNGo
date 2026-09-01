@@ -402,11 +402,15 @@ export default function NewContractScreen() {
     };
     setBusesLoading(true);
     setBusesError(null);
-    getAvailableCorporateBuses(fmt(startDateObj), fmt(endDateObj))
+    getAvailableCorporateBuses(
+      fmt(startDateObj),
+      fmt(endDateObj),
+      renewedFromContractId ? { renewedFromContractId } : undefined,
+    )
       .then((buses) => setAvailableBuses(buses))
       .catch(() => setBusesError("Could not load available buses. Please try again."))
       .finally(() => setBusesLoading(false));
-  }, [startDateObj, endDateObj]);
+  }, [startDateObj, endDateObj, renewedFromContractId]);
 
   useEffect(() => {
     if (step === 2) loadAvailableBuses();

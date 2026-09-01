@@ -202,6 +202,7 @@ public class CorporateService {
                     AND c.status = 'active'
                     AND c.start_date <= ?
                     AND c.end_date >= ?
+                    AND (? IS NULL OR c.contract_id <> ?)
               )
             """;
 
@@ -247,16 +248,26 @@ public class CorporateService {
      * its contract's entire term (it runs the same shift every working day),
      * so availability is checked at the date-range level rather than per
      * calendar day.
+     * <p>
+     * {@code excludeContractId} is passed when checking availability for a
+     * renewal: the predecessor contract stays {@code status = 'active'} (and
+     * so keeps "reserving" its own buses) until its renewal is approved, so
+     * without this exclusion a renewal that starts the day the old contract
+     * ends would never see its own buses as available again.
      */
     public List<ContractBusDto> getAvailableBuses(
             java.time.LocalDate startDate, java.time.LocalDate endDate,
-            Integer minSeats, String search, String amenity
+            Integer minSeats, String search, String amenity, Long excludeContractId
     ) {
         if (startDate == null || endDate == null) {
             throw new IllegalArgumentException("Start and end date are required to check bus availability.");
         }
         StringBuilder sql = new StringBuilder(AVAILABLE_BUSES_BASE_SQL);
-        List<Object> params = new java.util.ArrayList<>(List.of(endDate, startDate));
+        List<Object> params = new java.util.ArrayList<>();
+        params.add(endDate);
+        params.add(startDate);
+        params.add(excludeContractId);
+        params.add(excludeContractId);
         if (minSeats != null && minSeats > 0) {
             sql.append(" AND b.seat_capacity >= ? ");
             params.add(minSeats);
@@ -682,7 +693,8 @@ public class CorporateService {
         if (requestedBusIds == null || requestedBusIds.isEmpty()) {
             throw new IllegalArgumentException("Select at least one bus for this contract.");
         }
-        List<ContractBusDto> available = getAvailableBuses(dto.startDate(), dto.endDate(), null, null, null);
+        List<ContractBusDto> available = getAvailableBuses(
+                dto.startDate(), dto.endDate(), null, null, null, dto.renewedFromContractId());
         Map<Long, ContractBusDto> availableById = available.stream()
                 .collect(java.util.stream.Collectors.toMap(ContractBusDto::busId, b -> b));
 

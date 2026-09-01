@@ -33,18 +33,46 @@ import { LocalizedText as Text } from "../../utils/i18n";
 // Mirrors MAX_CANCEL_REASON_LENGTH in the backend's BookingFlowService/TripBookingService.
 const MAX_CANCEL_REASON_LENGTH = 300;
 
-/**
- * Calculates refund policy details based on departure date:
- * - If >= 3 days: 100% full refund within 10 business days.
- * - If < 3 days: 75% refund within 10 business days.
- */
-function calculateRefundPolicy(journeyDateStr?: string | null) {
+// Mirrors REFUND_CUTOFF_HOURS / REFUND_PERCENTAGE_BEFORE_CUTOFF /
+// REFUND_PERCENTAGE_AFTER_CUTOFF in the backend's BookingFlowService. Applies
+// to seat bookings only, which cancel immediately (no admin approval).
+const REFUND_CUTOFF_HOURS = 5;
+
+function calculateRefundPolicy(journeyDateStr?: string | null, journeyTimeStr?: string | null) {
+  const refundMessage = "A 75% refund will be credited to your account within 10 working business days.";
+  const noRefundMessage =
+    `This booking is less than ${REFUND_CUTOFF_HOURS} hours from departure, so it will not be eligible for a refund.`;
+
   if (!journeyDateStr) {
-    return {
-      percentage: 100,
-      isFullRefund: true,
-      message: "Full refund will be credited to your account within 10 working business days.",
-    };
+    return { percentage: 75, severity: "amber" as const, message: refundMessage };
+  }
+  const [year, month, day] = journeyDateStr.split("-").map(Number);
+  const [hour, minute] = (journeyTimeStr ?? "").split(":").map(Number);
+  const departure = new Date(
+    year,
+    (month || 1) - 1,
+    day || 1,
+    Number.isFinite(hour) ? hour : 0,
+    Number.isFinite(minute) ? minute : 0,
+  );
+  const hoursUntilDeparture = (departure.getTime() - Date.now()) / (1000 * 60 * 60);
+
+  if (hoursUntilDeparture >= REFUND_CUTOFF_HOURS) {
+    return { percentage: 75, severity: "amber" as const, message: refundMessage };
+  }
+  return { percentage: 0, severity: "red" as const, message: noRefundMessage };
+}
+
+// Trip-booking cancellation still goes through admin approval and keeps its
+// own day-based refund policy in the backend's TripBookingService (100% if
+// cancelled ≥3 days before departure, 75% otherwise).
+function calculateTripRefundPolicy(journeyDateStr?: string | null) {
+  const fullRefundMessage = "Full refund will be credited to your account within 10 working business days.";
+  const partialRefundMessage =
+    "Only a 75% refund will be credited to your account within 10 working business days (25% cancellation penalty applied).";
+
+  if (!journeyDateStr) {
+    return { percentage: 100, severity: "green" as const, message: fullRefundMessage };
   }
   const [year, month, day] = journeyDateStr.split("-").map(Number);
   const journeyDate = new Date(year, (month || 1) - 1, day || 1);
@@ -54,18 +82,9 @@ function calculateRefundPolicy(journeyDateStr?: string | null) {
   const diffDays = Math.round((journeyStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
 
   if (diffDays >= 3) {
-    return {
-      percentage: 100,
-      isFullRefund: true,
-      message: "Full refund will be credited to your account within 10 working business days.",
-    };
-  } else {
-    return {
-      percentage: 75,
-      isFullRefund: false,
-      message: "Only a 75% refund will be credited to your account within 10 working business days (25% cancellation penalty applied).",
-    };
+    return { percentage: 100, severity: "green" as const, message: fullRefundMessage };
   }
+  return { percentage: 75, severity: "amber" as const, message: partialRefundMessage };
 }
 
 type Tab = "upcoming" | "past";
@@ -151,17 +170,19 @@ export default function BookingHistoryScreen() {
       if (selectedBookingForCancel.busType === "trip_booking") {
         const numericId = Number(selectedBookingForCancel.bookingReference.replace(/^BK-/, ""));
         await requestTripCancellation(numericId, cancelReason.trim());
+        setCancelModalVisible(false);
+        Alert.alert(
+          "Cancellation Requested",
+          "Your cancellation request has been sent to the admin team for review. You will receive an update shortly.",
+        );
       } else {
-        await requestBookingCancellation(selectedBookingForCancel.bookingReference, cancelReason.trim());
+        const result = await requestBookingCancellation(selectedBookingForCancel.bookingReference, cancelReason.trim());
+        setCancelModalVisible(false);
+        Alert.alert("Booking Cancelled", result.refundMessage);
       }
-      setCancelModalVisible(false);
-      Alert.alert(
-        "Cancellation Requested",
-        "Your cancellation request has been sent to the admin team for review. You will receive an update shortly.",
-      );
       void load("background");
     } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to submit cancellation request.");
+      Alert.alert("Error", err.message || "Failed to cancel this booking.");
     } finally {
       setSubmittingCancel(false);
     }
@@ -347,10 +368,14 @@ export default function BookingHistoryScreen() {
 
   const keyExtractor = useCallback((b: BookingHistoryDto) => b.bookingReference, []);
 
-  const cancelPolicy = useMemo(
-    () => calculateRefundPolicy(selectedBookingForCancel?.journeyDate),
-    [selectedBookingForCancel],
-  );
+  const cancelPolicy = useMemo(() => {
+    if (!selectedBookingForCancel) {
+      return calculateRefundPolicy(null, null);
+    }
+    return selectedBookingForCancel.busType === "trip_booking"
+      ? calculateTripRefundPolicy(selectedBookingForCancel.journeyDate)
+      : calculateRefundPolicy(selectedBookingForCancel.journeyDate, selectedBookingForCancel.journeyTime);
+  }, [selectedBookingForCancel]);
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -442,7 +467,9 @@ export default function BookingHistoryScreen() {
                 <Ionicons name="alert-circle" size={24} color="#DC2626" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>Request Cancellation</Text>
+                <Text style={styles.modalTitle}>
+                  {selectedBookingForCancel?.busType === "trip_booking" ? "Request Cancellation" : "Cancel Booking"}
+                </Text>
                 <Text style={styles.modalSubtitle}>
                   {selectedBookingForCancel?.bookingReference} • {selectedBookingForCancel?.startLocation} to {selectedBookingForCancel?.endLocation}
                 </Text>
@@ -457,14 +484,21 @@ export default function BookingHistoryScreen() {
             </View>
 
             {/* Refund Policy Box */}
-            <View style={[styles.policyBox, cancelPolicy.isFullRefund ? styles.policyBoxGreen : styles.policyBoxAmber]}>
+            <View style={[
+              styles.policyBox,
+              cancelPolicy.severity === "green"
+                ? styles.policyBoxGreen
+                : cancelPolicy.severity === "amber"
+                ? styles.policyBoxAmber
+                : styles.policyBoxRed,
+            ]}>
               <View style={styles.policyHeaderRow}>
                 <Ionicons
-                  name={cancelPolicy.isFullRefund ? "checkmark-circle" : "information-circle"}
+                  name={cancelPolicy.severity === "green" ? "checkmark-circle" : cancelPolicy.severity === "amber" ? "information-circle" : "alert-circle"}
                   size={18}
-                  color={cancelPolicy.isFullRefund ? "#16A34A" : "#D97706"}
+                  color={cancelPolicy.severity === "green" ? "#16A34A" : cancelPolicy.severity === "amber" ? "#D97706" : "#DC2626"}
                 />
-                <Text style={[styles.policyBadgeText, { color: cancelPolicy.isFullRefund ? "#16A34A" : "#D97706" }]}>
+                <Text style={[styles.policyBadgeText, { color: cancelPolicy.severity === "green" ? "#16A34A" : cancelPolicy.severity === "amber" ? "#D97706" : "#DC2626" }]}>
                   {cancelPolicy.percentage}% Refund Policy
                 </Text>
               </View>
@@ -506,7 +540,9 @@ export default function BookingHistoryScreen() {
                 {submittingCancel ? (
                   <ActivityIndicator size="small" color="#FFF" />
                 ) : (
-                  <Text style={styles.modalSubmitBtnText}>Submit Request</Text>
+                  <Text style={styles.modalSubmitBtnText}>
+                    {selectedBookingForCancel?.busType === "trip_booking" ? "Submit Request" : "Cancel Booking"}
+                  </Text>
                 )}
               </Pressable>
             </View>
@@ -1225,6 +1261,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFBEB",
     borderWidth: 1,
     borderColor: "#FDE68A",
+  },
+  policyBoxRed: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
   },
   policyHeaderRow: {
     flexDirection: "row",

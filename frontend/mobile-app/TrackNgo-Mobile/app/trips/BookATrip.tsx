@@ -25,6 +25,9 @@ const MAX_PASSENGERS = 100;
 // Longest span a single private trip booking can cover. Mirrors
 // MAX_TRIP_DURATION_DAYS in the backend's TripBookingService.
 const MAX_TRIP_DURATION_DAYS = 30;
+// Furthest a trip's departure date can be booked in advance. Mirrors
+// MAX_DEPARTURE_LEAD_DAYS in the backend's TripBookingService.
+const MAX_DEPARTURE_LEAD_DAYS = 90;
 
 // ─────────────────────────────────────────────────────────────
 // TYPES
@@ -639,6 +642,14 @@ export default function BookATrip() {
     return d;
   };
 
+  // The furthest a departure date can be picked in advance.
+  const getMaxDepartureDate = (): Date => {
+    const d = new Date();
+    d.setDate(d.getDate() + MAX_DEPARTURE_LEAD_DAYS);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
   // The latest a return date can be picked, given the current departure date.
   const getMaxReturnDate = (): Date => {
     const base = depart ?? getMinDepartureDate();
@@ -660,6 +671,8 @@ export default function BookATrip() {
       depZero.setHours(0, 0, 0, 0);
       if (depZero < minDepart) {
         e.depart = "Departure must be at least 2 days from today";
+      } else if (depZero > getMaxDepartureDate()) {
+        e.depart = `Departure cannot be more than ${MAX_DEPARTURE_LEAD_DAYS} days from today`;
       }
     }
     if (!returnDate) e.returnDate = "Please select Return Date";
@@ -856,13 +869,14 @@ export default function BookATrip() {
                 <Text style={{ color: depart ? "#111827" : "#94A3B8", fontSize: 16, fontWeight: "700", marginTop: 13 }}>
                   {depart ? depart.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "Choose date"}
                 </Text>
-                <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>Min. 2 days in advance</Text>
+                <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>2 days to {MAX_DEPARTURE_LEAD_DAYS} days in advance</Text>
               </TouchableOpacity>
               {showDepartPicker && (
                 <DateTimePicker
                   value={depart && depart >= getMinDepartureDate() ? depart : getMinDepartureDate()}
                   mode="date"
                   minimumDate={getMinDepartureDate()}
+                  maximumDate={getMaxDepartureDate()}
                   display="default"
                   onChange={(_, date) => {
                     setShowDepartPicker(false);

@@ -181,11 +181,16 @@ export interface CreateContractRequest {
 /**
  * Fetches corporate buses that are free for the given contract term.
  * GET /api/corporate/buses/available
+ *
+ * Pass `renewedFromContractId` when this is a renewal: the predecessor
+ * contract stays active (and so keeps "reserving" its own buses) until its
+ * renewal is approved, so without this the same buses the client already
+ * has would never show as available again for a back-to-back renewal.
  */
 export async function getAvailableCorporateBuses(
   startDate: string,
   endDate: string,
-  filters?: { minSeats?: number; search?: string; amenity?: string },
+  filters?: { minSeats?: number; search?: string; amenity?: string; renewedFromContractId?: number },
 ): Promise<ContractBus[]> {
   const res = await httpGet<ApiResponse<ContractBus[]>>(
     "/api/corporate/buses/available",

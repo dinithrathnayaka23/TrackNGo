@@ -3,6 +3,7 @@ package com.trackngo.aiagent.orchestration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trackngo.aiagent.context.AgentExecutionContext;
 import com.trackngo.aiagent.dto.ComplaintAnalysisResponse;
+import com.trackngo.aiagent.services.AdminOpsAgentService;
 import com.trackngo.aiagent.services.AiConversationMemoryService;
 import com.trackngo.aiagent.services.AiGroundingService;
 import com.trackngo.aiagent.services.ComplaintAgentService;
@@ -113,39 +114,36 @@ class AgentRouterBehaviorTest {
     }
 
     @Test
-    void adminOpsIntentBuildsDashboardSummaryForAdmins() {
-        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
-        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class)))
-                .thenReturn(8L, 3L, 2L, 1L, 4L, 12L);
-        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(BigDecimal.class)))
-                .thenReturn(new BigDecimal("6400.00"));
-        when(jdbcTemplate.queryForList(anyString()))
-                .thenReturn(List.of(Map.of("label", "NB-0012", "total", 3L)), List.of());
+    void adminQuestionIsAnsweredByTheOperationsAgent() {
+        AdminOpsAgentService adminOps = mock(AdminOpsAgentService.class);
+        when(adminOps.opsSummary()).thenReturn("**Operations summary** stub");
         AgentExecutionContext.set(new AgentExecutionContext.Context(1L, "admin@trackngo.com", "admin", "chat-admin"));
 
-        AgentRouter router = router(mock(BookingFlowService.class), mock(ComplaintAgentService.class), mock(ComplaintService.class), jdbcTemplate);
+        AgentRouter router = router(mock(BookingFlowService.class), mock(ComplaintAgentService.class),
+                mock(ComplaintService.class), mock(JdbcTemplate.class), adminOps);
 
-        String reply = router.processUserQuery("admin dashboard summary", "chat-admin");
+        // With no model reachable in tests the admin classifier falls back to the
+        // overview, which is enough to prove the admin path reaches the ops agent.
+        String reply = router.processUserQuery("how are things looking today", "chat-admin");
 
-        assertTrue(reply.contains("Admin operations summary"), reply);
-        assertTrue(reply.contains("Top complaint buses"), reply);
+        assertTrue(reply.contains("Operations summary"), reply);
     }
+
     @Test
-    void adminComplaintQuestionUsesOperationsCopilotInsteadOfPassengerComplaintFlow() {
-        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
-        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(Long.class)))
-                .thenReturn(8L, 3L, 2L, 1L, 4L, 12L);
-        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(BigDecimal.class)))
-                .thenReturn(new BigDecimal("6400.00"));
-        when(jdbcTemplate.queryForList(anyString())).thenReturn(List.of(), List.of());
+    void adminComplaintQuestionDoesNotEnterThePassengerComplaintFlow() {
+        AdminOpsAgentService adminOps = mock(AdminOpsAgentService.class);
+        when(adminOps.opsSummary()).thenReturn("**Operations summary** stub");
         ComplaintAgentService complaintAgentService = mock(ComplaintAgentService.class);
         AgentExecutionContext.set(new AgentExecutionContext.Context(1L, "admin@trackngo.com", "admin", "chat-admin"));
 
-        AgentRouter router = router(mock(BookingFlowService.class), complaintAgentService, mock(ComplaintService.class), jdbcTemplate);
+        AgentRouter router = router(mock(BookingFlowService.class), complaintAgentService,
+                mock(ComplaintService.class), mock(JdbcTemplate.class), adminOps);
 
         String reply = router.processUserQuery("show unresolved complaints", "chat-admin");
 
-        assertTrue(reply.contains("Admin operations summary"), reply);
+        // An admin asking about complaints wants the operations view, not to have a
+        // complaint filed against their own account.
+        assertTrue(reply.contains("Operations summary"), reply);
         verify(complaintAgentService, never()).analyzeComplaint(any());
     }
 
@@ -154,6 +152,16 @@ class AgentRouterBehaviorTest {
             ComplaintAgentService complaintAgentService,
             ComplaintService complaintService,
             JdbcTemplate jdbcTemplate) {
+        return router(bookingFlowService, complaintAgentService, complaintService, jdbcTemplate,
+                mock(AdminOpsAgentService.class));
+    }
+
+    private AgentRouter router(
+            BookingFlowService bookingFlowService,
+            ComplaintAgentService complaintAgentService,
+            ComplaintService complaintService,
+            JdbcTemplate jdbcTemplate,
+            AdminOpsAgentService adminOpsAgentService) {
         AiConversationMemoryService memory = mock(AiConversationMemoryService.class);
         AiGroundingService grounding = mock(AiGroundingService.class);
         when(memory.recentConversationDigest(anyString(), org.mockito.ArgumentMatchers.anyInt())).thenReturn("");
@@ -177,6 +185,7 @@ class AgentRouterBehaviorTest {
                 mock(RecommendationAgentService.class),
                 mock(NotificationAgentService.class),
                 bookingFlowService,
+                adminOpsAgentService,
                 jdbcTemplate);
     }
 

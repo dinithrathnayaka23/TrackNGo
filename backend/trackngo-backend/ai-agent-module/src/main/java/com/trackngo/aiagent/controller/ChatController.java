@@ -4,6 +4,7 @@ import com.trackngo.aiagent.context.AgentExecutionContext;
 import com.trackngo.aiagent.orchestration.AgentRouter;
 import com.trackngo.aiagent.services.AiConversationMemoryService;
 import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeoutException;
 
 @RestController
 @RequestMapping("/api/v1/ai")
+@Slf4j
 public class ChatController {
 
     private final AgentRouter agentRouter;
@@ -88,8 +90,21 @@ public class ChatController {
         chatExecutor.shutdownNow();
     }
 
+    /**
+     * Establishes who the agent is acting for.
+     *
+     * Identity comes from the verified token and nothing else. The request body also
+     * carries a userId, but this endpoint is open to unauthenticated callers, so
+     * honouring that field let anyone act as anyone: posting {"userId": 4} with no
+     * credentials was enough to create a real confirmed booking, file a complaint,
+     * and push notifications as that passenger. The field is now only ever used to
+     * cross-check the caller against their own token.
+     *
+     * An unauthenticated caller gets the anonymous context, which the agents already
+     * handle by asking the user to sign in before anything is written.
+     */
     private AgentExecutionContext.Context resolveContext(String chatId, Long requestedUserId, Authentication authentication) {
-        if (authentication != null && authentication.isAuthenticated() && authentication.getName() != null) {
+        if (isAuthenticated(authentication)) {
             try {
                 return jdbcTemplate.queryForObject("""
                         SELECT user_id, email, user_type
@@ -109,25 +124,21 @@ public class ChatController {
         }
 
         if (requestedUserId != null) {
-            try {
-                return jdbcTemplate.queryForObject("""
-                        SELECT user_id, email, user_type
-                        FROM `user`
-                        WHERE user_id = ?
-                        LIMIT 1
-                        """,
-                        (rs, rowNum) -> new AgentExecutionContext.Context(
-                                rs.getLong("user_id"),
-                                rs.getString("email"),
-                                rs.getString("user_type"),
-                                chatId),
-                        requestedUserId);
-            } catch (DataAccessException ignored) {
-                return new AgentExecutionContext.Context(requestedUserId, null, "passenger", chatId);
-            }
+            log.debug("Ignoring unauthenticated userId {} on chat {}", requestedUserId, chatId);
         }
-
         return new AgentExecutionContext.Context(null, null, "anonymous", chatId);
+    }
+
+    /**
+     * Spring installs an anonymous token for unauthenticated requests, and that token
+     * reports itself as authenticated, so its presence alone proves nothing. A real
+     * session is one with a principal that is not the anonymous placeholder.
+     */
+    private boolean isAuthenticated(Authentication authentication) {
+        return authentication != null
+                && authentication.isAuthenticated()
+                && authentication.getName() != null
+                && !"anonymousUser".equals(authentication.getName());
     }
 
     private static final class AiChatThreadFactory implements ThreadFactory {

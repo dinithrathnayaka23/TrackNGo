@@ -6,8 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLanguage } from "../../utils/i18n";
 import { formatUnreadBadge, useUnreadChatCount } from "../../hooks/useUnreadChatCount";
 
-// The visible height of the bar itself, before the system navigation inset.
-const TAB_BAR_CONTENT_HEIGHT = 62;
+import { TAB_BAR_CONTENT_HEIGHT } from "../../utils/tabBar";
 
 export default function TabLayout() {
   const { t } = useLanguage();

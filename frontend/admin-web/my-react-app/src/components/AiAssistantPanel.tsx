@@ -12,6 +12,13 @@ import {
   type ChatMessage,
 } from "../services/aiAssistantService";
 
+const QUICK_PROMPTS = [
+  "How are things looking today?",
+  "What complaints are still open?",
+  "Which drivers get the most complaints?",
+  "How did revenue do this month?",
+];
+
 export interface AiAssistantPanelProps {
   open: boolean;
   onClose: () => void;
@@ -99,7 +106,7 @@ export default function AiAssistantPanel({
       id: "1",
       role: "assistant",
       content:
-        "Hi! I am **TrackNGo Admin AI**. I can summarize operations, surface urgent complaints, identify high-risk buses/drivers, and help you decide what to review next.\n\nTry: **admin dashboard summary**, **safety complaints**, or **high priority complaints**.",
+        "Hi! I am **TrackNGo Admin AI**. Ask me in your own words about complaints, revenue, a particular bus, or which buses and drivers need attention. I can also resolve a complaint for you.",
       timestamp: new Date(),
     },
   ]);
@@ -110,21 +117,21 @@ export default function AiAssistantPanel({
   const chatId = useRef(`admin-chat-${Date.now()}`);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
+  const send = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || loading) return;
 
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: "user",
-      content: input,
+      content: trimmed,
       timestamp: new Date(),
     };
 
@@ -134,7 +141,7 @@ export default function AiAssistantPanel({
     setError(null);
 
     try {
-      const reply = await sendChatMessage(input, chatId.current);
+      const reply = await sendChatMessage(trimmed, chatId.current);
       const assistantMessage: ChatMessage = {
         id: `msg-${Date.now()}-ai`,
         role: "assistant",
@@ -156,6 +163,15 @@ export default function AiAssistantPanel({
     }
   };
 
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    void send(input);
+  };
+
+  // Shown until the admin asks something of their own. The chips name the reports
+  // the assistant can build, which is otherwise only discoverable by guessing.
+  const hasAsked = messages.some((message) => message.role === "user");
+
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
@@ -166,8 +182,17 @@ export default function AiAssistantPanel({
         className="absolute inset-0 h-full w-full bg-black/30"
         onClick={onClose}
       />
-      <div className="fixed right-4 top-1/2 z-[141] w-[min(92vw,420px)] -translate-y-1/2 transform rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_25px_75px_rgba(15,23,42,0.3)]">
-        <div className="flex items-center justify-between border-b border-[#e5e7eb] bg-gradient-to-r from-[#2642a6] to-[#1a2d7a] px-4 py-4 text-white rounded-t-2xl">
+      {/*
+        A flex column with a bounded height, rather than a box sized by its
+        contents. The message list used to be a fixed 400px, so header, chips and
+        composer together could exceed a laptop viewport; because the panel is
+        centred vertically it was then clipped at both ends and the composer became
+        unreachable. Height is now capped to the viewport and the list is what
+        flexes. Below sm it fills the screen as a sheet, since a 420px panel floated
+        against one edge wastes a phone.
+      */}
+      <div className="fixed inset-x-3 bottom-3 top-3 z-[141] flex flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_25px_75px_rgba(15,23,42,0.3)] sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-1/2 sm:h-[min(620px,calc(100dvh-2rem))] sm:w-[420px] sm:max-w-[calc(100vw-2rem)] sm:-translate-y-1/2">
+        <div className="flex shrink-0 items-center justify-between border-b border-[#e5e7eb] bg-gradient-to-r from-[#2642a6] to-[#1a2d7a] px-4 py-3 text-white">
           <div className="flex items-center gap-2">
             <FontAwesomeIcon icon={faRobot} className="text-lg" />
             <div>
@@ -178,14 +203,14 @@ export default function AiAssistantPanel({
           <button
             type="button"
             onClick={onClose}
-            className="text-lg transition hover:opacity-75"
+            className="-mr-1 rounded-lg p-2 text-lg transition hover:bg-white/15"
             aria-label="Close"
           >
             <FontAwesomeIcon icon={faX} />
           </button>
         </div>
 
-        <div className="h-[400px] overflow-y-auto bg-[#fafbfc] px-4 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#fafbfc] px-4 py-4">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center py-8 text-sm text-[#64748b]">
               No messages yet
@@ -196,7 +221,7 @@ export default function AiAssistantPanel({
                 <li key={msg.id} className="flex gap-2">
                   {msg.role === "user" ? (
                     <div className="flex w-full justify-end">
-                      <div className="max-w-[80%] rounded-xl bg-[#2642a6] px-3 py-2 text-sm text-white">
+                      <div className="max-w-[85%] rounded-xl bg-[#2642a6] px-3 py-2 text-sm text-white sm:max-w-[80%]">
                         <p className="whitespace-pre-wrap break-words">
                           {msg.content}
                         </p>
@@ -213,7 +238,7 @@ export default function AiAssistantPanel({
                       <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8eefc] text-[#2642a6]">
                         <FontAwesomeIcon icon={faRobot} className="text-xs" />
                       </div>
-                      <div className="max-w-[80%] rounded-xl bg-white px-3 py-2 text-[#111827]">
+                      <div className="min-w-0 max-w-[85%] rounded-xl bg-white px-3 py-2 text-[#111827] sm:max-w-[80%]">
                         <AssistantMessageContent content={msg.content} />
                         <span className="mt-1 block text-xs text-[#94a3b8]">
                           {msg.timestamp.toLocaleTimeString([], {
@@ -245,9 +270,25 @@ export default function AiAssistantPanel({
           )}
         </div>
 
+        {!hasAsked && (
+          <div className="flex shrink-0 flex-wrap gap-2 border-t border-[#e5e7eb] bg-[#f8fafc] px-4 py-3">
+            {QUICK_PROMPTS.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                disabled={loading}
+                onClick={() => void send(prompt)}
+                className="rounded-full border border-[#d6dbe6] bg-white px-3 py-1 text-xs font-semibold text-[#334155] transition duration-200 hover:border-[#2642a6] hover:text-[#2642a6] disabled:opacity-50"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
+
         <form
           onSubmit={handleSendMessage}
-          className="border-t border-[#e5e7eb] bg-white px-4 py-3 rounded-b-2xl"
+          className="shrink-0 border-t border-[#e5e7eb] bg-white px-4 py-3"
         >
           {error && <div className="mb-2 text-xs text-red-600">{error}</div>}
           <div className="flex gap-2">
@@ -257,7 +298,7 @@ export default function AiAssistantPanel({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}
-              className="flex-1 rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-sm outline-none placeholder:text-[#94a3b8] focus:border-[#2642a6]"
+              className="min-w-0 flex-1 rounded-lg border border-[#d6dbe6] bg-white px-3 py-2 text-base outline-none placeholder:text-[#94a3b8] focus:border-[#2642a6] sm:text-sm"
             />
             <button
               type="submit"
@@ -268,8 +309,8 @@ export default function AiAssistantPanel({
               <FontAwesomeIcon icon={faPaperPlane} />
             </button>
           </div>
-          <p className="mt-2 text-xs text-[#64748b]">
-            Try: "admin dashboard summary", "safety complaints", or "high priority complaints"
+          <p className="mt-2 hidden text-xs text-[#64748b] sm:block">
+            Ask in your own words, or say "resolve COMP-0017 &lt;response&gt;" to close a complaint.
           </p>
         </form>
       </div>

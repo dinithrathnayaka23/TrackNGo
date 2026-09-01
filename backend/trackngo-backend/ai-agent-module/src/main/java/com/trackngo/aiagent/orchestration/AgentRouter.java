@@ -11,6 +11,7 @@ import com.trackngo.aiagent.dto.ComplaintAnalysisRequest;
 import com.trackngo.aiagent.dto.ComplaintAnalysisResponse;
 import com.trackngo.aiagent.dto.RecommendationRequest;
 import com.trackngo.aiagent.dto.RecommendationResponse;
+import com.trackngo.aiagent.services.AdminOpsAgentService;
 import com.trackngo.aiagent.services.AiConversationMemoryService;
 import com.trackngo.aiagent.services.AiGroundingService;
 import com.trackngo.aiagent.services.ComplaintAgentService;
@@ -83,6 +84,7 @@ public class AgentRouter {
     private final RecommendationAgentService recommendationAgentService;
     private final NotificationAgentService notificationAgentService;
     private final BookingFlowService bookingFlowService;
+    private final AdminOpsAgentService adminOpsAgentService;
     private final JdbcTemplate jdbcTemplate;
     private final int modelTimeoutSeconds;
     private final boolean modelFunctionsEnabled;
@@ -112,6 +114,7 @@ public class AgentRouter {
             RecommendationAgentService recommendationAgentService,
             NotificationAgentService notificationAgentService,
             BookingFlowService bookingFlowService,
+            AdminOpsAgentService adminOpsAgentService,
             JdbcTemplate jdbcTemplate) {
         this.primaryChatClient = chatClient;
         this.primaryModelName = primaryModelName;
@@ -141,6 +144,7 @@ public class AgentRouter {
         this.recommendationAgentService = recommendationAgentService;
         this.notificationAgentService = notificationAgentService;
         this.bookingFlowService = bookingFlowService;
+        this.adminOpsAgentService = adminOpsAgentService;
         this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -163,17 +167,24 @@ public class AgentRouter {
         Optional<String> complaintFollowUp = complaintContinuation(userQuery, chatId);
         String routedQuery = complaintFollowUp.orElse(userQuery);
 
-        Understanding understanding;
-        if (complaintFollowUp.isPresent()) {
-            understanding = new Understanding("COMPLAINT", null, null, null);
-        } else if (isAdminOpsIntent(userQuery.toLowerCase(Locale.ROOT))
-                || (isAdminContext() && isAdminDashboardQuestion(userQuery.toLowerCase(Locale.ROOT)))) {
-            // Admin operations stay on the keyword path: they are phrased in a fixed
-            // internal vocabulary and must never be reached by a passenger.
-            understanding = new Understanding("ADMIN_OPS", null, null, null);
-        } else {
-            understanding = understand(userQuery, chatId);
+        // A signed-in admin gets the operations agent, and their question is read the
+        // same way a passenger's is. The role is what keeps operational figures out of
+        // passenger replies, rather than the wording of the question: gating on
+        // keywords meant "admin dashboard summary" worked while "give me today's
+        // numbers" did not, and every admin question that did match returned the same
+        // fixed block regardless of what was asked.
+        if (isAdminContext()) {
+            String adminReply = handleAdminQuery(userQuery, chatId);
+            memoryService.recordMessage(chatId, "user", userQuery);
+            memoryService.recordMessage(chatId, "assistant", adminReply);
+            memoryService.recordInteraction(chatId, "ADMIN_OPS", "SUCCESS_DIRECT_TOOL",
+                    elapsedMs(startedAt), "admin-ops-agent", null);
+            return adminReply;
         }
+
+        Understanding understanding = complaintFollowUp.isPresent()
+                ? new Understanding("COMPLAINT", null, null, null)
+                : understand(userQuery, chatId);
         String detectedIntent = understanding.intent();
 
         memoryService.recordMessage(chatId, "user", userQuery);
@@ -259,7 +270,6 @@ public class AgentRouter {
                     .map(tripPlanningAgentService::findRoutes)
                     .map(this::formatRouteResponse);
             case "BOOKING" -> Optional.of(handleBookingIntent(userQuery, understanding));
-            case "ADMIN_OPS" -> Optional.of(handleAdminOpsIntent(userQuery));
             case "ETA" -> resolveBusReference(userQuery, understanding)
                     .map(busId -> trafficEtaAgentService.getLiveEta(new TrafficEtaAgent.EtaRequest(busId)))
                     .map(this::formatEtaResponse);
@@ -535,107 +545,192 @@ public class AgentRouter {
             String busCategory,
             boolean confirmed) {}
 
-    private String handleAdminOpsIntent(String userQuery) {
-        AgentExecutionContext.Context context = AgentExecutionContext.get();
-        if (context == null || context.role() == null || !context.role().equalsIgnoreCase("admin")) {
-            return "The admin operations co-pilot is only available to signed-in admins. Passenger AI can still help with bookings, ETA, refunds, and complaints.";
+    /**
+     * Answers an administrator's question about operations.
+     *
+     * The question is read by the model, which names the report wanted and pulls out
+     * the window, filters, bus and complaint id it mentions. Anything the model
+     * cannot place, or that is genuinely a general question, falls through to the
+     * conversational path with the operations summary supplied as context, so the
+     * assistant answers from real figures instead of telling an admin to go and look
+     * at the dashboard they are already inside.
+     */
+    private String handleAdminQuery(String userQuery, String chatId) {
+        AdminAsk ask = understandAdminAsk(userQuery, chatId);
+        try {
+            return switch (ask.report()) {
+                case "GREETING" -> adminOpsAgentService.greeting();
+                case "OPS_SUMMARY" -> adminOpsAgentService.opsSummary();
+                case "COMPLAINT_STATS" -> adminOpsAgentService.complaintInsights(
+                        ask.days(),
+                        AdminOpsAgentService.normalizeStatus(ask.status()),
+                        AdminOpsAgentService.normalizePriority(ask.priority()),
+                        AdminOpsAgentService.normalizeType(ask.complaintType()));
+                case "COMPLAINT_LIST" -> adminOpsAgentService.openComplaints(
+                        AdminOpsAgentService.normalizePriority(ask.priority()), 8);
+                case "WATCHLIST" -> adminOpsAgentService.watchlist(ask.days(), ask.watchTarget());
+                case "REVENUE" -> adminOpsAgentService.revenue(ask.days());
+                case "BUS_PERFORMANCE" -> ask.busNumber() == null
+                        ? "Which bus? Give me its number, for example NB-0012."
+                        : adminOpsAgentService.busPerformance(ask.busNumber(), ask.days());
+                case "RESOLVE_COMPLAINT" -> adminOpsAgentService.resolveComplaint(
+                        ask.complaintId(), ask.adminResponse());
+                default -> adminGeneralAnswer(userQuery, chatId);
+            };
+        } catch (RuntimeException ex) {
+            log.warn("Admin operations agent failed for '{}': {}", ask.report(), ex.getMessage());
+            return "I could not pull that from the database just now: %s".formatted(ex.getMessage());
         }
+    }
+
+    /** An admin question the model has read: which report, over what, filtered how. */
+    private record AdminAsk(
+            String report,
+            Integer days,
+            String status,
+            String priority,
+            String complaintType,
+            String busNumber,
+            String watchTarget,
+            Long complaintId,
+            String adminResponse) {}
+
+    private AdminAsk understandAdminAsk(String userQuery, String chatId) {
+        String instruction = """
+                An administrator of a Sri Lankan bus company asked the question below.
+                Decide which report answers it and pull out any details it mentions.
+                Reply with a JSON object only, no prose, no code fences.
+
+                Keys:
+                  "report": exactly one of
+                     GREETING          - a greeting, thanks, or asking what you can do. No data wanted.
+                     OPS_SUMMARY       - a general "how are things" overview
+                     COMPLAINT_STATS   - how many complaints, counts, breakdowns
+                     COMPLAINT_LIST    - show me the actual open complaints to work through
+                     WATCHLIST         - which buses or drivers attract the most complaints
+                     REVENUE           - money taken, bookings, growth, comparisons between periods
+                     BUS_PERFORMANCE   - how one named bus is doing
+                     RESOLVE_COMPLAINT - close a complaint with a response
+                     GENERAL           - anything else
+                  "days": the window in days as a number, else null. "this week" is 7,
+                      "last month" is 30, "this year" is 365.
+                  "status": pending, under_review, resolved or rejected if named, else null.
+                  "priority": low, medium or high if named, else null.
+                  "complaintType": driver_behavior, bus_condition, route_issue, late_arrival,
+                      payment_issue, booking_issue, safety_concern or other if named, else null.
+                  "busNumber": a bus number such as NB-0012 if named, else null.
+                  "watchTarget": "buses", "drivers", or "both" for WATCHLIST, else null.
+                  "complaintId": the numeric id for RESOLVE_COMPLAINT, so COMP-0017 is 17, else null.
+                  "adminResponse": for RESOLVE_COMPLAINT, what the admin wants recorded as the
+                      response to the passenger, else null.
+
+                Asking which driver or bus is worst is WATCHLIST, not COMPLAINT_STATS.
+                Asking about money, growth or how a period compares to another is REVENUE.
+                "Hi", "hello", "thanks", "what can you do" are GREETING: the admin is opening
+                the conversation, not asking for figures. Do not return OPS_SUMMARY for those.
+
+                Today is %s in Sri Lanka.
+
+                %s
+                Administrator question:
+                %s
+                """.formatted(
+                        LocalDate.now(ZoneId.of("Asia/Colombo")),
+                        memoryService.recentConversationDigest(chatId, 4),
+                        userQuery.trim());
 
         try {
-            long totalComplaints = countLong("SELECT COUNT(*) FROM complaint");
-            long pendingComplaints = countLong("SELECT COUNT(*) FROM complaint WHERE status = 'pending'");
-            long underReviewComplaints = countLong("SELECT COUNT(*) FROM complaint WHERE status = 'under_review'");
-            long highPriorityComplaints = countLong("SELECT COUNT(*) FROM complaint WHERE priority = 'high' AND status IN ('pending', 'under_review')");
-            long safetyComplaints7Days = countLong("SELECT COUNT(*) FROM complaint WHERE complaint_type = 'safety_concern' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
-            long bookingsToday = countLong("SELECT COUNT(*) FROM seat_booking WHERE journey_date = CURDATE() AND status <> 'cancelled'");
-            BigDecimal revenueToday = sumMoney("SELECT COALESCE(SUM(total_amount), 0) FROM seat_booking WHERE journey_date = CURDATE() AND status <> 'cancelled'");
-
-            List<Map<String, Object>> topBuses = jdbcTemplate.queryForList("""
-                    SELECT COALESCE(b.bus_number, '--') AS label, COUNT(*) AS total
-                    FROM complaint c
-                    LEFT JOIN seat_booking sb ON sb.booking_reference = c.booking_reference
-                    LEFT JOIN bus b ON b.bus_id = sb.bus_id
-                    WHERE c.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-                    GROUP BY COALESCE(b.bus_number, '--')
-                    ORDER BY total DESC
-                    LIMIT 3
-                    """);
-
-            List<Map<String, Object>> topDrivers = jdbcTemplate.queryForList("""
-                    SELECT TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS label, COUNT(*) AS total
-                    FROM complaint c
-                    LEFT JOIN seat_booking sb ON sb.booking_reference = c.booking_reference
-                    LEFT JOIN bus b ON b.bus_id = sb.bus_id
-                    LEFT JOIN driver d ON d.driver_id = b.driver_id
-                    LEFT JOIN `user` u ON u.user_id = d.driver_id
-                    WHERE c.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-                    GROUP BY TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')))
-                    ORDER BY total DESC
-                    LIMIT 3
-                    """);
-
-            return """
-                    **Admin operations summary**
-                    - **Total complaints:** %d
-                    - **Open complaints:** %d pending, %d under review
-                    - **High priority open issues:** %d
-                    - **Safety complaints in last 7 days:** %d
-                    - **Bookings today:** %d
-                    - **Today revenue:** LKR %s
-
-                    **Watchlist**
-                    %s
-                    %s
-
-                    **Recommended actions**
-                    1. Review high-priority and safety complaints first.
-                    2. Contact operators for buses appearing repeatedly in the watchlist.
-                    3. Close resolved complaints with a clear admin response so passengers can see progress.
-                    """.formatted(
-                    totalComplaints,
-                    pendingComplaints,
-                    underReviewComplaints,
-                    highPriorityComplaints,
-                    safetyComplaints7Days,
-                    bookingsToday,
-                    revenueToday.setScale(2, java.math.RoundingMode.HALF_UP),
-                    formatTopRows("Top complaint buses", topBuses),
-                    formatTopRows("Top complaint drivers", topDrivers)).trim();
-        } catch (RuntimeException ex) {
-            log.warn("Admin operations co-pilot failed: {}", ex.getMessage());
-            return "I could not build the admin operations summary right now. Please check that the complaint and booking tables are available, then try again.";
+            String raw = callModelWithTimeout(() -> callModel(
+                    "You classify admin operations questions and reply with JSON only.",
+                    instruction,
+                    primaryModelName,
+                    0.0));
+            JsonNode node = readJsonObject(raw);
+            return new AdminAsk(
+                    normalizeAdminReport(node.path("report").asText("")),
+                    node.hasNonNull("days") && node.get("days").isNumber() ? node.get("days").asInt() : null,
+                    blankToNull(node.path("status").asText("")),
+                    blankToNull(node.path("priority").asText("")),
+                    blankToNull(node.path("complaintType").asText("")),
+                    blankToNull(node.path("busNumber").asText("")),
+                    blankToNull(node.path("watchTarget").asText("")),
+                    node.hasNonNull("complaintId") && node.get("complaintId").isNumber()
+                            ? node.get("complaintId").asLong() : null,
+                    blankToNull(node.path("adminResponse").asText("")));
+        } catch (Exception ex) {
+            log.warn("Admin question classification failed, using the overview: {}", ex.getMessage());
+            return new AdminAsk("OPS_SUMMARY", null, null, null, null, null, null, null, null);
         }
     }
 
-    private long countLong(String sql) {
-        Long value = jdbcTemplate.queryForObject(sql, Long.class);
-        return value == null ? 0L : value;
+    private String normalizeAdminReport(String value) {
+        if (value == null) {
+            return "GENERAL";
+        }
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "GREETING", "OPS_SUMMARY", "COMPLAINT_STATS", "COMPLAINT_LIST", "WATCHLIST",
+                 "REVENUE", "BUS_PERFORMANCE", "RESOLVE_COMPLAINT", "GENERAL" -> normalized;
+            // An unrecognised label means the question did not match a report, which is
+            // what GENERAL is for. Defaulting to the overview answered unrelated
+            // questions with a wall of statistics.
+            default -> "GENERAL";
+        };
     }
 
-    private BigDecimal sumMoney(String sql) {
-        BigDecimal value = jdbcTemplate.queryForObject(sql, BigDecimal.class);
-        return value == null ? BigDecimal.ZERO : value;
+    /**
+     * Answers an off-report admin question conversationally, with the current
+     * operations figures attached so the reply is grounded in real numbers.
+     */
+    private String adminGeneralAnswer(String userQuery, String chatId) {
+        String prompt = """
+                You are TrackNGo's operations assistant, talking to a signed-in administrator
+                of a Sri Lankan bus company.
+
+                Answer the question that was actually asked, in two or three sentences. Quote a
+                figure only when it answers the question; do not recite the reference data
+                below, and do not append a summary the administrator did not ask for.
+
+                If the answer is not in the data, say so in one line and name what you would
+                need, or point to the report that would have it. Never invent a number.
+
+                These are the only reports you can offer, so never name any other:
+                  the operations summary; complaint figures; the list of open complaints;
+                  the watchlist of buses and drivers with the most complaints; revenue for a
+                  period; and how one named bus is performing. You can also resolve a complaint.
+                Suggest one only when it would actually answer the question. If none of them
+                would, say the data is not held rather than inventing a report that might have it.
+
+                Reference data, for your use only:
+                %s
+
+                %s
+                Administrator question:
+                %s
+                """.formatted(
+                        adminOpsAgentService.opsSummary(),
+                        memoryService.recentConversationDigest(chatId, 4),
+                        userQuery.trim());
+        try {
+            return callModelWithTimeout(() -> callModel(
+                    "You are TrackNGo's admin operations assistant. You are concise and warm, "
+                    + "you answer the question asked and nothing more, and you never invent figures.",
+                    prompt,
+                    primaryModelName,
+                    0.3));
+        } catch (Exception ex) {
+            log.warn("Admin general answer failed: {}", ex.getMessage());
+            // Falling back to the full overview answered an unrelated question with a
+            // page of statistics. Say what happened and name what can still be asked.
+            return "I could not work that one out just now. I can still give you the operations "
+                    + "summary, complaint figures, the watchlist, revenue, or how a particular bus "
+                    + "is doing.";
+        }
     }
 
-    private String formatTopRows(String title, List<Map<String, Object>> rows) {
-        if (rows == null || rows.isEmpty()) {
-            return "- **%s:** No data yet".formatted(title);
-        }
-        StringBuilder builder = new StringBuilder("- **").append(title).append(":** ");
-        for (int i = 0; i < rows.size(); i++) {
-            Map<String, Object> row = rows.get(i);
-            String label = String.valueOf(row.get("label"));
-            if (label == null || label.isBlank() || "null".equalsIgnoreCase(label)) {
-                label = "Unassigned";
-            }
-            Object total = row.get("total");
-            builder.append(label).append(" (").append(total).append(")");
-            if (i < rows.size() - 1) {
-                builder.append(", ");
-            }
-        }
-        return builder.toString();
-    }
+
+
+
     private Optional<String> parseBusReference(String userQuery) {
         Matcher busNumber = Pattern.compile("(?i)\\b[A-Z]{1,3}-\\d{3,5}\\b").matcher(userQuery);
         if (busNumber.find()) {
@@ -1502,9 +1597,6 @@ public class AgentRouter {
 
     private String detectIntent(String query) {
         String lower = query.toLowerCase();
-        if (isAdminOpsIntent(lower) || (isAdminContext() && isAdminDashboardQuestion(lower))) {
-            return "ADMIN_OPS";
-        }
         // A question about how the rules work is answered by the model from grounded
         // policy knowledge. Sending it to a tool produces a form to fill in instead
         // of an answer: "what is the refund policy if I cancel my booking" matches
@@ -1534,35 +1626,6 @@ public class AgentRouter {
         return "GENERAL";
     }
 
-    private boolean isAdminOpsIntent(String lower) {
-        return lower.contains("admin summary")
-                || lower.contains("admin dashboard")
-                || lower.contains("operations summary")
-                || lower.contains("ops summary")
-                || lower.contains("operations report")
-                || lower.contains("dashboard summary")
-                || lower.contains("complaints this week")
-                || lower.contains("unresolved complaints")
-                || lower.contains("high priority complaints")
-                || lower.contains("safety complaints")
-                || lower.contains("complaint buses")
-                || lower.contains("complaint drivers")
-                || lower.contains("admin watchlist")
-                || lower.contains("operator watchlist");
-    }
-    private boolean isAdminDashboardQuestion(String lower) {
-        return lower.contains("complaint")
-                || lower.contains("dashboard")
-                || lower.contains("operations")
-                || lower.contains("watchlist")
-                || lower.contains("review today")
-                || lower.contains("urgent issue")
-                || lower.contains("safety issue")
-                || lower.contains("which buses")
-                || lower.contains("which drivers")
-                || lower.contains("top buses")
-                || lower.contains("top drivers");
-    }
 
     private boolean isAdminContext() {
         AgentExecutionContext.Context context = AgentExecutionContext.get();

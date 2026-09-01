@@ -167,6 +167,12 @@ their pricing is unchanged. Before this, a bus could only be "Standard",
 "AC" or "Mini" — never AC *and* Mini — because the surcharges were mutually
 exclusive in code. Now both apply together when relevant.
 
+Before deploying the corporate contact-person email field, run
+`V32__corporate_contact_email.sql`. It adds `contact_email` to
+`corporate_user` so the corporate sign-up and profile screens' "Contact
+Person Email Address" field actually persists, instead of being held in UI
+state only and discarded on save.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

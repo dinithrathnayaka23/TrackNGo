@@ -39,12 +39,31 @@ public class BookingFlowService {
     private static final ZoneId APP_ZONE = ZoneId.of("Asia/Colombo");
 
     /**
+     * The special-request note is a short instruction to the driver/operator
+     * (e.g. "please stop near the hospital gate"), not free-form text — capped
+     * so the field can't be used to stash arbitrarily large blobs in a column
+     * with no other size limit. Mirrors MAX_SPECIAL_REQUEST_LENGTH in the
+     * passenger app's booking-summary screen.
+     */
+    private static final int MAX_SPECIAL_REQUEST_LENGTH = 300;
+
+    /** Mirrors MAX_CANCEL_REASON_LENGTH in the passenger app's view-ticket/booking-history screens. */
+    private static final int MAX_CANCEL_REASON_LENGTH = 300;
+
+    /**
      * Seat bookings must be made at least one full day ahead: a passenger cannot
      * book a seat for the day they are travelling. Kept in step with
      * MIN_BOOKING_LEAD_DAYS in the passenger app's utils/bookingDate.ts, which
      * applies the same rule to the date picker.
      */
     static final int MIN_BOOKING_LEAD_DAYS = 1;
+
+    /**
+     * Without a ceiling a journey date could be set arbitrarily far out, long
+     * past any schedule the operator can actually commit to. Kept in step with
+     * MAX_BOOKING_LEAD_DAYS in the passenger app's utils/bookingDate.ts.
+     */
+    static final int MAX_BOOKING_LEAD_DAYS = 90;
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
@@ -565,6 +584,7 @@ public class BookingFlowService {
     public BookingConfirmationResult createBooking(CreateBookingRequest req) {
 
         validateBookableJourneyDate(req.journeyDate());
+        validateSpecialRequest(req.specialRequest());
         List<String> normalizedSeats = normalizeSeatSelection(req.seatNumbers());
 
         // 0) Ensure a passenger record exists for this user (FK requirement)
@@ -788,6 +808,10 @@ public class BookingFlowService {
         if (reason == null || reason.trim().isBlank()) {
             throw new IllegalArgumentException("Cancellation reason is required.");
         }
+        if (reason.trim().length() > MAX_CANCEL_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Cancellation reason must be " + MAX_CANCEL_REASON_LENGTH + " characters or fewer.");
+        }
         String reqType = "admin".equalsIgnoreCase(requesterType) ? "admin" : "user";
         Map<String, Object> booking = findBookingRow(
                 "SELECT sb.seat_booking_id, sb.passenger_id, sb.journey_date, sb.seat_number, sb.status, " +
@@ -858,6 +882,10 @@ public class BookingFlowService {
 
     @Transactional
     public Map<String, Object> respondToCancellation(String bookingRef, String responderType, boolean accept, String rejectReason) {
+        if (rejectReason != null && rejectReason.trim().length() > MAX_CANCEL_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Reason must be " + MAX_CANCEL_REASON_LENGTH + " characters or fewer.");
+        }
         Map<String, Object> booking = findBookingRow(
                 "SELECT sb.seat_booking_id, sb.passenger_id, sb.journey_date, sb.seat_number, sb.status, " +
                 "sb.cancellation_status, sb.cancellation_reason, sb.cancellation_requested_by, " +
@@ -1084,6 +1112,18 @@ public class BookingFlowService {
         if (parsedDate.isBefore(earliestBookable)) {
             throw new BusinessException(
                     "Bookings must be made at least one day in advance. Please choose tomorrow or a later date.");
+        }
+        LocalDate latestBookable = LocalDate.now(APP_ZONE).plusDays(MAX_BOOKING_LEAD_DAYS);
+        if (parsedDate.isAfter(latestBookable)) {
+            throw new BusinessException(
+                    "Bookings can only be made up to " + MAX_BOOKING_LEAD_DAYS + " days in advance.");
+        }
+    }
+
+    private void validateSpecialRequest(String specialRequest) {
+        if (specialRequest != null && specialRequest.length() > MAX_SPECIAL_REQUEST_LENGTH) {
+            throw new BusinessException(
+                    "Special request must be " + MAX_SPECIAL_REQUEST_LENGTH + " characters or fewer.");
         }
     }
 

@@ -27,9 +27,11 @@ import {
   getCorporateProfile,
   updateCorporateProfile,
   isRealProfileText,
-  isValidProfilePhone,
+  isValidProfileEmail,
+  isValidSriLankanPhone,
 } from "../../services/corporateApi";
 import { deleteProfilePicture } from "../../services/userProfileApi";
+import { SRI_LANKAN_INDUSTRIES } from "../../utils/industries";
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
 function useFadeSlide(delay: number) {
@@ -112,7 +114,7 @@ export default function CorporateProfileScreen() {
     contactPersonName: "",
     contactPersonDesignation: "",
     contactPhone: "",
-    contactEmail: "", // UI Only
+    contactEmail: "",
     profilePhoto: "",
   });
 
@@ -139,7 +141,7 @@ export default function CorporateProfileScreen() {
           contactPersonName: data.contactPersonName || "",
           contactPersonDesignation: data.contactPersonDesignation || "",
           contactPhone: data.contactPhone || "",
-          contactEmail: data.email || "",
+          contactEmail: data.contactEmail || "",
           profilePhoto: data.profilePhoto || "",
         });
       } catch (err) {
@@ -234,11 +236,12 @@ export default function CorporateProfileScreen() {
   const validateForm = (): string | null => {
     if (!isRealProfileText(form.companyName, 2)) return "Enter your real company name.";
     if (!isRealProfileText(form.businessRegistrationNumber, 3)) return "Enter a real business registration number.";
-    if (!isRealProfileText(form.industry, 2)) return "Select a real industry.";
+    if (!SRI_LANKAN_INDUSTRIES.includes(form.industry)) return "Select an industry from the list.";
     if (!isRealProfileText(form.address, 5)) return "Enter your real company address.";
     if (!isRealProfileText(form.contactPersonName, 2)) return "Enter the contact person's real name.";
     if (!isRealProfileText(form.contactPersonDesignation, 2)) return "Enter a real designation.";
-    if (!isValidProfilePhone(form.contactPhone)) return "Enter a valid contact phone number.";
+    if (!form.contactEmail.trim() || !isValidProfileEmail(form.contactEmail)) return "Enter a valid contact email address.";
+    if (!isValidSriLankanPhone(form.contactPhone)) return "Enter a valid Sri Lankan phone number.";
     if (form.employeeCount && (!/^\d+$/.test(form.employeeCount.trim()) || Number(form.employeeCount) < 0)) {
       return "Employee count must be a positive number.";
     }
@@ -264,6 +267,7 @@ export default function CorporateProfileScreen() {
         contactPersonName: form.contactPersonName,
         contactPersonDesignation: form.contactPersonDesignation,
         contactPhone: form.contactPhone,
+        contactEmail: form.contactEmail,
         profilePhoto: form.profilePhoto,
       });
       setProfile(updated);
@@ -329,17 +333,7 @@ export default function CorporateProfileScreen() {
     );
   };
 
-  const INDUSTRIES = [
-    "IT & Software",
-    "Manufacturing",
-    "Healthcare",
-    "Finance & Banking",
-    "Education",
-    "Retail",
-    "Logistics",
-    "Telecommunications",
-    "Other"
-  ];
+  const INDUSTRIES = SRI_LANKAN_INDUSTRIES;
 
   return (
     <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
@@ -435,11 +429,11 @@ export default function CorporateProfileScreen() {
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
-            {renderField("Company Name", "companyName", "e.g., Dialog Axiata", "business-outline")}
-            {renderField("Registration Number", "businessRegistrationNumber", "e.g., PV 12345", "document-text-outline", "default", true)}
+            {renderField("Company Name", "companyName", "e.g., Ceylon Cargo Solutions (Pvt) Ltd", "business-outline")}
+            {renderField("Registration Number", "businessRegistrationNumber", "e.g., PV 00123456", "document-text-outline", "default", true)}
             {renderField("Industry", "industry", "Select your industry", "cog-outline", "default", true, true)}
-            {renderField("Address", "address", "Company Headquarters Address", "location-outline", "default", true)}
-            {renderField("Website", "website", "https://example.com", "globe-outline")}
+            {renderField("Address", "address", "e.g., No. 45, Galle Road, Colombo 03", "location-outline", "default", true)}
+            {renderField("Website", "website", "https://example.lk", "globe-outline")}
             {renderField("Employee Count", "employeeCount", "e.g., 500", "people-outline", "numeric")}
           </ScrollView>
           <View style={styles.modalFooter}>
@@ -468,10 +462,10 @@ export default function CorporateProfileScreen() {
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
-            {renderField("Full Name", "contactPersonName", "Contact Person Name", "person-outline")}
+            {renderField("Full Name", "contactPersonName", "e.g., Kasun Perera", "person-outline")}
             {renderField("Designation", "contactPersonDesignation", "e.g., HR Manager", "briefcase-outline", "default", true)}
-            {renderField("Email Address", "contactEmail", "admin@company.com", "mail-outline", "email-address")}
-            {renderField("Phone Number", "contactPhone", "+94 77 123 4567", "call-outline", "phone-pad", true)}
+            {renderField("Email Address", "contactEmail", "e.g., hr@company.lk", "mail-outline", "email-address", true)}
+            {renderField("Phone Number", "contactPhone", "e.g., +94 77 123 4567", "call-outline", "phone-pad", true)}
           </ScrollView>
           <View style={styles.modalFooter}>
             <TouchableOpacity

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -43,6 +45,9 @@ function StarPicker({
     </View>
   );
 }
+
+// Mirrors MAX_COMMENT_LENGTH in the backend's RatingServiceImpl.
+const MAX_COMMENT_LENGTH = 500;
 
 const RATING_LABELS: Record<number, string> = {
   1: "Poor",
@@ -167,9 +172,14 @@ export default function RateBookingScreen() {
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : (
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Trip summary */}
           <View style={styles.tripCard}>
@@ -253,12 +263,14 @@ export default function RateBookingScreen() {
           <TextInput
             multiline
             value={comment}
-            onChangeText={setComment}
+            onChangeText={(text) => setComment(text.slice(0, MAX_COMMENT_LENGTH))}
             placeholder="Tell us more about your experience..."
             placeholderTextColor="#9CA3AF"
             style={styles.commentInput}
             textAlignVertical="top"
+            maxLength={MAX_COMMENT_LENGTH}
           />
+          <Text style={styles.charCount}>{comment.length}/{MAX_COMMENT_LENGTH}</Text>
 
           <Pressable
             style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
@@ -274,6 +286,7 @@ export default function RateBookingScreen() {
             )}
           </Pressable>
         </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </SafeAreaView>
   );
@@ -281,6 +294,7 @@ export default function RateBookingScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#F6F7F9" },
+  flex: { flex: 1 },
 
   header: {
     flexDirection: "row",
@@ -361,6 +375,13 @@ const styles = StyleSheet.create({
     color: "#111827",
     borderWidth: 1,
     borderColor: "#E6ECF3",
+  },
+  charCount: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#94A3B8",
+    textAlign: "right",
+    marginTop: 4,
   },
 
   submitButton: {

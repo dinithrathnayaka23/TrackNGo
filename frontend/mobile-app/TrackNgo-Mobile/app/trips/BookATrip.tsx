@@ -22,6 +22,9 @@ import { httpGet } from "../../services/http";
 // ─────────────────────────────────────────────────────────────
 // Largest group a single private trip booking accepts.
 const MAX_PASSENGERS = 100;
+// Longest span a single private trip booking can cover. Mirrors
+// MAX_TRIP_DURATION_DAYS in the backend's TripBookingService.
+const MAX_TRIP_DURATION_DAYS = 30;
 
 // ─────────────────────────────────────────────────────────────
 // TYPES
@@ -592,6 +595,7 @@ export default function BookATrip() {
       depart !== null &&
       returnDate !== null &&
       duration > 0 &&
+      duration <= MAX_TRIP_DURATION_DAYS &&
       passengers > 0 &&
       !(returnDate && depart && returnDate < depart)
     );
@@ -635,6 +639,14 @@ export default function BookATrip() {
     return d;
   };
 
+  // The latest a return date can be picked, given the current departure date.
+  const getMaxReturnDate = (): Date => {
+    const base = depart ?? getMinDepartureDate();
+    const d = new Date(base);
+    d.setDate(d.getDate() + MAX_TRIP_DURATION_DAYS);
+    return d;
+  };
+
   // ── Form validation with error messages ───────────────────
   const validateForm = (): boolean => {
     const e: any = {};
@@ -653,6 +665,10 @@ export default function BookATrip() {
     if (!returnDate) e.returnDate = "Please select Return Date";
     if (depart && returnDate && returnDate < depart) e.returnDate = "Return cannot be before departure";
     if (duration < 1) e.duration = "Duration must be at least 1 day";
+    if (duration > MAX_TRIP_DURATION_DAYS) {
+      e.returnDate = `Trip duration cannot exceed ${MAX_TRIP_DURATION_DAYS} days`;
+      e.duration = `Duration must be ${MAX_TRIP_DURATION_DAYS} days or fewer`;
+    }
     if (passengers < 1) e.passengers = "At least 1 passenger required";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -873,13 +889,14 @@ export default function BookATrip() {
                 <Text style={{ color: returnDate ? "#111827" : "#94A3B8", fontSize: 16, fontWeight: "700", marginTop: 13 }}>
                   {returnDate ? returnDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "Choose date"}
                 </Text>
-                <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>Tap to select</Text>
+                <Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 4 }}>Max {MAX_TRIP_DURATION_DAYS} days</Text>
               </TouchableOpacity>
               {showReturnPicker && (
                 <DateTimePicker
                   value={returnDate && returnDate >= (depart || getMinDepartureDate()) ? returnDate : (depart || getMinDepartureDate())}
                   mode="date"
                   minimumDate={depart || getMinDepartureDate()}
+                  maximumDate={getMaxReturnDate()}
                   display="default"
                   onChange={(_, date) => {
                     setShowReturnPicker(false);

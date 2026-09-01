@@ -36,6 +36,7 @@ export interface CorporateProfileDto {
   contactPersonName: string | null;
   contactPersonDesignation: string | null;
   contactPhone: string | null;
+  contactEmail: string | null;
   address: string | null;
   businessRegistrationNumber: string | null;
   industry: string | null;
@@ -287,6 +288,7 @@ export async function updateCorporateProfile(
     contactPersonName: data.contactPersonName ?? existing?.contactPersonName ?? "",
     contactPersonDesignation: data.contactPersonDesignation ?? existing?.contactPersonDesignation ?? "",
     contactPhone: data.contactPhone ?? existing?.contactPhone ?? "",
+    contactEmail: data.contactEmail ?? existing?.contactEmail ?? "",
     profilePhoto: data.profilePhoto ?? existing?.profilePhoto ?? "",
   };
   await httpPost<any>(`/api/users/${userId}/corporate`, undefined, payload);
@@ -580,9 +582,25 @@ export function isRealProfileText(value: string, minLength: number): boolean {
   return new Set(trimmed.split("")).size > 1;
 }
 
-export function isValidProfilePhone(value: string): boolean {
+/**
+ * Mirrors the backend's `ProfileValidation.isValidSriLankanPhone`: a 9-digit
+ * subscriber number (first digit 1-9) optionally prefixed with a trunk "0"
+ * or the "+94"/"94" country code, e.g. "0771234567" or "+94 77 123 4567".
+ */
+export function isValidSriLankanPhone(value: string): boolean {
   const digits = value.replace(/[^0-9]/g, "");
-  return digits.length >= 7 && digits.length <= 15;
+  let local = digits;
+  if (local.startsWith("94") && local.length === 11) {
+    local = local.slice(2);
+  } else if (local.startsWith("0") && local.length === 10) {
+    local = local.slice(1);
+  }
+  return /^[1-9]\d{8}$/.test(local);
+}
+
+/** Mirrors the backend's `ProfileValidation.isValidEmail` — a plausible "local@domain.tld" shape. */
+export function isValidProfileEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────── */

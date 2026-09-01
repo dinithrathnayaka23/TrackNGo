@@ -2,8 +2,11 @@ import {
   earliestBookableDate,
   earliestBookableDateString,
   formatLocalDate,
+  isAfterLatestBookableDate,
   isBeforeEarliestBookableDate,
   isUnbookableBookingDate,
+  latestBookableDate,
+  MAX_BOOKING_LEAD_DAYS,
   MIN_BOOKING_LEAD_DAYS,
   normalizeBookableDate,
   parseBookingDate,
@@ -55,6 +58,26 @@ describe('bookingDate', () => {
     });
   });
 
+  describe('latestBookableDate', () => {
+    it('is MAX_BOOKING_LEAD_DAYS ahead of today', () => {
+      expect(formatLocalDate(latestBookableDate())).toBe(formatLocalDate(daysFromToday(MAX_BOOKING_LEAD_DAYS)));
+    });
+  });
+
+  describe('isAfterLatestBookableDate', () => {
+    it('accepts a date within the booking window', () => {
+      expect(isAfterLatestBookableDate(daysFromToday(30))).toBe(false);
+    });
+
+    it('accepts the last bookable day itself', () => {
+      expect(isAfterLatestBookableDate(daysFromToday(MAX_BOOKING_LEAD_DAYS))).toBe(false);
+    });
+
+    it('rejects a date past the booking window', () => {
+      expect(isAfterLatestBookableDate(daysFromToday(MAX_BOOKING_LEAD_DAYS + 1))).toBe(true);
+    });
+  });
+
   describe('isUnbookableBookingDate', () => {
     it("rejects today's date string", () => {
       expect(isUnbookableBookingDate(formatLocalDate(startOfToday()))).toBe(true);
@@ -62,6 +85,10 @@ describe('bookingDate', () => {
 
     it("accepts tomorrow's date string", () => {
       expect(isUnbookableBookingDate(formatLocalDate(daysFromToday(1)))).toBe(false);
+    });
+
+    it('rejects a date past the booking window', () => {
+      expect(isUnbookableBookingDate(formatLocalDate(daysFromToday(MAX_BOOKING_LEAD_DAYS + 1)))).toBe(true);
     });
 
     it('rejects malformed and missing dates', () => {
@@ -81,6 +108,11 @@ describe('bookingDate', () => {
     it('leaves an already-bookable date untouched', () => {
       const future = daysFromToday(5);
       expect(formatLocalDate(normalizeBookableDate(future))).toBe(formatLocalDate(future));
+    });
+
+    it('pulls a too-far-out date back to the latest bookable date', () => {
+      const tooFar = daysFromToday(MAX_BOOKING_LEAD_DAYS + 10);
+      expect(formatLocalDate(normalizeBookableDate(tooFar))).toBe(formatLocalDate(latestBookableDate()));
     });
   });
 

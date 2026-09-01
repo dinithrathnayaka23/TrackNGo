@@ -20,7 +20,7 @@ import { getUserProfile } from '../../services/userProfileApi';
 // PlacesInput uses Google Places with route-stop fallback suggestions.
 import PlacesInput from '../../components/PlacesInput';
 import { httpGet } from '../../services/http';
-import { earliestBookableDate, formatLocalDate, isBeforeEarliestBookableDate, normalizeBookableDate, BOOKING_LEAD_TIME_MESSAGE } from '../../utils/bookingDate';
+import { earliestBookableDate, latestBookableDate, formatLocalDate, isAfterLatestBookableDate, isBeforeEarliestBookableDate, normalizeBookableDate, BOOKING_LEAD_TIME_MESSAGE, BOOKING_MAX_LEAD_TIME_MESSAGE } from '../../utils/bookingDate';
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from '../../utils/i18n';
 import { useTimeOfDayGreeting } from '../../utils/greeting';
 
@@ -643,12 +643,14 @@ export default function SearchBusesScreen() {
               <DateTimePicker
                 value={selectedDate}
                 minimumDate={earliestBookableDate()}
+                maximumDate={latestBookableDate()}
                 mode="date"
                 display="inline"
                 onChange={(_, date) => {
                   if (date) {
                     setSelectedDate(normalizeBookableDate(date));
                     if (isBeforeEarliestBookableDate(date)) Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
+                    else if (isAfterLatestBookableDate(date)) Alert.alert('Invalid date', BOOKING_MAX_LEAD_TIME_MESSAGE);
                   }
                 }}
               />
@@ -661,6 +663,7 @@ export default function SearchBusesScreen() {
         <DateTimePicker
           value={selectedDate}
           minimumDate={earliestBookableDate()}
+          maximumDate={latestBookableDate()}
           mode="date"
           display="calendar"
           onChange={(event, date) => {
@@ -671,6 +674,7 @@ export default function SearchBusesScreen() {
             if (date) {
               setSelectedDate(normalizeBookableDate(date));
               if (isBeforeEarliestBookableDate(date)) Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
+              else if (isAfterLatestBookableDate(date)) Alert.alert('Invalid date', BOOKING_MAX_LEAD_TIME_MESSAGE);
             }
             setShowDatePicker(false);
           }}

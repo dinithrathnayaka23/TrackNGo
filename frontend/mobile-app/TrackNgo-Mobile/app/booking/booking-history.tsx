@@ -4,7 +4,9 @@ import {
   Alert,
   FlatList,
   type ListRenderItemInfo,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -27,6 +29,9 @@ import {
 } from "../../services/tripBookingsApi";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text } from "../../utils/i18n";
+
+// Mirrors MAX_CANCEL_REASON_LENGTH in the backend's BookingFlowService/TripBookingService.
+const MAX_CANCEL_REASON_LENGTH = 300;
 
 /**
  * Calculates refund policy details based on departure date:
@@ -427,7 +432,10 @@ export default function BookingHistoryScreen() {
           if (!submittingCancel) setCancelModalVisible(false);
         }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderIcon}>
@@ -472,12 +480,14 @@ export default function BookingHistoryScreen() {
               placeholder="Please explain why you need to cancel this booking..."
               placeholderTextColor="#94A3B8"
               value={cancelReason}
-              onChangeText={setCancelReason}
+              onChangeText={(text) => setCancelReason(text.slice(0, MAX_CANCEL_REASON_LENGTH))}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
               editable={!submittingCancel}
+              maxLength={MAX_CANCEL_REASON_LENGTH}
             />
+            <Text style={styles.charCount}>{cancelReason.length}/{MAX_CANCEL_REASON_LENGTH}</Text>
 
             {/* Modal Actions */}
             <View style={styles.modalActions}>
@@ -501,7 +511,7 @@ export default function BookingHistoryScreen() {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ── Decline Admin Cancellation Modal ── */}
@@ -513,7 +523,10 @@ export default function BookingHistoryScreen() {
           if (!submittingDecline) setDeclineModalVisible(false);
         }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View style={[styles.modalHeaderIcon, { backgroundColor: "#FEF2F2" }]}>
@@ -540,12 +553,14 @@ export default function BookingHistoryScreen() {
               placeholder="State why you wish to keep this booking active..."
               placeholderTextColor="#94A3B8"
               value={declineReason}
-              onChangeText={setDeclineReason}
+              onChangeText={(text) => setDeclineReason(text.slice(0, MAX_CANCEL_REASON_LENGTH))}
               multiline
               numberOfLines={3}
               textAlignVertical="top"
               editable={!submittingDecline}
+              maxLength={MAX_CANCEL_REASON_LENGTH}
             />
+            <Text style={styles.charCount}>{declineReason.length}/{MAX_CANCEL_REASON_LENGTH}</Text>
 
             <View style={styles.modalActions}>
               <Pressable
@@ -568,7 +583,7 @@ export default function BookingHistoryScreen() {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -1241,7 +1256,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#0F172A",
     minHeight: 80,
-    marginBottom: 18,
+    marginBottom: 4,
+  },
+  charCount: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#94A3B8",
+    textAlign: "right",
+    marginBottom: 14,
   },
   modalActions: {
     flexDirection: "row",

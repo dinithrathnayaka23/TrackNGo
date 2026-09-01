@@ -47,6 +47,10 @@ import {
   viewCorporatePdf,
 } from "../../utils/corporatePdf";
 
+// Mirrors MIN/MAX_CANCEL_REASON_LENGTH in the backend's CorporateService.
+const MIN_CANCEL_REASON_LENGTH = 10;
+const MAX_CANCEL_REASON_LENGTH = 500;
+
 // ─── Entrance animation hook ──────────────────────────────────────────────────
 
 function useFadeSlide(delay: number) {
@@ -211,6 +215,13 @@ export default function ContractDetailScreen() {
 
   const submitCancelRequest = async () => {
     if (!contractId || !cancelReason.trim()) return;
+    if (cancelReason.trim().length < MIN_CANCEL_REASON_LENGTH) {
+      Alert.alert(
+        "Reason too short",
+        `Please explain your reason for cancelling in at least ${MIN_CANCEL_REASON_LENGTH} characters.`,
+      );
+      return;
+    }
     setCancelSubmitting(true);
     try {
       await requestContractCancellation(contractId, cancelReason.trim());
@@ -962,13 +973,14 @@ export default function ContractDetailScreen() {
             <TextInput
               style={styles.modalInput}
               value={cancelReason}
-              onChangeText={setCancelReason}
+              onChangeText={(text) => setCancelReason(text.slice(0, MAX_CANCEL_REASON_LENGTH))}
               placeholder="Reason for cancellation"
               placeholderTextColor="#94A3B8"
               multiline
               numberOfLines={3}
-              maxLength={500}
+              maxLength={MAX_CANCEL_REASON_LENGTH}
             />
+            <Text style={styles.modalCharCount}>{cancelReason.length}/{MAX_CANCEL_REASON_LENGTH}</Text>
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: "#F1F5F9" }]}
@@ -977,8 +989,8 @@ export default function ContractDetailScreen() {
                 <Text style={[styles.modalBtnText, { color: "#334155" }]}>Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: "#DC2626", opacity: cancelReason.trim() ? 1 : 0.5 }]}
-                disabled={!cancelReason.trim() || cancelSubmitting}
+                style={[styles.modalBtn, { backgroundColor: "#DC2626", opacity: cancelReason.trim().length >= MIN_CANCEL_REASON_LENGTH ? 1 : 0.5 }]}
+                disabled={cancelReason.trim().length < MIN_CANCEL_REASON_LENGTH || cancelSubmitting}
                 onPress={submitCancelRequest}
               >
                 <Text style={[styles.modalBtnText, { color: "#FFFFFF" }]}>
@@ -1210,6 +1222,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "#CBD5E1", borderRadius: 12, padding: 12,
     fontSize: 13, color: "#1E293B", minHeight: 80, textAlignVertical: "top",
   },
+  modalCharCount: { fontSize: 11, fontWeight: "600", color: "#94A3B8", textAlign: "right", marginTop: 4 },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 16 },
   modalBtn: { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: "center" },
   modalBtnText: { fontSize: 13, fontWeight: "700" },

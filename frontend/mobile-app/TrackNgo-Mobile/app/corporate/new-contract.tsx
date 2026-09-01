@@ -64,6 +64,18 @@ function haversineKm(a: Coord, b: Coord): number {
   return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
+// A pickup and a drop-off within this distance of each other are treated as
+// the same stop — a route that starts and ends at the same place isn't a
+// real trip, and floating-point/search-result noise means exact coordinate
+// equality can't be relied on.
+const MIN_LOCATION_SEPARATION_KM = 0.05;
+
+function isSamePlace(a: PlaceValue, b: PlaceValue): boolean {
+  if (!a || !b) return false;
+  if (a.placeId && b.placeId) return a.placeId === b.placeId;
+  return haversineKm(a, b) < MIN_LOCATION_SEPARATION_KM;
+}
+
 type RoadRoute = { distanceKm: number; durationMinutes: number };
 
 // Fallback average speed when OSRM is unreachable — used only to keep the
@@ -333,6 +345,29 @@ export default function NewContractScreen() {
   const morningDistanceReady = !needsMorning || !!morningDistanceKm;
   const eveningDistanceReady = !needsEvening || !!eveningDistanceKm;
 
+  // ─── Real-world route/time sanity checks ──────────────────────────────
+  // A shift's pickup and drop-off can't be the same stop — that isn't a trip.
+  // The evening leg is skipped when it's auto-derived from the morning leg
+  // (reversed), since it can only be invalid if the morning leg already is.
+  const morningLocationsSame =
+    needsMorning && !!morningPickup && !!morningDropoff && isSamePlace(morningPickup, morningDropoff);
+  const eveningLocationsSame =
+    needsEvening &&
+    !useSameEveningRoute &&
+    !!eveningPickup &&
+    !!eveningDropoff &&
+    isSamePlace(eveningPickup, eveningDropoff);
+  const shiftLocationsValid = !morningLocationsSame && !eveningLocationsSame;
+
+  // With both shifts running, the evening departure has to be after the
+  // morning arrival — employees can't leave for the day before (or the
+  // instant) they arrive.
+  const shiftTimesValid =
+    shiftType !== "both" ||
+    !morningDropoffObj ||
+    !eveningPickupObj ||
+    eveningPickupObj.getTime() > morningDropoffObj.getTime();
+
   // Contract term bounds: at least a week's notice, one-month minimum, one-year maximum.
   const earliestStartDate = addDays(new Date(), 7);
   const minEndDate = addMonths(startDateObj || earliestStartDate, 1);
@@ -341,7 +376,7 @@ export default function NewContractScreen() {
   // Per-step validation — button turns blue only when all required fields are filled
   const isStepValid =
     step === 1
-      ? !!(neededSeats >= MIN_EMPLOYEE_COUNT && shiftDetailsFilled && morningDistanceReady && eveningDistanceReady && startDateObj && endDateObj)
+      ? !!(neededSeats >= MIN_EMPLOYEE_COUNT && shiftDetailsFilled && morningDistanceReady && eveningDistanceReady && shiftLocationsValid && shiftTimesValid && startDateObj && endDateObj)
       : step === 2
       ? seatsFulfilled
       : true; // Step 3 (negotiation) always shows footer; Accept Offer has its own logic
@@ -505,6 +540,18 @@ export default function NewContractScreen() {
       }
       if (!morningDistanceReady || !eveningDistanceReady) {
         Alert.alert("Distance Unavailable", "Could not calculate the route distance yet. Please re-select your pickup and drop-off places.");
+        return;
+      }
+      if (morningLocationsSame) {
+        Alert.alert("Same Pickup & Drop-off", "The morning pickup and drop-off locations can't be the same place. Please choose two different locations.");
+        return;
+      }
+      if (eveningLocationsSame) {
+        Alert.alert("Same Pickup & Drop-off", "The evening pickup and drop-off locations can't be the same place. Please choose two different locations.");
+        return;
+      }
+      if (!shiftTimesValid) {
+        Alert.alert("Invalid Shift Times", "The evening departure time must be after the morning arrival time — employees can't leave for the day before they arrive.");
         return;
       }
       if (startDateObj < earliestStartDate) {
@@ -882,10 +929,13 @@ export default function NewContractScreen() {
           <Text style={styles.routeSectionTitle}>Morning Shift Route</Text>
           <GooglePlaceField label="Pickup Location" placeholder="Search employee pickup point..." value={morningPickup} onChange={setMorningPickup} icon="location" />
           <GooglePlaceField label="Drop-off Location" placeholder="Search office / drop-off point..." value={morningDropoff} onChange={setMorningDropoff} icon="flag" />
+          {morningLocationsSame && (
+            <Text style={styles.fieldErrorText}>Pickup and drop-off can't be the same place.</Text>
+          )}
           <View style={{ marginBottom: 4 }}>
             {renderTimeField("Required Arrival Time", morningDropoffObj, setMorningDropoffObj, showMorningDropoffPicker, setShowMorningDropoffPicker)}
           </View>
-          {(morningDistanceLoading || morningDistanceKm) && (
+          {(morningDistanceLoading || morningDistanceKm != null) && (
             <View style={styles.distancePill}>
               <Ionicons name="navigate-outline" size={14} color="#067BF9" />
               <Text style={styles.distancePillText}>
@@ -924,13 +974,19 @@ export default function NewContractScreen() {
             <>
               <GooglePlaceField label="Pickup Location" placeholder="Search employee pickup point..." value={eveningPickup} onChange={setEveningPickup} icon="location" />
               <GooglePlaceField label="Drop-off Location" placeholder="Search drop-off point..." value={eveningDropoff} onChange={setEveningDropoff} icon="flag" />
+              {eveningLocationsSame && (
+                <Text style={styles.fieldErrorText}>Pickup and drop-off can't be the same place.</Text>
+              )}
             </>
           )}
 
           <View style={{ marginBottom: 4 }}>
             {renderTimeField("Departure (Pickup) Time", eveningPickupObj, setEveningPickupObj, showEveningPickupPicker, setShowEveningPickupPicker)}
           </View>
-          {(eveningDistanceLoading || eveningDistanceKm) && (
+          {!shiftTimesValid && (
+            <Text style={styles.fieldErrorText}>Departure time must be after the morning arrival time.</Text>
+          )}
+          {(eveningDistanceLoading || eveningDistanceKm != null) && (
             <View style={styles.distancePill}>
               <Ionicons name="navigate-outline" size={14} color="#067BF9" />
               <Text style={styles.distancePillText}>
@@ -1282,7 +1338,7 @@ export default function NewContractScreen() {
             <View style={styles.negoSummaryIcon}>
               <Ionicons name="swap-horizontal" size={18} color="#64748B" />
             </View>
-            <View>
+            <View style={styles.negoSummaryRowContent}>
               <Text style={styles.negoSummaryRowLabel}>Route & Schedule</Text>
               <Text style={styles.negoSummaryRowValue}>{describeRoutes()}</Text>
               <Text style={styles.negoSummaryRowMeta}>{describeShiftSummary()}</Text>
@@ -1293,7 +1349,7 @@ export default function NewContractScreen() {
             <View style={styles.negoSummaryIcon}>
               <Ionicons name="bus" size={18} color="#64748B" />
             </View>
-            <View>
+            <View style={styles.negoSummaryRowContent}>
               <Text style={styles.negoSummaryRowLabel}>{selectedBuses.length > 1 ? "Selected Buses" : "Selected Bus"}</Text>
               <Text style={styles.negoSummaryRowValue}>
                 {selectedBuses.map((b) => b.busNumber).join(", ")} ({selectedSeats} seats)
@@ -1305,7 +1361,7 @@ export default function NewContractScreen() {
             <View style={styles.negoSummaryIcon}>
               <Ionicons name="people" size={18} color="#64748B" />
             </View>
-            <View>
+            <View style={styles.negoSummaryRowContent}>
               <Text style={styles.negoSummaryRowLabel}>Employees</Text>
               <Text style={styles.negoSummaryRowValue}>{employees}</Text>
             </View>
@@ -1857,6 +1913,7 @@ const styles = StyleSheet.create({
   },
   reversedRouteText: { flex: 1, fontSize: 12, color: "#475569", lineHeight: 17 },
   computedHint: { fontSize: 11, color: "#94A3B8", marginBottom: 12, lineHeight: 15 },
+  fieldErrorText: { fontSize: 11, fontWeight: "600", color: "#DC2626", marginTop: -8, marginBottom: 12, lineHeight: 15 },
 
   // WebView (Stripe) Styles
   webViewHeader: {
@@ -2263,6 +2320,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     padding: 14,
     gap: 14,
+  },
+  negoSummaryRowContent: {
+    flex: 1,
   },
   negoSummaryIcon: {
     width: 36,

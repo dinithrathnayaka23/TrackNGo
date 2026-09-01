@@ -38,6 +38,18 @@ public class TripBookingService {
             "pending", "approved", "confirmed", "in_progress"
     );
 
+    /**
+     * Longest span a single private trip booking can cover. Without a ceiling,
+     * an unbounded return date lets the daily-rate fare calculation (and the
+     * bus's date-reservation lock, see reserveBusDates) run out to an
+     * arbitrary number of days. Mirrors MAX_TRIP_DURATION_DAYS in the
+     * passenger app's BookATrip screen.
+     */
+    private static final int MAX_TRIP_DURATION_DAYS = 30;
+
+    /** Mirrors MAX_CANCEL_REASON_LENGTH in BookingFlowService / the passenger app's cancellation screens. */
+    private static final int MAX_CANCEL_REASON_LENGTH = 300;
+
     private final TripBookingRepository tripBookingRepository;
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
@@ -285,6 +297,10 @@ public class TripBookingService {
         if (reason == null || reason.trim().isBlank()) {
             throw new IllegalArgumentException("Cancellation reason is required.");
         }
+        if (reason.trim().length() > MAX_CANCEL_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Cancellation reason must be " + MAX_CANCEL_REASON_LENGTH + " characters or fewer.");
+        }
         Map<String, Object> booking = lockBookingRow(bookingId);
         if (booking == null) {
             throw new IllegalArgumentException("Trip booking was not found.");
@@ -343,6 +359,10 @@ public class TripBookingService {
 
     @Transactional
     public TripBooking respondToCancellation(Long bookingId, String responderType, boolean accept, String rejectReason) {
+        if (rejectReason != null && rejectReason.trim().length() > MAX_CANCEL_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Reason must be " + MAX_CANCEL_REASON_LENGTH + " characters or fewer.");
+        }
         Map<String, Object> booking = lockBookingRow(bookingId);
         if (booking == null) {
             throw new IllegalArgumentException("Trip booking was not found.");
@@ -563,6 +583,10 @@ public class TripBookingService {
         }
         if (request.returnDate() == null || request.returnDate().isBefore(request.startDate())) {
             throw new IllegalArgumentException("Return date cannot be before departure.");
+        }
+        if (ChronoUnit.DAYS.between(request.startDate(), request.returnDate()) > MAX_TRIP_DURATION_DAYS) {
+            throw new IllegalArgumentException(
+                    "Trip duration cannot exceed " + MAX_TRIP_DURATION_DAYS + " days.");
         }
         if (request.passengerCount() == null || request.passengerCount() < 1 || request.passengerCount() > 100) {
             throw new IllegalArgumentException("Passenger count must be between 1 and 100.");

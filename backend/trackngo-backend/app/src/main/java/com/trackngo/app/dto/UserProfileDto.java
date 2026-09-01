@@ -9,6 +9,7 @@ public record UserProfileDto(
         String companyName,
         String contactPersonName,
         String contactPhone,
+        String contactEmail,
         String contactPersonDesignation,
         String address,
         String businessRegistrationNumber,
@@ -27,6 +28,7 @@ public record UserProfileDto(
             String companyName,
             String contactPersonName,
             String contactPhone,
+            String contactEmail,
             String contactPersonDesignation,
             String address,
             String businessRegistrationNumber,
@@ -36,8 +38,8 @@ public record UserProfileDto(
             String userType
     ) {
         this(userId, fullName, phoneNumber, email, profilePhoto, companyName, contactPersonName,
-                contactPhone, contactPersonDesignation, address, businessRegistrationNumber, industry,
-                website, employeeCount, userType, null);
+                contactPhone, contactEmail, contactPersonDesignation, address, businessRegistrationNumber,
+                industry, website, employeeCount, userType, null);
     }
 
     /**
@@ -47,7 +49,7 @@ public record UserProfileDto(
      */
     public UserProfileDto withToken(String newToken) {
         return new UserProfileDto(userId, fullName, phoneNumber, email, profilePhoto, companyName,
-                contactPersonName, contactPhone, contactPersonDesignation, address,
+                contactPersonName, contactPhone, contactEmail, contactPersonDesignation, address,
                 businessRegistrationNumber, industry, website, employeeCount, userType, newToken);
     }
 }

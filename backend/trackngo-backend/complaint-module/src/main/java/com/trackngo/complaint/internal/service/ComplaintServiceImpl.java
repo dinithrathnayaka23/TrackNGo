@@ -44,6 +44,10 @@ public class ComplaintServiceImpl implements ComplaintService {
     private static final Set<String> ALLOWED_PRIORITIES = Set.of("low", "medium", "high");
     private static final Set<String> ALLOWED_STATUSES = Set.of("pending", "under_review", "resolved", "rejected");
 
+    /** Mirrors MIN/MAX_DESCRIPTION_LENGTH on the passenger app's complaint screen. */
+    private static final int MIN_DESCRIPTION_LENGTH = 10;
+    private static final int MAX_DESCRIPTION_LENGTH = 500;
+
     private final ComplaintRepository repository;
     private final EventPublisher eventPublisher;
     private final JdbcTemplate jdbc;
@@ -519,11 +523,17 @@ public class ComplaintServiceImpl implements ComplaintService {
         return normalized;
     }
 
-    /** Ensures the complaint description contains a non-blank value. */
+    /** Ensures the complaint description is a real, non-placeholder-length value within bounds. */
     private String requireDescription(String value) {
         String trimmed = trimToNull(value);
         if (trimmed == null) {
             throw new BusinessException("Complaint description is required");
+        }
+        if (trimmed.length() < MIN_DESCRIPTION_LENGTH) {
+            throw new BusinessException("Complaint description must be at least " + MIN_DESCRIPTION_LENGTH + " characters");
+        }
+        if (trimmed.length() > MAX_DESCRIPTION_LENGTH) {
+            throw new BusinessException("Complaint description must be " + MAX_DESCRIPTION_LENGTH + " characters or fewer");
         }
         return trimmed;
     }

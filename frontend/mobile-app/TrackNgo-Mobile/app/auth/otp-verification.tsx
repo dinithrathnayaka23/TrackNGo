@@ -32,6 +32,13 @@ export default function OtpVerificationScreen() {
     lastName?: string;
     userType?: string;
     password?: string;
+    companyName?: string;
+    businessRegistrationNumber?: string;
+    industry?: string;
+    address?: string;
+    contactPersonName?: string;
+    contactPersonDesignation?: string;
+    contactPhone?: string;
   }>();
   const email = params.email ?? "";
   const [loading, setLoading] = useState(false);
@@ -124,14 +131,20 @@ export default function OtpVerificationScreen() {
     try {
       const { verificationToken } = await verifyRegistrationOtp(email, code);
 
-      const userTypeParam = params.userType === "Corporate" ? "corporate" : "passenger";
+      const isCorporate = params.userType === "Corporate";
+      const userTypeParam = isCorporate ? "corporate" : "passenger";
+
+      // The account holder for a corporate sign-up is the contact person —
+      // the `user` row still wants a first/last name, so it's split from the
+      // single "Full Name" field the corporate form collects.
+      const [corporateFirstName, ...corporateLastNameParts] = (params.contactPersonName ?? "").trim().split(/\s+/);
       const payload = {
         email,
         password: params.password,
         userType: userTypeParam,
-        firstName: params.firstName,
-        lastName: params.lastName,
-        phoneNumber: params.phone,
+        firstName: isCorporate ? corporateFirstName : params.firstName,
+        lastName: isCorporate ? corporateLastNameParts.join(" ") || null : params.lastName,
+        phoneNumber: isCorporate ? params.contactPhone : params.phone,
         emailVerificationToken: verificationToken,
       };
 
@@ -153,27 +166,58 @@ export default function OtpVerificationScreen() {
       }
       await setAuthToken(loginData.token);
 
+      const userId = loginData.userId ?? savedUser.id;
       const mappedUserType = userTypeParam === "corporate" ? "CORPORATE_USER" : "PASSENGER";
       await setCurrentUser({
-        userId: loginData.userId ?? savedUser.id,
+        userId,
         userType: mappedUserType,
       });
 
-      Alert.alert("Verified", "Your account has been verified successfully!", [
-        {
-          text: "OK",
-          onPress: () => {
-            if (params.userType === "Corporate") {
-              router.replace("/corporate/corporate-registration");
-            } else {
-              router.replace("/tabs");
-            }
-            // Verifying signs the new account straight in, so it is the same moment
-            // to ask about location as an ordinary log-in.
-            void requestLocationOnSignIn();
+      // The company/contact fields were collected on the same Create Account
+      // screen, so the corporate profile is saved right here rather than in a
+      // separate follow-up step. If this call fails the account still exists
+      // and is signed in, so the user lands on their profile screen with a
+      // heads-up instead of being stuck.
+      let corporateProfileError: string | null = null;
+      if (isCorporate) {
+        try {
+          await httpPost<any>(`/api/users/${userId}/corporate`, undefined, {
+            companyName: params.companyName,
+            businessRegistrationNumber: params.businessRegistrationNumber,
+            industry: params.industry,
+            address: params.address,
+            contactPersonName: params.contactPersonName,
+            contactPersonDesignation: params.contactPersonDesignation,
+            contactPhone: params.contactPhone,
+            contactEmail: email,
+          });
+        } catch (profileErr) {
+          corporateProfileError = extractApiMessage(
+            profileErr,
+            "Your account was created, but we couldn't save your company details. Please complete your profile.",
+          );
+        }
+      }
+
+      Alert.alert(
+        "Verified",
+        corporateProfileError ?? "Your account has been verified successfully!",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              if (isCorporate) {
+                router.replace("/corporate/co-op-dashboard");
+              } else {
+                router.replace("/tabs");
+              }
+              // Verifying signs the new account straight in, so it is the same moment
+              // to ask about location as an ordinary log-in.
+              void requestLocationOnSignIn();
+            },
           },
-        },
-      ]);
+        ],
+      );
     } catch (err) {
       // Falls back to a readable sentence rather than the raw
       // "POST /api/users failed: 400 - {...}" string the request throws.

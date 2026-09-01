@@ -12,6 +12,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import AuthLayout from '../../components/layout/AuthLayout'
 import authService from '../../services/authService'
+import { getPasswordStrength, isValidEmail, isValidPhone } from '../../utils/validators'
 
 type SignupForm = {
   fullName: string
@@ -76,26 +77,6 @@ function Field({
       ) : null}
     </div>
   )
-}
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-function isValidPhone(phone: string) {
-  const normalized = phone.replace(/[^\d+]/g, '')
-  const digits = normalized.replace('+', '')
-  return /^\+?[\d\s()-]+$/.test(phone) && digits.length >= 10 && digits.length <= 15
-}
-
-function getPasswordStrength(password: string) {
-  let score = 0
-  if (password.length >= 8) score += 1
-  if (/[A-Z]/.test(password)) score += 1
-  if (/[a-z]/.test(password)) score += 1
-  if (/\d/.test(password)) score += 1
-  if (/[^A-Za-z0-9]/.test(password)) score += 1
-  return score
 }
 
 function validateSignup(form: SignupForm, agreePolicy: boolean): SignupErrors {

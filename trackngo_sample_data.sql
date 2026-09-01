@@ -106,12 +106,12 @@ INSERT INTO driver (driver_id, licence_expiry, years_of_experience, profile_phot
 -- CORPORATE USERS (5 records)
 -- =============================================
 
-INSERT INTO corporate_user (corporate_user_id, address, company_name, profile_photo, contact_person_name, contact_phone, contact_person_designation, status, business_registration_number, industry) VALUES
-(22, 'No. 57, Dharmapala Mawatha, Colombo 03',                'Dialog Axiata PLC',       NULL, 'Sachini Amaratunga',  '+94112456789', 'HR Manager',           'active',               'PV00007062', 'Telecommunications'),
-(23, 'No. 117, Sir Chittampalam A. Gardiner Mawatha, Col 02', 'John Keells Holdings PLC',NULL, 'Ruwan Abeysekara',    '+94112331000', 'Admin Officer',        'active',               'PV00003521', 'Conglomerate'),
-(24, 'No. 400, Deans Road, Colombo 10',                       'Hayleys PLC',             NULL, 'Thilini Ratnayake',   '+94112627000', 'Transport Coordinator','active',               'PV00001503', 'Manufacturing'),
-(25, 'No. 1 Forum, Rajagiriya, Sri Jayawardenepura',          'Virtusa Corporation',     NULL, 'Pradeep Gunawardena', '+94112318088', 'Facilities Manager',   'pending_verification', 'PV00045321', 'Information Technology'),
-(26, 'Lotus Road, Colombo 01',                                'Sri Lanka Telecom PLC',   NULL, 'Nalika Jayasuriya',   '+94112021000', 'HR Director',         'active',               'PV00002841', 'Telecommunications');
+INSERT INTO corporate_user (corporate_user_id, address, company_name, profile_photo, contact_person_name, contact_phone, contact_email, contact_person_designation, status, business_registration_number, industry) VALUES
+(22, 'No. 57, Dharmapala Mawatha, Colombo 03',                'Dialog Axiata PLC',       NULL, 'Sachini Amaratunga',  '+94112456789', 'sachini.amaratunga@dialog.lk',  'HR Manager',           'active',               'PV00007062', 'Telecommunications'),
+(23, 'No. 117, Sir Chittampalam A. Gardiner Mawatha, Col 02', 'John Keells Holdings PLC',NULL, 'Ruwan Abeysekara',    '+94112331000', 'ruwan.abeysekara@johnkeells.lk', 'Admin Officer',        'active',               'PV00003521', 'Conglomerate'),
+(24, 'No. 400, Deans Road, Colombo 10',                       'Hayleys PLC',             NULL, 'Thilini Ratnayake',   '+94112627000', 'thilini.ratnayake@hayleys.lk',  'Transport Coordinator','active',               'PV00001503', 'Manufacturing'),
+(25, 'No. 1 Forum, Rajagiriya, Sri Jayawardenepura',          'Virtusa Corporation',     NULL, 'Pradeep Gunawardena', '+94112318088', 'pradeep.gunawardena@virtusa.lk','Facilities Manager',   'pending_verification', 'PV00045321', 'Information Technology & BPO'),
+(26, 'Lotus Road, Colombo 01',                                'Sri Lanka Telecom PLC',   NULL, 'Nalika Jayasuriya',   '+94112021000', 'nalika.jayasuriya@slt.lk',      'HR Director',         'active',               'PV00002841', 'Telecommunications');
 
 
 -- =============================================
@@ -407,14 +407,14 @@ INSERT INTO notification (notification_id, notification_type, title, message, is
 (5, 'cancellation',         'Booking Cancelled',            'Your Mirissa trip booking has been cancelled. Refund will be processed in 3-5 days.',  true,  12,   NULL, NULL, NULL),
 (6, 'complaint',     'Complaint Update',             'Your complaint #1 regarding driver behavior has been resolved.',                       true,  4,    NULL, NULL, NULL),
 (7, 'promotion',            'Special Offer!',               'Book any highway seat this week and get 15% off! Use code: SAVE15.',                   false, 7,    NULL, NULL, NULL),
-(8, 'system',         'License Expiry Alert',         'Your driving license expires on 2025-12-31. Please renew soon.',                       false, NULL, 16,   NULL, NULL),
+(8, 'system_alert',   'License Expiry Alert',         'Your driving license expires on 2025-12-31. Please renew soon.',                       false, NULL, 16,   NULL, NULL),
 (9, 'booking', 'New Trip Booking',             'New trip booking from Amara Silva. Sigiriya, Feb 15. Please confirm.',                 true,  NULL, 14,   NULL, NULL),
 (10, 'rating',       'You Got a New Rating!',        'Amara Silva gave you 5 stars for the Sigiriya trip. Great work!',                      true,  NULL, 14,   NULL, NULL),
 (11, 'sos',            'SOS Alert Received',           'Passenger Amara Silva triggered SOS near Warakapola. Coordinates shared.',             false, NULL, NULL, NULL, 1),
 (12, 'complaint',     'New Complaint Assigned',       'Complaint #5 regarding speeding has been assigned to you for review.',                 false, NULL, NULL, NULL, 2),
 (13, 'booking', 'Contract Application Received','Your corporate transport contract application is under review.',                       false, NULL, NULL, 22,   NULL),
 (14, 'promotion',            'Contract Renewal Reminder',    'Your employee transport contract expires on 2025-12-31. Renew now for discounts.',      false, NULL, NULL, 23,   NULL),
-(15, 'system',         'Invoice Ready',                'Monthly invoice #3 for Jan 2025 is ready. Amount: Rs. 280,000.',                        true,  NULL, NULL, 22,   NULL);
+(15, 'system_alert',   'Invoice Ready',                'Monthly invoice #3 for Jan 2025 is ready. Amount: Rs. 280,000.',                        true,  NULL, NULL, 22,   NULL);
 
 
 -- =============================================
@@ -494,15 +494,15 @@ INSERT INTO rating (rating_id, driver_rating, bus_condition_rating, journey_rati
 -- CORPORATE INVOICES (8 records)
 -- =============================================
 
-INSERT INTO corporate_invoices (invoice_number, contract_id, amount, status, date, due_date) VALUES
-(1, 1, 280000.00, 'paid',    '2025-01-31', '2025-02-10'),
-(2, 1, 280000.00, 'paid',    '2025-02-28', '2025-03-10'),
-(3, 1, 280000.00, 'pending', '2025-03-31', '2025-04-10'),
-(1, 2, 260000.00, 'paid',    '2025-01-31', '2025-02-10'),
-(2, 2, 260000.00, 'paid',    '2025-02-28', '2025-03-10'),
-(3, 2, 260000.00, 'overdue', '2025-03-31', '2025-04-10'),
-(1, 3, 245000.00, 'paid',    '2025-01-31', '2025-02-10'),
-(2, 3, 245000.00, 'paid',    '2025-02-28', '2025-03-10');
+INSERT INTO corporate_invoices (contract_id, amount, status, period_start, period_end, due_date) VALUES
+(1, 280000.00, 'paid',    '2025-01-01', '2025-01-31', '2025-02-10'),
+(1, 280000.00, 'paid',    '2025-02-01', '2025-02-28', '2025-03-10'),
+(1, 280000.00, 'pending', '2025-03-01', '2025-03-31', '2025-04-10'),
+(2, 260000.00, 'paid',    '2025-01-01', '2025-01-31', '2025-02-10'),
+(2, 260000.00, 'paid',    '2025-02-01', '2025-02-28', '2025-03-10'),
+(2, 260000.00, 'overdue', '2025-03-01', '2025-03-31', '2025-04-10'),
+(3, 245000.00, 'paid',    '2025-01-01', '2025-01-31', '2025-02-10'),
+(3, 245000.00, 'paid',    '2025-02-01', '2025-02-28', '2025-03-10');
 
 
 -- =============================================

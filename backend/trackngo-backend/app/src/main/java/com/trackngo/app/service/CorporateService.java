@@ -50,8 +50,19 @@ public class CorporateService {
     private static final List<String> VALID_BUS_TYPES = List.of("standard", "mini");
     private static final List<String> VALID_CONTRACT_STATUSES = List.of("pending", "active", "expired", "cancelled");
     private static final List<String> VALID_CANCEL_ROLES = List.of("admin", "corporate");
+
+    /** Mirrors MIN/MAX_CANCEL_REASON_LENGTH on the passenger app's contract-detail screen. */
+    private static final int MIN_CANCEL_REASON_LENGTH = 10;
+    private static final int MAX_CANCEL_REASON_LENGTH = 500;
     private static final int MIN_ADMIN_CANCEL_NOTICE_DAYS = 14;
     private static final int MIN_EMPLOYEE_COUNT = 20;
+
+    /**
+     * A pickup and a drop-off within this distance of each other are treated
+     * as the same stop. Mirrors MIN_LOCATION_SEPARATION_KM on the passenger
+     * app's new-contract screen.
+     */
+    private static final double MIN_LOCATION_SEPARATION_KM = 0.05;
     /** Contracts within this many days of their end date get a renewal reminder. */
     private static final int RENEWAL_REMINDER_WINDOW_DAYS = 30;
 
@@ -771,11 +782,23 @@ public class CorporateService {
             requireLeg(dto.morningPickup(), "Morning pickup");
             requireLeg(dto.morningDropoff(), "Morning drop-off");
             requirePositiveDistance(dto.morningDistanceKm(), "Morning");
+            requireDifferentLegs(dto.morningPickup(), dto.morningDropoff(), "Morning");
         }
         if (needsEvening(shiftType)) {
             requireLeg(dto.eveningPickup(), "Evening pickup");
             requireLeg(dto.eveningDropoff(), "Evening drop-off");
             requirePositiveDistance(dto.eveningDistanceKm(), "Evening");
+            requireDifferentLegs(dto.eveningPickup(), dto.eveningDropoff(), "Evening");
+        }
+        // Both shifts running: the evening departure has to be after the
+        // morning arrival — an employee can't leave for the day before (or
+        // the instant) they arrive.
+        if (needsMorning(shiftType) && needsEvening(shiftType)
+                && dto.morningDropoff() != null && dto.eveningPickup() != null
+                && dto.morningDropoff().time() != null && dto.eveningPickup().time() != null
+                && !dto.eveningPickup().time().isAfter(dto.morningDropoff().time())) {
+            throw new IllegalArgumentException(
+                    "Evening departure time must be after the morning arrival time.");
         }
     }
 
@@ -790,6 +813,31 @@ public class CorporateService {
         if (distanceKm == null || distanceKm.signum() <= 0) {
             throw new IllegalArgumentException(label + " route distance could not be calculated.");
         }
+    }
+
+    /** Rejects a pickup and drop-off that are effectively the same stop — not a real trip. */
+    private static void requireDifferentLegs(ShiftLegDto pickup, ShiftLegDto dropoff, String label) {
+        if (pickup == null || dropoff == null
+                || pickup.latitude() == null || pickup.longitude() == null
+                || dropoff.latitude() == null || dropoff.longitude() == null) {
+            return;
+        }
+        double distanceKm = haversineKm(
+                pickup.latitude().doubleValue(), pickup.longitude().doubleValue(),
+                dropoff.latitude().doubleValue(), dropoff.longitude().doubleValue());
+        if (distanceKm < MIN_LOCATION_SEPARATION_KM) {
+            throw new IllegalArgumentException(label + " pickup and drop-off can't be the same place.");
+        }
+    }
+
+    private static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double earthRadiusKm = 6371;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     /** Starting location: if both shifts, displays both pickup locations. */
@@ -1029,6 +1077,14 @@ public class CorporateService {
         }
         if (reason == null || reason.isBlank()) {
             throw new IllegalArgumentException("A reason is required to request cancellation.");
+        }
+        if (reason.trim().length() < MIN_CANCEL_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Please explain your reason for cancelling in at least " + MIN_CANCEL_REASON_LENGTH + " characters.");
+        }
+        if (reason.trim().length() > MAX_CANCEL_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Cancellation reason must be " + MAX_CANCEL_REASON_LENGTH + " characters or fewer.");
         }
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(

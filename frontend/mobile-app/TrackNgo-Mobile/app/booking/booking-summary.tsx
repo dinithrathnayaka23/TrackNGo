@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +25,10 @@ import { LocalizedText as Text, LocalizedTextInput as TextInput } from '../../ut
  * BookingSummaryScreen - The final step before payment where users review their selection,
  * enter contact details, apply promo codes, and see the final cost breakdown.
  */
+
+// A short instruction to the driver/operator, not free-form text — mirrors
+// MAX_SPECIAL_REQUEST_LENGTH in the backend's BookingFlowService.
+const MAX_SPECIAL_REQUEST_LENGTH = 300;
 
 export default function BookingSummaryScreen() {
   const router = useRouter();//Use to navigate between screens
@@ -167,10 +173,13 @@ export default function BookingSummaryScreen() {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-      <View style={styles.content}>
+      <KeyboardAvoidingView
+        style={styles.content}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={styles.container}
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
 
           {/* Header */}
           <View style={styles.header}>
@@ -292,14 +301,16 @@ export default function BookingSummaryScreen() {
             <TextInput
               style={styles.textArea}
               value={specialRequest}
-              onChangeText={setSpecialRequest}
+              onChangeText={(text) => setSpecialRequest(text.slice(0, MAX_SPECIAL_REQUEST_LENGTH))}
               placeholder="Enter Your Request Here"
               placeholderTextColor="#94A3B8"
               multiline
               numberOfLines={4}
               textAlignVertical="top"
+              maxLength={MAX_SPECIAL_REQUEST_LENGTH}
             />
           </View>
+          <Text style={styles.charCount}>{specialRequest.length}/{MAX_SPECIAL_REQUEST_LENGTH}</Text>
 
           {/* Selected Payment Method (Hardcoded to Card Payment for now) */}
           <Text style={styles.sectionTitle}>Payment Method</Text>
@@ -435,7 +446,7 @@ export default function BookingSummaryScreen() {
                   fullName,
                   mobile,
                   email,
-                  specialRequest,
+                  specialRequest: specialRequest.trim(),
                   routeName: params.routeName ?? '',
                 },
               });
@@ -444,7 +455,7 @@ export default function BookingSummaryScreen() {
             <Text style={styles.ctaButtonPrice}>LKR {finalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -632,6 +643,13 @@ const styles = StyleSheet.create({
     color: '#111827',
     minHeight: 90,
     padding: 0,
+  },
+  charCount: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: '#94A3B8',
+    textAlign: 'right',
+    marginTop: 4,
   },
   paymentMethodCard: {
     backgroundColor: '#FFFFFF',

@@ -1,6 +1,7 @@
 package com.trackngo.app.service;
 
 import com.trackngo.app.dto.CorporateProfileDto;
+import com.trackngo.app.util.Industries;
 import com.trackngo.app.util.ProfileValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -22,12 +23,13 @@ public class CorporateProfileService {
                 employee_count,
                 contact_person_name,
                 contact_phone,
+                contact_email,
                 contact_person_designation,
                 status,
                 business_registration_number,
                 industry,
                 profile_photo
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 address = VALUES(address),
                 company_name = VALUES(company_name),
@@ -35,6 +37,7 @@ public class CorporateProfileService {
                 employee_count = VALUES(employee_count),
                 contact_person_name = VALUES(contact_person_name),
                 contact_phone = VALUES(contact_phone),
+                contact_email = VALUES(contact_email),
                 contact_person_designation = VALUES(contact_person_designation),
                 business_registration_number = VALUES(business_registration_number),
                 industry = VALUES(industry),
@@ -62,6 +65,7 @@ public class CorporateProfileService {
                 dto.employeeCount(),
                 dto.contactPersonName(),
                 dto.contactPhone(),
+                dto.contactEmail(),
                 dto.contactPersonDesignation(),
                 dto.businessRegistrationNumber(),
                 dto.industry(),
@@ -77,11 +81,14 @@ public class CorporateProfileService {
     private void validate(CorporateProfileDto dto) {
         ProfileValidation.requireRealText(dto.companyName(), "Company name", 2);
         ProfileValidation.requireRealText(dto.businessRegistrationNumber(), "Business registration number", 3);
-        ProfileValidation.requireRealText(dto.industry(), "Industry", 2);
+        if (!Industries.isValid(dto.industry())) {
+            throw new IllegalArgumentException("Industry must be one of the listed options.");
+        }
         ProfileValidation.requireRealText(dto.address(), "Address", 5);
         ProfileValidation.requireRealText(dto.contactPersonName(), "Contact person name", 2);
         ProfileValidation.requireRealText(dto.contactPersonDesignation(), "Contact person designation", 2);
-        ProfileValidation.requireValidPhone(dto.contactPhone(), "Contact phone");
+        ProfileValidation.requireValidSriLankanPhone(dto.contactPhone(), "Contact phone");
+        ProfileValidation.requireValidEmail(dto.contactEmail(), "Contact email");
         if (dto.employeeCount() != null && dto.employeeCount() < 0) {
             throw new IllegalArgumentException("Employee count cannot be negative.");
         }

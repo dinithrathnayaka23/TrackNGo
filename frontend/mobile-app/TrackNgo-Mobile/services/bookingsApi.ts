@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { httpGet, httpPut } from "./http";
+import { httpGet, httpPost, httpPut } from "./http";
 
 const TOKEN_KEY = "trackngo.auth.token";
 

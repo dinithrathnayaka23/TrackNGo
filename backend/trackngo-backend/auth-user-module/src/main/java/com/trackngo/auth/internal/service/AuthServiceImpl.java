@@ -75,6 +75,10 @@ public class AuthServiceImpl implements AuthService {
                 )
                 """);
     }
+     
+    // ═══════════════════════════════════════════════════════════
+    // 1. LOGIN - Used by ALL user types (passenger, driver, admin)
+    // ═══════════════════════════════════════════════════════════
 
     @Override
     public AuthResponse login(AuthRequest request) {
@@ -89,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
         if (Boolean.FALSE.equals(user.getIsActive())) {
             throw new BusinessException("Account is inactive.");
         }
-
+    //access control-passenger cant login to admin account 
         String requestedUserType = normalizeUserType(request.getExpectedUserType());
         String actualUserType = normalizeUserType(user.getUserType());
 
@@ -114,7 +118,9 @@ public class AuthServiceImpl implements AuthService {
         }
         return authenticatedResponse(user, null);
     }
-
+  // ═══════════════════════════════════════════════════════════
+    // 2. REGISTER - Creates NEW passenger accounts
+    // ═══════════════════════════════════════════════════════════
 
     @Override
     public AuthResponse register(AuthRequest request) {
@@ -132,6 +138,10 @@ public class AuthServiceImpl implements AuthService {
         String token = jwtUtil.generateToken(saved.getEmail(), Map.of("role", saved.getUserType(), "userType", saved.getUserType()));
         return authenticatedResponse(saved, null);
     }
+    
+    // ═══════════════════════════════════════════════════════════
+    // 4. TWO-FACTOR VERIFICATION - Used by ALL user types
+    // ═══════════════════════════════════════════════════════════
 
     @Override
     public AuthResponse verifyTwoFactor(TwoFactorVerifyRequest request) {

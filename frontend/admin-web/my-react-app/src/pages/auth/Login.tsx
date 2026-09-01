@@ -18,6 +18,7 @@ type LoginForm = {
 
 type LoginErrors = Partial<Record<keyof LoginForm, string>>
 
+//form validation
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
@@ -39,7 +40,7 @@ function validateLogin(form: LoginForm): LoginErrors {
 
   return errors
 }
-
+//Form Initialization- State holds email, password, errors, loading status,Checks localStorage for previously remembered email,If found, pre-fills it and checks "Remember Device"
 const REMEMBERED_EMAIL_KEY = 'rememberedAdminEmail'
 
 function Login() {
@@ -69,6 +70,7 @@ function Login() {
     const fieldErrors = validateLogin(form)
     setErrors((current) => ({ ...current, [field]: fieldErrors[field] }))
   }
+  //user submit form
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -80,7 +82,7 @@ function Login() {
 
     setLoading(true)
     setApiError('')
-
+    // Call auth service-this makes the API call
     try {
       await authService.login({
         email: form.email,

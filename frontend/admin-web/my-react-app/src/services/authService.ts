@@ -163,12 +163,12 @@ const authService = {
 
     isAuthenticated: () => !!localStorage.getItem('jwtToken'),
 
-    forgotPassword: async ({ identifier, channel }: { identifier: string; channel: OtpChannel }): Promise<ForgotPasswordResponse> => {
+    forgotPassword: async ({ identifier, channel, expectedUserType }: { identifier: string; channel: OtpChannel; expectedUserType?: string }): Promise<ForgotPasswordResponse> => {
         try {
             const res = await fetch('/api/auth/forgot-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identifier: identifier.trim(), channel }),
+                body: JSON.stringify({ identifier: identifier.trim(), channel, expectedUserType }),
             })
             return await parseApiResponse<ForgotPasswordResponse>(res, 'Failed to send verification code')
         } catch (error: unknown) {

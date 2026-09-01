@@ -17,6 +17,11 @@ public class ProfileSchemaInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         addColumnIfMissing("admin", "profile_photo", "TEXT NULL");
         addColumnIfMissing("driver", "bank_name", "VARCHAR(120) NULL");
+        // UserProfileService joins corporate_user for every profile lookup,
+        // including passenger accounts. Older databases that have not run
+        // V21 therefore fail every profile request when these fields are absent.
+        addColumnIfMissing("corporate_user", "website", "VARCHAR(255) NULL");
+        addColumnIfMissing("corporate_user", "employee_count", "INT NULL");
     }
 
     private void addColumnIfMissing(String tableName, String columnName, String definition) {

@@ -85,7 +85,7 @@ function ForgotPassword() {
 
     setLoading(true)
     try {
-      const response = await authService.forgotPassword({ identifier: identifier.trim(), channel: 'EMAIL' })
+      const response = await authService.forgotPassword({ identifier: identifier.trim(), channel: 'EMAIL', expectedUserType: 'admin' })
       setMaskedDestination(response.maskedDestination)
       startCooldown(response.resendCooldownSeconds)
       setOtp('')

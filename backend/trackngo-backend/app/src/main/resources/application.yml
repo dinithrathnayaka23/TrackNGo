@@ -8,6 +8,14 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # Fail during application startup when MySQL is unavailable instead of
+      # accepting requests with no usable database connection.
+      connection-timeout: 10000
+      validation-timeout: 5000
+      initialization-fail-timeout: 10000
+      connection-test-query: SELECT 1
   servlet:
     multipart:
       max-file-size: 15MB
@@ -49,9 +57,9 @@ sms:
     url: ${SMS_ANDROID_GATEWAY_URL:}
     api-key: ${SMS_ANDROID_GATEWAY_API_KEY:}
 
-# Used by the forgot-password OTP email flow. Left blank-safe so the app
-# still boots without SMTP configured; the OTP sender then logs the code to
-# the console instead of emailing it (see auth-user-module OtpEmailSender).
+# Used by OTP email flows. The application can start without SMTP, but OTP
+# requests fail visibly rather than reporting a code as sent when delivery is
+# unavailable (see auth-user-module OtpEmailSender).
 spring.mail:
   host: ${MAIL_HOST:}
   port: ${MAIL_PORT:587}

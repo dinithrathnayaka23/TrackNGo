@@ -26,6 +26,22 @@ const DEFAULT_EMERGENCY_NUMBERS: EmergencyServiceNumbers = {
   fireBrigade: "110",
 };
 
+/*
+  Expands a stored photo path into an absolute URL.
+
+  Stored paths already begin with a slash ("/uploads/..."), so joining them onto
+  the base by hand produced a doubled slash. Spring Security matches
+  "/uploads/**" against the literal path, and "//uploads/..." does not match it,
+  so those requests came back 401 and the image silently failed to load. URL
+  resolution collapses the separator correctly.
+*/
+export function resolveSosAssetUrl(path?: string | null) {
+  const trimmed = path?.trim();
+  if (!trimmed) return null;
+  if (/^(https?:|data:|blob:)/i.test(trimmed)) return trimmed;
+  return new URL(trimmed, SOS_API_BASE).toString();
+}
+
 // Parses a latitude and longitude pair from the alert's shared location string.
 export function parseGps(
   location: string | null,
@@ -343,13 +359,9 @@ function SosAlertPopup() {
               {/* User card */}
               <div className="mb-4 flex items-center gap-4">
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-[#e5e7eb]">
-                  {alert.profilePhoto ? (
+                  {resolveSosAssetUrl(alert.profilePhoto) ? (
                     <img
-                      src={
-                        alert.profilePhoto.startsWith("http")
-                          ? alert.profilePhoto
-                          : `${SOS_API_BASE}/${alert.profilePhoto}`
-                      }
+                      src={resolveSosAssetUrl(alert.profilePhoto) ?? ""}
                       alt={alert.name}
                       className="h-full w-full object-cover"
                     />

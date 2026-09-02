@@ -16,7 +16,7 @@ import { getBusImage } from '../../utils/busImage';
 import { resolveAssetUrl } from '../../utils/media';
 import { getBusRouteLabel, getBusRouteWithSuffix, getJourneyRouteStops } from '../../utils/routeDisplay';
 import { formatBusTypeLabel } from '../../utils/busLabels';
-import { isPastOrInvalidBookingDate, PAST_BOOKING_DATE_MESSAGE, todayDateString } from '../../utils/bookingDate';
+import { isUnbookableBookingDate, BOOKING_LEAD_TIME_MESSAGE, earliestBookableDateString } from '../../utils/bookingDate';
 import { LocalizedText as Text } from '../../utils/i18n';
 
 //Lookup table for Amneties data
@@ -61,12 +61,12 @@ export default function BusDetailsScreen() {
   const busId = Number(params.busId ?? '0');
   const from = params.from ?? 'Colombo';
   const to = params.to ?? 'Kandy';
-  const date = params.date ?? todayDateString();
+  const date = params.date ?? earliestBookableDateString();
   const price = params.price ?? '0';
   const adults = params.adults ?? '1';
   const children = params.children ?? '0';
 
-  const invalidBookingDate = isPastOrInvalidBookingDate(date);
+  const invalidBookingDate = isUnbookableBookingDate(date);
   const [details, setDetails] = useState<BusDetailResult | null>(null);
   const [driverPhotoFailed, setDriverPhotoFailed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -88,7 +88,7 @@ export default function BusDetailsScreen() {
   useEffect(() => {
     if (invalidBookingDate) {
       setLoading(false);
-      Alert.alert('Invalid date', PAST_BOOKING_DATE_MESSAGE);
+      Alert.alert('Invalid date', BOOKING_LEAD_TIME_MESSAGE);
       router.replace({ pathname: '/booking/search-buses' });
       return;
     }

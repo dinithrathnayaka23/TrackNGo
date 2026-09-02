@@ -13,6 +13,11 @@ export type AdminBooking = {
   paymentStatus: string
   status: string
   category: string
+  cancellationStatus?: string | null
+  cancellationReason?: string | null
+  cancellationRequestedBy?: string | null
+  cancellationRejectReason?: string | null
+  refundPercentage?: number | null
 }
 
 type ApiResponse<T> = {
@@ -71,6 +76,8 @@ type LegacyTripBooking = {
   destination: string
   startDate: string | null
   passengerCount: number
+  estimatedPrice?: number | null
+  discountAmount?: number | null
   finalPrice: number | null
   bookingStatus: string
   passengerId: number
@@ -99,7 +106,7 @@ async function fetchLegacyTripBookingRequests(token: string): Promise<AdminBooki
       journeyDate: trip.startDate,
       journeyTime: '08:00:00',
       seats: `${trip.passengerCount} seats`,
-      amount: trip.finalPrice,
+      amount: trip.finalPrice ?? trip.estimatedPrice ?? 0,
       paymentStatus: trip.paymentStatus || 'unpaid',
       status: trip.bookingStatus,
       category: 'Trip Bookings',
@@ -195,3 +202,52 @@ export async function reviewTripBooking(bookingId: string, request: TripBookingR
   if (response.status === 401 || response.status === 403) throw new Error('Your admin session has expired or does not have permission to review bookings.')
   if (!response.ok) throw new Error(body?.message || `Could not update booking (HTTP ${response.status}).`)
 }
+
+export async function requestAdminCancellation(booking: AdminBooking, reason: string): Promise<void> {
+  const token = authService.getToken()
+  if (!token) throw new Error('Your admin session is missing. Please sign in again.')
+  const cleanId = booking.bookingId.replace(/^#/, '')
+  const isTrip = booking.busType === 'trip_booking' || cleanId.startsWith('BK-')
+  const url = isTrip
+    ? `/api/trips/book/${encodeURIComponent(cleanId.replace(/^BK-/, ''))}/cancellation-request`
+    : `/api/booking-flow/bookings/${encodeURIComponent(cleanId)}/cancellation-request`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason, requesterType: 'admin' }),
+  })
+  const text = await response.text()
+  let body: { message?: string } | null = null
+  if (text.trim()) {
+    try { body = JSON.parse(text) as { message?: string } } catch { /* Ignore */ }
+  }
+  if (!response.ok) throw new Error(body?.message || `Could not request cancellation (HTTP ${response.status}).`)
+}
+
+export async function respondToAdminCancellation(
+  booking: AdminBooking,
+  accept: boolean,
+  rejectReason?: string,
+): Promise<void> {
+  const token = authService.getToken()
+  if (!token) throw new Error('Your admin session is missing. Please sign in again.')
+  const cleanId = booking.bookingId.replace(/^#/, '')
+  const isTrip = booking.busType === 'trip_booking' || cleanId.startsWith('BK-')
+  const url = isTrip
+    ? `/api/trips/book/${encodeURIComponent(cleanId.replace(/^BK-/, ''))}/cancellation-response`
+    : `/api/booking-flow/bookings/${encodeURIComponent(cleanId)}/cancellation-response`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accept, rejectReason, responderType: 'admin' }),
+  })
+  const text = await response.text()
+  let body: { message?: string } | null = null
+  if (text.trim()) {
+    try { body = JSON.parse(text) as { message?: string } } catch { /* Ignore */ }
+  }
+  if (!response.ok) throw new Error(body?.message || `Could not process cancellation response (HTTP ${response.status}).`)
+}
+

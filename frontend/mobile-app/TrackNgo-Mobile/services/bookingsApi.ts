@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { httpGet, httpPut } from "./http";
+import { httpGet, httpPost, httpPut } from "./http";
 
 const TOKEN_KEY = "trackngo.auth.token";
 
@@ -18,6 +18,12 @@ export interface RecentBookingDto {
   journeyDate: string;
   journeyTime: string;
   paymentStatus?: string | null;
+  status?: string;
+  cancellationStatus?: string | null;
+  cancellationReason?: string | null;
+  cancellationRequestedBy?: string | null;
+  cancellationRejectReason?: string | null;
+  refundPercentage?: number | null;
 }
 
 export interface BookingHistoryDto {
@@ -33,6 +39,11 @@ export interface BookingHistoryDto {
   status: string;
   transactionId: string;
   paymentStatus?: string | null;
+  cancellationStatus?: string | null;
+  cancellationReason?: string | null;
+  cancellationRequestedBy?: string | null;
+  cancellationRejectReason?: string | null;
+  refundPercentage?: number | null;
 }
 
 async function authHeaders(): Promise<Record<string, string> | undefined> {
@@ -78,3 +89,33 @@ export async function cancelBooking(bookingRef: string): Promise<void> {
     headers,
   );
 }
+
+export async function requestBookingCancellation(
+  bookingRef: string,
+  reason: string,
+): Promise<{ bookingReference: string; cancellationStatus: string; refundPercentage: number; refundMessage: string }> {
+  const headers = await authHeaders();
+  const res = await httpPost<ApiResponse<{ bookingReference: string; cancellationStatus: string; refundPercentage: number; refundMessage: string }>>(
+    `/api/booking-flow/bookings/${encodeURIComponent(bookingRef)}/cancellation-request`,
+    undefined,
+    { reason, requesterType: "user" },
+    headers,
+  );
+  return res.data;
+}
+
+export async function respondToBookingCancellation(
+  bookingRef: string,
+  accept: boolean,
+  rejectReason?: string,
+): Promise<any> {
+  const headers = await authHeaders();
+  const res = await httpPost<ApiResponse<any>>(
+    `/api/booking-flow/bookings/${encodeURIComponent(bookingRef)}/cancellation-response`,
+    undefined,
+    { accept, rejectReason, responderType: "user" },
+    headers,
+  );
+  return res.data;
+}
+

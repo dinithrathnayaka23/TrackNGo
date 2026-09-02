@@ -5,12 +5,23 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 @Slf4j
 public class AiGroundingService {
+
+    /** Question and filler words that carry no signal about which document is wanted. */
+    private static final Set<String> STOP_WORDS = Set.of(
+            "the", "and", "for", "you", "your", "are", "was", "were", "with", "that", "this",
+            "what", "when", "where", "which", "who", "why", "how", "can", "could", "would",
+            "should", "does", "did", "have", "has", "had", "get", "got", "there", "about",
+            "into", "from", "any", "all", "please", "tell", "give", "want", "need", "trackngo");
+
     private final JdbcTemplate jdbc;
 
     public AiGroundingService(JdbcTemplate jdbc) {
@@ -26,22 +37,38 @@ public class AiGroundingService {
     }
 
     private void appendPolicyKnowledge(StringBuilder digest, String normalizedQuery) {
+        List<String> terms = searchTerms(normalizedQuery);
+
+        // Documents are ranked by how many of the question's own words they mention,
+        // so asking about refunds surfaces the refund policy rather than whichever
+        // document happens to carry the highest priority. Retrieval used to key on
+        // the query's first word alone, which for "what is the refund policy" meant
+        // searching for "what" and falling back to the catch-all tag.
+        StringBuilder relevance = new StringBuilder("0");
+        List<Object> args = new ArrayList<>();
+        for (String term : terms) {
+            relevance.append(" + (LOWER(title) LIKE ?) * 3")
+                    .append(" + (LOWER(tags) LIKE ?) * 2")
+                    .append(" + (LOWER(content) LIKE ?)");
+            String like = "%" + term + "%";
+            args.add(like);
+            args.add(like);
+            args.add(like);
+        }
+
+        String sql = """
+                SELECT title, content, (%s) AS relevance
+                FROM ai_domain_knowledge
+                WHERE active = TRUE
+                ORDER BY relevance DESC, priority DESC, updated_at DESC
+                LIMIT 4
+                """.formatted(relevance);
+
         try {
-            List<String> docs = jdbc.query("""
-                    SELECT title, content
-                    FROM ai_domain_knowledge
-                    WHERE active = TRUE
-                      AND (
-                        LOWER(title) LIKE ?
-                        OR LOWER(content) LIKE ?
-                        OR tags LIKE '%all%'
-                      )
-                    ORDER BY priority DESC, updated_at DESC
-                    LIMIT 4
-                    """,
+            List<String> docs = jdbc.query(
+                    sql,
                     (rs, rowNum) -> rs.getString("title") + ": " + truncate(rs.getString("content"), 360),
-                    "%" + keyword(normalizedQuery) + "%",
-                    "%" + keyword(normalizedQuery) + "%");
+                    args.toArray());
             if (!docs.isEmpty()) {
                 digest.append("Grounded TrackNGo knowledge:\n");
                 docs.forEach(doc -> digest.append("- ").append(doc).append('\n'));
@@ -85,11 +112,22 @@ public class AiGroundingService {
         }
     }
 
-    private String keyword(String normalizedQuery) {
+    /**
+     * The words from a question worth searching on. Anything shorter than three
+     * characters and the common question and filler words are dropped, because
+     * matching on "what" or "the" scores every document alike and tells us nothing.
+     */
+    private List<String> searchTerms(String normalizedQuery) {
         if (normalizedQuery == null || normalizedQuery.isBlank()) {
-            return "trackngo";
+            return List.of("trackngo");
         }
-        return normalizedQuery.split("\\s+")[0];
+        List<String> terms = Arrays.stream(normalizedQuery.split("[^a-z0-9]+"))
+                .filter(word -> word.length() > 2)
+                .filter(word -> !STOP_WORDS.contains(word))
+                .distinct()
+                .limit(8)
+                .toList();
+        return terms.isEmpty() ? List.of("trackngo") : terms;
     }
 
     private String truncate(String value, int max) {

@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import {
@@ -28,6 +28,23 @@ function GlobalPresenceConnection() {
 
 function RootLayoutNav() {
   const { currentUser, loading } = useSession();
+  const segments = useSegments();
+  const router = useRouter();
+
+  // When the backend rejects our token the session store clears it, but clearing
+  // the session on its own leaves the user sitting on whatever screen they were
+  // reading, which then re-requests and re-fails on every render. Navigate them
+  // back to the entry screen so an expired token surfaces as "please log in"
+  // rather than a screen that quietly stops loading.
+  //
+  // Screens under auth/ are skipped: they are reachable with no session by
+  // design, and redirecting away from them would interrupt a login in progress.
+  useEffect(() => {
+    if (loading || currentUser || segments[0] === "auth") {
+      return;
+    }
+    router.replace("/auth/welcome");
+  }, [currentUser, loading, segments, router]);
 
   if (loading) {
     return null; // or a loading spinner

@@ -1,26 +1,39 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
-import * as Print from "expo-print";
-import { downloadTicketPdf, shareTicketPdf } from "../../utils/ticketPdf";
+import { downloadTicketPdf, generateTicketPdf, shareTicketPdf } from "../../utils/ticketPdf";
 import {
   getPastBookings,
   getUpcomingBookings,
+  requestBookingCancellation,
+  respondToBookingCancellation,
   type BookingHistoryDto,
 } from "../../services/bookingsApi";
+import {
+  requestTripCancellation,
+  respondToTripCancellation,
+} from "../../services/tripBookingsApi";
 import { getUserProfile } from "../../services/userProfileApi";
 import { formatBusTypeLabel } from "../../utils/busLabels";
 import { useSession } from "../../store/sessionStore";
 import { LocalizedText as Text } from "../../utils/i18n";
+
+// Mirrors MAX_CANCEL_REASON_LENGTH in the backend's BookingFlowService/TripBookingService.
+const MAX_CANCEL_REASON_LENGTH = 300;
 
 type TicketQueryParams = {
   bookingRef?: string;
@@ -51,6 +64,11 @@ type TicketSnapshot = {
   transactionId: string;
   routeName: string;
   busType: string;
+  cancellationStatus?: string | null;
+  cancellationReason?: string | null;
+  cancellationRequestedBy?: string | null;
+  cancellationRejectReason?: string | null;
+  refundPercentage?: number | null;
 };
 
 function toUpperTrimmed(value?: string | null): string {
@@ -59,8 +77,6 @@ function toUpperTrimmed(value?: string | null): string {
 
 function formatTicketTypeLabel(rawType?: string): string {
   const normalized = (rawType ?? "").toLowerCase().replace(/-/g, "_").trim();
-  // Ticket-specific wording; everything else falls back to the shared bus
-  // type label so the two never drift apart.
   if (!normalized) return "Bus Ticket";
   if (normalized === "highway") return "Highway Bus";
   if (normalized === "trip_booking" || normalized === "trip") return "Trip Booking";
@@ -110,6 +126,11 @@ function mergeWithBookingHistory(
     transactionId: booking.transactionId?.trim() || current.transactionId,
     routeName: current.routeName,
     busType: booking.busType?.trim() || current.busType,
+    cancellationStatus: booking.cancellationStatus || current.cancellationStatus,
+    cancellationReason: booking.cancellationReason || current.cancellationReason,
+    cancellationRequestedBy: booking.cancellationRequestedBy || current.cancellationRequestedBy,
+    cancellationRejectReason: booking.cancellationRejectReason || current.cancellationRejectReason,
+    refundPercentage: booking.refundPercentage ?? current.refundPercentage,
   };
 }
 
@@ -180,7 +201,14 @@ function formatCurrency(amount: number | null): string {
   })}`;
 }
 
-function getStatusBadge(statusRaw: string): { label: string; color: string } {
+function getStatusBadge(statusRaw: string, cancelStatus?: string | null): { label: string; color: string } {
+  const cancel = (cancelStatus || "").toLowerCase();
+  if (cancel === "requested_by_admin") {
+    return { label: "Admin Cancel Req", color: "#D97706" };
+  }
+  if (cancel === "requested_by_user") {
+    return { label: "Cancel Pending", color: "#2563EB" };
+  }
   const normalized = statusRaw.toLowerCase();
   if (normalized.includes("cancel")) {
     return { label: "Cancelled", color: "#ef4444" };
@@ -191,11 +219,51 @@ function getStatusBadge(statusRaw: string): { label: string; color: string } {
   return { label: "Confirmed", color: "#22c55e" };
 }
 
+function calculateRefundPolicy(journeyDateStr?: string | null) {
+  if (!journeyDateStr) {
+    return {
+      percentage: 100,
+      isFullRefund: true,
+      message: "Full refund will be credited to your account within 10 working business days.",
+    };
+  }
+  const [year, month, day] = journeyDateStr.split("-").map(Number);
+  const journeyDate = new Date(year, (month || 1) - 1, day || 1);
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const journeyStart = new Date(journeyDate.getFullYear(), journeyDate.getMonth(), journeyDate.getDate());
+  const diffDays = Math.round((journeyStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays >= 3) {
+    return {
+      percentage: 100,
+      isFullRefund: true,
+      message: "Full refund will be credited to your account within 10 working business days.",
+    };
+  } else {
+    return {
+      percentage: 75,
+      isFullRefund: false,
+      message: "Only a 75% refund will be credited to your account within 10 working business days (25% cancellation penalty applied).",
+    };
+  }
+}
+
 export default function ViewTicketScreen() {
   const router = useRouter();
   const { currentUser } = useSession();
   const params = useLocalSearchParams<TicketQueryParams>();
   const qrSvgRef = useRef<any>(null);
+
+  // Cancellation Modal State
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [submittingCancel, setSubmittingCancel] = useState(false);
+
+  // Decline Admin Request Modal State
+  const [declineModalVisible, setDeclineModalVisible] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+  const [submittingDecline, setSubmittingDecline] = useState(false);
 
   const paramsSnapshot = useMemo(
     () => buildFromParams(params),
@@ -220,6 +288,28 @@ export default function ViewTicketScreen() {
     (params.passengerName ?? "").trim() || "Passenger",
   );
 
+  const cancelPolicy = useMemo(
+    () => calculateRefundPolicy(ticket.date),
+    [ticket.date],
+  );
+
+  const reloadBookingDetails = useCallback(async () => {
+    if (!currentUser || !ticket.bookingRef) return;
+    try {
+      const [upcoming, past] = await Promise.all([
+        getUpcomingBookings(currentUser.userId),
+        getPastBookings(currentUser.userId),
+      ]);
+      const all = [...upcoming, ...past];
+      const found = all.find((item) => item.bookingReference === ticket.bookingRef);
+      if (found) {
+        setTicket((prev) => mergeWithBookingHistory(prev, found));
+      }
+    } catch (error) {
+      console.error("[ViewTicket] Could not load booking details", error);
+    }
+  }, [currentUser, ticket.bookingRef]);
+
   useEffect(() => {
     setTicket(paramsSnapshot);
   }, [paramsSnapshot]);
@@ -230,29 +320,8 @@ export default function ViewTicketScreen() {
   }, [params.passengerName]);
 
   useEffect(() => {
-    if (!currentUser || !ticket.bookingRef) return;
-    let active = true;
-
-    (async () => {
-      try {
-        const [upcoming, past] = await Promise.all([
-          getUpcomingBookings(currentUser.userId),
-          getPastBookings(currentUser.userId),
-        ]);
-        if (!active) return;
-        const all = [...upcoming, ...past];
-        const found = all.find((item) => item.bookingReference === ticket.bookingRef);
-        if (!found) return;
-        setTicket((prev) => mergeWithBookingHistory(prev, found));
-      } catch (error) {
-        console.error("[ViewTicket] Could not load booking details", error);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [currentUser, ticket.bookingRef]);
+    void reloadBookingDetails();
+  }, [reloadBookingDetails]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -262,14 +331,12 @@ export default function ViewTicketScreen() {
       try {
         const profile = await getUserProfile(currentUser.userId);
         if (!active) return;
-        const resolvedName =
-          profile.fullName?.trim() ||
-          profile.contactPersonName?.trim() ||
-          profile.companyName?.trim() ||
-          "Passenger";
-        setPassengerName(resolvedName);
+        const resolvedName = profile.fullName?.trim();
+        if (resolvedName) {
+          setPassengerName(resolvedName);
+        }
       } catch (error) {
-        console.error("[ViewTicket] Could not load passenger name", error);
+        console.error("[ViewTicket] Failed to fetch passenger name", error);
       }
     })();
 
@@ -278,225 +345,260 @@ export default function ViewTicketScreen() {
     };
   }, [currentUser]);
 
-  const displayTicketType = useMemo(
-    () => formatTicketTypeLabel(ticket.busType),
-    [ticket.busType],
-  );
-  const displayDate = useMemo(() => formatDateLabel(ticket.date), [ticket.date]);
-  const displayDepart = useMemo(
-    () => formatDepartureLabel(ticket.depart),
-    [ticket.depart],
-  );
-  const displaySeat = useMemo(() => formatSeatLabel(ticket.seats), [ticket.seats]);
-  const displayPrice = useMemo(() => formatCurrency(ticket.totalPrice), [ticket.totalPrice]);
-  const statusBadge = useMemo(() => getStatusBadge(ticket.status), [ticket.status]);
-  const ticketReference = useMemo(
-    () => formatTicketReference(ticket.bookingRef),
-    [ticket.bookingRef],
-  );
+  const qrPayload = useMemo(() => {
+    return JSON.stringify({
+      bookingRef: ticket.bookingRef,
+      from: ticket.from,
+      to: ticket.to,
+      busNumber: ticket.busNumber,
+      seats: ticket.seats,
+      date: ticket.date,
+      depart: ticket.depart,
+      passenger: passengerName,
+      status: ticket.status,
+    });
+  }, [ticket, passengerName]);
 
-  const qrPayload = useMemo(
-    () =>
-      JSON.stringify({
-        bookingRef: ticket.bookingRef,
-        passengerName,
-        from: ticket.from,
-        to: ticket.to,
-        date: ticket.date,
-        depart: ticket.depart,
-        seats: ticket.seats,
-        busNumber: ticket.busNumber,
-        status: ticket.status,
-        totalPrice: ticket.totalPrice ?? 0,
-        transactionId: ticket.transactionId,
-      }),
-    [ticket, passengerName],
-  );
-
-  const getQrBase64 = useCallback((): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      if (!qrSvgRef.current) {
-        reject(new Error("QR code is not ready"));
-        return;
+  const captureQrDataUrl = useCallback(async (): Promise<string | undefined> => {
+    if (!qrSvgRef.current?.toDataURL) return undefined;
+    return new Promise<string | undefined>((resolve) => {
+      try {
+        qrSvgRef.current.toDataURL((data: string) => {
+          resolve(data ? `data:image/png;base64,${data}` : undefined);
+        });
+      } catch {
+        resolve(undefined);
       }
-      qrSvgRef.current.toDataURL((data: string) => {
-        resolve(`data:image/png;base64,${data}`);
-      });
     });
   }, []);
 
-  const buildTicketPdf = useCallback(async (): Promise<string> => {
-    const qrImageUri = await getQrBase64();
-    const html = `
-      <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f4f8; margin: 0; padding: 26px; }
-            .card { max-width: 430px; margin: 0 auto; background: #fff; border-radius: 18px; padding: 24px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }
-            .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-            .chip { display: inline-block; background: #dbeafe; color: #1d4ed8; border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; }
-            .ref-label { color: #64748b; font-size: 12px; margin-top: 6px; }
-            .ref-value { color: #2563eb; font-size: 30px; font-weight: 800; margin: 4px 0 12px 0; }
-            .route { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 12px; }
-            .route-title { color: #94a3b8; font-size: 12px; font-weight: 700; margin-bottom: 4px; }
-            .route-city { color: #0f172a; font-size: 24px; font-weight: 800; }
-            .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 10px; }
-            .meta-label { color: #94a3b8; font-size: 12px; font-weight: 700; margin-bottom: 3px; }
-            .meta-value { color: #0f172a; font-size: 22px; font-weight: 800; }
-            .meta-value.small { font-size: 20px; }
-            .price { text-align: center; color: #16a34a; font-size: 30px; font-weight: 900; margin: 8px 0 16px; }
-            .qr-section { border-top: 1px solid #edf2f7; border-bottom: 1px solid #edf2f7; padding: 18px 0; margin-bottom: 16px; text-align: center; }
-            .qr-frame { box-sizing: border-box; width: 270px; margin: 0 auto; border: 1px solid #dbe3ee; border-radius: 16px; background: #fff; padding: 22px 26px 14px; text-align: center; }
-            /* block + auto margins centres the QR whatever the print engine
-               does with inline images */
-            .qr-frame img { display: block; width: 170px; height: 170px; margin: 0 auto; }
-            .scan { display: inline-block; margin-top: 12px; background: #0b0f18; color: #fff; padding: 5px 12px; font-size: 12px; font-weight: 800; letter-spacing: 1px; }
-            .scan-title { margin-top: 14px; color: #172119; font-size: 22px; font-weight: 800; }
-            .scan-sub { margin-top: 4px; color: #6b7280; font-size: 13px; }
-            .footer { margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; justify-content: space-between; align-items: flex-end; }
-            .footer-label { color: #94a3b8; font-size: 11px; font-weight: 700; }
-            .footer-value { color: #0f172a; font-size: 17px; font-weight: 700; margin-top: 4px; }
-            .status { color: #22c55e; font-size: 18px; font-weight: 800; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="header">
-              <span class="chip">${displayTicketType}</span>
-              <span style="font-size: 24px;">&#128652;</span>
-            </div>
-            <div class="ref-label">Ticket Reference</div>
-            <div class="ref-value">${ticketReference}</div>
-
-            <div class="route">
-              <div>
-                <div class="route-title">From</div>
-                <div class="route-city">${ticket.from}</div>
-              </div>
-              <div style="font-size: 28px; font-weight: 700;">&rarr;</div>
-              <div style="text-align:right;">
-                <div class="route-title">To</div>
-                <div class="route-city">${ticket.to}</div>
-              </div>
-            </div>
-
-            <div class="meta-grid">
-              <div><div class="meta-label">Date</div><div class="meta-value">${displayDate}</div></div>
-              <div style="text-align:right;"><div class="meta-label">Departure</div><div class="meta-value">${displayDepart}</div></div>
-              <div><div class="meta-label">Seat Number</div><div class="meta-value small">${displaySeat}</div></div>
-              <div style="text-align:right;"><div class="meta-label">Bus Number</div><div class="meta-value small">${ticket.busNumber}</div></div>
-            </div>
-
-            <div class="price">${displayPrice}</div>
-
-            <div class="qr-section">
-              <div class="qr-frame">
-                <img src="${qrImageUri}" alt="Ticket QR" />
-                <div class="scan">SCAN ME</div>
-              </div>
-              <div class="scan-title">Scan at boarding</div>
-              <div class="scan-sub">Show this QR code to the driver</div>
-            </div>
-
-            <div class="footer">
-              <div>
-                <div class="footer-label">Passenger</div>
-                <div class="footer-value">${passengerName}</div>
-              </div>
-              <div style="text-align:right;">
-                <div class="footer-label">Status</div>
-                <div class="status">${statusBadge.label}</div>
-              </div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const { uri } = await Print.printToFileAsync({ html, base64: false });
-    return uri;
-  }, [
-    displayDate,
-    displayDepart,
-    displayPrice,
-    displaySeat,
-    displayTicketType,
-    getQrBase64,
-    passengerName,
-    statusBadge.label,
-    ticket.busNumber,
-    ticket.from,
-    ticket.to,
-    ticketReference,
-  ]);
+  const handleDownload = useCallback(async () => {
+    try {
+      const qrDataUrl = await captureQrDataUrl();
+      const uri = await generateTicketPdf({
+        bookingRef: ticket.bookingRef,
+        from: ticket.from,
+        to: ticket.to,
+        busNumber: ticket.busNumber,
+        depart: ticket.depart,
+        date: ticket.date,
+        seats: ticket.seats,
+        totalPrice: ticket.totalPrice,
+        status: ticket.status,
+        passengerName,
+        busType: ticket.busType,
+        qrDataUrl,
+      });
+      await downloadTicketPdf(uri, `TrackNGo-Ticket-${ticket.bookingRef}.pdf`);
+    } catch (error) {
+      console.error("[ViewTicket] Download ticket failed", error);
+      Alert.alert("Error", "Could not generate or open the PDF.");
+    }
+  }, [captureQrDataUrl, passengerName, ticket]);
 
   const handleShare = useCallback(async () => {
     try {
-      const pdfUri = await buildTicketPdf();
-      await shareTicketPdf(pdfUri, "Share your TrackNGo bus ticket");
+      const qrDataUrl = await captureQrDataUrl();
+      const uri = await generateTicketPdf({
+        bookingRef: ticket.bookingRef,
+        from: ticket.from,
+        to: ticket.to,
+        busNumber: ticket.busNumber,
+        depart: ticket.depart,
+        date: ticket.date,
+        seats: ticket.seats,
+        totalPrice: ticket.totalPrice,
+        status: ticket.status,
+        passengerName,
+        busType: ticket.busType,
+        qrDataUrl,
+      });
+      await shareTicketPdf(uri, "Share your TrackNGo bus ticket");
     } catch (error) {
-      console.error("[ViewTicket] share failed", error);
-      Alert.alert("Error", "Could not share this ticket right now.");
+      console.error("[ViewTicket] Share ticket failed", error);
+      Alert.alert("Error", "Could not share the ticket PDF.");
     }
-  }, [buildTicketPdf]);
+  }, [captureQrDataUrl, passengerName, ticket]);
 
-  const handleDownload = useCallback(async () => {
+  /**
+   * Accepts an admin-initiated cancellation.
+   */
+  const handleAcceptAdminCancellation = useCallback(async () => {
+    Alert.alert(
+      "Accept Cancellation",
+      "Are you sure you want to accept this cancellation? The refund will be redirected to your account within 10 working business days.",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Accept Cancellation",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (ticket.busType === "trip_booking" || ticket.busType === "trip") {
+                const numericId = Number(ticket.bookingRef.replace(/^BK-/, ""));
+                await respondToTripCancellation(numericId, true);
+              } else {
+                await respondToBookingCancellation(ticket.bookingRef, true);
+              }
+              Alert.alert(
+                "Accepted",
+                "Cancellation accepted. The refund will be redirected to your account within 10 working business days.",
+                [{ text: "OK", onPress: () => router.back() }]
+              );
+            } catch (e: any) {
+              Alert.alert("Error", e.message || "Failed to accept cancellation.");
+            }
+          },
+        },
+      ],
+    );
+  }, [ticket, router]);
+
+  /**
+   * Submits passenger's decline to an admin cancellation request.
+   */
+  const handleSubmitDeclineAdminCancellation = useCallback(async () => {
+    setSubmittingDecline(true);
     try {
-      const pdfUri = await buildTicketPdf();
-      await downloadTicketPdf(pdfUri, `TrackNGo-Ticket-${ticketReference}.pdf`);
-    } catch (error) {
-      console.error("[ViewTicket] download failed", error);
-      Alert.alert("Error", "Could not generate the ticket PDF. Please try again.");
+      if (ticket.busType === "trip_booking" || ticket.busType === "trip") {
+        const numericId = Number(ticket.bookingRef.replace(/^BK-/, ""));
+        await respondToTripCancellation(numericId, false, declineReason.trim() || undefined);
+      } else {
+        await respondToBookingCancellation(ticket.bookingRef, false, declineReason.trim() || undefined);
+      }
+      setDeclineModalVisible(false);
+      Alert.alert("Declined", "You have declined the cancellation request.");
+      void reloadBookingDetails();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to decline cancellation.");
+    } finally {
+      setSubmittingDecline(false);
     }
-  }, [buildTicketPdf, ticketReference]);
+  }, [ticket, declineReason, reloadBookingDetails]);
+
+  const displayDate = formatDateLabel(ticket.date);
+  const displayTime = formatDepartureLabel(ticket.depart);
+  const displaySeat = formatSeatLabel(ticket.seats);
+  const displayPrice = formatCurrency(ticket.totalPrice);
+  const typeLabel = formatTicketTypeLabel(ticket.busType);
+  const statusBadge = getStatusBadge(ticket.status, ticket.cancellationStatus);
+
+  const isUserCancelRequested = ticket.cancellationStatus === "requested_by_user";
+  const isAdminCancelRequested = ticket.cancellationStatus === "requested_by_admin";
+  const isCancelRejected = ticket.cancellationStatus === "rejected";
 
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Top Header */}
         <View style={styles.header}>
-          <Pressable
-            style={styles.headerIconButton}
-            hitSlop={10}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="chevron-back" size={22} color="#0f172a" />
+          <Pressable style={styles.iconButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={20} color="#111827" />
           </Pressable>
           <Text style={styles.headerTitle}>View Ticket</Text>
-          <Pressable style={styles.headerIconButton} hitSlop={10} onPress={handleShare}>
-            <Ionicons name="share-social-outline" size={21} color="#0f172a" />
+          <Pressable style={styles.iconButton} onPress={handleShare}>
+            <Ionicons name="share-outline" size={20} color="#111827" />
           </Pressable>
         </View>
 
-        <View style={styles.ticketCard}>
-          <View style={styles.ticketTopRow}>
-            <View style={styles.typeChip}>
-              <Text style={styles.typeChipText}>{displayTicketType}</Text>
+        {/* ── Cancellation Banners in View Ticket ── */}
+        {isAdminCancelRequested && (
+          <View style={styles.adminCancelBanner}>
+            <View style={styles.bannerHeaderRow}>
+              <Ionicons name="alert-circle" size={20} color="#D97706" />
+              <Text style={styles.adminCancelBannerTitle}>Admin Requested Cancellation</Text>
             </View>
-            <View style={styles.busIconWrap}>
-              <Ionicons name="bus" size={22} color="#2871e6" />
+            <Text style={styles.bannerBodyText}>
+              Reason: &ldquo;{ticket.cancellationReason || "Operational adjustment"}&rdquo;
+            </Text>
+            <Text style={styles.bannerRefundSubText}>
+              The refund will be redirected to the account within 10 working business days.
+            </Text>
+            <View style={styles.adminCancelActionRow}>
+              <Pressable style={styles.acceptAdminBtn} onPress={handleAcceptAdminCancellation}>
+                <Ionicons name="checkmark-circle-outline" size={16} color="#FFF" />
+                <Text style={styles.acceptAdminBtnText}>Accept Cancellation</Text>
+              </Pressable>
+              <Pressable
+                style={styles.declineAdminBtn}
+                onPress={() => {
+                  setDeclineReason("");
+                  setDeclineModalVisible(true);
+                }}
+              >
+                <Ionicons name="close-circle-outline" size={16} color="#DC2626" />
+                <Text style={styles.declineAdminBtnText}>Decline</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {isUserCancelRequested && (
+          <View style={styles.userCancelBanner}>
+            <View style={styles.bannerHeaderRow}>
+              <Ionicons name="time" size={18} color="#2563EB" />
+              <Text style={styles.userCancelBannerTitle}>Cancellation Requested</Text>
+            </View>
+            <Text style={styles.bannerBodyText}>
+              Awaiting admin review. Reason: &ldquo;{ticket.cancellationReason || "Not specified"}&rdquo;
+            </Text>
+            <Text style={styles.bannerRefundSubText}>
+              Policy: {ticket.refundPercentage ?? 100}% refund redirected within 10 business days upon approval.
+            </Text>
+          </View>
+        )}
+
+        {isCancelRejected && (
+          <View style={styles.rejectedCancelBanner}>
+            <View style={styles.bannerHeaderRow}>
+              <Ionicons name="information-circle" size={18} color="#DC2626" />
+              <Text style={styles.rejectedCancelBannerTitle}>Cancellation Request Rejected</Text>
+            </View>
+            <Text style={styles.bannerBodyText}>
+              Admin note: &ldquo;{ticket.cancellationRejectReason || "Request declined"}&rdquo;
+            </Text>
+            <Pressable
+              style={styles.reRequestBtn}
+              onPress={() => {
+                setCancelReason("");
+                setCancelModalVisible(true);
+              }}
+            >
+              <Ionicons name="refresh-outline" size={15} color="#DC2626" />
+              <Text style={styles.reRequestBtnText}>Request Cancellation Again</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Ticket Card */}
+        <View style={styles.ticketCard}>
+          <View style={styles.cardHeader}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="bus-outline" size={18} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.ticketType}>{typeLabel}</Text>
+              <Text style={styles.ticketRef}>{formatTicketReference(ticket.bookingRef)}</Text>
             </View>
           </View>
 
-          <Text style={styles.ticketRefLabel}>Ticket Reference</Text>
-          <Text style={styles.ticketRefValue}>{ticketReference}</Text>
+          <View style={styles.dashedDivider} />
 
-          <View style={styles.routeRow}>
-            <View style={styles.routeCol}>
-              <Text style={styles.routeMetaLabel}>From</Text>
-              <Text numberOfLines={1} style={styles.routeCity}>
-                {ticket.from}
-              </Text>
+          <View style={styles.routeContainer}>
+            <View style={styles.routeLeft}>
+              <View style={styles.circleMarker} />
+              <View style={styles.dottedTrack} />
+              <View style={styles.squareMarker} />
             </View>
-            <Ionicons name="arrow-forward" size={26} color="#111827" />
-            <View style={[styles.routeCol, { alignItems: "flex-end" }]}>
-              <Text style={styles.routeMetaLabel}>To</Text>
-              <Text numberOfLines={1} style={styles.routeCity}>
-                {ticket.to}
-              </Text>
+            <View style={styles.routeRight}>
+              <View style={styles.locationBlock}>
+                <Text style={styles.locationHeading}>FROM</Text>
+                <Text style={styles.locationTitle}>{ticket.from}</Text>
+              </View>
+              <View style={[styles.locationBlock, { marginTop: 22 }]}>
+                <Text style={styles.locationHeading}>TO</Text>
+                <Text style={styles.locationTitle}>{ticket.to}</Text>
+              </View>
             </View>
           </View>
 
@@ -507,10 +609,10 @@ export default function ViewTicketScreen() {
             </View>
             <View style={[styles.metaItem, styles.metaRight]}>
               <Text style={styles.metaLabel}>Departure</Text>
-              <Text style={styles.metaValue}>{displayDepart}</Text>
+              <Text style={styles.metaValue}>{displayTime}</Text>
             </View>
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Seat Number</Text>
+              <Text style={styles.metaLabel}>Seat</Text>
               <Text style={styles.metaValue}>{displaySeat}</Text>
             </View>
             <View style={[styles.metaItem, styles.metaRight]}>
@@ -567,6 +669,20 @@ export default function ViewTicketScreen() {
           <Text style={styles.downloadButtonText}>Download Ticket (PDF)</Text>
         </Pressable>
 
+        {/* Cancellation Action Button (Only when not already requested or cancelled) */}
+        {!isUserCancelRequested && !isAdminCancelRequested && ticket.status.toLowerCase() === "confirmed" && (
+          <Pressable
+            style={styles.cancelTicketButton}
+            onPress={() => {
+              setCancelReason("");
+              setCancelModalVisible(true);
+            }}
+          >
+            <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
+            <Text style={styles.cancelTicketButtonText}>Request Cancellation</Text>
+          </Pressable>
+        )}
+
         <View style={styles.noteCard}>
           <View style={styles.noteHeader}>
             <Ionicons name="information-circle-outline" size={23} color="#111827" />
@@ -578,6 +694,191 @@ export default function ViewTicketScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Cancellation Request Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!submittingCancel) setCancelModalVisible(false);
+        }}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderIcon}>
+                <Ionicons name="alert-circle" size={24} color="#DC2626" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Request Cancellation</Text>
+                <Text style={styles.modalSubtitle}>
+                  {ticket.bookingRef} • {ticket.from} to {ticket.to}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setCancelModalVisible(false)}
+                disabled={submittingCancel}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+
+            {/* Refund Policy Box */}
+            <View style={[styles.policyBox, cancelPolicy.isFullRefund ? styles.policyBoxGreen : styles.policyBoxAmber]}>
+              <View style={styles.policyHeaderRow}>
+                <Ionicons
+                  name={cancelPolicy.isFullRefund ? "checkmark-circle" : "information-circle"}
+                  size={18}
+                  color={cancelPolicy.isFullRefund ? "#16A34A" : "#D97706"}
+                />
+                <Text style={[styles.policyBadgeText, { color: cancelPolicy.isFullRefund ? "#16A34A" : "#D97706" }]}>
+                  {cancelPolicy.percentage}% Refund Policy
+                </Text>
+              </View>
+              <Text style={styles.policyDescription}>{cancelPolicy.message}</Text>
+            </View>
+
+            {/* Reason Input */}
+            <Text style={styles.inputLabel}>
+              Reason for Cancellation <Text style={{ color: "#DC2626" }}>*</Text>
+            </Text>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Please explain why you need to cancel this booking..."
+              placeholderTextColor="#94A3B8"
+              value={cancelReason}
+              onChangeText={(text) => setCancelReason(text.slice(0, MAX_CANCEL_REASON_LENGTH))}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              editable={!submittingCancel}
+              maxLength={MAX_CANCEL_REASON_LENGTH}
+            />
+            <Text style={styles.charCount}>{cancelReason.length}/{MAX_CANCEL_REASON_LENGTH}</Text>
+
+            {/* Modal Actions */}
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelBtn}
+                onPress={() => setCancelModalVisible(false)}
+                disabled={submittingCancel}
+              >
+                <Text style={styles.modalCancelBtnText}>Keep Booking</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalSubmitBtn, (!cancelReason.trim() || submittingCancel) && styles.btnDisabled]}
+                onPress={async () => {
+                  if (!cancelReason.trim()) {
+                    Alert.alert("Reason Required", "Please provide a reason for cancelling this booking.");
+                    return;
+                  }
+                  setSubmittingCancel(true);
+                  try {
+                    if (ticket.busType === "trip_booking" || ticket.busType === "trip") {
+                      const numericId = Number(ticket.bookingRef.replace(/^BK-/, ""));
+                      await requestTripCancellation(numericId, cancelReason.trim());
+                    } else {
+                      await requestBookingCancellation(ticket.bookingRef, cancelReason.trim());
+                    }
+                    setCancelModalVisible(false);
+                    Alert.alert(
+                      "Cancellation Requested",
+                      "Your cancellation request has been sent to the admin team for review.",
+                    );
+                    void reloadBookingDetails();
+                  } catch (err: any) {
+                    Alert.alert("Error", err.message || "Failed to submit cancellation request.");
+                  } finally {
+                    setSubmittingCancel(false);
+                  }
+                }}
+                disabled={!cancelReason.trim() || submittingCancel}
+              >
+                {submittingCancel ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.modalSubmitBtnText}>Submit Request</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Decline Admin Cancellation Modal */}
+      <Modal
+        visible={declineModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!submittingDecline) setDeclineModalVisible(false);
+        }}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalHeaderIcon, { backgroundColor: "#FEF2F2" }]}>
+                <Ionicons name="close-circle" size={24} color="#DC2626" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Decline Admin Cancellation</Text>
+                <Text style={styles.modalSubtitle}>{ticket.bookingRef}</Text>
+              </View>
+              <Pressable
+                onPress={() => setDeclineModalVisible(false)}
+                disabled={submittingDecline}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+
+            <Text style={styles.inputLabel}>Reason (Optional)</Text>
+            <TextInput
+              style={styles.textArea}
+              placeholder="State why you wish to keep this booking active..."
+              placeholderTextColor="#94A3B8"
+              value={declineReason}
+              onChangeText={(text) => setDeclineReason(text.slice(0, MAX_CANCEL_REASON_LENGTH))}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              editable={!submittingDecline}
+              maxLength={MAX_CANCEL_REASON_LENGTH}
+            />
+            <Text style={styles.charCount}>{declineReason.length}/{MAX_CANCEL_REASON_LENGTH}</Text>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelBtn}
+                onPress={() => setDeclineModalVisible(false)}
+                disabled={submittingDecline}
+              >
+                <Text style={styles.modalCancelBtnText}>Dismiss</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalSubmitBtn, { backgroundColor: "#DC2626" }, submittingDecline && styles.btnDisabled]}
+                onPress={handleSubmitDeclineAdminCancellation}
+                disabled={submittingDecline}
+              >
+                {submittingDecline ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.modalSubmitBtnText}>Decline Request</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -593,227 +894,363 @@ const styles = StyleSheet.create({
     paddingBottom: 26,
   },
   header: {
-    height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  headerIconButton: {
+  iconButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
+    backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    lineHeight: 22,
+    color: "#0f172a",
+    fontSize: 16,
     fontWeight: "700",
-    color: "#111827",
   },
+
+  /* ── Cancellation Banners ── */
+  userCancelBanner: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  userCancelBannerTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1D4ED8",
+  },
+  adminCancelBanner: {
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  adminCancelBannerTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#B45309",
+  },
+  rejectedCancelBanner: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  rejectedCancelBannerTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#B91C1C",
+  },
+  bannerHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  bannerBodyText: {
+    fontSize: 13,
+    color: "#334155",
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  bannerRefundSubText: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 5,
+    fontWeight: "500",
+  },
+  adminCancelActionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+  },
+  acceptAdminBtn: {
+    flex: 1.3,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#16A34A",
+    borderRadius: 10,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  acceptAdminBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  declineAdminBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#DC2626",
+    borderRadius: 10,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  declineAdminBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#DC2626",
+  },
+  reRequestBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#DC2626",
+    borderRadius: 10,
+    paddingVertical: 9,
+    marginTop: 10,
+    gap: 6,
+  },
+  reRequestBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#DC2626",
+  },
+
   ticketCard: {
     backgroundColor: "#ffffff",
     borderRadius: 22,
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 14,
-    borderWidth: 1,
-    borderColor: "#e5eaf1",
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 3,
   },
-  ticketTopRow: {
+  cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
+    gap: 10,
   },
-  typeChip: {
-    borderRadius: 999,
-    backgroundColor: "#dbeafe",
-    paddingHorizontal: 18,
-    paddingVertical: 6,
-  },
-  typeChipText: {
-    color: "#266ddc",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  busIconWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
-    backgroundColor: "#eaf1fb",
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#2c74e8",
     alignItems: "center",
     justifyContent: "center",
   },
-  ticketRefLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#6b7a90",
-    marginBottom: 3,
-  },
-  ticketRefValue: {
-    fontSize: 20,
+  ticketType: {
+    color: "#0f172a",
+    fontSize: 15,
     fontWeight: "800",
-    color: "#1d6fe7",
-    marginBottom: 10,
   },
-  routeRow: {
+  ticketRef: {
+    color: "#64748b",
+    fontSize: 12,
+    marginTop: 1,
+    fontWeight: "500",
+  },
+  dashedDivider: {
+    borderStyle: "dashed",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginVertical: 14,
+  },
+  routeContainer: {
     flexDirection: "row",
+    alignItems: "stretch",
+    marginBottom: 16,
+  },
+  routeLeft: {
+    width: 22,
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
-    gap: 6,
+    paddingVertical: 3,
   },
-  routeCol: {
+  circleMarker: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#2c74e8",
+  },
+  dottedTrack: {
+    width: 2,
     flex: 1,
+    marginVertical: 4,
+    borderStyle: "dotted",
+    borderWidth: 1,
+    borderColor: "#94a3b8",
   },
-  routeMetaLabel: {
-    fontSize: 11,
-    color: "#7f90a8",
-    fontWeight: "600",
-    marginBottom: 3,
+  squareMarker: {
+    width: 9,
+    height: 9,
+    backgroundColor: "#0ea5e9",
   },
-  routeCity: {
-    fontSize: 20,
-    lineHeight: 22,
+  routeRight: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  locationBlock: {
+    justifyContent: "center",
+  },
+  locationHeading: {
+    color: "#94a3b8",
+    fontSize: 10,
     fontWeight: "800",
-    color: "#111827",
+    letterSpacing: 0.6,
+  },
+  locationTitle: {
+    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: "700",
+    marginTop: 1,
   },
   metaGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     rowGap: 12,
-    marginBottom: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
   },
   metaItem: {
     width: "50%",
-    paddingRight: 6,
   },
   metaRight: {
     alignItems: "flex-end",
-    paddingRight: 0,
-    paddingLeft: 6,
   },
   metaLabel: {
-    fontSize: 11,
-    color: "#8b9cb4",
-    fontWeight: "600",
-    marginBottom: 4,
+    color: "#94a3b8",
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   metaValue: {
-    fontSize: 20,
-    lineHeight: 20,
-    color: "#111827",
-    fontWeight: "800",
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 2,
   },
   fareText: {
+    marginTop: 14,
     textAlign: "center",
-    fontSize: 24,
+    color: "#16a34a",
+    fontSize: 16,
     fontWeight: "800",
-    color: "#0ea538",
-    marginTop: 2,
-    marginBottom: 10,
   },
   qrSection: {
-    borderTopWidth: 1,
-    borderTopColor: "#edf2f7",
-    borderBottomWidth: 1,
-    borderBottomColor: "#edf2f7",
-    paddingVertical: 14,
     alignItems: "center",
-    marginBottom: 14,
+    justifyContent: "center",
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
   },
   qrFrame: {
     position: "relative",
-    borderRadius: 16,
+    padding: 10,
     backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#dbe3ee",
-    paddingHorizontal: 26,
-    paddingTop: 22,
-    paddingBottom: 14,
+    borderRadius: 10,
     alignItems: "center",
-    width: "78%",
-    maxWidth: 270,
+    justifyContent: "center",
   },
   corner: {
     position: "absolute",
-    width: 20,
-    height: 20,
-    borderColor: "#111827",
+    width: 14,
+    height: 14,
+    borderColor: "#2c74e8",
   },
   cornerTopLeft: {
-    top: 12,
-    left: 12,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
+    top: 2,
+    left: 2,
+    borderTopWidth: 2.5,
+    borderLeftWidth: 2.5,
   },
   cornerTopRight: {
-    top: 12,
-    right: 12,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
+    top: 2,
+    right: 2,
+    borderTopWidth: 2.5,
+    borderRightWidth: 2.5,
   },
   cornerBottomLeft: {
-    bottom: 42,
-    left: 12,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
+    bottom: 2,
+    left: 2,
+    borderBottomWidth: 2.5,
+    borderLeftWidth: 2.5,
   },
   cornerBottomRight: {
-    bottom: 42,
-    right: 12,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
+    bottom: 2,
+    right: 2,
+    borderBottomWidth: 2.5,
+    borderRightWidth: 2.5,
   },
   scanBadge: {
-    marginTop: 10,
-    backgroundColor: "#0b0f18",
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    marginTop: 8,
+    backgroundColor: "#f1f5f9",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   scanBadgeText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
+    color: "#64748b",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   scanTitle: {
-    marginTop: 12,
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#172119",
+    marginTop: 10,
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: "700",
   },
   scanSubtitle: {
-    marginTop: 3,
-    color: "#6b7280",
+    color: "#94a3b8",
     fontSize: 11,
+    marginTop: 2,
   },
   passengerRow: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
     flexDirection: "row",
-    alignItems: "flex-end",
     justifyContent: "space-between",
+    alignItems: "center",
   },
   footerLabel: {
-    color: "#8fa0b8",
-    fontSize: 11,
-    fontWeight: "600",
-    marginBottom: 5,
+    color: "#94a3b8",
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   footerValue: {
-    color: "#111827",
-    fontSize: 20,
-    fontWeight: "800",
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 2,
   },
   statusWrap: {
     alignItems: "flex-end",
-    minWidth: 120,
   },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+    marginTop: 2,
   },
   statusDot: {
     width: 8,
@@ -826,27 +1263,45 @@ const styles = StyleSheet.create({
   },
   downloadButton: {
     marginTop: 18,
-    marginHorizontal: 20,
+    marginHorizontal: 10,
     borderRadius: 15,
     backgroundColor: "#2c74e8",
-    minHeight: 56,
+    minHeight: 52,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 10,
     shadowColor: "#2563eb",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 3,
   },
   downloadButtonText: {
     color: "#ffffff",
     fontSize: 14,
     fontWeight: "700",
   },
+  cancelTicketButton: {
+    marginTop: 10,
+    marginHorizontal: 10,
+    borderRadius: 15,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  cancelTicketButtonText: {
+    color: "#DC2626",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   noteCard: {
-    marginTop: 22,
+    marginTop: 18,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingTop: 14,
@@ -859,11 +1314,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   noteTitle: {
     color: "#b45309",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
   },
   noteBody: {
@@ -871,5 +1326,134 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     fontWeight: "500",
+  },
+
+  /* ── Modal Styles ── */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalHeaderIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  policyBox: {
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  policyBoxGreen: {
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
+  policyBoxAmber: {
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  policyHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  policyBadgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  policyDescription: {
+    fontSize: 12,
+    color: "#334155",
+    lineHeight: 17,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#334155",
+    marginBottom: 6,
+  },
+  textArea: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: "#0F172A",
+    minHeight: 80,
+    marginBottom: 4,
+  },
+  charCount: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#94A3B8",
+    textAlign: "right",
+    marginBottom: 14,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalCancelBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  modalSubmitBtn: {
+    flex: 1.3,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#DC2626",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalSubmitBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  btnDisabled: {
+    opacity: 0.5,
   },
 });

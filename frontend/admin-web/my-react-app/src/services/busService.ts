@@ -103,6 +103,25 @@ export type RouteOption = {
   durationMins: number;
 };
 
+export type BusRevenuePoint = {
+  date: string;
+  revenue: number;
+  seatsSold: number;
+};
+
+export type BusRevenueSummary = {
+  points: BusRevenuePoint[];
+  totalRevenue: number;
+  averagePerDay: number;
+  totalSeatsSold: number;
+};
+
+export type BusDepartureBookings = {
+  journeyDate: string;
+  journeyTime: string | null;
+  bookedSeats: number;
+};
+
 /* ── API calls ────────────────────────────────────────────── */
 
 export async function fetchBuses(): Promise<BusListItem[]> {
@@ -160,4 +179,17 @@ export async function fetchDriverOptions(): Promise<DriverOption[]> {
 export async function fetchRouteOptions(): Promise<RouteOption[]> {
   const res = await fetch(`${API_BASE}/options/routes`);
   return handleResponse<RouteOption[]>(res);
+}
+
+export async function fetchBusRevenue(busId: number, days = 30): Promise<BusRevenueSummary> {
+  const res = await fetch(`${API_BASE}/${busId}/revenue?days=${days}`);
+  return handleResponse<BusRevenueSummary>(res);
+}
+
+export async function fetchUpcomingBookings(
+  busId: number,
+  days = 4,
+): Promise<BusDepartureBookings[]> {
+  const res = await fetch(`${API_BASE}/${busId}/upcoming-bookings?days=${days}`);
+  return handleResponse<BusDepartureBookings[]>(res);
 }

@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -39,6 +41,10 @@ type EvidenceImage = {
   fileName: string;
   mimeType: string;
 };
+
+// Mirrors MIN/MAX_DESCRIPTION_LENGTH in the backend's ComplaintServiceImpl.
+const MIN_DESCRIPTION_LENGTH = 10;
+const MAX_DESCRIPTION_LENGTH = 500;
 
 const CATEGORY_OPTIONS = [
   "Late Arrival",
@@ -229,6 +235,13 @@ export default function ComplaintScreen() {
       Alert.alert("Missing description", "Please describe the issue in detail.");
       return;
     }
+    if (description.trim().length < MIN_DESCRIPTION_LENGTH) {
+      Alert.alert(
+        "Description too short",
+        `Please describe the issue in at least ${MIN_DESCRIPTION_LENGTH} characters.`,
+      );
+      return;
+    }
 
     if (!currentUser) {
       Alert.alert("Not signed in", "Please sign in to submit a complaint.");
@@ -295,9 +308,14 @@ export default function ComplaintScreen() {
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={10}>
@@ -374,12 +392,14 @@ export default function ComplaintScreen() {
         <TextInput
           multiline
           value={description}
-          onChangeText={setDescription}
+          onChangeText={(text) => setDescription(text.slice(0, MAX_DESCRIPTION_LENGTH))}
           placeholder="Please describe the issue in detail..."
           placeholderTextColor="#9CA3AF"
           style={styles.descriptionInput}
           textAlignVertical="top"
+          maxLength={MAX_DESCRIPTION_LENGTH}
         />
+        <Text style={styles.charCount}>{description.length}/{MAX_DESCRIPTION_LENGTH}</Text>
 
         <Text style={styles.sectionLabel}>Supporting Evidence</Text>
         <View style={styles.evidenceRow}>
@@ -475,6 +495,7 @@ export default function ComplaintScreen() {
           ))
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -520,6 +541,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F7F9FC",
   },
+  flex: { flex: 1 },
   content: {
     paddingHorizontal: 14,
     paddingTop: 12,
@@ -626,9 +648,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     color: "#111827",
-    marginBottom: 16,
+    marginBottom: 4,
     borderWidth: 1,
     borderColor: "#E6ECF3",
+  },
+  charCount: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#94A3B8",
+    textAlign: "right",
+    marginBottom: 12,
   },
   evidenceRow: {
     flexDirection: "row",

@@ -29,6 +29,7 @@ import {
   isAwaitingFinalization,
   isContractCompleted,
   isContractRunning,
+  isScheduledForCancellation,
 } from "../../services/corporateApi";
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
@@ -402,6 +403,11 @@ export default function CorporateContractScreen() {
                   <ContractCard
                     key={c.contractId}
                     contract={c}
+                    statusOverride={
+                      isScheduledForCancellation(c)
+                        ? { label: `Ending ${formatContractDate(c.cancellation.effectiveDate as string)}`, bg: "#FEF3C7", text: "#B45309" }
+                        : undefined
+                    }
                     onPress={() => router.push(`/corporate/contract-detail?contractId=${c.contractId}`)}
                   />
                 ))

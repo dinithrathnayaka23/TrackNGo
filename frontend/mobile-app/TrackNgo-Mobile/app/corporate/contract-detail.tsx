@@ -34,9 +34,10 @@ import {
   getCorporateContractDetail,
   isContractCompleted,
   isRenewalDue,
+  isScheduledForCancellation,
   parseBusAmenities,
-  renewContract,
   requestContractCancellation,
+  requestContractRenewal,
   respondToContractCancellation,
 } from "../../services/corporateApi";
 import {
@@ -45,6 +46,10 @@ import {
   downloadCorporatePdf,
   viewCorporatePdf,
 } from "../../utils/corporatePdf";
+
+// Mirrors MIN/MAX_CANCEL_REASON_LENGTH in the backend's CorporateService.
+const MIN_CANCEL_REASON_LENGTH = 10;
+const MAX_CANCEL_REASON_LENGTH = 500;
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
 
@@ -210,6 +215,13 @@ export default function ContractDetailScreen() {
 
   const submitCancelRequest = async () => {
     if (!contractId || !cancelReason.trim()) return;
+    if (cancelReason.trim().length < MIN_CANCEL_REASON_LENGTH) {
+      Alert.alert(
+        "Reason too short",
+        `Please explain your reason for cancelling in at least ${MIN_CANCEL_REASON_LENGTH} characters.`,
+      );
+      return;
+    }
     setCancelSubmitting(true);
     try {
       await requestContractCancellation(contractId, cancelReason.trim());
@@ -224,16 +236,18 @@ export default function ContractDetailScreen() {
     }
   };
 
-  const submitCancelResponse = async (accept: boolean) => {
+  const submitCancelResponse = async (accept: boolean, timing?: "immediate" | "scheduled") => {
     if (!contractId) return;
     setRespondSubmitting(true);
     try {
-      await respondToContractCancellation(contractId, accept);
+      await respondToContractCancellation(contractId, accept, undefined, timing);
       Alert.alert(
         accept ? "Cancellation Accepted" : "Cancellation Declined",
-        accept
-          ? "You accepted admin's request to cancel this contract."
-          : "You declined admin's request to cancel this contract.",
+        !accept
+          ? "You declined admin's request to cancel this contract."
+          : timing === "scheduled"
+          ? "This contract will keep running and cancel automatically once the notice period ends."
+          : "You accepted admin's request to cancel this contract.",
       );
       await loadContract();
     } catch (err) {
@@ -243,24 +257,52 @@ export default function ContractDetailScreen() {
     }
   };
 
-  const submitRenewal = () => {
+  /**
+   * Accepting an admin-initiated cancellation of an already-active contract
+   * requires a timing choice; every other case (a still-pending contract, or
+   * a request the corporate user filed themselves) always cancels immediately.
+   */
+  const handleAcceptCancellation = () => {
+    if (!contract) return;
+    if (contract.status?.toLowerCase() === "active") {
+      Alert.alert(
+        "Accept Cancellation",
+        "Choose when this contract should end.",
+        [
+          { text: "Back", style: "cancel" },
+          {
+            text: "Cancel Immediately",
+            style: "destructive",
+            onPress: () => submitCancelResponse(true, "immediate"),
+          },
+          {
+            text: "Keep Running 14 More Days",
+            onPress: () => submitCancelResponse(true, "scheduled"),
+          },
+        ],
+      );
+    } else {
+      submitCancelResponse(true);
+    }
+  };
+
+  const submitRenewalRequest = () => {
     if (!contractId || !currentUser) return;
     Alert.alert(
-      "Renew Contract",
-      "This will submit a new contract request continuing from this one's end date, using the same route, schedule and buses, for admin approval.",
+      "Request Renewal",
+      "This asks admin for permission to renew this contract. Once approved, you'll be able to review and submit the renewal details.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Renew",
+          text: "Send Request",
           onPress: async () => {
             setRenewSubmitting(true);
             try {
-              await renewContract(contractId, currentUser.userId);
-              Alert.alert("Renewal Requested", "Your renewal request has been submitted and is awaiting admin approval.", [
-                { text: "OK", onPress: () => router.back() },
-              ]);
+              await requestContractRenewal(contractId, currentUser.userId);
+              Alert.alert("Request Sent", "Your renewal request has been sent to admin.");
+              await loadContract();
             } catch (err) {
-              Alert.alert("Error", err instanceof Error ? err.message : "Failed to submit renewal request.");
+              Alert.alert("Error", err instanceof Error ? err.message : "Failed to send renewal request.");
             } finally {
               setRenewSubmitting(false);
             }
@@ -268,6 +310,11 @@ export default function ContractDetailScreen() {
         },
       ],
     );
+  };
+
+  const proceedWithRenewal = () => {
+    if (!contractId) return;
+    router.push(`/corporate/new-contract?renewFrom=${contractId}`);
   };
 
   const handleViewContractPdf = async () => {
@@ -328,14 +375,19 @@ export default function ContractDetailScreen() {
   // A contract that ran past its end date still carries status = 'active' in the
   // DB, so it is presented as "Completed" rather than "Active".
   const completed = contract ? isContractCompleted(contract) : false;
+  const scheduledForCancellation = contract ? isScheduledForCancellation(contract) : false;
   const statusLabel = !contract
     ? ""
     : completed
     ? describeCompletedContract(contract).label
+    : scheduledForCancellation
+    ? `Ending ${formatContractDate(contract.cancellation.effectiveDate as string)}`
     : displayContractStatus(contract.status);
   const badge =
     completed && contract?.status?.toLowerCase() === "active"
       ? { bg: "#E2E8F0", text: "#475569" }
+      : scheduledForCancellation
+      ? { bg: "#FEF3C7", text: "#B45309" }
       : statusBadge(contract?.status);
   const remaining = contract ? daysRemaining(contract.endDate) : 0;
   const progress = contract ? contractProgress(contract.startDate, contract.endDate) : 0;
@@ -401,8 +453,12 @@ export default function ContractDetailScreen() {
                 <Text style={styles.heroRouteCity} numberOfLines={1}>{contract.destination}</Text>
               </View>
 
-              <Text style={styles.heroAmountLabel}>MONTHLY BILLING</Text>
-              <Text style={styles.heroAmount}>{formatAmount(contract.billingAmount)}</Text>
+              <Text style={styles.heroAmountLabel}>
+                {(contract.carriedBalance ?? 0) > 0 ? "1ST MONTH BILLING (INCL. WORKED DAYS)" : "MONTHLY BILLING"}
+              </Text>
+              <Text style={styles.heroAmount}>
+                {formatAmount(contract.billingAmount + (contract.carriedBalance ?? 0))}
+              </Text>
 
               {/* Contract period progress */}
               <View style={styles.progressTrack}>
@@ -439,9 +495,9 @@ export default function ContractDetailScreen() {
                 {contract.cancellation.reason && (
                   <Text style={styles.cancelBannerReason}>Reason: {contract.cancellation.reason}</Text>
                 )}
-                {contract.cancellation.effectiveDate && (
+                {contract.cancellation.requestedBy === "admin" && contract.status?.toLowerCase() === "active" && (
                   <Text style={styles.cancelBannerReason}>
-                    If accepted, this contract will end on {formatContractDate(contract.cancellation.effectiveDate)}.
+                    If you accept, you can choose to cancel immediately or keep it running for a 14-day notice period.
                   </Text>
                 )}
                 {contract.cancellation.requestedBy === "admin" && (
@@ -456,7 +512,7 @@ export default function ContractDetailScreen() {
                     <TouchableOpacity
                       style={[styles.cancelBannerBtn, { backgroundColor: "#059669" }]}
                       disabled={respondSubmitting}
-                      onPress={() => submitCancelResponse(true)}
+                      onPress={handleAcceptCancellation}
                     >
                       <Text style={styles.cancelBannerBtnText}>{respondSubmitting ? "Working..." : "Accept"}</Text>
                     </TouchableOpacity>
@@ -465,26 +521,100 @@ export default function ContractDetailScreen() {
               </View>
             )}
 
-            {/* Renewal reminder banner */}
-            {isRenewalDue(contract) && contract.cancellation.status !== "pending" && (
-              <View style={styles.renewBanner}>
+            {/* Scheduled-cancellation banner: contract stays active until the notice period ends */}
+            {isScheduledForCancellation(contract) && (
+              <View style={styles.cancelBanner}>
                 <View style={styles.cancelBannerHeader}>
-                  <Ionicons name="refresh-circle" size={18} color="#1D4ED8" />
-                  <Text style={styles.renewBannerTitle}>
-                    {remaining >= 0
-                      ? `This contract ends in ${remaining} day${remaining === 1 ? "" : "s"} — renew to avoid a gap in service.`
-                      : "This contract has ended — renew to resume the service."}
+                  <Ionicons name="hourglass-outline" size={18} color="#B45309" />
+                  <Text style={styles.cancelBannerTitle}>
+                    Scheduled to end on {formatContractDate(contract.cancellation.effectiveDate as string)}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.renewBannerBtn}
-                  disabled={renewSubmitting}
-                  onPress={submitRenewal}
-                >
-                  <Text style={styles.renewBannerBtnText}>{renewSubmitting ? "Submitting..." : "Renew Contract"}</Text>
-                </TouchableOpacity>
+                <Text style={styles.cancelBannerReason}>
+                  You agreed to cancel this contract. It will keep running until the date above, then cancel automatically.
+                </Text>
               </View>
             )}
+
+            {/* Cancellation rejected banner */}
+            {contract.cancellation.status === "rejected" && (
+              <View style={[styles.cancelBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+                <View style={styles.cancelBannerHeader}>
+                  <Ionicons name="alert-circle" size={18} color="#DC2626" />
+                  <Text style={[styles.cancelBannerTitle, { color: "#991B1B" }]}>
+                    Cancellation Request Declined by Admin
+                  </Text>
+                </View>
+                {contract.cancellation.responseReason && (
+                  <View style={{ marginTop: 8, padding: 10, backgroundColor: "#FFF", borderRadius: 8, borderWidth: 1, borderColor: "#FEE2E2" }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: "#991B1B" }}>Admin Instructions / Requirement:</Text>
+                    <Text style={{ fontSize: 13, color: "#1E293B", marginTop: 2 }}>{contract.cancellation.responseReason}</Text>
+                  </View>
+                )}
+                <Text style={[styles.cancelBannerReason, { marginTop: 8, color: "#7F1D1D" }]}>
+                  Please fulfill what the admin requested above. Once completed, you can request cancellation again.
+                </Text>
+                <View style={{ marginTop: 10 }}>
+                  <TouchableOpacity
+                    style={[styles.cancelBannerBtn, { backgroundColor: "#DC2626", alignSelf: "flex-start", paddingHorizontal: 16 }]}
+                    onPress={() => setCancelModalVisible(true)}
+                  >
+                    <Text style={styles.cancelBannerBtnText}>Request Cancellation Again</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Renewal — always available on an active contract, not just near its end date */}
+            {contract.status?.toLowerCase() === "active" &&
+              (contract.cancellation.status === "none" || contract.cancellation.status === "rejected") &&
+              !isScheduledForCancellation(contract) && (
+                <View style={styles.renewBanner}>
+                  <View style={styles.cancelBannerHeader}>
+                    <Ionicons name="refresh-circle" size={18} color="#1D4ED8" />
+                    <Text style={styles.renewBannerTitle}>
+                      {contract.renewalRequestStatus === "requested"
+                        ? "Renewal request sent — awaiting admin's response."
+                        : contract.renewalRequestStatus === "approved"
+                        ? "Admin approved your renewal request!"
+                        : contract.renewalRequestStatus === "declined"
+                        ? "Your renewal request was declined."
+                        : isRenewalDue(contract)
+                        ? remaining >= 0
+                          ? `This contract ends in ${remaining} day${remaining === 1 ? "" : "s"} — renew to avoid a gap in service.`
+                          : "This contract has ended — renew to resume the service."
+                        : "Want to keep this service running? You can request to renew this contract at any time."}
+                    </Text>
+                  </View>
+                  {contract.renewalRequestStatus === "declined" && (
+                    <Text style={styles.cancelBannerReason}>
+                      Contact admin for more information, or send a new request.
+                    </Text>
+                  )}
+                  {contract.renewalRequestStatus === "requested" ? (
+                    <View style={styles.renewPendingBadge}>
+                      <View style={styles.renewPendingDot} />
+                      <Text style={styles.renewPendingText}>Pending Approval</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.renewBannerBtn}
+                      disabled={renewSubmitting}
+                      onPress={contract.renewalRequestStatus === "approved" ? proceedWithRenewal : submitRenewalRequest}
+                    >
+                      <Text style={styles.renewBannerBtnText}>
+                        {renewSubmitting
+                          ? "Sending..."
+                          : contract.renewalRequestStatus === "approved"
+                          ? "Proceed with Renewal"
+                          : contract.renewalRequestStatus === "declined"
+                          ? "Request Again"
+                          : "Request Renewal"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
 
             {/* Daily shift */}
             <SectionCard
@@ -642,6 +772,38 @@ export default function ContractDetailScreen() {
                 </View>
               </View>
 
+              {Boolean(contract.renewedFromContractId || (contract.carriedBalance != null && contract.carriedBalance > 0)) && (
+                <View style={{ marginTop: 12, padding: 14, backgroundColor: "#FEF2F2", borderRadius: 12, borderWidth: 1, borderColor: "#FECACA" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Ionicons name="receipt" size={18} color="#DC2626" />
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#991B1B" }}>
+                      1st Month Billing Breakdown
+                    </Text>
+                  </View>
+                  <View style={{ height: 8 }} />
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={{ fontSize: 12, color: "#64748B" }}>Base Monthly Rate</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: "#1E293B" }}>{formatAmount(contract.billingAmount)}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={{ fontSize: 12, color: (contract.carriedBalance ?? 0) > 0 ? "#DC2626" : "#059669" }}>Predecessor Worked Days</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: (contract.carriedBalance ?? 0) > 0 ? "#DC2626" : "#059669" }}>+{formatAmount(contract.carriedBalance ?? 0)}</Text>
+                  </View>
+                  <View style={{ height: 1, backgroundColor: "#FECACA", marginVertical: 6 }} />
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>1st Month Total Due</Text>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>{formatAmount(contract.billingAmount + (contract.carriedBalance ?? 0))}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ fontSize: 12, color: "#059669", fontWeight: "600" }}>From Month 2 Onwards</Text>
+                    <Text style={{ fontSize: 12, color: "#059669", fontWeight: "600" }}>{formatAmount(contract.billingAmount)} / mo</Text>
+                  </View>
+                  <Text style={{ fontSize: 11, color: "#7F1D1D", marginTop: 8, lineHeight: 15 }}>
+                    Renewed from Contract #{contract.renewedFromContractId ?? 'prior'}. {(contract.carriedBalance ?? 0) > 0 ? `Includes +${formatAmount(contract.carriedBalance)} for days operated before renewal (unworked days deducted).` : `Predecessor worked days balance is Rs. 0.00.`} Starting from month 2, regular monthly rate applies.
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.divider} />
 
               {contract.invoices.length === 0 ? (
@@ -790,7 +952,9 @@ export default function ContractDetailScreen() {
                 onPress={() => setCancelModalVisible(true)}
               >
                 <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
-                <Text style={styles.cancelContractBtnText}>Cancel Contract</Text>
+                <Text style={styles.cancelContractBtnText}>
+                  {contract.cancellation.status === "rejected" ? "Request Cancellation Again" : "Cancel Contract"}
+                </Text>
               </Pressable>
             )}
           </Animated.View>
@@ -809,13 +973,14 @@ export default function ContractDetailScreen() {
             <TextInput
               style={styles.modalInput}
               value={cancelReason}
-              onChangeText={setCancelReason}
+              onChangeText={(text) => setCancelReason(text.slice(0, MAX_CANCEL_REASON_LENGTH))}
               placeholder="Reason for cancellation"
               placeholderTextColor="#94A3B8"
               multiline
               numberOfLines={3}
-              maxLength={500}
+              maxLength={MAX_CANCEL_REASON_LENGTH}
             />
+            <Text style={styles.modalCharCount}>{cancelReason.length}/{MAX_CANCEL_REASON_LENGTH}</Text>
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: "#F1F5F9" }]}
@@ -824,8 +989,8 @@ export default function ContractDetailScreen() {
                 <Text style={[styles.modalBtnText, { color: "#334155" }]}>Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: "#DC2626", opacity: cancelReason.trim() ? 1 : 0.5 }]}
-                disabled={!cancelReason.trim() || cancelSubmitting}
+                style={[styles.modalBtn, { backgroundColor: "#DC2626", opacity: cancelReason.trim().length >= MIN_CANCEL_REASON_LENGTH ? 1 : 0.5 }]}
+                disabled={cancelReason.trim().length < MIN_CANCEL_REASON_LENGTH || cancelSubmitting}
                 onPress={submitCancelRequest}
               >
                 <Text style={[styles.modalBtnText, { color: "#FFFFFF" }]}>
@@ -1041,6 +1206,12 @@ const styles = StyleSheet.create({
   renewBannerTitle: { fontSize: 13, fontWeight: "700", color: "#1D4ED8", flex: 1 },
   renewBannerBtn: { backgroundColor: "#1D4ED8", borderRadius: 10, paddingVertical: 10, alignItems: "center" },
   renewBannerBtnText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
+  renewPendingBadge: {
+    flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start",
+    backgroundColor: "#FEF3C7", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  renewPendingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#F59E0B" },
+  renewPendingText: { fontSize: 12, fontWeight: "700", color: "#B45309" },
 
   // Cancel request modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(15,23,42,0.5)", justifyContent: "center", padding: 20 },
@@ -1051,6 +1222,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "#CBD5E1", borderRadius: 12, padding: 12,
     fontSize: 13, color: "#1E293B", minHeight: 80, textAlignVertical: "top",
   },
+  modalCharCount: { fontSize: 11, fontWeight: "600", color: "#94A3B8", textAlign: "right", marginTop: 4 },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 16 },
   modalBtn: { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: "center" },
   modalBtnText: { fontSize: 13, fontWeight: "700" },

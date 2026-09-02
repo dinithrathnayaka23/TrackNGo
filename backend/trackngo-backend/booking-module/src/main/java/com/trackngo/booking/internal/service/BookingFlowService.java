@@ -38,6 +38,33 @@ public class BookingFlowService {
 
     private static final ZoneId APP_ZONE = ZoneId.of("Asia/Colombo");
 
+    /**
+     * The special-request note is a short instruction to the driver/operator
+     * (e.g. "please stop near the hospital gate"), not free-form text — capped
+     * so the field can't be used to stash arbitrarily large blobs in a column
+     * with no other size limit. Mirrors MAX_SPECIAL_REQUEST_LENGTH in the
+     * passenger app's booking-summary screen.
+     */
+    private static final int MAX_SPECIAL_REQUEST_LENGTH = 300;
+
+    /** Mirrors MAX_CANCEL_REASON_LENGTH in the passenger app's view-ticket/booking-history screens. */
+    private static final int MAX_CANCEL_REASON_LENGTH = 300;
+
+    /**
+     * Seat bookings must be made at least one full day ahead: a passenger cannot
+     * book a seat for the day they are travelling. Kept in step with
+     * MIN_BOOKING_LEAD_DAYS in the passenger app's utils/bookingDate.ts, which
+     * applies the same rule to the date picker.
+     */
+    static final int MIN_BOOKING_LEAD_DAYS = 1;
+
+    /**
+     * Without a ceiling a journey date could be set arbitrarily far out, long
+     * past any schedule the operator can actually commit to. Kept in step with
+     * MAX_BOOKING_LEAD_DAYS in the passenger app's utils/bookingDate.ts.
+     */
+    static final int MAX_BOOKING_LEAD_DAYS = 90;
+
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
     private final PromotionService promotionService;
@@ -557,6 +584,7 @@ public class BookingFlowService {
     public BookingConfirmationResult createBooking(CreateBookingRequest req) {
 
         validateBookableJourneyDate(req.journeyDate());
+        validateSpecialRequest(req.specialRequest());
         List<String> normalizedSeats = normalizeSeatSelection(req.seatNumbers());
 
         // 0) Ensure a passenger record exists for this user (FK requirement)
@@ -760,7 +788,7 @@ public class BookingFlowService {
     @Transactional
     public void cancelBooking(String bookingRef) {
         int updated = jdbc.update(
-            "UPDATE seat_booking SET status = 'cancelled' WHERE booking_reference = ? AND status = 'confirmed'",
+            "UPDATE seat_booking SET status = 'cancelled', cancellation_status = 'accepted' WHERE booking_reference = ? AND status = 'confirmed'",
             bookingRef
         );
         if (updated == 0) {
@@ -773,6 +801,165 @@ public class BookingFlowService {
         );
 
         notifyBookingCancelled(bookingRef);
+    }
+
+    @Transactional
+    public Map<String, Object> requestCancellation(String bookingRef, String requesterType, String reason) {
+        if (reason == null || reason.trim().isBlank()) {
+            throw new IllegalArgumentException("Cancellation reason is required.");
+        }
+        if (reason.trim().length() > MAX_CANCEL_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Cancellation reason must be " + MAX_CANCEL_REASON_LENGTH + " characters or fewer.");
+        }
+        String reqType = "admin".equalsIgnoreCase(requesterType) ? "admin" : "user";
+        Map<String, Object> booking = findBookingRow(
+                "SELECT sb.seat_booking_id, sb.passenger_id, sb.journey_date, sb.seat_number, sb.status, " +
+                "sb.cancellation_status, b.bus_number, b.driver_id, u.email " +
+                "FROM seat_booking sb JOIN bus b ON sb.bus_id = b.bus_id " +
+                "JOIN `user` u ON sb.passenger_id = u.user_id " +
+                "WHERE sb.booking_reference = ?",
+                bookingRef
+        );
+        if (booking == null) {
+            throw new RuntimeException("Booking not found");
+        }
+        String currentStatus = (String) booking.get("status");
+        if ("cancelled".equalsIgnoreCase(currentStatus)) {
+            throw new RuntimeException("Booking is already cancelled");
+        }
+
+        LocalDate journeyDate = toLocalDate(booking.get("journey_date"));
+        LocalDate today = LocalDate.now();
+        int refundPercentage;
+        String refundMessage;
+
+        if ("admin".equalsIgnoreCase(reqType)) {
+            refundPercentage = 100;
+            refundMessage = "The refund will be redirected to the account within 10 working business days.";
+        } else {
+            if (journeyDate != null && !journeyDate.isBefore(today.plusDays(3))) {
+                refundPercentage = 100;
+                refundMessage = "Full refund will be credited to your account within 10 working business days.";
+            } else {
+                refundPercentage = 75;
+                refundMessage = "Only a 75% refund will be credited to your account within 10 working business days.";
+            }
+        }
+
+        String newCancelStatus = "admin".equalsIgnoreCase(reqType) ? "requested_by_admin" : "requested_by_user";
+        jdbc.update(
+            "UPDATE seat_booking SET cancellation_status = ?, cancellation_reason = ?, " +
+            "cancellation_requested_by = ?, cancellation_requested_at = NOW(), " +
+            "cancellation_reject_reason = NULL, refund_percentage = ? " +
+            "WHERE booking_reference = ?",
+            newCancelStatus, reason.trim(), reqType, refundPercentage, bookingRef
+        );
+
+        if ("user".equalsIgnoreCase(reqType)) {
+            notifications.toAllAdmins(
+                NotificationType.CANCELLATION,
+                "Cancellation Requested: " + bookingRef,
+                "Passenger requested cancellation for booking " + bookingRef + " (Seat " + booking.get("seat_number") + "). Reason: " + reason.trim() + ". Refund policy: " + refundPercentage + "%."
+            );
+        } else {
+            notifications.toPassenger(
+                toLongOrNull(booking.get("passenger_id")),
+                NotificationType.CANCELLATION,
+                "Admin Requested Cancellation: " + bookingRef,
+                "TrackNGo Admin requested cancellation for booking " + bookingRef + ". Reason: " + reason.trim() + ". " + refundMessage
+            );
+        }
+
+        return Map.of(
+            "bookingReference", bookingRef,
+            "cancellationStatus", newCancelStatus,
+            "cancellationReason", reason.trim(),
+            "refundPercentage", refundPercentage,
+            "refundMessage", refundMessage
+        );
+    }
+
+    @Transactional
+    public Map<String, Object> respondToCancellation(String bookingRef, String responderType, boolean accept, String rejectReason) {
+        if (rejectReason != null && rejectReason.trim().length() > MAX_CANCEL_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Reason must be " + MAX_CANCEL_REASON_LENGTH + " characters or fewer.");
+        }
+        Map<String, Object> booking = findBookingRow(
+                "SELECT sb.seat_booking_id, sb.passenger_id, sb.journey_date, sb.seat_number, sb.status, " +
+                "sb.cancellation_status, sb.cancellation_reason, sb.cancellation_requested_by, " +
+                "sb.refund_percentage, b.bus_number, b.driver_id " +
+                "FROM seat_booking sb JOIN bus b ON sb.bus_id = b.bus_id " +
+                "WHERE sb.booking_reference = ?",
+                bookingRef
+        );
+        if (booking == null) {
+            throw new RuntimeException("Booking not found");
+        }
+
+        if (accept) {
+            jdbc.update(
+                "UPDATE seat_booking SET status = 'cancelled', cancellation_status = 'accepted' " +
+                "WHERE booking_reference = ?",
+                bookingRef
+            );
+            jdbc.update(
+                "DELETE FROM seat_booking_seat WHERE seat_booking_id = " +
+                "(SELECT seat_booking_id FROM seat_booking WHERE booking_reference = ?)",
+                bookingRef
+            );
+
+            Integer refundPct = booking.get("refund_percentage") != null ? ((Number) booking.get("refund_percentage")).intValue() : 100;
+            String refundNotice = refundPct == 100
+                ? "Full refund will be redirected to the account within 10 working business days."
+                : "75% refund will be redirected to the account within 10 working business days.";
+
+            notifications.toPassenger(
+                toLongOrNull(booking.get("passenger_id")),
+                NotificationType.CANCELLATION,
+                "Booking Cancelled: " + bookingRef,
+                "Cancellation request for booking " + bookingRef + " has been accepted. " + refundNotice
+            );
+            notifications.toDriver(
+                toLongOrNull(booking.get("driver_id")),
+                NotificationType.CANCELLATION,
+                "Booking Cancelled on Your Bus",
+                "Seat(s) " + booking.get("seat_number") + " on bus " + booking.get("bus_number") + " were cancelled."
+            );
+            return Map.of("bookingReference", bookingRef, "cancellationStatus", "accepted", "status", "cancelled");
+        } else {
+            String rejReason = (rejectReason != null && !rejectReason.isBlank()) ? rejectReason.trim() : "Cancellation request declined.";
+            jdbc.update(
+                "UPDATE seat_booking SET cancellation_status = 'rejected', cancellation_reject_reason = ? " +
+                "WHERE booking_reference = ?",
+                rejReason, bookingRef
+            );
+
+            String requestedBy = (String) booking.get("cancellation_requested_by");
+            if ("user".equalsIgnoreCase(requestedBy)) {
+                notifications.toPassenger(
+                    toLongOrNull(booking.get("passenger_id")),
+                    NotificationType.CANCELLATION,
+                    "Cancellation Request Rejected: " + bookingRef,
+                    "Your cancellation request for booking " + bookingRef + " was rejected by admin. Reason: " + rejReason
+                );
+            } else {
+                notifications.toAllAdmins(
+                    NotificationType.CANCELLATION,
+                    "Cancellation Declined by Passenger: " + bookingRef,
+                    "Passenger declined admin cancellation request for booking " + bookingRef + ". Reason: " + rejReason
+                );
+            }
+            return Map.of("bookingReference", bookingRef, "cancellationStatus", "rejected", "rejectReason", rejReason);
+        }
+    }
+
+    private LocalDate toLocalDate(Object value) {
+        if (value == null) return null;
+        if (value instanceof LocalDate ld) return ld;
+        if (value instanceof java.sql.Date sqlDate) return sqlDate.toLocalDate();
+        return LocalDate.parse(value.toString());
     }
 
     public void markPassengerBoarded(Long seatBookingId) {
@@ -918,12 +1105,25 @@ public class BookingFlowService {
         try {
             parsedDate = LocalDate.parse(journeyDate);
         } catch (DateTimeParseException | NullPointerException ex) {
-            throw new BusinessException("Journey date is invalid. Please choose today or a future date.");
+            throw new BusinessException("Journey date is invalid. Please choose tomorrow or a later date.");
         }
 
-        LocalDate today = LocalDate.now(APP_ZONE);
-        if (parsedDate.isBefore(today)) {
-            throw new BusinessException("Bookings can only be made for today or a future date.");
+        LocalDate earliestBookable = LocalDate.now(APP_ZONE).plusDays(MIN_BOOKING_LEAD_DAYS);
+        if (parsedDate.isBefore(earliestBookable)) {
+            throw new BusinessException(
+                    "Bookings must be made at least one day in advance. Please choose tomorrow or a later date.");
+        }
+        LocalDate latestBookable = LocalDate.now(APP_ZONE).plusDays(MAX_BOOKING_LEAD_DAYS);
+        if (parsedDate.isAfter(latestBookable)) {
+            throw new BusinessException(
+                    "Bookings can only be made up to " + MAX_BOOKING_LEAD_DAYS + " days in advance.");
+        }
+    }
+
+    private void validateSpecialRequest(String specialRequest) {
+        if (specialRequest != null && specialRequest.length() > MAX_SPECIAL_REQUEST_LENGTH) {
+            throw new BusinessException(
+                    "Special request must be " + MAX_SPECIAL_REQUEST_LENGTH + " characters or fewer.");
         }
     }
 

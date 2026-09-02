@@ -38,6 +38,18 @@ public class TripBookingService {
             "pending", "approved", "confirmed", "in_progress"
     );
 
+    /**
+     * Longest span a single private trip booking can cover. Without a ceiling,
+     * an unbounded return date lets the daily-rate fare calculation (and the
+     * bus's date-reservation lock, see reserveBusDates) run out to an
+     * arbitrary number of days. Mirrors MAX_TRIP_DURATION_DAYS in the
+     * passenger app's BookATrip screen.
+     */
+    private static final int MAX_TRIP_DURATION_DAYS = 30;
+
+    /** Mirrors MAX_CANCEL_REASON_LENGTH in BookingFlowService / the passenger app's cancellation screens. */
+    private static final int MAX_CANCEL_REASON_LENGTH = 300;
+
     private final TripBookingRepository tripBookingRepository;
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
@@ -75,7 +87,13 @@ public class TripBookingService {
         validateRequest(request);
         Fare fare = calculateFare(request);
 
-        TripBooking booking = new TripBooking();
+        TripBooking booking = tripBookingRepository.findAll().stream()
+                .filter(tb -> passengerId.equals(tb.getPassengerId())
+                        && "pending".equalsIgnoreCase(tb.getBookingStatus())
+                        && tb.getBusId() == null)
+                .max(java.util.Comparator.comparing(TripBooking::getId))
+                .orElseGet(TripBooking::new);
+
         booking.setStartLocation(request.startLocation().trim());
         booking.setDestination(request.destination().trim());
         booking.setStartDate(request.startDate());
@@ -88,6 +106,18 @@ public class TripBookingService {
         booking.setBookingStatus("pending");
         booking.setPassengerId(passengerId);
         TripBooking submitted = enrich(tripBookingRepository.save(booking));
+
+        // Clean up any older orphaned unassigned drafts for this user
+        List<TripBooking> oldDrafts = tripBookingRepository.findAll().stream()
+                .filter(tb -> passengerId.equals(tb.getPassengerId())
+                        && "pending".equalsIgnoreCase(tb.getBookingStatus())
+                        && tb.getBusId() == null
+                        && !tb.getId().equals(submitted.getId()))
+                .toList();
+        for (TripBooking old : oldDrafts) {
+            old.setBookingStatus("cancelled");
+            tripBookingRepository.save(old);
+        }
 
         notifications.toPassenger(
                 passengerId,
@@ -199,13 +229,21 @@ public class TripBookingService {
         if (discount.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Discount cannot be negative.");
         }
-        reserveBusDates(bookingId, booking.getBusId(), booking.getStartDate(), booking.getReturnDate());
+        Integer paidCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM payment WHERE trip_booking_id = ? AND payment_status = 'success'",
+                Integer.class,
+                bookingId
+        );
+        if (paidCount != null && paidCount > 0) {
+            throw new IllegalStateException("This trip booking has already been paid and activated.");
+        }
+
         BigDecimal finalPrice = request.finalPrice().setScale(2, RoundingMode.HALF_UP);
         BigDecimal advance = finalPrice.multiply(ADVANCE_RATE).setScale(2, RoundingMode.HALF_UP);
         String note = cleanNote(request.adminNote());
-        int updated = jdbc.update("UPDATE trip_booking SET final_price = ?, advance_payment = ?, discount_amount = ?, admin_note = ?, negotiated_at = NOW(), booking_status = 'confirmed' WHERE trip_booking_id = ? AND booking_status IN ('pending', 'approved', 'confirmed') AND negotiated_at IS NULL",
+        int updated = jdbc.update("UPDATE trip_booking SET final_price = ?, advance_payment = ?, discount_amount = ?, admin_note = ?, negotiated_at = NOW(), booking_status = 'confirmed' WHERE trip_booking_id = ? AND booking_status IN ('pending', 'approved', 'confirmed')",
                 finalPrice, advance, discount.setScale(2, RoundingMode.HALF_UP), note, bookingId);
-        if (updated == 0) throw new IllegalStateException("This trip request has already been reviewed.");
+        if (updated == 0) throw new IllegalStateException("Trip booking was not found or is in an invalid state.");
         booking.setFinalPrice(finalPrice);
         booking.setAdvancePayment(advance);
         booking.setDiscountAmount(discount.setScale(2, RoundingMode.HALF_UP));
@@ -254,8 +292,153 @@ public class TripBookingService {
         }
     }
 
-    public List<TripBusResponse> getAvailableBuses(int passengerCount, String requirement) {
+    @Transactional
+    public TripBooking requestCancellation(Long bookingId, String requesterType, String reason) {
+        if (reason == null || reason.trim().isBlank()) {
+            throw new IllegalArgumentException("Cancellation reason is required.");
+        }
+        if (reason.trim().length() > MAX_CANCEL_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Cancellation reason must be " + MAX_CANCEL_REASON_LENGTH + " characters or fewer.");
+        }
+        Map<String, Object> booking = lockBookingRow(bookingId);
+        if (booking == null) {
+            throw new IllegalArgumentException("Trip booking was not found.");
+        }
+        String currentStatus = (String) booking.get("booking_status");
+        if ("cancelled".equalsIgnoreCase(currentStatus)) {
+            throw new IllegalStateException("Trip booking is already cancelled.");
+        }
+
+        LocalDate startDate = toLocalDate(booking.get("start_date"));
+        LocalDate today = LocalDate.now();
+        int refundPercentage;
+        String refundMessage;
+
+        if ("admin".equalsIgnoreCase(requesterType)) {
+            refundPercentage = 100;
+            refundMessage = "The refund will be redirected to the account within 10 working business days.";
+        } else {
+            if (startDate != null && !startDate.isBefore(today.plusDays(3))) {
+                refundPercentage = 100;
+                refundMessage = "Full refund will be credited to your account within 10 working business days.";
+            } else {
+                refundPercentage = 75;
+                refundMessage = "Only a 75% refund will be credited to your account within 10 working business days.";
+            }
+        }
+
+        String newCancelStatus = "admin".equalsIgnoreCase(requesterType) ? "requested_by_admin" : "requested_by_user";
+        jdbc.update(
+            "UPDATE trip_booking SET cancellation_status = ?, cancellation_reason = ?, " +
+            "cancellation_requested_by = ?, cancellation_requested_at = NOW(), " +
+            "cancellation_reject_reason = NULL, refund_percentage = ? " +
+            "WHERE trip_booking_id = ?",
+            newCancelStatus, reason.trim(), requesterType, refundPercentage, bookingId
+        );
+
+        Long passengerId = toLong(booking.get("passenger_id"));
+        if ("user".equalsIgnoreCase(requesterType)) {
+            notifications.toAllAdmins(
+                NotificationType.CANCELLATION,
+                "Trip Booking Cancellation Requested: BK-" + bookingId,
+                "Passenger requested cancellation for trip booking BK-" + bookingId + " (" + booking.get("start_location") + " to " + booking.get("destination") + "). Reason: " + reason.trim() + ". Refund policy: " + refundPercentage + "%."
+            );
+        } else {
+            notifications.toPassenger(
+                passengerId,
+                NotificationType.CANCELLATION,
+                "Admin Requested Cancellation: BK-" + bookingId,
+                "TrackNGo Admin requested cancellation for trip booking BK-" + bookingId + ". Reason: " + reason.trim() + ". " + refundMessage
+            );
+        }
+
+        TripBooking entity = tripBookingRepository.findById(bookingId).orElseThrow();
+        return enrich(entity);
+    }
+
+    @Transactional
+    public TripBooking respondToCancellation(Long bookingId, String responderType, boolean accept, String rejectReason) {
+        if (rejectReason != null && rejectReason.trim().length() > MAX_CANCEL_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Reason must be " + MAX_CANCEL_REASON_LENGTH + " characters or fewer.");
+        }
+        Map<String, Object> booking = lockBookingRow(bookingId);
+        if (booking == null) {
+            throw new IllegalArgumentException("Trip booking was not found.");
+        }
+        Long passengerId = toLong(booking.get("passenger_id"));
+
+        if (accept) {
+            jdbc.update(
+                "UPDATE trip_booking SET booking_status = 'cancelled', cancellation_status = 'accepted' " +
+                "WHERE trip_booking_id = ?",
+                bookingId
+            );
+            releaseBusDates(bookingId);
+
+            Integer refundPct = booking.get("refund_percentage") != null ? ((Number) booking.get("refund_percentage")).intValue() : 100;
+            String refundNotice = refundPct == 100
+                ? "Full refund will be redirected to the account within 10 working business days."
+                : "75% refund will be redirected to the account within 10 working business days.";
+
+            notifications.toPassenger(
+                passengerId,
+                NotificationType.CANCELLATION,
+                "Trip Booking Cancelled: BK-" + bookingId,
+                "Cancellation request for trip booking BK-" + bookingId + " has been accepted. " + refundNotice
+            );
+        } else {
+            String rejReason = (rejectReason != null && !rejectReason.isBlank()) ? rejectReason.trim() : "Cancellation request declined.";
+            jdbc.update(
+                "UPDATE trip_booking SET cancellation_status = 'rejected', cancellation_reject_reason = ? " +
+                "WHERE trip_booking_id = ?",
+                rejReason, bookingId
+            );
+
+            String requestedBy = (String) booking.get("cancellation_requested_by");
+            if ("user".equalsIgnoreCase(requestedBy)) {
+                notifications.toPassenger(
+                    passengerId,
+                    NotificationType.CANCELLATION,
+                    "Cancellation Request Rejected: BK-" + bookingId,
+                    "Your cancellation request for trip booking BK-" + bookingId + " was rejected by admin. Reason: " + rejReason
+                );
+            } else {
+                notifications.toAllAdmins(
+                    NotificationType.CANCELLATION,
+                    "Cancellation Declined by Passenger: BK-" + bookingId,
+                    "Passenger declined admin cancellation request for trip booking BK-" + bookingId + ". Reason: " + rejReason
+                );
+            }
+        }
+
+        TripBooking entity = tripBookingRepository.findById(bookingId).orElseThrow();
+        return enrich(entity);
+    }
+
+    public List<TripBusResponse> getAvailableBuses(
+            int passengerCount, String requirement, LocalDate startDate, LocalDate returnDate, Long bookingId) {
         if (passengerCount < 1) throw new IllegalArgumentException("Passenger count must be at least 1.");
+
+        LocalDate effectiveStart = startDate;
+        LocalDate effectiveEnd = returnDate;
+
+        if ((effectiveStart == null || effectiveEnd == null) && bookingId != null) {
+            List<Map<String, Object>> bookingRows = jdbc.queryForList(
+                    "SELECT start_date, return_date FROM trip_booking WHERE trip_booking_id = ?",
+                    bookingId
+            );
+            if (!bookingRows.isEmpty()) {
+                if (effectiveStart == null) effectiveStart = toLocalDate(bookingRows.get(0).get("start_date"));
+                if (effectiveEnd == null) effectiveEnd = toLocalDate(bookingRows.get(0).get("return_date"));
+            }
+        }
+
+        if (effectiveEnd == null) {
+            effectiveEnd = effectiveStart;
+        }
+
         StringBuilder sql = new StringBuilder("""
                 SELECT bus_id, bus_number, bus_brand, seat_capacity, amenities, status
                 FROM bus
@@ -276,6 +459,35 @@ public class TripBookingService {
             sql.append(" AND UPPER(amenities) LIKE '%AC%' ");
         } else if (preference.nonAirConditioned()) {
             sql.append(" AND UPPER(amenities) NOT LIKE '%AC%' ");
+        }
+
+        if (effectiveStart != null && effectiveEnd != null) {
+            sql.append("""
+                  AND bus_id NOT IN (
+                      SELECT DISTINCT r.bus_id
+                      FROM trip_bus_reservation r
+                      INNER JOIN trip_booking b ON b.trip_booking_id = r.trip_booking_id
+                      WHERE r.reserved_date BETWEEN ? AND ?
+                        AND (? IS NULL OR r.trip_booking_id <> ?)
+                        AND b.booking_status IN ('pending', 'approved', 'confirmed', 'in_progress')
+                  )
+                  AND bus_id NOT IN (
+                      SELECT DISTINCT b.bus_id
+                      FROM trip_booking b
+                      WHERE b.bus_id IS NOT NULL
+                        AND (? IS NULL OR b.trip_booking_id <> ?)
+                        AND b.booking_status IN ('pending', 'approved', 'confirmed', 'in_progress')
+                        AND b.start_date <= ? AND COALESCE(b.return_date, b.start_date) >= ?
+                  )
+            """);
+            params.add(effectiveStart);
+            params.add(effectiveEnd);
+            params.add(bookingId);
+            params.add(bookingId);
+            params.add(bookingId);
+            params.add(bookingId);
+            params.add(effectiveEnd);
+            params.add(effectiveStart);
         }
 
         return jdbc.queryForList(sql.toString(), params.toArray()).stream().map(row -> new TripBusResponse(
@@ -365,11 +577,16 @@ public class TripBookingService {
                 || request.destination() == null || request.destination().isBlank()) {
             throw new IllegalArgumentException("Pickup and destination are required.");
         }
-        if (request.startDate() == null || request.startDate().isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("Departure date must be today or later.");
+        LocalDate minStartDate = LocalDate.now().plusDays(2);
+        if (request.startDate() == null || request.startDate().isBefore(minStartDate)) {
+            throw new IllegalArgumentException("Departure date must be at least 2 days from today.");
         }
         if (request.returnDate() == null || request.returnDate().isBefore(request.startDate())) {
             throw new IllegalArgumentException("Return date cannot be before departure.");
+        }
+        if (ChronoUnit.DAYS.between(request.startDate(), request.returnDate()) > MAX_TRIP_DURATION_DAYS) {
+            throw new IllegalArgumentException(
+                    "Trip duration cannot exceed " + MAX_TRIP_DURATION_DAYS + " days.");
         }
         if (request.passengerCount() == null || request.passengerCount() < 1 || request.passengerCount() > 100) {
             throw new IllegalArgumentException("Passenger count must be between 1 and 100.");
@@ -468,16 +685,19 @@ public class TripBookingService {
     private Long findConflictingTripBooking(Long busId, Long bookingId, LocalDate startDate, LocalDate returnDate) {
         LocalDate endDate = returnDate == null ? startDate : returnDate;
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT r.trip_booking_id
-                FROM trip_bus_reservation r
-                INNER JOIN trip_booking b ON b.trip_booking_id = r.trip_booking_id
-                WHERE r.bus_id = ?
-                  AND r.reserved_date BETWEEN ? AND ?
-                  AND r.trip_booking_id <> ?
+                SELECT b.trip_booking_id
+                FROM trip_booking b
+                LEFT JOIN trip_bus_reservation r ON r.trip_booking_id = b.trip_booking_id
+                WHERE (r.bus_id = ? OR b.bus_id = ?)
+                  AND (
+                    (r.reserved_date BETWEEN ? AND ?)
+                    OR (b.start_date <= ? AND COALESCE(b.return_date, b.start_date) >= ?)
+                  )
+                  AND (? IS NULL OR b.trip_booking_id <> ?)
                   AND b.booking_status IN ('pending', 'approved', 'confirmed', 'in_progress')
-                ORDER BY r.reserved_date, r.trip_booking_id
+                ORDER BY b.trip_booking_id
                 LIMIT 1
-                """, busId, startDate, endDate, bookingId);
+                """, busId, busId, startDate, endDate, endDate, startDate, bookingId, bookingId);
         return rows.isEmpty() ? null : ((Number) rows.get(0).get("trip_booking_id")).longValue();
     }
 

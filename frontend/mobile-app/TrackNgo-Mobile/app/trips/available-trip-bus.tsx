@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { getBusImage } from "../../utils/busImage";
 import { LocalizedText as Text } from "../../utils/i18n";
 import { assignTripBus, getAvailableTripBuses, TripBus } from "../../services/tripBookingsApi";
+import { extractApiMessage } from "../../services/http";
 
 export default function AvailableTripBus() {
   const router = useRouter();
@@ -18,9 +19,20 @@ export default function AvailableTripBus() {
   const fetchBuses = async () => {
     try {
       setLoading(true);
-      setBuses(await getAvailableTripBuses(Number(trip.passengers || 1), String(trip.selectedRequirement || "")));
+      const startDate = trip.depart || trip.startDate;
+      const returnDate = trip.returnDate;
+      const bookingId = trip.bookingId ? Number(trip.bookingId) : undefined;
+      setBuses(
+        await getAvailableTripBuses(
+          Number(trip.passengers || 1),
+          String(trip.selectedRequirement || ""),
+          startDate,
+          returnDate,
+          bookingId,
+        )
+      );
     } catch (error: any) {
-      Alert.alert("Connection Error", error?.message || "Could not load available buses.");
+      Alert.alert("Connection Error", extractApiMessage(error, "Could not load available buses."));
     } finally {
       setLoading(false);
     }
@@ -38,7 +50,8 @@ export default function AvailableTripBus() {
         params: { tripDetails: JSON.stringify({ ...trip, ...saved, bookingId: saved.id }) },
       });
     } catch (error: any) {
-      Alert.alert("Bus selection failed", error?.message || "The selected bus is no longer available.");
+      Alert.alert("Bus Selection Failed", extractApiMessage(error, "This bus is no longer available. Please select another bus."));
+      void fetchBuses();
     } finally {
       setSelectingBusId(null);
     }

@@ -17,6 +17,11 @@ public record AdminBookingDto(
         BigDecimal amount,
         String paymentStatus,
         String status,
-        String category
+        String category,
+        String cancellationStatus,
+        String cancellationReason,
+        String cancellationRequestedBy,
+        String cancellationRejectReason,
+        Integer refundPercentage
 ) {
 }

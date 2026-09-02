@@ -56,6 +56,20 @@ public class AdminBusController {
         return ApiResponse.ok("Seat layout saved", null);
     }
 
+    @GetMapping("/{busId}/revenue")
+    public ApiResponse<BusRevenueSummary> getRevenue(
+            @PathVariable Long busId,
+            @RequestParam(defaultValue = "30") int days) {
+        return ApiResponse.ok("Bus revenue", service.getRevenue(busId, days));
+    }
+
+    @GetMapping("/{busId}/upcoming-bookings")
+    public ApiResponse<List<BusDepartureBookings>> getUpcomingBookings(
+            @PathVariable Long busId,
+            @RequestParam(defaultValue = "4") int days) {
+        return ApiResponse.ok("Upcoming bookings", service.getUpcomingBookings(busId, days));
+    }
+
     @GetMapping("/options/drivers")
     public ApiResponse<List<DriverOption>> getDriverOptions() {
         return ApiResponse.ok("Drivers", service.getDriverOptions());

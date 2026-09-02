@@ -8,6 +8,7 @@ import {
   faChevronLeft,
   faChevronRight,
   faCircleCheck,
+  faComments,
   faDownload,
   faEllipsisVertical,
   faIdCard,
@@ -25,6 +26,7 @@ import {
   type AdminDriverAssignment,
   type AdminDriverEarningsResponse,
 } from '../../services/driverService'
+import { getAdminChatPath } from '../../utils/adminChatNavigation'
 
 type Role = 'Passenger' | 'Driver' | 'Corporate' | 'Unknown'
 type Status = 'Active' | 'Suspended' | 'Inactive' | 'Pending' | 'On Leave' | 'Unknown'
@@ -271,6 +273,9 @@ function Users() {
         setEarningsError(requestError instanceof Error ? requestError.message : 'Could not load driver earnings.')
       })
       .finally(() => setEarningsLoading(false))
+  const openUserChat = (user: UserRecord) => {
+    const path = getAdminChatPath(user.uid, user.role)
+    if (path) navigate(path)
   }
 
   return (
@@ -319,7 +324,7 @@ function Users() {
               {!loading && error && <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-[#dc2626]">{error}</td></tr>}
               {!loading && !error && visibleUsers.length === 0 && <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-[#64748b]">No users match the selected filters.</td></tr>}
               {!loading && !error && visibleUsers.map((user) => (
-                <tr key={user.uid} className="border-b border-[#e5e7eb] bg-white text-sm transition hover:bg-[#f8fafc]"><td className="py-3 pl-5 pr-4"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dbeafe] text-xs font-semibold text-[#1e3a8a]">{user.avatar}</div><div><p className="font-semibold text-[#111827]">{user.name}{user.verified ? <span className="ml-2 text-[#2563eb]" title="Email verified">✓</span> : null}</p><p className="text-xs text-[#64748b]">ID: {user.idTag}</p></div></div></td><td className="px-4 py-3"><p className="text-[#334155]">{user.email}</p><p className="text-xs text-[#64748b]">{user.phone}</p></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${roleBadgeClass(user.role)}`}>{user.role}</span></td><td className="px-4 py-3"><span className="inline-flex items-center gap-2 text-[#334155]"><span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(user.status)}`} />{user.status}</span></td><td className="px-4 py-3 text-[#334155]">{formatDate(user.joinedAt)}</td><td className="px-4 py-3 text-right text-[#94a3b8]"><button type="button" onClick={(event) => { event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect(); setActionMenu((current) => current?.userId === user.uid ? null : { userId: user.uid, top: rect.bottom + 6, right: Math.max(12, window.innerWidth - rect.right) }) }} className="rounded p-2 hover:bg-[#eef2f8]" aria-label={`Actions for ${user.name}`} aria-expanded={actionMenu?.userId === user.uid}><FontAwesomeIcon icon={faEllipsisVertical} /></button></td></tr>
+                <tr key={user.uid} className="border-b border-[#e5e7eb] bg-white text-sm transition hover:bg-[#f8fafc]"><td className="py-3 pl-5 pr-4"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-full bg-[#dbeafe] text-xs font-semibold text-[#1e3a8a]">{user.avatar}</div><div><p className="font-semibold text-[#111827]">{user.name}{user.verified ? <span className="ml-2 text-[#2563eb]" title="Email verified">✓</span> : null}</p><div className="mt-1 flex flex-wrap items-center gap-2"><p className="text-xs text-[#64748b]">ID: {user.idTag}</p>{getAdminChatPath(user.uid, user.role) ? <button type="button" onClick={() => openUserChat(user)} className="inline-flex items-center gap-1 rounded-md border border-[#d6dbe6] bg-white px-2 py-1 text-xs font-semibold text-[#2642a6] transition hover:bg-[#eef2ff]" aria-label={`Chat with ${user.name}`}><FontAwesomeIcon icon={faComments} className="text-[10px]" />Chat</button> : null}</div></div></div></td><td className="px-4 py-3"><p className="text-[#334155]">{user.email}</p><p className="text-xs text-[#64748b]">{user.phone}</p></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${roleBadgeClass(user.role)}`}>{user.role}</span></td><td className="px-4 py-3"><span className="inline-flex items-center gap-2 text-[#334155]"><span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(user.status)}`} />{user.status}</span></td><td className="px-4 py-3 text-[#334155]">{formatDate(user.joinedAt)}</td><td className="px-4 py-3 text-right text-[#94a3b8]"><button type="button" onClick={(event) => { event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect(); setActionMenu((current) => current?.userId === user.uid ? null : { userId: user.uid, top: rect.bottom + 6, right: Math.max(12, window.innerWidth - rect.right) }) }} className="rounded p-2 hover:bg-[#eef2f8]" aria-label={`Actions for ${user.name}`} aria-expanded={actionMenu?.userId === user.uid}><FontAwesomeIcon icon={faEllipsisVertical} /></button></td></tr>
               ))}
             </tbody>
           </table>

@@ -202,6 +202,27 @@ const formatStopPriorityLabel = (index: number) => {
   return `${position}th stop`
 }
 
+const ROUTES_PER_PAGE = 10
+
+/**
+ * Builds the page buttons to render, collapsing long runs with an ellipsis so the
+ * control stays a fixed width. `null` marks a gap. Always keeps the first and last
+ * page reachable plus the pages either side of the current one.
+ */
+const buildPageNumbers = (current: number, total: number): (number | null)[] => {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, index) => index + 1)
+  }
+
+  const pages = new Set([1, total, current, current - 1, current + 1])
+  const visible = [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b)
+
+  return visible.flatMap((page, index) => {
+    const previous = visible[index - 1]
+    return previous !== undefined && page - previous > 1 ? [null, page] : [page]
+  })
+}
+
 function SummaryCard({
   icon,
   iconWrap,
@@ -244,6 +265,7 @@ function Routes() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingRouteId, setEditingRouteId] = useState<number | null>(null)
   const [routePendingDelete, setRoutePendingDelete] = useState<RouteRow | null>(null)
+  const [page, setPage] = useState(1)
   const [routeStopsPreview, setRouteStopsPreview] = useState<RouteRow | null>(null)
   const [mapPreviewRoute, setMapPreviewRoute] = useState<RouteRow | null>(null)
   const [createRouteError, setCreateRouteError] = useState('')
@@ -316,6 +338,21 @@ function Routes() {
       }),
     [routesData, searchTerm, statusFilter, busTypeFilter],
   )
+
+  // Page is clamped rather than reset so deleting the last row of the final page
+  // falls back to the previous page instead of jumping the admin to the start.
+  const pageCount = Math.max(1, Math.ceil(filteredRoutes.length / ROUTES_PER_PAGE))
+  const currentPage = Math.min(page, pageCount)
+
+  const paginatedRoutes = useMemo(() => {
+    const start = (currentPage - 1) * ROUTES_PER_PAGE
+    return filteredRoutes.slice(start, start + ROUTES_PER_PAGE)
+  }, [filteredRoutes, currentPage])
+
+  const pageNumbers = useMemo(() => buildPageNumbers(currentPage, pageCount), [currentPage, pageCount])
+
+  const rangeStart = filteredRoutes.length === 0 ? 0 : (currentPage - 1) * ROUTES_PER_PAGE + 1
+  const rangeEnd = Math.min(currentPage * ROUTES_PER_PAGE, filteredRoutes.length)
 
   const totalRoutes = routesData.length
   const activeRoutes = routesData.filter((route) => route.status === 'Active').length
@@ -509,7 +546,10 @@ function Routes() {
                 <input
                   type="text"
                   value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value)
+                    setPage(1)
+                  }}
                   placeholder="Search by name, code..."
                   className="w-full rounded-lg border border-[#d6dbe6] bg-white py-2.5 pl-9 pr-3 text-sm text-[#334155] outline-none transition focus:border-[#2642a6] focus:ring-1 focus:ring-[#2642a6]"
                 />
@@ -518,7 +558,10 @@ function Routes() {
               <div className="relative">
                 <select
                   value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'inactive')}
+                  onChange={(event) => {
+                    setStatusFilter(event.target.value as 'all' | 'active' | 'inactive')
+                    setPage(1)
+                  }}
                   className="appearance-none rounded-lg border border-[#d6dbe6] bg-white py-2.5 pl-3 pr-8 text-sm font-medium text-[#334155] outline-none transition focus:border-[#2642a6]"
                 >
                   <option value="all">Status: All</option>
@@ -534,7 +577,10 @@ function Routes() {
               <div className="relative">
                 <select
                   value={busTypeFilter}
-                  onChange={(event) => setBusTypeFilter(event.target.value as 'all' | 'high-way' | 'long-distance')}
+                  onChange={(event) => {
+                    setBusTypeFilter(event.target.value as 'all' | 'high-way' | 'long-distance')
+                    setPage(1)
+                  }}
                   className="appearance-none rounded-lg border border-[#d6dbe6] bg-white py-2.5 pl-3 pr-8 text-sm font-medium text-[#334155] outline-none transition focus:border-[#2642a6]"
                 >
                   <option value="all">Bus Type: All</option>
@@ -581,7 +627,7 @@ function Routes() {
                         </td>
                       </tr>
                     ) : (
-                      filteredRoutes.map((route) => (
+                      paginatedRoutes.map((route) => (
                         <tr
                           key={route.id ?? route.code}
                           className="border-b border-[#e5e7eb] text-[#111827] transition duration-200 hover:bg-[#f2f5fd]"
@@ -676,28 +722,64 @@ function Routes() {
               <div className="flex items-center justify-between border-t border-[#e5e7eb] px-4 py-3 text-sm text-[#64748b]">
                 <p>
                   Showing{' '}
-                  <span className="rounded-lg border border-[#d6dbe6] bg-[#f7f9fd] px-2 py-1 font-semibold text-[#334155]">{filteredRoutes.length}</span>{' '}
-                  of <span className="font-semibold text-[#334155]">{routesData.length} routes</span>
+                  <span className="rounded-lg border border-[#d6dbe6] bg-[#f7f9fd] px-2 py-1 font-semibold text-[#334155]">
+                    {rangeStart}-{rangeEnd}
+                  </span>{' '}
+                  of <span className="font-semibold text-[#334155]">{filteredRoutes.length} routes</span>
+                  {filteredRoutes.length !== routesData.length ? (
+                    <span className="text-[#94a3b8]"> (filtered from {routesData.length})</span>
+                  ) : null}
                 </p>
 
-                <div className="flex items-center gap-4">
-                  <button type="button" aria-label="Previous page" className="text-[#64748b] hover:text-[#2642a6]">
-                    <FontAwesomeIcon icon={faChevronLeft} />
-                  </button>
-                  <button
-                    type="button"
-                    className="grid h-8 w-8 place-items-center rounded-md bg-[#2642a6] text-sm font-semibold text-white"
-                  >
-                    1
-                  </button>
-                  <button type="button" className="text-sm font-semibold text-[#64748b] hover:text-[#111827]">2</button>
-                  <button type="button" className="text-sm font-semibold text-[#64748b] hover:text-[#111827]">3</button>
-                  <span>...</span>
-                  <button type="button" className="text-sm font-semibold text-[#64748b] hover:text-[#111827]">15</button>
-                  <button type="button" aria-label="Next page" className="text-[#64748b] hover:text-[#2642a6]">
-                    <FontAwesomeIcon icon={faChevronRight} />
-                  </button>
-                </div>
+                {pageCount > 1 ? (
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      aria-label="Previous page"
+                      disabled={currentPage === 1}
+                      onClick={() => setPage(currentPage - 1)}
+                      className="text-[#64748b] transition duration-200 hover:text-[#2642a6] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#64748b]"
+                    >
+                      <FontAwesomeIcon icon={faChevronLeft} />
+                    </button>
+
+                    {pageNumbers.map((pageNumber, index) =>
+                      pageNumber === null ? (
+                        <span key={`gap-${index}`}>...</span>
+                      ) : pageNumber === currentPage ? (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          aria-current="page"
+                          aria-label={`Page ${pageNumber}`}
+                          className="grid h-8 w-8 place-items-center rounded-md bg-[#2642a6] text-sm font-semibold text-white"
+                        >
+                          {pageNumber}
+                        </button>
+                      ) : (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          aria-label={`Go to page ${pageNumber}`}
+                          onClick={() => setPage(pageNumber)}
+                          className="text-sm font-semibold text-[#64748b] transition duration-200 hover:text-[#111827]"
+                        >
+                          {pageNumber}
+                        </button>
+                      ),
+                    )}
+
+                    <button
+                      type="button"
+                      aria-label="Next page"
+                      disabled={currentPage === pageCount}
+                      onClick={() => setPage(currentPage + 1)}
+                      className="text-[#64748b] transition duration-200 hover:text-[#2642a6] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#64748b]"
+                    >
+                      <FontAwesomeIcon icon={faChevronRight} />
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </section>
           </div>

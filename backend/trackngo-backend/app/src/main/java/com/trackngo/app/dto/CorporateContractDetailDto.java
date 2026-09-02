@@ -26,6 +26,8 @@ public record CorporateContractDetailDto(
         Integer employeeCount,
         String workingDays,
         String busType,
+        /** Independent of busType (size) — a bus of either size can also have AC. */
+        Boolean isAc,
         BigDecimal distanceKm,
         String status,
         String finalizedAt,
@@ -50,7 +52,11 @@ public record CorporateContractDetailDto(
         String advanceTransactionId,
         BigDecimal originalBillingAmount,
         BigDecimal discountAmount,
+        BigDecimal carriedBalance,
+        Long renewedFromContractId,
         String adminNote,
-        ContractCancellationDto cancellation
+        ContractCancellationDto cancellation,
+        /** "none", "requested", "approved" or "declined" — the corporate client's ask to renew this contract. */
+        String renewalRequestStatus
 ) {
 }

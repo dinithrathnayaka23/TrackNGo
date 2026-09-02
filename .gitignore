@@ -27,6 +27,11 @@ coverage/
 !.env.example
 !**/.env.example
 
+# Locally-stored uploads (profile pictures, chat media) — see
+# backend LocalFileStorageService. Never committed; ephemeral on disk only.
+uploads/
+**/uploads/
+
 # Logs
 logs/
 *.log

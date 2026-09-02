@@ -2,30 +2,25 @@ package com.trackngo.chat.internal.controller;
 
 import com.trackngo.chat.api.dto.MediaUploadResponseDto;
 import com.trackngo.commons.exception.BusinessException;
-import org.springframework.beans.factory.annotation.Value;
+import com.trackngo.commons.storage.FileStorageService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 /**
- * REST controller for handling chat media file uploads.
- * Files are stored locally and served via the static resource path.
+ * REST controller for handling chat media file uploads. Storage is delegated
+ * to {@link FileStorageService} so this controller doesn't need to change
+ * when the storage backend does.
  */
 @RestController
 @RequestMapping("/api/media")
+@RequiredArgsConstructor
 public class MediaController {
 
-    private final Path uploadDir;
-
-    public MediaController(
-            @Value("${trackngo.chat.media.upload-dir:uploads}") String uploadDir) {
-        this.uploadDir = Path.of(uploadDir);
-    }
+    private final FileStorageService fileStorageService;
 
     /**
      * Uploads a media file (image, audio, etc.) and returns the access URL.
@@ -34,7 +29,7 @@ public class MediaController {
      * @param file       the multipart file to upload
      * @param compressed whether this is a compressed variant of the original
      * @return upload metadata including the serving URL
-     * @throws IOException if the file cannot be written to disk
+     * @throws IOException if the file cannot be read
      */
     @PostMapping(value = "/upload", consumes = "multipart/form-data")
     public MediaUploadResponseDto uploadMedia(
@@ -44,8 +39,6 @@ public class MediaController {
         if (file.isEmpty()) {
             throw new BusinessException("File must not be empty");
         }
-
-        Files.createDirectories(uploadDir);
 
         String originalName = file.getOriginalFilename() != null
                 ? file.getOriginalFilename() : "media.bin";
@@ -57,12 +50,11 @@ public class MediaController {
 
         String suffix = compressed ? "-compressed" : "";
         String safeName = UUID.randomUUID() + suffix + extension;
-        Path target = uploadDir.resolve(safeName);
-        Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+        String mediaUrl = fileStorageService.store(file.getBytes(), safeName);
 
         return MediaUploadResponseDto.builder()
                 .fileName(safeName)
-                .mediaUrl("/uploads/" + safeName)
+                .mediaUrl(mediaUrl)
                 .mimeType(file.getContentType())
                 .sizeBytes(file.getSize())
                 .build();

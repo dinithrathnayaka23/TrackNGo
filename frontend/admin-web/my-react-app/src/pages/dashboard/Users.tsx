@@ -11,10 +11,21 @@ import {
   faComments,
   faDownload,
   faEllipsisVertical,
+  faIdCard,
   faMagnifyingGlass,
+  faSackDollar,
   faSpinner,
+  faXmark,
 } from '@fortawesome/free-solid-svg-icons'
 import { fetchAdminUsers, updateAdminUserStatus, type AdminUser, type AdminUserStatus } from '../../services/userService'
+import {
+  fetchAdminDriver,
+  fetchAdminDriverAssignment,
+  fetchAdminDriverEarnings,
+  type AdminDriver,
+  type AdminDriverAssignment,
+  type AdminDriverEarningsResponse,
+} from '../../services/driverService'
 import { getAdminChatPath } from '../../utils/adminChatNavigation'
 
 type Role = 'Passenger' | 'Driver' | 'Corporate' | 'Unknown'
@@ -127,6 +138,15 @@ function Users() {
   const [actionMenu, setActionMenu] = useState<{ userId: string; top: number; right: number } | null>(null)
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [statusActionError, setStatusActionError] = useState<string | null>(null)
+  const [earningsUser, setEarningsUser] = useState<UserRecord | null>(null)
+  const [earnings, setEarnings] = useState<AdminDriverEarningsResponse | null>(null)
+  const [earningsLoading, setEarningsLoading] = useState(false)
+  const [earningsError, setEarningsError] = useState<string | null>(null)
+  const [detailsUser, setDetailsUser] = useState<UserRecord | null>(null)
+  const [driverDetails, setDriverDetails] = useState<AdminDriver | null>(null)
+  const [driverAssignment, setDriverAssignment] = useState<AdminDriverAssignment | null>(null)
+  const [detailsLoading, setDetailsLoading] = useState(false)
+  const [detailsError, setDetailsError] = useState<string | null>(null)
   const pageSize = 50
 
   useEffect(() => {
@@ -213,6 +233,48 @@ function Users() {
     }
   }
 
+  const viewDriverDetails = (user: UserRecord) => {
+    const driverId = Number(user.uid)
+    setActionMenu(null)
+    setDetailsUser(user)
+    setDriverDetails(null)
+    setDriverAssignment(null)
+    setDetailsError(null)
+    if (!Number.isInteger(driverId)) {
+      setDetailsError('This driver does not have a valid account ID.')
+      return
+    }
+    setDetailsLoading(true)
+    Promise.all([fetchAdminDriver(driverId), fetchAdminDriverAssignment(driverId)])
+      .then(([driver, assignment]) => {
+        setDriverDetails(driver)
+        setDriverAssignment(assignment)
+      })
+      .catch((requestError) => {
+        setDetailsError(requestError instanceof Error ? requestError.message : 'Could not load driver details.')
+      })
+      .finally(() => setDetailsLoading(false))
+  }
+
+  const viewDriverEarnings = (user: UserRecord) => {
+    const driverId = Number(user.uid)
+    setActionMenu(null)
+    setEarningsUser(user)
+    setEarnings(null)
+    setEarningsError(null)
+    if (!Number.isInteger(driverId)) {
+      setEarningsError('This driver does not have a valid account ID.')
+      return
+    }
+    setEarningsLoading(true)
+    fetchAdminDriverEarnings(driverId)
+      .then(setEarnings)
+      .catch((requestError) => {
+        setEarningsError(requestError instanceof Error ? requestError.message : 'Could not load driver earnings.')
+      })
+      .finally(() => setEarningsLoading(false))
+  }
+
   const openUserChat = (user: UserRecord) => {
     const path = getAdminChatPath(user.uid, user.role)
     if (path) navigate(path)
@@ -278,6 +340,19 @@ function Users() {
         const nextStatus: AdminUserStatus = actionUser.status === 'Active' ? 'suspended' : 'active'
         const isUpdating = updatingUserId === actionUser.uid
         return <div className="fixed z-50 w-56 overflow-hidden rounded-xl border border-[#d6dbe6] bg-white p-1.5 shadow-xl" style={{ top: actionMenu.top, right: actionMenu.right }} onPointerDown={(event) => event.stopPropagation()}>
+          {actionUser.role === 'Driver' ? (
+            <>
+              <p className="px-3 pb-1.5 pt-2 text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">Driver</p>
+              <button type="button" onClick={() => viewDriverDetails(actionUser)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-[#334155] hover:bg-[#f1f5f9]">
+                <FontAwesomeIcon icon={faIdCard} className="w-4" />
+                View driver details
+              </button>
+              <button type="button" onClick={() => viewDriverEarnings(actionUser)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-[#334155] hover:bg-[#f1f5f9]">
+                <FontAwesomeIcon icon={faSackDollar} className="w-4" />
+                View earnings
+              </button>
+            </>
+          ) : null}
           <p className="px-3 pb-1.5 pt-2 text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">Account status</p>
           <button type="button" disabled={isUpdating} onClick={() => void changeUserStatus(actionUser, nextStatus)} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold disabled:cursor-wait disabled:opacity-60 ${nextStatus === 'suspended' ? 'text-[#b91c1c] hover:bg-red-50' : 'text-[#047857] hover:bg-emerald-50'}`}>
             <FontAwesomeIcon icon={nextStatus === 'suspended' ? faBan : faCircleCheck} className="w-4" />
@@ -285,8 +360,122 @@ function Users() {
           </button>
         </div>
       })() : null}
+
+      {earningsUser ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setEarningsUser(null)}>
+          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-[#111827]">{earningsUser.name}&apos;s earnings</h2>
+                <p className="text-xs text-[#64748b]">ID: {earningsUser.idTag}</p>
+              </div>
+              <button type="button" onClick={() => setEarningsUser(null)} className="rounded p-2 text-[#64748b] hover:bg-[#f1f5f9]" aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
+            </div>
+
+            {earningsLoading ? <p className="mt-6 text-center text-sm text-[#64748b]"><FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />Loading earnings...</p> : null}
+            {!earningsLoading && earningsError ? <p className="mt-6 text-center text-sm text-[#dc2626]">{earningsError}</p> : null}
+
+            {!earningsLoading && !earningsError && earnings ? (
+              <>
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-xl bg-[#f0fdf4] p-3"><p className="text-xs font-semibold text-[#166534]">Total</p><p className="mt-1 text-sm font-bold text-[#111827]">LKR {earnings.totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p></div>
+                  <div className="rounded-xl bg-[#eff6ff] p-3"><p className="text-xs font-semibold text-[#1d4ed8]">This month</p><p className="mt-1 text-sm font-bold text-[#111827]">LKR {earnings.monthlyEarnings.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p></div>
+                  <div className="rounded-xl bg-[#fefce8] p-3"><p className="text-xs font-semibold text-[#a16207]">This week</p><p className="mt-1 text-sm font-bold text-[#111827]">LKR {earnings.weeklyEarnings.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p></div>
+                  <div className="rounded-xl bg-[#f5f3ff] p-3"><p className="text-xs font-semibold text-[#6d28d9]">Vs last week</p><p className={`mt-1 text-sm font-bold ${earnings.percentageChange < 0 ? 'text-[#b91c1c]' : 'text-[#047857]'}`}>{earnings.percentageChange > 0 ? '+' : ''}{earnings.percentageChange.toFixed(1)}%</p></div>
+                </div>
+
+                <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">Recent trips</p>
+                {earnings.earnings.length === 0 ? (
+                  <p className="mt-2 text-sm text-[#64748b]">No completed, paid trips yet.</p>
+                ) : (
+                  <div className="mt-2 divide-y divide-[#e5e7eb] overflow-hidden rounded-xl border border-[#e5e7eb]">
+                    {earnings.earnings.slice(0, 10).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between px-3 py-2.5 text-sm">
+                        <div>
+                          <p className="font-semibold text-[#111827]">{item.route}</p>
+                          <p className="text-xs text-[#64748b]">{item.bookingReference} · {item.date}</p>
+                        </div>
+                        <p className="font-semibold text-[#047857]">LKR {item.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {detailsUser ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setDetailsUser(null)}>
+          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-[#111827]">{detailsUser.name}&apos;s details</h2>
+                <p className="text-xs text-[#64748b]">ID: {detailsUser.idTag}</p>
+              </div>
+              <button type="button" onClick={() => setDetailsUser(null)} className="rounded p-2 text-[#64748b] hover:bg-[#f1f5f9]" aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
+            </div>
+
+            {detailsLoading ? <p className="mt-6 text-center text-sm text-[#64748b]"><FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />Loading driver details...</p> : null}
+            {!detailsLoading && detailsError ? <p className="mt-6 text-center text-sm text-[#dc2626]">{detailsError}</p> : null}
+
+            {!detailsLoading && !detailsError && driverDetails ? (
+              <>
+                <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">Professional details</p>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  <DetailField label="License number" value={driverDetails.licenseNumber} />
+                  <DetailField label="License expiry" value={formatDate(driverDetails.licenceExpiry)} />
+                  <DetailField label="Years of experience" value={String(driverDetails.yearsOfExperience)} />
+                  <DetailField label="Average rating" value={`${driverDetails.averageRating.toFixed(1)} / 5`} />
+                  <DetailField label="Completed trips" value={String(driverDetails.driverTrips)} />
+                  <DetailField label="Joined" value={formatDate(driverDetails.joinedDate)} />
+                  <DetailField label="Bank" value={driverDetails.bankName || '—'} />
+                  <DetailField label="Account number" value={driverDetails.accountNumber || '—'} />
+                  <DetailField label="Email verified" value={driverDetails.isVerified ? 'Yes' : 'No'} />
+                  <DetailField label="Phone verified" value={driverDetails.isPhoneVerified ? 'Yes' : 'No'} />
+                </div>
+
+                <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-[#94a3b8]">Current assignment</p>
+                {driverAssignment ? (
+                  <div className="mt-2 rounded-xl border border-[#e5e7eb] p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-[#111827]">{driverAssignment.busNumber} · {driverAssignment.busBrand || 'Unknown brand'}</p>
+                      <span className="rounded-full bg-[#eef2f8] px-2.5 py-0.5 text-xs font-bold capitalize text-[#334155]">{driverAssignment.status || 'unknown'}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-[#64748b]">{driverAssignment.routeName || 'No route assigned'} · {driverAssignment.registrationNumber}</p>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <DetailField label="Outbound" value={formatScheduleRange(driverAssignment.startTime, driverAssignment.endTime)} />
+                      <DetailField label="Return" value={formatScheduleRange(driverAssignment.returnStartTime, driverAssignment.returnEndTime)} />
+                      <DetailField label="Seat capacity" value={String(driverAssignment.seatCapacity)} />
+                      <DetailField label="Bus type" value={driverAssignment.busType || '—'} />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-[#64748b]">Not currently assigned to a bus.</p>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </section>
   )
+}
+
+function DetailField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-[#94a3b8]">{label}</p>
+      <p className="text-sm font-semibold text-[#111827]">{value || '—'}</p>
+    </div>
+  )
+}
+
+function formatScheduleRange(start: string | null, end: string | null) {
+  if (!start && !end) return 'Not scheduled'
+  const trim = (t: string) => t.slice(0, 5)
+  return `${start ? trim(start) : '—'} - ${end ? trim(end) : '—'}`
 }
 
 export default Users

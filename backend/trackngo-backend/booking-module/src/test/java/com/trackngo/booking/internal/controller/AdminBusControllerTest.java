@@ -157,7 +157,7 @@ class AdminBusControllerTest {
     @Test
     @DisplayName("GET /api/admin/buses/options/drivers: returns driver options")
     void getDriverOptions_returnsDrivers() throws Exception {
-        DriverOption option = new DriverOption(1L, "John Doe");
+        DriverOption option = new DriverOption(1L, "John Doe", null);
         when(service.getDriverOptions()).thenReturn(List.of(option));
 
         mockMvc.perform(get("/api/admin/buses/options/drivers"))

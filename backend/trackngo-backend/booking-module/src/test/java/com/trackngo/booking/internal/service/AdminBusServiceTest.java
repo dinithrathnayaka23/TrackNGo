@@ -112,6 +112,93 @@ class AdminBusServiceTest {
         verify(jdbc).update(anyString(), any(Object[].class));
     }
 
+    // ─── one driver, one bus ─────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("createBus: rejects a driver who is already assigned to another bus")
+    void createBus_driverAlreadyAssigned_throwsBusinessException() {
+        Map<String, Object> conflict = new HashMap<>();
+        conflict.put("bus_number", "NC-9999");
+        when(jdbc.queryForList(anyString(), eq(1L))).thenReturn(List.of(conflict));
+
+        SaveBusRequest req = new SaveBusRequest(
+                "NC-1234", "Toyota", 40, "highway", "good",
+                "active", List.of("ac"), "08:00", "12:00", "14:00", "18:00",
+                "REG-001", "2026-12-31", 1L, 2L
+        );
+
+        assertThatThrownBy(() -> service.createBus(req))
+                .isInstanceOf(com.trackngo.commons.exception.BusinessException.class)
+                .hasMessageContaining("NC-9999");
+        verify(jdbc, never()).update(any(org.springframework.jdbc.core.PreparedStatementCreator.class), any(KeyHolder.class));
+    }
+
+    @Test
+    @DisplayName("updateBus: rejects a driver who is already assigned to a different bus")
+    void updateBus_driverAlreadyAssignedToAnotherBus_throwsBusinessException() {
+        Map<String, Object> conflict = new HashMap<>();
+        conflict.put("bus_number", "NC-9999");
+        when(jdbc.queryForList(anyString(), eq(1L), eq(2L))).thenReturn(List.of(conflict));
+
+        SaveBusRequest req = new SaveBusRequest(
+                "NC-1234", "Toyota", 40, "highway", "good",
+                "active", List.of("ac"), "08:00", "12:00", "14:00", "18:00",
+                "REG-001", "2026-12-31", 1L, 2L
+        );
+
+        assertThatThrownBy(() -> service.updateBus(2L, req))
+                .isInstanceOf(com.trackngo.commons.exception.BusinessException.class)
+                .hasMessageContaining("NC-9999");
+        verify(jdbc, never()).queryForMap(anyString(), any(Object[].class));
+        verify(jdbc, never()).update(anyString(), any(Object[].class));
+    }
+
+    // ─── insurance expiry ────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("createBus: rejects an insurance expiry date of today")
+    void createBus_insuranceExpiresToday_throwsBusinessException() {
+        SaveBusRequest req = new SaveBusRequest(
+                "NC-1234", "Toyota", 40, "highway", "good",
+                "active", List.of("ac"), "08:00", "12:00", "14:00", "18:00",
+                "REG-001", java.time.LocalDate.now().toString(), null, 2L
+        );
+
+        assertThatThrownBy(() -> service.createBus(req))
+                .isInstanceOf(com.trackngo.commons.exception.BusinessException.class)
+                .hasMessageContaining("expired or expires today");
+        verify(jdbc, never()).update(any(org.springframework.jdbc.core.PreparedStatementCreator.class), any(KeyHolder.class));
+    }
+
+    @Test
+    @DisplayName("createBus: rejects an already-expired insurance date")
+    void createBus_insuranceAlreadyExpired_throwsBusinessException() {
+        SaveBusRequest req = new SaveBusRequest(
+                "NC-1234", "Toyota", 40, "highway", "good",
+                "active", List.of("ac"), "08:00", "12:00", "14:00", "18:00",
+                "REG-001", java.time.LocalDate.now().minusDays(1).toString(), null, 2L
+        );
+
+        assertThatThrownBy(() -> service.createBus(req))
+                .isInstanceOf(com.trackngo.commons.exception.BusinessException.class);
+        verify(jdbc, never()).update(any(org.springframework.jdbc.core.PreparedStatementCreator.class), any(KeyHolder.class));
+    }
+
+    @Test
+    @DisplayName("updateBus: rejects an already-expired insurance date")
+    void updateBus_insuranceAlreadyExpired_throwsBusinessException() {
+        SaveBusRequest req = new SaveBusRequest(
+                "NC-1234", "Toyota", 40, "highway", "good",
+                "active", List.of("ac"), "08:00", "12:00", "14:00", "18:00",
+                "REG-001", java.time.LocalDate.now().minusDays(1).toString(), null, 2L
+        );
+
+        assertThatThrownBy(() -> service.updateBus(1L, req))
+                .isInstanceOf(com.trackngo.commons.exception.BusinessException.class);
+        verify(jdbc, never()).queryForMap(anyString(), any(Object[].class));
+        verify(jdbc, never()).update(anyString(), any(Object[].class));
+    }
+
     // ─── deleteBus ────────────────────────────────────────────────────────────
 
     @Test
@@ -162,7 +249,7 @@ class AdminBusServiceTest {
     @SuppressWarnings("unchecked")
     void getDriverOptions_returnsDriverList() {
         when(jdbc.query(anyString(), any(RowMapper.class)))
-                .thenReturn(List.of(new DriverOption(1L, "John Doe")));
+                .thenReturn(List.of(new DriverOption(1L, "John Doe", null)));
 
         List<DriverOption> options = service.getDriverOptions();
         assertThat(options).hasSize(1);

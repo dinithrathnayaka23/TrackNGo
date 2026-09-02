@@ -43,6 +43,8 @@ interface SeatLayoutRow {
   lastRow: string[] | null;
 }
 
+type JourneyLeg = 'forward' | 'return';
+
 interface JourneyData {
   routeName: string;
   startLocation: string;
@@ -53,6 +55,8 @@ interface JourneyData {
   boardedCount: number;
   bookedCount: number;
   totalSeats: number;
+  leg: JourneyLeg;
+  hasReturnLeg: boolean;
 }
 
 interface PassengerDetails {
@@ -65,6 +69,36 @@ interface PassengerDetails {
   passengerId?: number;
   bookingReference?: string;
 }
+
+// Bus schedule times come back as "HH:mm" or "HH:mm:ss" - compare only the
+// HH:mm portion so trailing seconds never break the match.
+const toMinutes = (time?: string | null): number | null => {
+  if (!time) return null;
+  const [hours, minutes] = time.split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  return hours * 60 + minutes;
+};
+
+/**
+ * A round-trip bus runs its outbound leg (start_time) and return leg
+ * (return_start_time) on the same date, same bus, same route. Once the
+ * return departure time has passed, the driver is on that leg for the rest
+ * of the day, so the allocations screen should switch to its bookings.
+ */
+const resolveActiveLeg = (returnStartTime?: string | null): JourneyLeg => {
+  const returnMinutes = toMinutes(returnStartTime);
+  if (returnMinutes === null) return 'forward';
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  return nowMinutes >= returnMinutes ? 'return' : 'forward';
+};
+
+const isBookingOnLeg = (bookingJourneyTime: string | undefined, legDepartureTime?: string | null): boolean => {
+  const bookingMinutes = toMinutes(bookingJourneyTime);
+  const legMinutes = toMinutes(legDepartureTime);
+  if (bookingMinutes === null || legMinutes === null) return false;
+  return bookingMinutes === legMinutes;
+};
 
 export default function DriverSeatLayoutScreen() { //main component
   const router = useRouter();
@@ -162,6 +196,17 @@ export default function DriverSeatLayoutScreen() { //main component
       const blockedSeats = await seatBookingService.getBlockedSeats(assignment.busId, token);
       console.log('Blocked seats received:', blockedSeats);
 
+      // A round-trip bus runs an outbound leg and a return leg on the same
+      // date/bus - getBookedSeats returns both mixed together, so narrow
+      // down to whichever leg is currently in service before rendering.
+      const hasReturnLeg = !!assignment.returnStartTime;
+      const activeLeg = resolveActiveLeg(assignment.returnStartTime);
+      const activeDepartureTime = activeLeg === 'return' ? assignment.returnStartTime : assignment.startTime;
+      const legBookedSeats = hasReturnLeg
+        ? bookedSeats.filter((b) => !b.journeyTime || isBookingOnLeg(b.journeyTime, activeDepartureTime))
+        : bookedSeats;
+      console.log('Active leg:', activeLeg, 'Leg-filtered bookings:', legBookedSeats);
+
       // Get route details for start and end locations
       const NA = t('common.notAvailable');
       let startLocation = NA;
@@ -194,17 +239,22 @@ export default function DriverSeatLayoutScreen() { //main component
         }
       }
 
+      // The return leg travels the route in reverse.
+      if (activeLeg === 'return') {
+        [startLocation, endLocation] = [endLocation, startLocation];
+      }
+
       // Process and organize seat data, calling the func
       const processedSeats = processSeatData( // give parameters and convert to UI friendly format (booked seat with passenger details for each)
         seatLayout,
-        bookedSeats,
+        legBookedSeats,
         blockedSeats,
         assignment.seatCapacity
       );
 
       // Create booked seats map for quick lookup
       const bookedMap = new Map(); // Create a map to store booked seats and show passenger details when a seat is selected.
-      bookedSeats.forEach((booking: any) => {
+      legBookedSeats.forEach((booking: any) => {
         // Handle seat numbers that might be comma-separated
         const seatNumbers = booking.seatNumber.split(',').map((s: string) => s.trim()); // Split seat numbers into an array
         
@@ -235,12 +285,14 @@ export default function DriverSeatLayoutScreen() { //main component
         endLocation: endLocation,
         busNumber: assignment.busNumber,
         journeyDate: today,
-        journeyTime: (assignment as any).startTime || '08:00 AM',
+        journeyTime: activeDepartureTime || '08:00 AM',
         boardedCount: processedSeats.filter((s: Seat) => s.status === 'boarded').length, // Filter and count boarded seats
         bookedCount: processedSeats.filter(
           (s: Seat) => s.status === 'booked' || s.status === 'boarded'
         ).length, // Filter and count occupied seats
         totalSeats: processedSeats.length,
+        leg: activeLeg,
+        hasReturnLeg,
       };
 
       console.log('Journey data created:', journeyInfo);
@@ -617,6 +669,22 @@ export default function DriverSeatLayoutScreen() { //main component
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ flexGrow: 1 }}
       >
+        {/* Which leg of a round trip is currently in service */}
+        {journeyData?.hasReturnLeg ? (
+          <View style={styles.legBadgeRow}>
+            <View style={[styles.legBadge, journeyData.leg === 'return' && styles.legBadgeReturn]}>
+              <MaterialCommunityIcons
+                name={journeyData.leg === 'return' ? 'arrow-u-left-top' : 'arrow-right'}
+                size={14}
+                color="#FFF"
+              />
+              <Text style={styles.legBadgeText}>
+                {journeyData.leg === 'return' ? t('allocations.returnLeg') : t('allocations.outboundLeg')}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {/* Trip Details Section */}
         <View style={styles.tripDetailsSection}>
           <View style={styles.detailCard}>
@@ -901,6 +969,28 @@ function createStyles(theme: any, width: number) {
     fontSize: 11,
     color: theme.secondaryText,
     fontWeight: "500",
+  },
+  legBadgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingTop: 12,
+  },
+  legBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+  },
+  legBadgeReturn: {
+    backgroundColor: '#7C3AED',
+  },
+  legBadgeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: "700",
   },
   tripDetailsSection: {
     flexDirection: 'row',

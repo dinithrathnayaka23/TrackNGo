@@ -99,6 +99,7 @@ export interface Translations {
     logoutConfirmMessage: string;
     permissionRequiredTitle: string;
     permissionRequiredMessage: string;
+    photoUploadFailed: string;
     loginRequiredTitle: string;
     loginRequiredMessage: string;
     uploadFailedTitle: string;
@@ -216,6 +217,8 @@ export interface Translations {
     cameraPermissionMessage: string;
     grantPermission: string;
     scanAgain: string;
+    outboundLeg: string;
+    returnLeg: string;
   };
   sos: {
     title: string;
@@ -348,6 +351,7 @@ export const TRANSLATION_KEYS = [
   "settings.logoutConfirmMessage",
   "settings.permissionRequiredTitle",
   "settings.permissionRequiredMessage",
+  "settings.photoUploadFailed",
   "settings.loginRequiredTitle",
   "settings.loginRequiredMessage",
   "settings.uploadFailedTitle",
@@ -459,6 +463,8 @@ export const TRANSLATION_KEYS = [
   "allocations.cameraPermissionMessage",
   "allocations.grantPermission",
   "allocations.scanAgain",
+  "allocations.outboundLeg",
+  "allocations.returnLeg",
   "sos.title",
   "sos.settingsSection",
   "sos.settingsRow",

@@ -24,6 +24,8 @@ import { LANGUAGE_CODES, LANGUAGE_NAMES } from '@/locales';
 import { formatDate, isLicenseExpired } from '@/utils/dateFormatter'; // Import utility functions for date formatting and license expiry checking
 import { resolveAssetUrl } from '@/utils/media';
 import { getEmailTwoFactorStatus, setEmailTwoFactorEnabled } from '@/services/twoFactorApi';
+import { uploadDriverProfilePicture } from '@/services/profileApi';
+import * as ImagePicker from 'expo-image-picker';
 
 
 type PasswordStrength = { level: 'low' | 'medium' | 'high'; label: string; color: string; score: number };
@@ -35,8 +37,8 @@ function getPasswordStrength(password: string): PasswordStrength | null {
   if (password.length >= 8) score++;
   if (password.length >= 12) score++;
   if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
-  if (/\d/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
+  if (/\d/.test(password)) score++; // at least one number
+  if (/[^A-Za-z0-9]/.test(password)) score++; // at least one special character
 
   if (score <= 2) return { level: 'low', label: 'Low', color: '#DC2626', score };
   if (score <= 3) return { level: 'medium', label: 'Medium', color: '#D97706', score };
@@ -90,6 +92,7 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
   const { darkMode, setDarkMode } = useTheme(); //global theme data
   const { language, setLanguage, t } = useLanguage(); //global language/translation data
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
 
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
@@ -186,7 +189,44 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
     }
   };
 
-  const profileCompletion = 100; 
+  const handleChangeProfilePicture = async () => {
+    if (!user?.userId || !user?.token) {
+      Alert.alert(t('settings.loginRequiredTitle'), t('settings.loginRequiredMessage'));
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(t('settings.permissionRequiredTitle'), t('settings.permissionRequiredMessage'));
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets[0]?.uri) return;
+
+    const asset = result.assets[0];
+    try {
+      setIsUploadingPhoto(true);
+      const uploadResult = await uploadDriverProfilePicture(user.token, {
+        uri: asset.uri,
+        fileName: asset.fileName,
+        mimeType: asset.mimeType,
+      });
+      setProfileImage(resolveAssetUrl(uploadResult.imageUrl));
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      Alert.alert(t('settings.uploadFailedTitle'), t('settings.uploadFailedMessage'));
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const profileCompletion = 100;
   const driverName = profileData 
     ? `${profileData.firstName} ${profileData.lastName}` //profileData is from the API
     : (user ? `${user.firstName} ${user.lastName}` : 'Driver'); //user here means from user context
@@ -344,7 +384,19 @@ export default function DriverProfileSettingsScreen() { // screen component, thi
                     color="#2F6BFF"
                   />
                 )}
+                {isUploadingPhoto && (
+                  <View style={styles.avatarUploadingOverlay}>
+                    <ActivityIndicator size="small" color="#FFF" />
+                  </View>
+                )}
                 </View>
+                <TouchableOpacity
+                  style={styles.avatarEditButton}
+                  onPress={() => void handleChangeProfilePicture()}
+                  disabled={isUploadingPhoto}
+                >
+                  <MaterialCommunityIcons name="pencil" size={16} color="#FFF" />
+                </TouchableOpacity>
               </View>
 
               <Text style={styles.profileName} numberOfLines={1}>
@@ -901,6 +953,26 @@ function createStyles({
       position: 'absolute',
       bottom: 0,
       right: 0,
+    },
+    avatarUploadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 999,
+    },
+    avatarEditButton: {
+      position: 'absolute',
+      bottom: 0,
+      right: 0,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: '#2F6BFF',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: theme.card,
     },
     profileName: {
       fontSize: 18,

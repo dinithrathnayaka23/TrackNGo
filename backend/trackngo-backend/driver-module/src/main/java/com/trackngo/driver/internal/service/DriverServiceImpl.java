@@ -64,8 +64,20 @@ public class DriverServiceImpl implements DriverService {
     @Override
     public BusAssignmentDto getCurrentAssignment(Long driverId) { //from controller
         assertDriverOwnsProfile(driverId);
+        return computeAssignment(driverId);
+    }
+
+    @Override
+    public BusAssignmentDto getAssignmentForAdmin(Long driverId) {
+        if (!userDriverRepository.existsById(driverId)) {
+            throw new BusinessException("Driver account not found.");
+        }
+        return computeAssignment(driverId);
+    }
+
+    private BusAssignmentDto computeAssignment(Long driverId) {
         // Fetch bus assigned to driver
-        Optional<DriverBus> busOptional = busRepository.findByDriverId(driverId); //go to bus table (Driverbus entity) and find by driver id (may or may not exist so wrap it in optional)
+        Optional<DriverBus> busOptional = busRepository.findFirstByDriverIdOrderByBusIdAsc(driverId); //go to bus table (Driverbus entity) and find by driver id (may or may not exist so wrap it in optional)
 
         if (busOptional.isEmpty()) {
             return null; // No current assignment
@@ -81,6 +93,8 @@ public class DriverServiceImpl implements DriverService {
         dto.setRegistrationNumber(bus.getRegistrationNumber());
         dto.setStartTime(bus.getStartTime());
         dto.setEndTime(bus.getEndTime());
+        dto.setReturnStartTime(bus.getReturnStartTime());
+        dto.setReturnEndTime(bus.getReturnEndTime());
         dto.setSeatCapacity(bus.getSeatCapacity());
         dto.setBusCondition(bus.getBusCondition());
         dto.setBusType(bus.getBusType());
@@ -90,7 +104,7 @@ public class DriverServiceImpl implements DriverService {
         dto.setRouteId(bus.getRouteId());
         dto.setRouteName(getRouteName(bus.getRouteId()));
 
-        return dto; 
+        return dto;
     }
 
     private String getRouteName(Long routeId) {

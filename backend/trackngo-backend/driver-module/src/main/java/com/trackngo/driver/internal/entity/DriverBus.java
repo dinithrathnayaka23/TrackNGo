@@ -31,6 +31,12 @@ public class DriverBus {
     @Column(name = "end_time")
     private LocalTime endTime;
 
+    @Column(name = "return_start_time")
+    private LocalTime returnStartTime;
+
+    @Column(name = "return_end_time")
+    private LocalTime returnEndTime;
+
     @Column(name = "registration_number", unique = true)
     private String registrationNumber;
 

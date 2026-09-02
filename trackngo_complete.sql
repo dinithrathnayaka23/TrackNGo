@@ -165,9 +165,19 @@ CREATE TABLE bus (
     insurance_exp_date DATE NOT NULL,
     driver_id BIGINT,
     route_id BIGINT,
+    -- Mirrors driver_id only while the bus is in service (see migration
+    -- V27). NULL for inactive buses, so retired buses kept for history never
+    -- block their old driver from being assigned to a new bus.
+    driver_id_if_active BIGINT
+        GENERATED ALWAYS AS (CASE WHEN status <> 'inactive' THEN driver_id ELSE NULL END) STORED,
 
-    FOREIGN KEY (driver_id) REFERENCES driver(driver_id) ON DELETE SET NULL,
+    -- RESTRICT, not SET NULL: MySQL rejects a generated column whose base
+    -- column has an ON DELETE SET NULL/CASCADE foreign key (error 1215).
+    -- No code path hard-deletes a driver row (accounts are deactivated, not
+    -- dropped), so this is a behavior change in name only.
+    FOREIGN KEY (driver_id) REFERENCES driver(driver_id) ON DELETE RESTRICT,
     FOREIGN KEY (route_id) REFERENCES route(route_id) ON DELETE SET NULL,
+    UNIQUE KEY uq_bus_active_driver (driver_id_if_active),
     INDEX idx_driver (driver_id),
     INDEX idx_route (route_id),
     INDEX idx_type_status (bus_type, status),

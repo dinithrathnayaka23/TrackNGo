@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 
 const env =
   (globalThis as { process?: { env?: Record<string, string | undefined> } })
@@ -42,11 +43,19 @@ function getAPIBaseUrl(): string {
   
   // If dev host detected (running from Expo Go), use same host
   if (devHost) {
-    return `http://${devHost}:${getAPIPort()}`;
+    // An Android emulator's own "localhost" is itself, not the host machine,
+    // so route through the emulator's host-loopback alias instead.
+    const androidEmulatorHost =
+      Platform.OS === "android" && (devHost === "localhost" || devHost === "127.0.0.1")
+        ? "10.0.2.2"
+        : devHost;
+    return `http://${androidEmulatorHost}:${getAPIPort()}`;
   }
-  
+
   // Fallback to localhost for dev/testing
-  return `http://localhost:${getAPIPort()}`;
+  return Platform.OS === "android"
+    ? `http://10.0.2.2:${getAPIPort()}`
+    : `http://localhost:${getAPIPort()}`;
 }
 
 export const API_BASE_URL = getAPIBaseUrl();

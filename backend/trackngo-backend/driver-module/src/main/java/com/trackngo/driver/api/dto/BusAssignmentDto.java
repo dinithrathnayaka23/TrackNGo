@@ -17,6 +17,8 @@ public class BusAssignmentDto {
     private String registrationNumber;
     private LocalTime startTime;
     private LocalTime endTime;
+    private LocalTime returnStartTime;
+    private LocalTime returnEndTime;
     private Integer seatCapacity;
     private String busCondition;
     private String busType;

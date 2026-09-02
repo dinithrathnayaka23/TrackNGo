@@ -273,6 +273,8 @@ function Users() {
         setEarningsError(requestError instanceof Error ? requestError.message : 'Could not load driver earnings.')
       })
       .finally(() => setEarningsLoading(false))
+  }
+
   const openUserChat = (user: UserRecord) => {
     const path = getAdminChatPath(user.uid, user.role)
     if (path) navigate(path)

@@ -14,7 +14,7 @@
       "**/*"
     ],
     "android": {
-      "package": "com.trackngo.chat",
+      "package": "com.trackngo.passenger",
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
         "ACCESS_FINE_LOCATION",

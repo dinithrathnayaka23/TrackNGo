@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://trackngo-backend-uyhf.onrender.com/api/:path*" },
+    { "source": "/uploads/:path*", "destination": "https://trackngo-backend-uyhf.onrender.com/uploads/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

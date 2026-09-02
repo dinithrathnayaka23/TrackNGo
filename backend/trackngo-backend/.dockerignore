@@ -1,0 +1,18 @@
+# Rebuilt fresh inside the image — never copy pre-built output in.
+**/target/
+
+# Not needed inside the image; local-dev/VCS/editor artifacts only.
+.git
+.gitignore
+.idea
+.vscode
+*.md
+
+# Local-disk uploads (see LocalFileStorageService) — never part of the image.
+uploads/
+**/uploads/
+
+# Secrets: never baked into the image. Render sets real env vars at runtime.
+.env
+.env.*
+!.env.example

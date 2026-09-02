@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSession } from "../../store/sessionStore";
+import { createConversation } from "../../services/chatApi";
 import {
   type CorporateContractDetail,
   type CorporateInvoice,
@@ -211,6 +212,30 @@ export default function ContractDetailScreen() {
 
   const handleCallDriver = (phone: string) => {
     void Linking.openURL(`tel:${phone}`);
+  };
+
+  const [openingDriverChat, setOpeningDriverChat] = useState(false);
+  const handleMessageDriver = async (driverId: number) => {
+    if (!currentUser?.userId) {
+      Alert.alert("Sign in required", "Please sign in again to message the driver.");
+      return;
+    }
+    setOpeningDriverChat(true);
+    try {
+      const conversation = await createConversation({ user1Id: currentUser.userId, user2Id: driverId });
+      router.push({
+        pathname: "/chat/chat-room",
+        params: {
+          conversationId: String(conversation.conversationId),
+          otherUserId: String(driverId),
+          otherUserType: "DRIVER",
+        },
+      });
+    } catch (error: any) {
+      Alert.alert("Chat unavailable", error?.message || "Could not open the driver chat.");
+    } finally {
+      setOpeningDriverChat(false);
+    }
   };
 
   const submitCancelRequest = async () => {
@@ -726,15 +751,31 @@ export default function ContractDetailScreen() {
                           <Text style={styles.infoLabel}>DRIVER</Text>
                           <Text style={styles.driverName}>{contract.bus.driverName}</Text>
                         </View>
-                        {contract.bus.driverPhone && (
-                          <TouchableOpacity
-                            style={styles.callBtn}
-                            activeOpacity={0.85}
-                            onPress={() => handleCallDriver(contract.bus!.driverPhone!)}
-                          >
-                            <Ionicons name="call" size={16} color="#FFFFFF" />
-                          </TouchableOpacity>
-                        )}
+                        <View style={{ flexDirection: "row" }}>
+                          {contract.bus.driverPhone && (
+                            <TouchableOpacity
+                              style={styles.callBtn}
+                              activeOpacity={0.85}
+                              onPress={() => handleCallDriver(contract.bus!.driverPhone!)}
+                            >
+                              <Ionicons name="call" size={16} color="#FFFFFF" />
+                            </TouchableOpacity>
+                          )}
+                          {contract.bus.driverId && (
+                            <TouchableOpacity
+                              style={styles.messageBtn}
+                              activeOpacity={0.85}
+                              disabled={openingDriverChat}
+                              onPress={() => void handleMessageDriver(contract.bus!.driverId!)}
+                            >
+                              {openingDriverChat ? (
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                              ) : (
+                                <Ionicons name="chatbubble-ellipses" size={16} color="#FFFFFF" />
+                              )}
+                            </TouchableOpacity>
+                          )}
+                        </View>
                       </View>
                     </>
                   )}
@@ -1137,6 +1178,10 @@ const styles = StyleSheet.create({
   callBtn: {
     width: 38, height: 38, borderRadius: 19, backgroundColor: "#10B981",
     alignItems: "center", justifyContent: "center",
+  },
+  messageBtn: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: "#2563EB",
+    alignItems: "center", justifyContent: "center", marginLeft: 8,
   },
 
   // Billing

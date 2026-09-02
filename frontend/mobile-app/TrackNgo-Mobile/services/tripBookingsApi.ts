@@ -39,6 +39,17 @@ export type TripBus = {
   status: string;
 };
 
+export type TripPricingSettings = {
+  dailyRate: number;
+  smallBusRatePerKm: number;
+  largeBusRatePerKm: number;
+  passengerThreshold: number;
+  acSurchargePercent: number;
+  miniBusSurcharge: number;
+  advancePaymentPercent: number;
+  updatedAt?: string | null;
+};
+
 export type CreateTripBookingRequest = {
   startLocation: string;
   destination: string;
@@ -63,6 +74,14 @@ function unwrap<T>(value: T | { data?: T }): T {
     return (value as { data: T }).data;
   }
   return value as T;
+}
+
+/** Live pricing rates driving the "approximate fee" estimate shown before booking. */
+export async function getTripPricingSettings(): Promise<TripPricingSettings> {
+  const result = await httpGet<TripPricingSettings | { data: TripPricingSettings }>(
+    "/api/trips/pricing-settings",
+  );
+  return unwrap(result);
 }
 
 export async function createTripBooking(request: CreateTripBookingRequest): Promise<TripBooking> {

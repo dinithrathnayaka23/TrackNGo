@@ -14,11 +14,11 @@ public class CorporateProfileController {
     private final CorporateProfileService corporateProfileService;
 
     @PostMapping("/{id}/corporate")
-    public ApiResponse<Void> saveProfile(
+    public ApiResponse<String> saveProfile(
             @PathVariable("id") Long userId,
             @RequestBody CorporateProfileDto dto
     ) {
-        corporateProfileService.saveProfile(userId, dto);
-        return ApiResponse.ok("Corporate profile saved successfully", null);
+        String token = corporateProfileService.saveProfile(userId, dto);
+        return ApiResponse.ok("Corporate profile saved successfully", token);
     }
 }

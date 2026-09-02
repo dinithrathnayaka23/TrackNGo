@@ -14,7 +14,7 @@ import MapView, { Marker, Polyline } from "react-native-maps";
 import { useSession } from "../../store/sessionStore";
 import { GOOGLE_MAPS_API_KEY } from "../../config/env";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../../utils/i18n";
-import { createTripBooking } from "../../services/tripBookingsApi";
+import { createTripBooking, getTripPricingSettings, type TripPricingSettings } from "../../services/tripBookingsApi";
 import { httpGet } from "../../services/http";
 
 // ─────────────────────────────────────────────────────────────
@@ -28,6 +28,18 @@ const MAX_TRIP_DURATION_DAYS = 30;
 // Furthest a trip's departure date can be booked in advance. Mirrors
 // MAX_DEPARTURE_LEAD_DAYS in the backend's TripBookingService.
 const MAX_DEPARTURE_LEAD_DAYS = 90;
+// Used only until the live rates load from the backend (or if that fetch
+// fails) — kept in step with TripPricingService's own DEFAULT_SETTINGS so
+// the estimate is still reasonable while the app is offline.
+const DEFAULT_PRICING: TripPricingSettings = {
+  dailyRate: 12000,
+  smallBusRatePerKm: 250,
+  largeBusRatePerKm: 400,
+  passengerThreshold: 20,
+  acSurchargePercent: 25,
+  miniBusSurcharge: 1500,
+  advancePaymentPercent: 15,
+};
 
 // ─────────────────────────────────────────────────────────────
 // TYPES
@@ -479,6 +491,7 @@ export default function BookATrip() {
   const [formValid, setFormValid] = useState(false);
   const [distance, setDistance] = useState<number>(0);
   const [estimatedPrice, setEstimatedPrice] = useState<number>(0);
+  const [pricing, setPricing] = useState<TripPricingSettings>(DEFAULT_PRICING);
   const [loading, setLoading] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [roadRouteError, setRoadRouteError] = useState(false);
@@ -572,23 +585,39 @@ export default function BookATrip() {
     }
   }, [depart, returnDate]);
 
+  // ── Live pricing rates (admin-configurable) ────────────────
+  useEffect(() => {
+    let cancelled = false;
+    getTripPricingSettings()
+      .then((settings) => {
+        if (!cancelled) setPricing(settings);
+      })
+      .catch(() => {
+        // Keep the built-in defaults — they mirror the backend's own fallback.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // ── Estimated price calculation ────────────────────────────
   useEffect(() => {
     if (distance > 0) {
-      const dailyRate = 12000;
       const days = duration || 1;
-      const ratePerKm = passengers <= 20 ? 250 : 400;
+      const ratePerKm = passengers <= pricing.passengerThreshold
+        ? pricing.smallBusRatePerKm
+        : pricing.largeBusRatePerKm;
       let distanceCost = distance * ratePerKm;
-      // Mirrors calculateFare on the backend, so the estimate shown here matches
-      // the price the booking comes back with.
-      if (acPreference === "AC") distanceCost *= 1.25;
-      if (busType === "Mini Bus") distanceCost += 1500;
-      const total = dailyRate * days + distanceCost;
+      // Mirrors TripPricingService.calculateFare on the backend, so the
+      // estimate shown here matches the price the booking comes back with.
+      if (acPreference === "AC") distanceCost *= 1 + pricing.acSurchargePercent / 100;
+      if (busType === "Mini Bus") distanceCost += pricing.miniBusSurcharge;
+      const total = pricing.dailyRate * days + distanceCost;
       setEstimatedPrice(Math.round(total));
     } else {
       setEstimatedPrice(0);
     }
-  }, [distance, passengers, acPreference, busType, duration]);
+  }, [distance, passengers, acPreference, busType, duration, pricing]);
 
   // ── Form validation live check ─────────────────────────────
   useEffect(() => {

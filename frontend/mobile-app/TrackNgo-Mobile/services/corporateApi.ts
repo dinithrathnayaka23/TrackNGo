@@ -281,7 +281,7 @@ export async function getCorporateProfile(
 export async function updateCorporateProfile(
   userId: number,
   data: Partial<Omit<CorporateProfileDto, "userId" | "userType">>,
-): Promise<CorporateProfileDto> {
+): Promise<CorporateProfileDto & { token?: string | null }> {
   const existing = await getCorporateProfile(userId);
   const payload = {
     companyName: data.companyName ?? existing?.companyName ?? "",
@@ -296,8 +296,12 @@ export async function updateCorporateProfile(
     contactEmail: data.contactEmail ?? existing?.contactEmail ?? "",
     profilePhoto: data.profilePhoto ?? existing?.profilePhoto ?? "",
   };
-  await httpPost<any>(`/api/users/${userId}/corporate`, undefined, payload);
-  return getCorporateProfile(userId);
+  // Changing the contact email also changes the login email (it's the login
+  // identifier), which invalidates the current JWT — the server hands back a
+  // fresh one when that happens, to keep the session alive.
+  const res = await httpPost<ApiResponse<string | null>>(`/api/users/${userId}/corporate`, undefined, payload);
+  const updated = await getCorporateProfile(userId);
+  return { ...updated, token: res.data };
 }
 
 /* ── Contracts ────────────────────────────────────────────────────── */
@@ -446,6 +450,25 @@ export async function finalizeCorporateContract(
     throw new Error(res.message || "Failed to finalize contract.");
   }
   return res.data;
+}
+
+/**
+ * Immediately rejects a contract that hasn't been finalized yet — including
+ * one admin has already approved but the corporate user hasn't accepted the
+ * final offer for. No admin counter-approval is needed at this stage; use
+ * requestCorporateContractCancellation instead once a contract is finalized.
+ * POST /api/corporate/contracts/{contractId}/reject?userId={userId}
+ */
+export async function rejectUnfinalizedCorporateContract(
+  contractId: number,
+  userId: number,
+): Promise<void> {
+  const res = await httpPost<ApiResponse<void>>(
+    `/api/corporate/contracts/${contractId}/reject?userId=${userId}`,
+  );
+  if (!res.success) {
+    throw new Error(res.message || "Failed to reject contract.");
+  }
 }
 
 /**

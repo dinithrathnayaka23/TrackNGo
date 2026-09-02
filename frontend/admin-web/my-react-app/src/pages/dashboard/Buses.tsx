@@ -134,6 +134,7 @@ function Buses() {
   // Filter states
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'All Types' | 'AC' | 'Non-AC'>('All Types')
+  const [categoryFilter, setCategoryFilter] = useState<'All Categories' | 'highway' | 'long_distance' | 'trip_booking' | 'corporate'>('All Categories')
   const [statusFilter, setStatusFilter] = useState<'All' | BusStatus>('All')
   const [minCap, setMinCap] = useState(0)
   const [maxCap, setMaxCap] = useState(100)
@@ -273,6 +274,7 @@ function Buses() {
     if (search && !bus.busNumber.toLowerCase().includes(search.toLowerCase()) && !bus.busBrand.toLowerCase().includes(search.toLowerCase())) return false
     if (typeFilter === 'AC' && !hasAc(bus.amenities)) return false
     if (typeFilter === 'Non-AC' && hasAc(bus.amenities)) return false
+    if (categoryFilter !== 'All Categories' && (bus.busType ?? '').toLowerCase() !== categoryFilter) return false
     if (statusFilter !== 'All' && bus.status !== statusFilter) return false
     if (bus.seatCapacity < minCap || bus.seatCapacity > maxCap) return false
     return true
@@ -371,6 +373,20 @@ function Buses() {
             <option>All Types</option>
             <option>AC</option>
             <option>Non-AC</option>
+          </select>
+          <FontAwesomeIcon icon={faChevronDown} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#64748b]" />
+        </div>
+        <div className="relative">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as typeof categoryFilter)}
+            className="appearance-none rounded-lg border border-[#d6dbe6] bg-white py-2.5 pl-3 pr-8 text-sm font-medium text-[#334155] outline-none transition focus:border-[#2642a6]"
+          >
+            <option value="All Categories">All Categories</option>
+            <option value="highway">Highway</option>
+            <option value="long_distance">Long Distance</option>
+            <option value="trip_booking">Trip</option>
+            <option value="corporate">Corporate</option>
           </select>
           <FontAwesomeIcon icon={faChevronDown} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#64748b]" />
         </div>

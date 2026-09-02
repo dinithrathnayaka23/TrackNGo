@@ -26,6 +26,7 @@ import {
   getCorporateContractDetail,
   getAvailableCorporateBuses,
   finalizeCorporateContract,
+  rejectUnfinalizedCorporateContract,
   getSupportContact,
   formatAmount,
   parseBusAmenities,
@@ -370,6 +371,9 @@ export default function NewContractScreen() {
 
   // Contract term bounds: at least a week's notice, one-month minimum, one-year maximum.
   const earliestStartDate = addDays(new Date(), 7);
+  // Furthest the start date can be booked in advance. Mirrors
+  // MAX_CONTRACT_START_LEAD_DAYS in the backend's CorporateService.
+  const latestStartDate = addDays(new Date(), 90);
   const minEndDate = addMonths(startDateObj || earliestStartDate, 1);
   const maxEndDate = addYears(startDateObj || earliestStartDate, 1);
 
@@ -562,6 +566,10 @@ export default function NewContractScreen() {
         Alert.alert("Invalid Start Date", "The contract start date must be at least one week from today.");
         return;
       }
+      if (startDateObj > latestStartDate) {
+        Alert.alert("Invalid Start Date", "The contract start date cannot be more than 90 days from today.");
+        return;
+      }
       if (endDateObj < minEndDate) {
         Alert.alert("Invalid Contract Term", "The contract term must be at least one month.");
         return;
@@ -681,6 +689,38 @@ export default function NewContractScreen() {
     } else {
       router.back();
     }
+  };
+
+  // Rejects the contract outright — distinct from handleBack, which just
+  // navigates away without touching the contract at all.
+  const handleRejectContract = () => {
+    if (!contractId || !currentUser?.userId) {
+      handleBack();
+      return;
+    }
+    Alert.alert(
+      "Reject Contract",
+      "Are you sure you want to reject this contract request? This cannot be undone.",
+      [
+        { text: "Keep Reviewing", style: "cancel" },
+        {
+          text: "Reject Contract",
+          style: "destructive",
+          onPress: async () => {
+            setSubmitting(true);
+            try {
+              await rejectUnfinalizedCorporateContract(contractId, currentUser.userId);
+              Alert.alert("Contract Rejected", "This contract request has been rejected.");
+              router.replace("/corporate/corporate-contract");
+            } catch (error: any) {
+              Alert.alert("Could not reject contract", error?.message || "Please try again.");
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   // Mirror the same rules for the Android hardware/gesture back action.
@@ -1036,7 +1076,7 @@ export default function NewContractScreen() {
 
       <Text style={styles.inputLabelOutside}>Contract Duration</Text>
       <Text style={styles.computedHint}>
-        Start date must be at least one week from today. Contracts run 1 month to 1 year — renew after a year.
+        Start date must be 1 week to 90 days from today. Contracts run 1 month to 1 year — renew after a year.
       </Text>
       <View style={styles.row}>
         <View style={[styles.inputWrapper, { flex: 1 }]}>
@@ -1046,7 +1086,7 @@ export default function NewContractScreen() {
             </Text>
             <Ionicons name="calendar-outline" size={20} color="#64748B" />
           </TouchableOpacity>
-          {showStartDatePicker && <DateTimePicker value={startDateObj || earliestStartDate} mode="date" display="default" minimumDate={earliestStartDate} onChange={(e, d) => { setShowStartDatePicker(false); if (d) setStartDateObj(d); }} />}
+          {showStartDatePicker && <DateTimePicker value={startDateObj || earliestStartDate} mode="date" display="default" minimumDate={earliestStartDate} maximumDate={latestStartDate} onChange={(e, d) => { setShowStartDatePicker(false); if (d) setStartDateObj(d); }} />}
         </View>
         <View style={{ width: 12 }} />
         <View style={[styles.inputWrapper, { flex: 1 }]}>
@@ -1669,7 +1709,7 @@ export default function NewContractScreen() {
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity style={styles.rejectBtn} onPress={handleBack} disabled={submitting}>
+      <TouchableOpacity style={styles.rejectBtn} onPress={handleRejectContract} disabled={submitting}>
         <Ionicons name="close-circle" size={20} color="#EF4444" />
         <Text style={styles.rejectBtnText}>Reject Contract</Text>
       </TouchableOpacity>

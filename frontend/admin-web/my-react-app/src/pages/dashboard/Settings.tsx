@@ -389,12 +389,12 @@ function Settings() {
                 <FontAwesomeIcon icon={faHeadset} />
               </div>
               <span className="rounded-full bg-[#f1f5f9] px-2.5 py-1 text-xs font-bold text-[#64748b]">
-                Corporate
+                Support
               </span>
             </div>
 
             <div className="mt-5">
-              <h2 className="text-lg font-extrabold text-[#111827]">Corporate Support Contact</h2>
+              <h2 className="text-lg font-extrabold text-[#111827]">Admin Contact Number</h2>
               <p className="mt-1 text-sm text-[#64748b]">
                 {supportContactLoading
                   ? 'Loading...'
@@ -675,9 +675,11 @@ function Settings() {
                   <FontAwesomeIcon icon={faHeadset} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-extrabold text-[#111827]">Corporate Support Contact</h2>
+                  <h2 className="text-lg font-extrabold text-[#111827]">Admin Contact Number</h2>
                   <p className="text-sm text-[#64748b]">
-                    Shown to corporate clients while their contract request is under review.
+                    The single admin name and phone number shown wherever the app offers to call
+                    the admin — corporate clients reviewing a contract, and passengers negotiating
+                    a trip booking.
                   </p>
                 </div>
               </div>

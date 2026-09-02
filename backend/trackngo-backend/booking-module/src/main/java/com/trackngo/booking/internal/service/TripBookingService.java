@@ -47,6 +47,12 @@ public class TripBookingService {
      */
     private static final int MAX_TRIP_DURATION_DAYS = 30;
 
+    /**
+     * Furthest a trip's departure date can be booked in advance. Mirrors
+     * MAX_DEPARTURE_LEAD_DAYS in the passenger app's BookATrip screen.
+     */
+    private static final int MAX_DEPARTURE_LEAD_DAYS = 90;
+
     /** Mirrors MAX_CANCEL_REASON_LENGTH in BookingFlowService / the passenger app's cancellation screens. */
     private static final int MAX_CANCEL_REASON_LENGTH = 300;
 
@@ -128,14 +134,6 @@ public class TripBookingService {
                         + " passenger(s) was submitted. We will let you know once it has been reviewed."
         );
 
-        notifications.toAllAdmins(
-                NotificationType.BOOKING,
-                "New Trip Request",
-                "A trip request from " + submitted.getStartLocation() + " to " + submitted.getDestination()
-                        + " on " + submitted.getStartDate() + " for " + submitted.getPassengerCount()
-                        + " passenger(s) is waiting for review."
-        );
-
         return submitted;
     }
 
@@ -176,6 +174,14 @@ public class TripBookingService {
                 "Bus Reserved for Your Trip",
                 "Bus " + assigned.getBusNumber() + " is held for your trip to " + assigned.getDestination()
                         + ". The request is now waiting for admin approval."
+        );
+
+        notifications.toAllAdmins(
+                NotificationType.BOOKING,
+                "New Trip Request",
+                "A trip request from " + assigned.getStartLocation() + " to " + assigned.getDestination()
+                        + " on " + assigned.getStartDate() + " for " + assigned.getPassengerCount()
+                        + " passenger(s) with bus " + assigned.getBusNumber() + " is waiting for review."
         );
 
         return assigned;
@@ -580,6 +586,11 @@ public class TripBookingService {
         LocalDate minStartDate = LocalDate.now().plusDays(2);
         if (request.startDate() == null || request.startDate().isBefore(minStartDate)) {
             throw new IllegalArgumentException("Departure date must be at least 2 days from today.");
+        }
+        LocalDate maxStartDate = LocalDate.now().plusDays(MAX_DEPARTURE_LEAD_DAYS);
+        if (request.startDate().isAfter(maxStartDate)) {
+            throw new IllegalArgumentException(
+                    "Departure date cannot be more than " + MAX_DEPARTURE_LEAD_DAYS + " days from today.");
         }
         if (request.returnDate() == null || request.returnDate().isBefore(request.startDate())) {
             throw new IllegalArgumentException("Return date cannot be before departure.");

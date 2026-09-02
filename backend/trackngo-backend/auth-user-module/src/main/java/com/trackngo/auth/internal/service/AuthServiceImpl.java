@@ -42,6 +42,8 @@ public class AuthServiceImpl implements AuthService {
     private static final long LOGIN_OTP_EXPIRY_MINUTES = 5;
     private static final long LOGIN_OTP_RESEND_COOLDOWN_SECONDS = 30;
     private static final int LOGIN_OTP_MAX_ATTEMPTS = 5;
+    // Mirrors SupportContactService's DEFAULT_CONTACT phone in the app module.
+    private static final String DEFAULT_SUPPORT_PHONE = "+94701803826";
 
     private final UserRepository userRepository;
     private final AdminRepository adminRepository;
@@ -84,7 +86,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("Invalid credentials");
         }
         if (isSuspended(user)) {
-            throw new BusinessException("Your account is suspended. Please contact the administrator.");
+            throw new BusinessException(
+                    "Your account is suspended. Please contact the administrator at " + supportContactPhone() + ".");
         }
         if (Boolean.FALSE.equals(user.getIsActive())) {
             throw new BusinessException("Account is inactive.");
@@ -250,6 +253,18 @@ public class AuthServiceImpl implements AuthService {
             return "suspended".equalsIgnoreCase(status);
         } catch (DataAccessException ex) {
             return false;
+        }
+    }
+
+    private String supportContactPhone() {
+        try {
+            String phone = jdbcTemplate.queryForObject(
+                    "SELECT phone FROM support_contact_settings WHERE id = 1",
+                    String.class
+            );
+            return (phone == null || phone.isBlank()) ? DEFAULT_SUPPORT_PHONE : phone;
+        } catch (DataAccessException ex) {
+            return DEFAULT_SUPPORT_PHONE;
         }
     }
 

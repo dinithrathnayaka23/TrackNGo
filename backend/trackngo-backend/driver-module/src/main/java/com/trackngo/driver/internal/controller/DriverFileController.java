@@ -31,6 +31,16 @@ public class DriverFileController {
         return ApiResponse.ok("Current assignment fetched successfully", assignment);
     }
 
+    @GetMapping("/{driverId}/assignment/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<BusAssignmentDto> getAssignmentForAdmin(@PathVariable Long driverId) {
+        BusAssignmentDto assignment = driverService.getAssignmentForAdmin(driverId);
+        if (assignment == null) {
+            return ApiResponse.ok("No current assignment", null);
+        }
+        return ApiResponse.ok("Current assignment fetched successfully", assignment);
+    }
+
     @GetMapping("/{driverId}/profile-and-assignment")  //endp3
     @PreAuthorize("hasRole('DRIVER')")
     public ApiResponse<ProfileAndAssignmentResponse> getProfileAndAssignment(@PathVariable Long driverId) {

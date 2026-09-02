@@ -101,6 +101,7 @@ export const en: Translations = {
     logoutConfirmMessage: "Are you sure you want to logout?",
     permissionRequiredTitle: "Permission Required",
     permissionRequiredMessage: "Please allow gallery access.",
+    photoUploadFailed: "Could not update your profile picture. Please try again.",
     loginRequiredTitle: "Login Required",
     loginRequiredMessage:
       "Please log in again before updating your profile photo.",
@@ -220,6 +221,8 @@ export const en: Translations = {
     cameraPermissionMessage: "Please allow camera access to scan passenger tickets.",
     grantPermission: "Grant Permission",
     scanAgain: "Scan Again",
+    outboundLeg: "Outbound Trip",
+    returnLeg: "Return Trip",
   },
   sos: {
     title: "Emergency SOS",

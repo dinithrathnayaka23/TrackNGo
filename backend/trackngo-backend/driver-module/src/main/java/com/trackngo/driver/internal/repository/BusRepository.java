@@ -8,6 +8,15 @@ import java.util.Optional; //optional, because it can be null
 
 @Repository
 public interface BusRepository extends JpaRepository<DriverBus, Long> {
-    Optional<DriverBus> findByDriverId(Long driverId);
+    /**
+     * "First" makes this tolerant of a driver who (pre-existing data, or a bug
+     * elsewhere) ends up on more than one bus row - the plain findBy variant
+     * throws IncorrectResultSizeDataAccessException in that case, which took
+     * down the driver app's assignment/profile screens with a 500. The admin
+     * bus service now rejects double-assignment at save time, and a database
+     * migration repairs and constrains existing data, but this stays as a
+     * defense-in-depth guard against ever crashing on it again.
+     */
+    Optional<DriverBus> findFirstByDriverIdOrderByBusIdAsc(Long driverId);
     Optional<DriverBus> findByBusNumber(String busNumber);
 }

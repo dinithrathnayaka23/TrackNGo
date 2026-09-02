@@ -33,6 +33,23 @@ import {
   type SaveAdminDriverRequest,
 } from "../../services/driverService";
 
+function todayLocalDate() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+// The <input type="date"> min bound is inclusive, so it needs tomorrow's
+// date to actually exclude "today" - insurance expiring today is rejected.
+function tomorrowLocalDate() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const month = String(tomorrow.getMonth() + 1).padStart(2, "0");
+  const day = String(tomorrow.getDate()).padStart(2, "0");
+  return `${tomorrow.getFullYear()}-${month}-${day}`;
+}
+
 // Google Maps API key supplied by the repository root .env through vite.config.ts.
 const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim();
 
@@ -794,6 +811,11 @@ function BusDetail() {
     // Validate required fields
     if (!normalizedBrand || !busDraft.condition || !busDraft.type) {
       setBusFormError("Brand, condition, and type are required.");
+      return;
+    }
+
+    if (!busDraft.insuranceExp || busDraft.insuranceExp <= todayLocalDate()) {
+      setBusFormError("Insurance expiry date must be a future date - it can't be today or already expired.");
       return;
     }
 
@@ -2256,10 +2278,16 @@ function BusDetail() {
                   onChange={(e) => handleDriverSelect(e.target.value)}
                   className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none">
                   <option value="">-- Select a driver --</option>
-                  {driverOptions.map((d) => (
-                    <option key={d.driverId} value={d.driverId}>{d.name} (ID: {d.driverId})</option>
-                  ))}
+                  {driverOptions.map((d) => {
+                    const takenByAnotherBus = !!d.assignedBusNumber && d.assignedBusNumber !== busData?.busNumber;
+                    return (
+                      <option key={d.driverId} value={d.driverId} disabled={takenByAnotherBus}>
+                        {d.name} (ID: {d.driverId}){takenByAnotherBus ? ` — already on bus ${d.assignedBusNumber}` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
+                <p className="mt-1 text-xs text-[#94a3b8]">A driver can only be assigned to one bus at a time.</p>
               </div>
               {driverDraft.id ? (
                 driverDetailsLoading ? (
@@ -2450,7 +2478,7 @@ function BusDetail() {
               {/* Insurance Expiry Date */}
               <div>
                 <label htmlFor="bus-insurance" className="mb-1 block text-sm font-semibold text-[#334155]">Insurance Expiry</label>
-                <input id="bus-insurance" type="date" value={busDraft.insuranceExp}
+                <input id="bus-insurance" type="date" min={tomorrowLocalDate()} value={busDraft.insuranceExp}
                   onChange={(e) => setBusDraft((p) => ({ ...p, insuranceExp: e.target.value }))}
                   className="h-11 w-full rounded-lg border border-[#d6dbe6] bg-[#f9fafd] px-3 text-sm text-[#111827] outline-none" />
               </div>

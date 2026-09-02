@@ -23,6 +23,7 @@ import * as Location from 'expo-location';
 import { Audio } from 'expo-av';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useLanguage } from '@/context/LanguageContext';
 import {
   deleteMessage,
@@ -66,6 +67,27 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useUser();
   const { t } = useLanguage();
+  const { darkMode } = useTheme();
+  const theme = useMemo(
+    () => ({
+      background: darkMode ? '#111318' : '#F7F9FC',
+      card: darkMode ? '#1E1E1E' : '#FFFFFF',
+      border: darkMode ? '#333333' : '#E6ECF3',
+      text: darkMode ? '#FFFFFF' : '#1F2937',
+      secondaryText: darkMode ? '#9AA4B2' : '#8A94A6',
+      mutedText: darkMode ? '#7A8494' : '#94A3B8',
+      placeholder: darkMode ? '#6B7280' : '#A6B0C3',
+      avatarBg: darkMode ? '#2A2E35' : '#DDE5F0',
+      avatarText: darkMode ? '#CBD5E1' : '#475569',
+      incomingBubble: darkMode ? '#1E1E1E' : '#FFFFFF',
+      incomingBubbleText: darkMode ? '#E5E7EB' : '#4B5563',
+      incomingAccentTint: darkMode ? 'rgba(26,115,232,0.2)' : '#EAF1FF',
+      dayPillBg: darkMode ? '#242830' : '#E9EEF7',
+      subtleBg: darkMode ? '#2A2E35' : '#F1F5F9',
+    }),
+    [darkMode]
+  );
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const soundRef = useRef<Audio.Sound | null>(null);
   const recordingStartedAtRef = useRef(0);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -791,7 +813,7 @@ export default function ChatScreen() {
       >
         <View style={styles.headerRow}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <MaterialCommunityIcons name="arrow-left" size={22} color="#1F2937" />
+            <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
           </Pressable>
 
           <View style={styles.headerCenter}>
@@ -878,6 +900,7 @@ export default function ChatScreen() {
                   onOpenImage={setViewerImageUrl}
                   onOpenLocation={openLocation}
                   onLongPressDelete={() => confirmDeleteMessage(item.message)}
+                  styles={styles}
                 />
               )
             }
@@ -950,7 +973,7 @@ export default function ChatScreen() {
               onPress={() => setAttachmentMenuVisible(true)}
               disabled={isRecording || isSending}
             >
-              <MaterialCommunityIcons name="plus" size={20} color="#64748B" />
+              <MaterialCommunityIcons name="plus" size={20} color={theme.secondaryText} />
             </Pressable>
             <View style={styles.inputField}>
               <TextInput
@@ -1029,6 +1052,7 @@ function MessageRow({
   onOpenLocation,
   onLongPressDelete,
   onPressAudio,
+  styles,
 }: {
   avatarFallback: string;
   avatarPhotoUri: string | null;
@@ -1041,6 +1065,7 @@ function MessageRow({
   onOpenLocation: (message: ChatMessageDto) => void;
   onLongPressDelete: () => void;
   onPressAudio: (url: string) => void;
+  styles: ReturnType<typeof createStyles>;
 }) {
   const isDeleted = message.deleted === true;
   // Spread onto each bubble so only the driver's own, still-present messages
@@ -1228,17 +1253,49 @@ function ImageViewerModal({
       onRequestClose={onClose}
     >
       <StatusBar backgroundColor="#000" barStyle="light-content" />
-      <View style={styles.viewerBackdrop}>
-        <View style={styles.viewerTopBar}>
-          <Pressable onPress={onClose} style={styles.viewerCloseButton}>
+      <View style={viewerStyles.viewerBackdrop}>
+        <View style={viewerStyles.viewerTopBar}>
+          <Pressable onPress={onClose} style={viewerStyles.viewerCloseButton}>
             <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
           </Pressable>
         </View>
-        <Image source={{ uri: imageUrl }} style={styles.viewerImage} resizeMode="contain" />
+        <Image source={{ uri: imageUrl }} style={viewerStyles.viewerImage} resizeMode="contain" />
       </View>
     </Modal>
   );
 }
+
+const viewerStyles = StyleSheet.create({
+  viewerBackdrop: {
+    flex: 1,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerTopBar: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 54 : 36,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    zIndex: 10,
+  },
+  viewerCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewerImage: {
+    width: '100%',
+    height: '75%',
+  },
+});
 
 function buildOutgoingMessage(params: {
   conversationId: number;
@@ -1378,10 +1435,28 @@ function getParticipantAvatarFallback(type?: string | string[]) {
 }
 
 
-const styles = StyleSheet.create({
+type ChatRoomTheme = {
+  background: string;
+  card: string;
+  border: string;
+  text: string;
+  secondaryText: string;
+  mutedText: string;
+  placeholder: string;
+  avatarBg: string;
+  avatarText: string;
+  incomingBubble: string;
+  incomingBubbleText: string;
+  incomingAccentTint: string;
+  dayPillBg: string;
+  subtleBg: string;
+};
+
+function createStyles(theme: ChatRoomTheme) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7F9FC',
+    backgroundColor: theme.background,
   },
   headerRow: {
     minHeight: 56,
@@ -1389,7 +1464,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#E6ECF3',
+    borderBottomColor: theme.border,
   },
   backButton: {
     width: 34,
@@ -1416,19 +1491,19 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#DDE5F0',
+    backgroundColor: theme.avatarBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerAvatarFallbackText: {
     fontSize: 14,
     fontWeight: "800",
-    color: '#475569',
+    color: theme.avatarText,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: '#1F2937',
+    color: theme.text,
   },
   headerOnlineDot: {
     position: 'absolute',
@@ -1445,7 +1520,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 11,
     fontWeight: "600",
-    color: '#94A3B8',
+    color: theme.mutedText,
   },
   headerStatusOnlineText: {
     color: '#22C55E',
@@ -1469,7 +1544,7 @@ const styles = StyleSheet.create({
   },
   dayPill: {
     alignSelf: 'center',
-    backgroundColor: '#E9EEF7',
+    backgroundColor: theme.dayPillBg,
     paddingHorizontal: 14,
     paddingVertical: 4,
     borderRadius: 12,
@@ -1477,7 +1552,7 @@ const styles = StyleSheet.create({
   dayText: {
     fontSize: 11,
     fontWeight: "700",
-    color: '#8A94A6',
+    color: theme.secondaryText,
   },
   messageRow: {
     flexDirection: 'row',
@@ -1497,35 +1572,35 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#DDE5F0',
+    backgroundColor: theme.avatarBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarFallbackText: {
     fontSize: 12,
     fontWeight: "800",
-    color: '#475569',
+    color: theme.avatarText,
   },
   bubbleLeft: {
     maxWidth: 230,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.incomingBubble,
     borderRadius: 14,
     borderTopLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#E6ECF3',
+    borderColor: theme.border,
   },
   bubbleLeftText: {
     fontSize: 12,
     fontWeight: "600",
-    color: '#4B5563',
+    color: theme.incomingBubbleText,
   },
   timeLeft: {
     marginTop: 4,
     fontSize: 10,
     fontWeight: "600",
-    color: '#9AA4B2',
+    color: theme.mutedText,
   },
   bubbleRight: {
     maxWidth: 240,
@@ -1553,7 +1628,7 @@ const styles = StyleSheet.create({
   timeRight: {
     fontSize: 10,
     fontWeight: "600",
-    color: '#9AA4B2',
+    color: theme.mutedText,
   },
   voiceBubble: {
     flexDirection: 'row',
@@ -1569,9 +1644,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   voiceBubbleIncoming: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.incomingBubble,
     borderWidth: 1,
-    borderColor: '#E6ECF3',
+    borderColor: theme.border,
   },
   voiceBubbleOutgoing: {
     backgroundColor: '#1A73E8',
@@ -1584,7 +1659,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   voicePlayIncoming: {
-    backgroundColor: '#EAF1FF',
+    backgroundColor: theme.incomingAccentTint,
   },
   voicePlayOutgoing: {
     backgroundColor: 'rgba(255,255,255,0.18)',
@@ -1633,7 +1708,7 @@ const styles = StyleSheet.create({
     width: 220,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#DDE5F0',
+    backgroundColor: theme.avatarBg,
     shadowColor: '#0F172A',
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -1719,19 +1794,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 6,
-    backgroundColor: '#DDE5F0',
+    backgroundColor: theme.avatarBg,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   locationFooterTitle: {
     fontSize: 10,
     fontWeight: "700",
-    color: '#465468',
+    color: theme.avatarText,
   },
   locationFooterCoords: {
     fontSize: 10,
     fontWeight: "700",
-    color: '#465468',
+    color: theme.avatarText,
   },
   centered: {
     flex: 1,
@@ -1759,15 +1834,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#6C8195',
+    color: theme.secondaryText,
     fontSize: 14, fontWeight: "600",
   },
   composerArea: {
     paddingHorizontal: 12,
     paddingTop: 10,
-    backgroundColor: '#F7F9FC',
+    backgroundColor: theme.background,
     borderTopWidth: 1,
-    borderTopColor: '#E6ECF3',
+    borderTopColor: theme.border,
   },
   recordingBanner: {
     marginBottom: 8,
@@ -1838,9 +1913,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: '#E6ECF3',
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1848,9 +1923,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 38,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: '#E6ECF3',
+    borderColor: theme.border,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1860,7 +1935,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: "600",
-    color: '#1F2937',
+    color: theme.text,
   },
   sendButton: {
     width: 36,
@@ -1885,7 +1960,7 @@ const styles = StyleSheet.create({
   },
   attachmentSheet: {
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     paddingHorizontal: 14,
     paddingTop: 14,
     paddingBottom: 10,
@@ -1898,14 +1973,14 @@ const styles = StyleSheet.create({
   attachmentTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: '#1F2937',
+    color: theme.text,
   },
   attachmentSubtitle: {
     marginTop: 3,
     marginBottom: 10,
     fontSize: 12,
     fontWeight: "600",
-    color: '#8A94A6',
+    color: theme.secondaryText,
   },
   attachmentOption: {
     minHeight: 44,
@@ -1918,7 +1993,7 @@ const styles = StyleSheet.create({
   attachmentOptionText: {
     fontSize: 14,
     fontWeight: "700",
-    color: '#1F2937',
+    color: theme.text,
   },
   attachmentCancel: {
     marginTop: 8,
@@ -1926,40 +2001,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.subtleBg,
   },
   attachmentCancelText: {
     fontSize: 14,
     fontWeight: "800",
     color: '#B42318',
   },
-  viewerBackdrop: {
-    flex: 1,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  viewerTopBar: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 54 : 36,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    zIndex: 10,
-  },
-  viewerCloseButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  viewerImage: {
-    width: '100%',
-    height: '75%',
-  },
-});
+  });
+}

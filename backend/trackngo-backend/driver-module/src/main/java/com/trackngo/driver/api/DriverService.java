@@ -6,4 +6,5 @@ import com.trackngo.driver.api.dto.DriverProfileDto; //DTO for driver profile de
 public interface DriverService {
     DriverProfileDto getDriverProfile(Long driverId);
     BusAssignmentDto getCurrentAssignment(Long driverId);
+    BusAssignmentDto getAssignmentForAdmin(Long driverId);
 }

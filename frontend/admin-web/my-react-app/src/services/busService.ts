@@ -94,6 +94,7 @@ export type SaveSeatLayoutRequest = {
 export type DriverOption = {
   driverId: number;
   name: string;
+  assignedBusNumber: string | null;
 };
 
 export type RouteOption = {

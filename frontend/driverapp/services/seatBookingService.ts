@@ -36,6 +36,8 @@ interface BusAssignment {
   seatCapacity: number;
   startTime?: string;
   endTime?: string;
+  returnStartTime?: string | null;
+  returnEndTime?: string | null;
   busBrand?: string;
   busCondition?: string;
   busType?: string;

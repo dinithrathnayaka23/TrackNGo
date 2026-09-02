@@ -22,4 +22,11 @@ public class DriverEarningsController {
         return ApiResponse.ok("Driver earnings fetched successfully",
                 driverEarningsService.getEarnings(driverId));
     }
+
+    @GetMapping("/{driverId}/earnings/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<DriverEarningsResponse> getDriverEarningsForAdmin(@PathVariable Long driverId) {
+        return ApiResponse.ok("Driver earnings fetched successfully",
+                driverEarningsService.getEarningsForAdmin(driverId));
+    }
 }

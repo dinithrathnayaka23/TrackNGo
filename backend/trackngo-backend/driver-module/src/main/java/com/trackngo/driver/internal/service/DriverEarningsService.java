@@ -32,6 +32,17 @@ public class DriverEarningsService {
 
     public DriverEarningsResponse getEarnings(Long driverId) {
         assertDriverOwnsProfile(driverId);
+        return computeEarnings(driverId);
+    }
+
+    public DriverEarningsResponse getEarningsForAdmin(Long driverId) {
+        if (!userDriverRepository.existsById(driverId)) {
+            throw new BusinessException("Driver account not found.");
+        }
+        return computeEarnings(driverId);
+    }
+
+    private DriverEarningsResponse computeEarnings(Long driverId) {
         List<DriverEarningDto> earnings = jdbcTemplate.query("""
                 SELECT
                     CONCAT('seat-', sb.seat_booking_id) AS earning_id,
@@ -101,12 +112,15 @@ public class DriverEarningsService {
         LocalDate weekStart = today.minusDays(6);
         LocalDate previousWeekStart = today.minusDays(13);
         LocalDate previousWeekEnd = today.minusDays(7);
+        // Rolling last-30-days, matching the weekly figure's rolling-7-days
+        // window, rather than calendar-month-to-date - otherwise this reads
+        // as zero for every driver on the 1st of the month even when they
+        // earned steadily right up through the last day of the previous one.
+        LocalDate monthStart = today.minusDays(29);
 
         BigDecimal total = sum(earnings, item -> true);
         BigDecimal monthly = sum(earnings,
-                item -> item.date() != null
-                        && item.date().getYear() == today.getYear()
-                        && item.date().getMonth() == today.getMonth());
+                item -> inRange(item.date(), monthStart, today));
         BigDecimal weekly = sum(earnings,
                 item -> inRange(item.date(), weekStart, today));
         BigDecimal previousWeekly = sum(earnings,

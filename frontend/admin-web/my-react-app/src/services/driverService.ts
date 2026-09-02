@@ -107,11 +107,11 @@ type ApiResponse<T> = {
   data: T
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function requestUrl<T>(url: string, init?: RequestInit): Promise<T> {
   const token = authService.getToken()
   if (!token) throw new Error('Your admin session has expired. Please sign in again.')
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(url, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -132,6 +132,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(body?.message || `Driver request failed (HTTP ${response.status}).`)
   }
   return body.data
+}
+
+function request<T>(path: string, init?: RequestInit): Promise<T> {
+  return requestUrl<T>(`${API_BASE}${path}`, init)
 }
 
 export function fetchAdminDrivers() {
@@ -164,4 +168,55 @@ export function deleteAdminDriverProfilePicture(id: number) {
   return request<{ removed: boolean }>(`/${id}/profile-picture`, {
     method: 'DELETE',
   })
+}
+
+export type AdminDriverEarning = {
+  id: string
+  bookingReference: string
+  route: string
+  date: string
+  time: string | null
+  amount: number
+}
+
+export type AdminDriverEarningsDay = {
+  date: string
+  amount: number
+}
+
+export type AdminDriverEarningsResponse = {
+  totalEarnings: number
+  monthlyEarnings: number
+  weeklyEarnings: number
+  previousWeeklyEarnings: number
+  percentageChange: number
+  earnings: AdminDriverEarning[]
+  weeklyBreakdown: AdminDriverEarningsDay[]
+}
+
+export function fetchAdminDriverEarnings(id: number) {
+  return requestUrl<AdminDriverEarningsResponse>(`/api/drivers/${id}/earnings/admin`)
+}
+
+export type AdminDriverAssignment = {
+  busId: number
+  busNumber: string
+  busBrand: string | null
+  registrationNumber: string
+  startTime: string | null
+  endTime: string | null
+  returnStartTime: string | null
+  returnEndTime: string | null
+  seatCapacity: number
+  busCondition: string | null
+  busType: string | null
+  status: string | null
+  insuranceExpDate: string | null
+  amenities: string | null
+  routeId: number | null
+  routeName: string | null
+}
+
+export function fetchAdminDriverAssignment(id: number) {
+  return requestUrl<AdminDriverAssignment | null>(`/api/drivers/${id}/assignment/admin`)
 }

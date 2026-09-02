@@ -1,5 +1,6 @@
 server:
-  port: 8080
+  # Render assigns its own port via $PORT; local dev falls back to 8080.
+  port: ${PORT:8080}
 
 spring:
   main:
@@ -16,7 +17,12 @@ spring:
       max-request-size: 15MB
   jpa:
     hibernate:
-      ddl-auto: update
+      # Production schema is managed by hand-written migrations
+      # (database/migrations/*.sql), not Hibernate — validate only checks
+      # that the JPA entities agree with whatever schema is already there.
+      # Override locally with JPA_DDL_AUTO=update if you need Hibernate to
+      # patch a fresh/older local database while iterating.
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     properties:
       hibernate:
         format_sql: true
@@ -37,12 +43,21 @@ trackngo:
   jwt:
     secret: ${JWT_SECRET}
     expiration-ms: 86400000
+  # Comma-separated browser origins allowed to call the API and open the
+  # WebSocket/STOMP endpoints with credentials. Local dev defaults to the
+  # admin dashboard's Vite dev server; set FRONTEND_URL on Render to the
+  # deployed Vercel domain(s) (comma-separate if you add a preview domain).
+  cors:
+    allowed-origins: ${FRONTEND_URL:http://localhost:5173,http://127.0.0.1:5173}
 
+# Blank-safe: an unset Twilio credential disables SMS sending (falls back to
+# logging the code) rather than crashing the whole app on boot — matching the
+# same pattern already used for mail/PayHere/AI below.
 twilio:
-  account-sid: ${TWILIO_ACCOUNT_SID}
-  auth-token: ${TWILIO_AUTH_TOKEN}
-  phone-number: ${TWILIO_PHONE_NUMBER}
-  messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID}
+  account-sid: ${TWILIO_ACCOUNT_SID:}
+  auth-token: ${TWILIO_AUTH_TOKEN:}
+  phone-number: ${TWILIO_PHONE_NUMBER:}
+  messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}
   default-country-code: ${TWILIO_DEFAULT_COUNTRY_CODE:+94}
 
 sms:
@@ -66,6 +81,12 @@ spring.mail:
         auth: true
         starttls:
           enable: true
+
+# GoogleTokenVerifier (auth-user-module) reads this to validate a Google
+# Sign-In ID token's audience claim. No controller currently exposes this
+# flow — set GOOGLE_CLIENT_ID only once that endpoint exists.
+google:
+  client-id: ${GOOGLE_CLIENT_ID:}
 
 payhere:
   merchant-id: ${PAYHERE_MERCHANT_ID:}

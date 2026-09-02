@@ -4,8 +4,10 @@ import com.trackngo.booking.api.dto.TripBookingRequest;
 import com.trackngo.booking.api.dto.TripBusResponse;
 import com.trackngo.booking.api.dto.TripPaymentRequest;
 import com.trackngo.booking.api.dto.TripBookingReviewRequest;
+import com.trackngo.booking.api.dto.TripPricingSettingsDto;
 import com.trackngo.booking.internal.entity.TripBooking;
 import com.trackngo.booking.internal.service.TripBookingService;
+import com.trackngo.booking.internal.service.TripPricingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -16,12 +18,28 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/trips")
-@CrossOrigin(originPatterns = "*")
+// No @CrossOrigin here: the global CORS policy in WebConfig already covers
+// this controller. A wildcard here would override that policy for just this
+// controller and reopen it to every origin, defeating the point of
+// restricting the app-wide origin list to FRONTEND_URL for production.
 @RequiredArgsConstructor
 public class TripBookingController {
 
     private final TripBookingService tripBookingService;
+    private final TripPricingService tripPricingService;
     private final JdbcTemplate jdbc;
+
+    @GetMapping("/pricing-settings")
+    public TripPricingSettingsDto getPricingSettings() {
+        return tripPricingService.getSettings();
+    }
+
+    @PutMapping("/pricing-settings")
+    public TripPricingSettingsDto updatePricingSettings(
+            @RequestBody TripPricingSettingsDto request, Authentication authentication) {
+        requireAdmin(authentication);
+        return tripPricingService.updateSettings(request);
+    }
 
     @GetMapping("/available-buses")
     public List<TripBusResponse> getAvailableBuses(

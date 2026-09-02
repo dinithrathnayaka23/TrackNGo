@@ -4,10 +4,10 @@ import com.trackngo.auth.internal.entity.User;
 import com.trackngo.auth.internal.repository.UserRepository;
 import com.trackngo.commons.exception.BusinessException;
 import com.trackngo.commons.exception.ResourceNotFoundException;
+import com.trackngo.commons.storage.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import net.coobird.thumbnailator.Thumbnails;
 import org.imgscalr.Scalr;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,11 +16,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -39,9 +37,7 @@ public class ProfilePictureService {
 
     private final UserRepository userRepository;
     private final JdbcTemplate jdbcTemplate;
-
-    @Value("${trackngo.chat.media.upload-dir:uploads}")
-    private String uploadDir;
+    private final FileStorageService fileStorageService;
 
     public UploadResult uploadProfilePicture(MultipartFile file) {
         validateInput(file);
@@ -50,12 +46,6 @@ public class ProfilePictureService {
         String normalizedType = normalizeUserType(currentUser.getUserType());
 
         try {
-            Path baseDir = profilePictureDir();
-            Path originalDir = baseDir.resolve("original");
-            Path thumbnailDir = baseDir.resolve("thumbnail");
-            Files.createDirectories(originalDir);
-            Files.createDirectories(thumbnailDir);
-
             String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
             String extension = switch (contentType) {
                 case "image/jpeg" -> ".jpg";
@@ -70,12 +60,8 @@ public class ProfilePictureService {
             String thumbnailFormat = canWriteWebp ? "webp" : "jpg";
             String thumbnailFileName = baseName + (canWriteWebp ? ".webp" : ".jpg");
 
-            Path originalPath = originalDir.resolve(originalFileName);
-            Path thumbnailPath = thumbnailDir.resolve(thumbnailFileName);
-
-            try (InputStream originalStream = file.getInputStream()) {
-                Files.copy(originalStream, originalPath, StandardCopyOption.REPLACE_EXISTING);
-            }
+            String originalUrl = fileStorageService.store(
+                    file.getBytes(), "profile-pictures/original/" + originalFileName);
 
             BufferedImage inputImage;
             try (InputStream previewStream = file.getInputStream()) {
@@ -85,10 +71,9 @@ public class ProfilePictureService {
                 throw new BusinessException("Uploaded file is not a valid image.");
             }
 
-            writeThumbnail(inputImage, thumbnailPath, thumbnailFormat);
-
-            String originalUrl = ORIGINAL_URL_PREFIX + originalFileName;
-            String thumbnailUrl = "/uploads/profile-pictures/thumbnail/" + thumbnailFileName;
+            byte[] thumbnailBytes = renderThumbnail(inputImage, thumbnailFormat);
+            String thumbnailUrl = fileStorageService.store(
+                    thumbnailBytes, "profile-pictures/thumbnail/" + thumbnailFileName);
 
             // The picture being replaced is no longer reachable from anywhere once the row
             // points at the new one, so its files go too instead of accumulating on disk.
@@ -96,8 +81,7 @@ public class ProfilePictureService {
             persistProfilePhoto(currentUser.getId(), normalizedType, originalUrl);
             deleteStoredImages(replacedUrl);
 
-            long bytes = Files.size(thumbnailPath);
-            return new UploadResult(originalUrl, thumbnailUrl, originalUrl, bytes);
+            return new UploadResult(originalUrl, thumbnailUrl, originalUrl, thumbnailBytes.length);
         } catch (IOException ex) {
             throw new BusinessException("Failed to save profile picture: " + ex.getMessage());
         }
@@ -169,15 +153,16 @@ public class ProfilePictureService {
         return userType == null ? "" : userType.trim().toLowerCase(Locale.ROOT);
     }
 
-    private void writeThumbnail(BufferedImage inputImage, Path thumbnailPath, String outputFormat) throws IOException {
+    private byte[] renderThumbnail(BufferedImage inputImage, String outputFormat) throws IOException {
         try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
             Thumbnails.of(inputImage)
                     .size(400, 400)
                     .keepAspectRatio(true)
                     .outputQuality(0.95)
                     .outputFormat(outputFormat)
-                    .toFile(thumbnailPath.toFile());
-            return;
+                    .toOutputStream(out);
+            return out.toByteArray();
         } catch (Exception ignored) {
             // Falls back to imgscalr + ImageIO when Thumbnailator cannot write this format.
         }
@@ -191,18 +176,16 @@ public class ProfilePictureService {
                 Scalr.OP_ANTIALIAS
         );
 
-        boolean written = ImageIO.write(scaled, outputFormat, thumbnailPath.toFile());
+        ByteArrayOutputStream fallbackOut = new ByteArrayOutputStream();
+        boolean written = ImageIO.write(scaled, outputFormat, fallbackOut);
         if (!written) {
             throw new IOException("No ImageIO writer available for format: " + outputFormat);
         }
+        return fallbackOut.toByteArray();
     }
 
     private boolean canWriteFormat(String mimeType) {
         return ImageIO.getImageWritersByMIMEType(mimeType).hasNext();
-    }
-
-    private Path profilePictureDir() {
-        return Path.of(uploadDir).toAbsolutePath().normalize().resolve("profile-pictures");
     }
 
     private String readProfilePhoto(Long userId, String userType) {
@@ -236,28 +219,12 @@ public class ProfilePictureService {
             return;
         }
 
-        Path baseDir = profilePictureDir();
-        deleteQuietly(baseDir.resolve("original"), fileName);
+        fileStorageService.delete("profile-pictures/original/" + fileName);
 
         int extensionStart = fileName.lastIndexOf('.');
         String baseName = extensionStart < 0 ? fileName : fileName.substring(0, extensionStart);
         for (String extension : THUMBNAIL_EXTENSIONS) {
-            deleteQuietly(baseDir.resolve("thumbnail"), baseName + extension);
-        }
-    }
-
-    private void deleteQuietly(Path directory, String fileName) {
-        Path target = directory.resolve(fileName).normalize();
-        // A stored value is data, not a trusted path: never let one reach outside the upload folder.
-        if (!target.startsWith(directory)) {
-            return;
-        }
-
-        try {
-            Files.deleteIfExists(target);
-        } catch (IOException ignored) {
-            // The database row is what every screen reads, and it has already been cleared.
-            // A file left behind is untidy, not a failure worth rejecting the request over.
+            fileStorageService.delete("profile-pictures/thumbnail/" + baseName + extension);
         }
     }
 

@@ -7,7 +7,7 @@ import { getBusImage } from "../../utils/busImage";
 import { ADMIN_SUPPORT_USER_ID } from "../../config/env";
 import { useSession } from "../../store/sessionStore";
 import { createConversation } from "../../services/chatApi";
-import { getUserProfile } from "../../services/userProfileApi";
+import { getSupportContact } from "../../services/corporateApi";
 import { getTripBooking, TripBooking } from "../../services/tripBookingsApi";
 import { LocalizedText as Text } from "../../utils/i18n";
 
@@ -62,8 +62,8 @@ export default function NegotiationScreen() {
 
   const handleCallAdmin = async () => {
     try {
-      const profile = await getUserProfile(ADMIN_SUPPORT_USER_ID);
-      const phone = profile.phoneNumber?.trim();
+      const contact = await getSupportContact();
+      const phone = contact.phone?.trim();
       if (!phone) { Alert.alert("Admin phone unavailable", "Please use the chat option to negotiate this booking."); return; }
       const url = `tel:${phone.replace(/[^+\d]/g, "")}`;
       if (!(await Linking.canOpenURL(url))) { Alert.alert("Calling unavailable", "Your phone cannot open the call application."); return; }

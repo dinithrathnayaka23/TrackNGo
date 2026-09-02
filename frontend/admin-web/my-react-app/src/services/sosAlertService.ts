@@ -1,6 +1,10 @@
 import authService from './authService'
 
-export const SOS_API_BASE = 'http://127.0.0.1:8080'
+// Same VITE_API_BASE_URL pattern as DashboardLayout.tsx / Chat.tsx: use the
+// configured production backend origin when set, otherwise fall back to the
+// local dev backend unchanged.
+export const SOS_API_BASE =
+  String(import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/$/, '') || 'http://127.0.0.1:8080'
 
 export type EmergencyContact = {
   contactId: number

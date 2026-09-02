@@ -13,17 +13,20 @@ import java.nio.file.Path;
 public class WebConfig implements WebMvcConfigurer {
 
     private final String uploadLocation;
+    private final String[] allowedOrigins;
 
     public WebConfig(
-            @Value("${trackngo.chat.media.upload-dir:uploads}") String uploadDir) {
+            @Value("${trackngo.chat.media.upload-dir:uploads}") String uploadDir,
+            @Value("${trackngo.cors.allowed-origins}") String allowedOrigins) {
         String resourceUri = Path.of(uploadDir).toAbsolutePath().normalize().toUri().toString();
         this.uploadLocation = resourceUri.endsWith("/") ? resourceUri : resourceUri + "/";
+        this.allowedOrigins = CorsOrigins.parse(allowedOrigins);
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-            .allowedOriginPatterns("*")
+            .allowedOriginPatterns(allowedOrigins)
             .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
             .allowedHeaders("*")
             .allowCredentials(true);

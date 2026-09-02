@@ -31,6 +31,7 @@ import {
   isValidSriLankanPhone,
 } from "../../services/corporateApi";
 import { deleteProfilePicture } from "../../services/userProfileApi";
+import { setAuthToken } from "../../services/http";
 import { SRI_LANKAN_INDUSTRIES } from "../../utils/industries";
 
 // ─── Entrance animation hook ──────────────────────────────────────────────────
@@ -270,6 +271,12 @@ export default function CorporateProfileScreen() {
         contactEmail: form.contactEmail,
         profilePhoto: form.profilePhoto,
       });
+      // Changing the contact email also changes the login email, which
+      // invalidates the current JWT — apply the fresh one so the session
+      // (and next login) stays in step with the new email.
+      if (updated.token) {
+        await setAuthToken(updated.token);
+      }
       setProfile(updated);
       Alert.alert("Success", "Profile updated successfully!");
       closeModalFn();

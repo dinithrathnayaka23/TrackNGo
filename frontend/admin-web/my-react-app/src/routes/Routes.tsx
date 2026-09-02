@@ -11,6 +11,7 @@ import Corporate from '../pages/dashboard/Corporate'
 import CorporateDetail from '../pages/dashboard/CorporateDetail'
 import Contracts from '../pages/dashboard/Contracts'
 import CorporatePricingSettings from '../pages/dashboard/CorporatePricingSettings'
+import TripPricingSettings from '../pages/dashboard/TripPricingSettings'
 import RoutesPage from '../pages/dashboard/RoutesPage'
 import Settings from '../pages/dashboard/Settings'
 import Profile from '../pages/dashboard/Profile'
@@ -26,6 +27,7 @@ function DashboardRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="booking" element={<Booking />} />
+        <Route path="booking/trip-pricing-settings" element={<TripPricingSettings />} />
         <Route path="buses" element={<Buses />} />
         <Route path="buses/:busId" element={<BusDetail />} />
         <Route path="chat" element={<Chat />} />

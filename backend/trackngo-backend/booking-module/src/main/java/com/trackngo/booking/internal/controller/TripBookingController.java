@@ -18,7 +18,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/trips")
-@CrossOrigin(originPatterns = "*")
+// No @CrossOrigin here: the global CORS policy in WebConfig already covers
+// this controller. A wildcard here would override that policy for just this
+// controller and reopen it to every origin, defeating the point of
+// restricting the app-wide origin list to FRONTEND_URL for production.
 @RequiredArgsConstructor
 public class TripBookingController {
 

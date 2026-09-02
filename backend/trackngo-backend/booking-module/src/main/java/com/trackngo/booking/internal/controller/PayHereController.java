@@ -1,6 +1,7 @@
 package com.trackngo.booking.internal.controller;
 
 import com.trackngo.commons.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,9 +48,8 @@ public class PayHereController {
         String raw = mid + request.orderId() + amountFormatted + request.currency() + secretHash;
         String hash = md5(raw).toUpperCase();
 
-        log.info("[PayHere Hash] merchantId='{}', orderId='{}', amount='{}', currency='{}', secretLen={}, secretHash='{}', hash='{}'",
-                mid, request.orderId(), amountFormatted, request.currency(),
-                secret.length(), secretHash, hash);
+        log.info("[PayHere Hash] merchantId='{}', orderId='{}', amount='{}', currency='{}'",
+                mid, request.orderId(), amountFormatted, request.currency());
 
         return ApiResponse.ok("Hash generated", Map.of(
                 "merchant_id", mid,
@@ -58,23 +58,25 @@ public class PayHereController {
     }
 
     /**
-     * Quick browser test page — open http://localhost:8080/api/booking-flow/payhere/test
-     * in your COMPUTER's browser to isolate domain/origin issues.
+     * Quick browser test page — open {@code /api/booking-flow/payhere/test} on
+     * whichever host is currently running the app (localhost in dev, the
+     * Render domain in production) to isolate domain/origin issues.
      */
     @GetMapping("/test")
-    public ResponseEntity<String> testPage() {
+    public ResponseEntity<String> testPage(HttpServletRequest request) {
         String mid = merchantId.trim();
         String secret = merchantSecret.trim();
         String orderId = "TEST-" + System.currentTimeMillis();
         String amount = "50.00";
         String currency = "LKR";
+        String notifyUrl = requestBaseUrl(request) + "/api/booking-flow/payhere/notify";
 
         String secretHash = md5(secret).toUpperCase();
         String raw = mid + orderId + amount + currency + secretHash;
         String hash = md5(raw).toUpperCase();
 
-        log.info("[PayHere TEST] mid='{}', orderId='{}', amount='{}', currency='{}', secretHash='{}', hash='{}'",
-                mid, orderId, amount, currency, secretHash, hash);
+        log.info("[PayHere TEST] mid='{}', orderId='{}', amount='{}', currency='{}'",
+                mid, orderId, amount, currency);
 
         String html = "<!DOCTYPE html><html><head>"
                 + "<meta charset='UTF-8'>"
@@ -99,7 +101,7 @@ public class PayHereController {
                 + "    merchant_id: '" + escJs(mid) + "',"
                 + "    return_url: undefined,"
                 + "    cancel_url: undefined,"
-                + "    notify_url: 'http://localhost:8080/api/booking-flow/payhere/notify',"
+                + "    notify_url: '" + escJs(notifyUrl) + "',"
                 + "    order_id: '" + escJs(orderId) + "',"
                 + "    items: 'Test Item',"
                 + "    amount: '" + amount + "',"
@@ -160,10 +162,9 @@ public class PayHereController {
         String checkoutAction = sandbox
                 ? "https://sandbox.payhere.lk/pay/checkout"
                 : "https://www.payhere.lk/pay/checkout";
-        String secretTail = secret.length() <= 6 ? secret : secret.substring(secret.length() - 6);
 
-        log.info("[PayHere Checkout v2] sandbox={}, checkoutAction='{}', merchantId='{}', secretLen={}, secretTail='{}', orderId='{}', amount='{}', currency='{}', hash='{}', notifyHost='{}'",
-                sandbox, checkoutAction, mid, secret.length(), secretTail, order_id, amountFormatted, currency, hash, normalizedBaseUrl);
+        log.info("[PayHere Checkout v2] sandbox={}, checkoutAction='{}', merchantId='{}', orderId='{}', amount='{}', currency='{}', notifyHost='{}'",
+                sandbox, checkoutAction, mid, order_id, amountFormatted, currency, normalizedBaseUrl);
 
         String html = "<!DOCTYPE html>\n"
                 + "<html><head><meta charset='UTF-8'>\n"
@@ -293,9 +294,18 @@ public class PayHereController {
     }
 
     private void logPayHereConfig(String mid, String secret) {
-        String tail = secret.length() <= 6 ? secret : secret.substring(secret.length() - 6);
-        log.info("[PayHere Config] sandbox={}, merchantId='{}', secretLength={}, secretTail='{}'",
-                sandbox, mid, secret.length(), tail);
+        // Length only, never the secret's own characters or a hash of it.
+        log.info("[PayHere Config] sandbox={}, merchantId='{}', secretConfigured={}",
+                sandbox, mid, !secret.isBlank());
+    }
+
+    /** Scheme + host (+ non-default port) the current request actually arrived on. */
+    private String requestBaseUrl(HttpServletRequest request) {
+        String scheme = request.getScheme();
+        String host = request.getServerName();
+        int port = request.getServerPort();
+        boolean defaultPort = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
+        return scheme + "://" + host + (defaultPort ? "" : ":" + port);
     }
 
     private String md5(String input) {

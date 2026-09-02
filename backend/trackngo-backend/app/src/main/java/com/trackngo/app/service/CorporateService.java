@@ -58,6 +58,12 @@ public class CorporateService {
     private static final int MIN_EMPLOYEE_COUNT = 20;
 
     /**
+     * Furthest a contract's start date can be booked in advance. Mirrors
+     * MAX_CONTRACT_START_LEAD_DAYS in the passenger app's new-contract screen.
+     */
+    private static final int MAX_CONTRACT_START_LEAD_DAYS = 90;
+
+    /**
      * A pickup and a drop-off within this distance of each other are treated
      * as the same stop. Mirrors MIN_LOCATION_SEPARATION_KM on the passenger
      * app's new-contract screen.
@@ -761,6 +767,11 @@ public class CorporateService {
         java.time.LocalDate earliestStart = java.time.LocalDate.now().plusWeeks(1);
         if (dto.startDate().isBefore(earliestStart)) {
             throw new IllegalArgumentException("Contract start date must be at least one week from today.");
+        }
+        java.time.LocalDate latestStart = java.time.LocalDate.now().plusDays(MAX_CONTRACT_START_LEAD_DAYS);
+        if (dto.startDate().isAfter(latestStart)) {
+            throw new IllegalArgumentException(
+                    "Contract start date cannot be more than " + MAX_CONTRACT_START_LEAD_DAYS + " days from today.");
         }
         if (dto.endDate().isBefore(dto.startDate().plusMonths(1))) {
             throw new IllegalArgumentException("Contract term must be at least one month.");
@@ -1695,6 +1706,65 @@ public class CorporateService {
         return jdbcTemplate.queryForObject(
                 "SELECT %s FROM corporate_contract WHERE contract_id = ?".formatted(CONTRACT_COLUMNS),
                 (rs, rowNum) -> mapContract(rs), contractId);
+    }
+
+    /**
+     * Lets the corporate user immediately reject a contract that hasn't been
+     * finalized yet — including one admin has already approved (status =
+     * 'active', still showing as "Request Approved" until finalized). Unlike
+     * {@link #requestCancellation}, this needs no admin counter-approval: no
+     * invoices exist yet (those are only generated in {@link #finalizeContract}),
+     * and the deposit can't have been charged through the normal flow either,
+     * since paying it finalizes the contract in the same step — so there is
+     * nothing on the admin's side that a self-service reject could undo
+     * incorrectly. If a deposit was somehow marked paid without finalizing,
+     * this is refused so that money is never lost silently; the corporate
+     * user is directed to request cancellation instead, which an admin can
+     * see through to a refund.
+     */
+    public void rejectUnfinalizedContract(Long contractId, Long corporateUserId) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT status, finalized_at, corporate_user_id, advance_payment_status, contract_name " +
+                "FROM corporate_contract WHERE contract_id = ?",
+                contractId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("Contract not found.");
+        }
+        Map<String, Object> row = rows.get(0);
+        Long ownerId = ((Number) row.get("corporate_user_id")).longValue();
+        if (corporateUserId != null && !corporateUserId.equals(ownerId)) {
+            throw new IllegalStateException("You do not have access to this contract.");
+        }
+        String status = (String) row.get("status");
+        if (!"pending".equalsIgnoreCase(status) && !"active".equalsIgnoreCase(status)) {
+            throw new IllegalStateException("This contract is not awaiting review.");
+        }
+        if (row.get("finalized_at") != null) {
+            throw new IllegalStateException(
+                    "This contract has already been finalized. Use Cancel Contract instead.");
+        }
+        String advanceStatus = (String) row.get("advance_payment_status");
+        if ("paid".equalsIgnoreCase(advanceStatus)) {
+            throw new IllegalStateException(
+                    "An advance deposit has already been paid on this contract. " +
+                    "Please request cancellation instead so the deposit can be refunded.");
+        }
+
+        int updated = jdbcTemplate.update("""
+                UPDATE corporate_contract SET status = 'cancelled'
+                WHERE contract_id = ? AND finalized_at IS NULL AND status IN ('pending', 'active')
+                """, contractId);
+        if (updated == 0) {
+            throw new IllegalStateException("This contract could not be rejected — it may have just been updated.");
+        }
+
+        String contractName = (String) row.get("contract_name");
+        notifications.toAllAdmins(
+                NotificationType.SYSTEM_ALERT,
+                "Contract Rejected by Client",
+                String.format(
+                        "%s rejected contract request \"%s\" before finalizing it.",
+                        resolveCorporateCompanyName(ownerId), contractName));
     }
 
     private void notifyStatusChange(Long contractId, Long corporateUserId, String contractName, String newStatus) {

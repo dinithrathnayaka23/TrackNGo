@@ -91,6 +91,19 @@ public class CorporateController {
         }
     }
 
+    @PostMapping("/contracts/{contractId}/reject")
+    public ApiResponse<Void> rejectUnfinalizedContract(
+            @PathVariable("contractId") Long contractId,
+            @RequestParam(value = "userId", required = false) Long userId) {
+        try {
+            corporateService.rejectUnfinalizedContract(contractId, userId);
+            return ApiResponse.ok("Contract rejected", null);
+        } catch (Exception ex) {
+            log.error("Error rejecting contract {}: {}", contractId, ex.getMessage(), ex);
+            return ApiResponse.fail(ex.getMessage());
+        }
+    }
+
     @PostMapping("/contracts/{contractId}/advance-payment")
     public ApiResponse<CorporateContractDto> processAdvancePayment(
             @PathVariable("contractId") Long contractId,

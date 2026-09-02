@@ -145,6 +145,7 @@ function Booking() {
   const [bookings, setBookings] = useState<BookingRecord[]>([])
   const [tripRequests, setTripRequests] = useState<BookingRecord[]>([])
   const [activeTab, setActiveTab] = useState<BookingCategory>('All Bookings')
+  const [filtersVisible, setFiltersVisible] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'All Statuses' | BookingStatus>('All Statuses')
   const [routeFilter, setRouteFilter] = useState('All Routes')
@@ -315,7 +316,7 @@ function Booking() {
         <TripBookingReviewPanel bookings={tripRequests} onUpdated={loadBookings} />
       </div>
 
-      <div className="animate-dash-in border-b border-[#e5e7eb]" style={{ animationDelay: '140ms' }}>
+      <div className="animate-dash-in flex items-center justify-between border-b border-[#e5e7eb]" style={{ animationDelay: '140ms' }}>
         <nav className="-mb-px flex gap-6">
           {tabs.map((tab) => (
             <button
@@ -329,9 +330,19 @@ function Booking() {
             </button>
           ))}
         </nav>
+        <button
+          type="button"
+          onClick={() => setFiltersVisible((visible) => !visible)}
+          aria-pressed={filtersVisible}
+          title={filtersVisible ? 'Hide filters' : 'Show filters'}
+          className={`mb-2.5 grid h-9 w-9 place-items-center rounded-lg border transition ${filtersVisible ? 'border-[#2642a6] bg-[#2642a6]/10 text-[#2642a6]' : 'border-[#d6dbe6] bg-white text-[#64748b] hover:bg-[#f1f5f9]'}`}
+        >
+          <FontAwesomeIcon icon={faSliders} className="text-sm" />
+        </button>
       </div>
 
       <div className="animate-dash-in flex gap-5" style={{ animationDelay: '160ms' }}>
+        {filtersVisible && (
         <aside className="w-64 shrink-0 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-[#111827]">Filters</h2>
@@ -370,6 +381,7 @@ function Booking() {
             <button type="button" onClick={resetFilters} className="flex-1 rounded-lg border border-[#d6dbe6] bg-white py-2.5 text-sm font-semibold text-[#334155] transition hover:bg-[#f1f5f9]">Reset</button>
           </div>
         </aside>
+        )}
 
         <div className="min-w-0 flex-1 overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_22px_rgba(15,23,42,0.05)]">
           <div className="overflow-x-auto">

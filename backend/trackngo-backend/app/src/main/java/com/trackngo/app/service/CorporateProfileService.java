@@ -3,16 +3,21 @@ package com.trackngo.app.service;
 import com.trackngo.app.dto.CorporateProfileDto;
 import com.trackngo.app.util.Industries;
 import com.trackngo.app.util.ProfileValidation;
+import com.trackngo.commons.exception.BusinessException;
+import com.trackngo.commons.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class CorporateProfileService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final JwtUtil jwtUtil;
 
     private static final String INSERT_OR_UPDATE_SQL = """
             INSERT INTO corporate_user (
@@ -48,12 +53,37 @@ public class CorporateProfileService {
             UPDATE `user` SET user_type = 'corporate' WHERE user_id = ?;
             """;
 
+    /**
+     * Saves the corporate profile and returns a freshly-signed JWT when the
+     * contact email changed (null otherwise). The contact email doubles as
+     * this account's login identifier (see UserRepository.findByIdentifier),
+     * so it must be kept in sync with `user.email` — otherwise the old login
+     * email would keep working while the new one the client thinks they
+     * saved wouldn't, and the client's existing token would still carry the
+     * stale email as its subject.
+     */
     @Transactional
-    public void saveProfile(Long userId, CorporateProfileDto dto) {
+    public String saveProfile(Long userId, CorporateProfileDto dto) {
         validate(dto);
+
+        String previousEmail = jdbcTemplate.queryForObject(
+                "SELECT email FROM `user` WHERE user_id = ?", String.class, userId);
+        String newEmail = dto.contactEmail().trim();
+
+        if (!newEmail.equalsIgnoreCase(previousEmail)) {
+            Integer duplicate = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM `user` WHERE LOWER(email) = LOWER(?) AND user_id <> ?",
+                    Integer.class, newEmail, userId);
+            if (duplicate != null && duplicate > 0) {
+                throw new BusinessException("That email address is already in use.");
+            }
+        }
 
         // Ensure user_type is set to 'corporate'
         jdbcTemplate.update(UPDATE_USER_TYPE_SQL, userId);
+
+        // Keep the login email (user.email) in step with the contact email.
+        jdbcTemplate.update("UPDATE `user` SET email = ? WHERE user_id = ?", newEmail, userId);
 
         // Save corporate user profile details
         jdbcTemplate.update(
@@ -71,6 +101,11 @@ public class CorporateProfileService {
                 dto.industry(),
                 dto.profilePhoto()
         );
+
+        if (!newEmail.equalsIgnoreCase(previousEmail)) {
+            return jwtUtil.generateToken(newEmail, Map.of("role", "corporate", "userType", "corporate"));
+        }
+        return null;
     }
 
     /**

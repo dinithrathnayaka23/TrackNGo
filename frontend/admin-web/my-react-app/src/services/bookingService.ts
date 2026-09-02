@@ -113,6 +113,69 @@ async function fetchLegacyTripBookingRequests(token: string): Promise<AdminBooki
     }))
 }
 
+export type TripPricingSettings = {
+  dailyRate: number
+  smallBusRatePerKm: number
+  largeBusRatePerKm: number
+  passengerThreshold: number
+  acSurchargePercent: number
+  miniBusSurcharge: number
+  advancePaymentPercent: number
+  updatedAt: string | null
+}
+
+/**
+ * Trip-booking pricing endpoints return the raw settings object directly on
+ * success (matching every other `/api/trips/**` endpoint in this
+ * controller), but fall back to the shared `{success, message, data}`
+ * envelope on error via GlobalExceptionHandler — so only the failure path
+ * needs to check for a wrapper.
+ */
+function extractErrorMessage(body: unknown): string | undefined {
+  if (body && typeof body === 'object' && 'message' in body) {
+    return (body as { message?: string }).message
+  }
+  return undefined
+}
+
+export async function fetchTripPricingSettings(): Promise<TripPricingSettings> {
+  const token = authService.getToken()
+  if (!token) throw new Error('Your admin session is missing. Please sign in again.')
+  const response = await fetch('/api/trips/pricing-settings', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const text = await response.text()
+  let body: unknown = null
+  if (text.trim()) {
+    try { body = JSON.parse(text) } catch { throw new Error(`The server returned an invalid response (${response.status}).`) }
+  }
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(body) || `Could not load trip pricing settings (HTTP ${response.status}).`)
+  }
+  return body as TripPricingSettings
+}
+
+export async function updateTripPricingSettings(
+  settings: Omit<TripPricingSettings, 'updatedAt'>,
+): Promise<TripPricingSettings> {
+  const token = authService.getToken()
+  if (!token) throw new Error('Your admin session is missing. Please sign in again.')
+  const response = await fetch('/api/trips/pricing-settings', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  const text = await response.text()
+  let body: unknown = null
+  if (text.trim()) {
+    try { body = JSON.parse(text) } catch { throw new Error(`The server returned an invalid response (${response.status}).`) }
+  }
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(body) || `Could not save trip pricing settings (HTTP ${response.status}).`)
+  }
+  return body as TripPricingSettings
+}
+
 type AdminContractSummary = {
   contractId: number
   contractName: string

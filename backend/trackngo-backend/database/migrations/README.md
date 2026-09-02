@@ -186,6 +186,13 @@ also now rejects assigning a driver who is already on another in-service bus
 before this migration is even needed, but the database constraint is the
 backstop for any other writer.
 
+Before deploying the trip-booking price settings screen, run
+`V34__trip_pricing_settings.sql`. It adds a `trip_pricing_settings` table
+(mirroring `corporate_pricing_settings`) so the private trip-booking (hire-a-
+bus) daily rate, per-km rates, AC/Mini Bus surcharges, and advance-payment
+percentage can be tuned by an admin without a code deploy, instead of being
+hardcoded constants in `TripBookingService`.
+
 Disruption handling behaves as follows:
 
 - Future confirmed bookings are cancelled and their seat reservations released.

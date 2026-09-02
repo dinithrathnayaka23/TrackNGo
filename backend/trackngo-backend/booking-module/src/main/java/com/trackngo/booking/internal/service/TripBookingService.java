@@ -30,10 +30,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TripBookingService {
 
-    private static final BigDecimal DAILY_RATE = new BigDecimal("12000");
-    private static final BigDecimal SMALL_BUS_RATE_PER_KM = new BigDecimal("250");
-    private static final BigDecimal LARGE_BUS_RATE_PER_KM = new BigDecimal("400");
-    private static final BigDecimal ADVANCE_RATE = new BigDecimal("0.15");
     private static final List<String> BUS_RESERVING_STATUSES = List.of(
             "pending", "approved", "confirmed", "in_progress"
     );
@@ -60,6 +56,7 @@ public class TripBookingService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
     private final NotificationDispatcher notifications;
+    private final TripPricingService tripPricingService;
 
     public List<TripBooking> getAllBookings() {
         String sql = "SELECT * FROM trip_booking ORDER BY trip_booking_id DESC";
@@ -245,7 +242,7 @@ public class TripBookingService {
         }
 
         BigDecimal finalPrice = request.finalPrice().setScale(2, RoundingMode.HALF_UP);
-        BigDecimal advance = finalPrice.multiply(ADVANCE_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal advance = tripPricingService.calculateAdvance(finalPrice);
         String note = cleanNote(request.adminNote());
         int updated = jdbc.update("UPDATE trip_booking SET final_price = ?, advance_payment = ?, discount_amount = ?, admin_note = ?, negotiated_at = NOW(), booking_status = 'confirmed' WHERE trip_booking_id = ? AND booking_status IN ('pending', 'approved', 'confirmed')",
                 finalPrice, advance, discount.setScale(2, RoundingMode.HALF_UP), note, bookingId);
@@ -607,14 +604,10 @@ public class TripBookingService {
     private Fare calculateFare(TripBookingRequest request) {
         long days = Math.max(1, ChronoUnit.DAYS.between(request.startDate(), request.returnDate()));
         double distance = resolveDistance(request);
-        BigDecimal rate = request.passengerCount() <= 20 ? SMALL_BUS_RATE_PER_KM : LARGE_BUS_RATE_PER_KM;
-        BigDecimal distanceCost = BigDecimal.valueOf(distance).multiply(rate);
         VehiclePreference preference = VehiclePreference.parse(request.requirement());
-        if (preference.airConditioned()) distanceCost = distanceCost.multiply(new BigDecimal("1.25"));
-        if (preference.miniBus()) distanceCost = distanceCost.add(new BigDecimal("1500"));
-        BigDecimal total = DAILY_RATE.multiply(BigDecimal.valueOf(days)).add(distanceCost).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal advance = total.multiply(ADVANCE_RATE).setScale(2, RoundingMode.HALF_UP);
-        return new Fare(total, advance);
+        TripFareQuote quote = tripPricingService.calculateFare(
+                days, distance, request.passengerCount(), preference.airConditioned(), preference.miniBus());
+        return new Fare(quote.finalPrice(), quote.advancePayment());
     }
 
     private double resolveDistance(TripBookingRequest request) {

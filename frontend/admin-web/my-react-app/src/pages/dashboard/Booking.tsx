@@ -289,10 +289,19 @@ function Booking() {
     <div className="mx-auto max-w-7xl space-y-5">
       <div className="animate-dash-in flex flex-wrap items-center justify-between gap-4" style={{ animationDelay: '80ms' }}>
         <h1 className="text-xl font-extrabold tracking-tight text-[#111827]">Bookings Management</h1>
-        <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]">
-          <FontAwesomeIcon icon={faDownload} className="text-xs" />
-          Export Bookings
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/booking/trip-pricing-settings')}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#d6dbe6] bg-white px-4 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+          >
+            Trip Pricing Settings
+          </button>
+          <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-[#2642a6] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#203b96]">
+            <FontAwesomeIcon icon={faDownload} className="text-xs" />
+            Export Bookings
+          </button>
+        </div>
       </div>
 
       <div className="animate-dash-in grid gap-4 sm:grid-cols-2 lg:grid-cols-4" style={{ animationDelay: '100ms' }}>

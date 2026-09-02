@@ -33,7 +33,11 @@ type Complaint = AdminComplaint
 type SortDir = 'asc' | 'desc' | null
 
 const PER_PAGE = 5
-const BACKEND_BASE_URL = 'http://localhost:8080'
+// Same VITE_API_BASE_URL pattern as DashboardLayout.tsx / Chat.tsx: use the
+// configured production backend origin when set, otherwise fall back to the
+// local dev backend unchanged.
+const BACKEND_BASE_URL =
+  String(import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/$/, '') || 'http://localhost:8080'
 
 /** Returns the badge color classes used for complaint priority pills. */
 export function priorityBadge(priority: string) {

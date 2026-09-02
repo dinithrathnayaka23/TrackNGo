@@ -40,11 +40,5 @@ module.exports = () => {
           }
         : config.android?.config,
     },
-    ios: {
-      ...config.ios,
-      config: googleMapsApiKey
-        ? { ...config.ios?.config, googleMapsApiKey }
-        : config.ios?.config,
-    },
   };
 };

@@ -1,0 +1,33 @@
+{
+  "cli": {
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+  "distribution": "internal",
+  "android": {
+    "buildType": "apk"
+  },
+  "environment": "preview",
+  "env": {
+    "EXPO_PUBLIC_API_BASE_URL": "https://trackngo-backend-uyhf.onrender.com"
+  }
+},
+"production": {
+  "autoIncrement": true,
+  "android": {
+    "buildType": "app-bundle"
+  },
+  "environment": "production",
+  "env": {
+    "EXPO_PUBLIC_API_BASE_URL": "https://trackngo-backend-uyhf.onrender.com"
+  }
+}
+  }
+}

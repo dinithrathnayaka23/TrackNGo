@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "driverapp",
+    "name": "TrackNGo Driver",
     "slug": "driverapp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,6 +15,7 @@
       }
     },
     "android": {
+      "package": "com.trackngo.driver",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

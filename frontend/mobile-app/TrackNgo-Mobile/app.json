@@ -14,19 +14,13 @@
       "**/*"
     ],
     "android": {
-      "package": "com.trackngo.chat",
+      "package": "com.trackngo.passenger",
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
       ],
       "config": {}
-    },
-    "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "TrackNGo needs your location to share it in chat."
-      }
     },
     "plugins": [
       "expo-router",
@@ -49,6 +43,12 @@
     ],
     "web": {
       "bundler": "metro"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "db76b00f-e08c-4df8-b05e-36ef278be93b"
+      }
     }
   }
 }

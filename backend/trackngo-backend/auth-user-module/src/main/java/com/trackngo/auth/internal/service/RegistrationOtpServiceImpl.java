@@ -88,11 +88,10 @@ public class RegistrationOtpServiceImpl implements RegistrationOtpService {
         if (!passwordEncoder.matches(request.getOtp().trim(), otp.getOtpHash())) {
             otp.setAttempts(otp.getAttempts() + 1);
             otpRepository.save(otp);
-            int remaining = MAX_ATTEMPTS - otp.getAttempts();
-            if (remaining <= 0) {
+            if (otp.getAttempts() >= MAX_ATTEMPTS) {
                 throw new BusinessException("Too many incorrect attempts. Please request a new code.");
             }
-            throw new BusinessException("Invalid code. " + remaining + " attempt(s) remaining.");
+            throw new BusinessException("Invalid code.");
         }
 
         String verificationToken = UUID.randomUUID().toString();

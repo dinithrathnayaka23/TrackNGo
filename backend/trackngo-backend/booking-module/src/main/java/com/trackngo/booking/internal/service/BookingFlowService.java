@@ -20,7 +20,9 @@ import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Time;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -49,6 +51,16 @@ public class BookingFlowService {
 
     /** Mirrors MAX_CANCEL_REASON_LENGTH in the passenger app's view-ticket/booking-history screens. */
     private static final int MAX_CANCEL_REASON_LENGTH = 300;
+
+    /**
+     * A passenger-cancelled seat booking is refunded at 75% if cancelled at
+     * least this many hours before departure, and not refunded at all once
+     * inside this window. Mirrors REFUND_CUTOFF_HOURS in the passenger app's
+     * view-ticket/booking-history screens.
+     */
+    private static final int REFUND_CUTOFF_HOURS = 5;
+    private static final int REFUND_PERCENTAGE_BEFORE_CUTOFF = 75;
+    private static final int REFUND_PERCENTAGE_AFTER_CUTOFF = 0;
 
     /**
      * Seat bookings must be made at least one full day ahead: a passenger cannot
@@ -814,8 +826,9 @@ public class BookingFlowService {
         }
         String reqType = "admin".equalsIgnoreCase(requesterType) ? "admin" : "user";
         Map<String, Object> booking = findBookingRow(
-                "SELECT sb.seat_booking_id, sb.passenger_id, sb.journey_date, sb.seat_number, sb.status, " +
-                "sb.cancellation_status, b.bus_number, b.driver_id, u.email " +
+                "SELECT sb.seat_booking_id, sb.passenger_id, sb.journey_date, sb.journey_time, sb.seat_number, " +
+                "sb.status, sb.cancellation_status, sb.payment_id, sb.total_amount, " +
+                "b.bus_number, b.driver_id, u.email " +
                 "FROM seat_booking sb JOIN bus b ON sb.bus_id = b.bus_id " +
                 "JOIN `user` u ON sb.passenger_id = u.user_id " +
                 "WHERE sb.booking_reference = ?",
@@ -829,51 +842,106 @@ public class BookingFlowService {
             throw new RuntimeException("Booking is already cancelled");
         }
 
-        LocalDate journeyDate = toLocalDate(booking.get("journey_date"));
-        LocalDate today = LocalDate.now();
-        int refundPercentage;
-        String refundMessage;
-
         if ("admin".equalsIgnoreCase(reqType)) {
-            refundPercentage = 100;
-            refundMessage = "The refund will be redirected to the account within 10 working business days.";
-        } else {
-            if (journeyDate != null && !journeyDate.isBefore(today.plusDays(3))) {
-                refundPercentage = 100;
-                refundMessage = "Full refund will be credited to your account within 10 working business days.";
-            } else {
-                refundPercentage = 75;
-                refundMessage = "Only a 75% refund will be credited to your account within 10 working business days.";
-            }
-        }
+            // Admin-initiated cancellation still needs the passenger's consent
+            // (respondToCancellation), and is always offered a full refund.
+            int refundPercentage = 100;
+            String refundMessage = "The refund will be redirected to the account within 10 working business days.";
 
-        String newCancelStatus = "admin".equalsIgnoreCase(reqType) ? "requested_by_admin" : "requested_by_user";
-        jdbc.update(
-            "UPDATE seat_booking SET cancellation_status = ?, cancellation_reason = ?, " +
-            "cancellation_requested_by = ?, cancellation_requested_at = NOW(), " +
-            "cancellation_reject_reason = NULL, refund_percentage = ? " +
-            "WHERE booking_reference = ?",
-            newCancelStatus, reason.trim(), reqType, refundPercentage, bookingRef
-        );
-
-        if ("user".equalsIgnoreCase(reqType)) {
-            notifications.toAllAdmins(
-                NotificationType.CANCELLATION,
-                "Cancellation Requested: " + bookingRef,
-                "Passenger requested cancellation for booking " + bookingRef + " (Seat " + booking.get("seat_number") + "). Reason: " + reason.trim() + ". Refund policy: " + refundPercentage + "%."
+            jdbc.update(
+                "UPDATE seat_booking SET cancellation_status = 'requested_by_admin', cancellation_reason = ?, " +
+                "cancellation_requested_by = 'admin', cancellation_requested_at = NOW(), " +
+                "cancellation_reject_reason = NULL, refund_percentage = ? " +
+                "WHERE booking_reference = ?",
+                reason.trim(), refundPercentage, bookingRef
             );
-        } else {
+
             notifications.toPassenger(
                 toLongOrNull(booking.get("passenger_id")),
                 NotificationType.CANCELLATION,
                 "Admin Requested Cancellation: " + bookingRef,
                 "TrackNGo Admin requested cancellation for booking " + bookingRef + ". Reason: " + reason.trim() + ". " + refundMessage
             );
+
+            return Map.of(
+                "bookingReference", bookingRef,
+                "cancellationStatus", "requested_by_admin",
+                "cancellationReason", reason.trim(),
+                "refundPercentage", refundPercentage,
+                "refundMessage", refundMessage
+            );
         }
+
+        // Passenger-initiated cancellation of a normal (seat) booking cancels
+        // immediately — no admin approval step, unlike trip bookings. The
+        // refund is time-based: REFUND_PERCENTAGE_BEFORE_CUTOFF if cancelled
+        // at least REFUND_CUTOFF_HOURS before departure, otherwise
+        // REFUND_PERCENTAGE_AFTER_CUTOFF.
+        LocalDate journeyDate = toLocalDate(booking.get("journey_date"));
+        LocalTime journeyTime = toLocalTime(booking.get("journey_time"));
+        LocalDateTime departure = (journeyDate != null)
+                ? LocalDateTime.of(journeyDate, journeyTime != null ? journeyTime : LocalTime.MIDNIGHT)
+                : null;
+        long hoursUntilDeparture = departure != null
+                ? Duration.between(LocalDateTime.now(APP_ZONE), departure).toHours()
+                : Long.MAX_VALUE;
+
+        int refundPercentage = hoursUntilDeparture >= REFUND_CUTOFF_HOURS
+                ? REFUND_PERCENTAGE_BEFORE_CUTOFF
+                : REFUND_PERCENTAGE_AFTER_CUTOFF;
+        String refundMessage = refundPercentage > 0
+                ? "A " + refundPercentage + "% refund will be credited to your account within 10 working business days."
+                : "This booking was cancelled less than " + REFUND_CUTOFF_HOURS + " hours before departure, so it is not eligible for a refund.";
+
+        jdbc.update(
+            "UPDATE seat_booking SET status = 'cancelled', cancellation_status = 'accepted', " +
+            "cancellation_reason = ?, cancellation_requested_by = 'user', cancellation_requested_at = NOW(), " +
+            "cancellation_reject_reason = NULL, refund_percentage = ? " +
+            "WHERE booking_reference = ?",
+            reason.trim(), refundPercentage, bookingRef
+        );
+        jdbc.update(
+            "DELETE FROM seat_booking_seat WHERE seat_booking_id = " +
+            "(SELECT seat_booking_id FROM seat_booking WHERE booking_reference = ?)",
+            bookingRef
+        );
+
+        Long paymentId = toLongOrNull(booking.get("payment_id"));
+        if (refundPercentage > 0 && paymentId != null) {
+            BigDecimal totalAmount = toBigDecimal(booking.get("total_amount"));
+            BigDecimal refundAmount = totalAmount
+                    .multiply(BigDecimal.valueOf(refundPercentage))
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            String cancelKey = "CANCEL:" + bookingRef;
+            jdbc.update("""
+                    INSERT INTO refund
+                        (refund_reason, refund_status, refund_amount, disruption_key, payment_id)
+                    SELECT ?, 'pending', ?, ?, ?
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM refund WHERE disruption_key = ?
+                    )
+                    """,
+                    reason.trim(), refundAmount, cancelKey, paymentId, cancelKey
+            );
+        }
+
+        notifications.toPassenger(
+            toLongOrNull(booking.get("passenger_id")),
+            NotificationType.CANCELLATION,
+            "Booking Cancelled: " + bookingRef,
+            "Your booking " + bookingRef + " has been cancelled. " + refundMessage
+        );
+        notifications.toDriver(
+            toLongOrNull(booking.get("driver_id")),
+            NotificationType.CANCELLATION,
+            "Booking Cancelled on Your Bus",
+            "Seat(s) " + booking.get("seat_number") + " on bus " + booking.get("bus_number") + " were cancelled."
+        );
 
         return Map.of(
             "bookingReference", bookingRef,
-            "cancellationStatus", newCancelStatus,
+            "cancellationStatus", "accepted",
+            "status", "cancelled",
             "cancellationReason", reason.trim(),
             "refundPercentage", refundPercentage,
             "refundMessage", refundMessage

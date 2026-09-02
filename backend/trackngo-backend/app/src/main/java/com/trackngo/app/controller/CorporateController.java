@@ -252,9 +252,11 @@ public class CorporateController {
             @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(value = "minSeats", required = false) Integer minSeats,
             @RequestParam(value = "search", required = false) String search,
-            @RequestParam(value = "amenity", required = false) String amenity) {
+            @RequestParam(value = "amenity", required = false) String amenity,
+            @RequestParam(value = "renewedFromContractId", required = false) Long renewedFromContractId) {
         try {
-            List<ContractBusDto> buses = corporateService.getAvailableBuses(startDate, endDate, minSeats, search, amenity);
+            List<ContractBusDto> buses = corporateService.getAvailableBuses(
+                    startDate, endDate, minSeats, search, amenity, renewedFromContractId);
             return ApiResponse.ok("Available buses fetched successfully", buses);
         } catch (Exception ex) {
             log.error("Error fetching available buses: {}", ex.getMessage(), ex);

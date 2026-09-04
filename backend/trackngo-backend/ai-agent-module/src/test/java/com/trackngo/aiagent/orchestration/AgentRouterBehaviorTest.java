@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -56,7 +57,7 @@ class AgentRouterBehaviorTest {
         verify(bookingFlowService, never()).createBooking(any());
     }
     @Test
-    void confirmedBookingUsesDatabaseSafeStripePaymentMethod() {
+    void confirmedBookingReservesSeatsWithoutTakingPayment() {
         BookingFlowService bookingFlowService = mock(BookingFlowService.class);
         when(bookingFlowService.searchBuses("Colombo Fort", "Kandy", "2026-08-01", null))
                 .thenReturn(List.of(busOption()));
@@ -64,7 +65,7 @@ class AgentRouterBehaviorTest {
         when(bookingFlowService.getBlockedSeats(12L)).thenReturn(List.of());
         when(bookingFlowService.createBooking(any())).thenReturn(new BookingFlowDtos.BookingConfirmationResult(
                 "BK-20260801-TEST",
-                "confirmed",
+                "reserved",
                 "TXN-TEST",
                 "1A,1B",
                 new BigDecimal("1500.00"),
@@ -81,7 +82,12 @@ class AgentRouterBehaviorTest {
         ArgumentCaptor<BookingFlowDtos.CreateBookingRequest> captor = ArgumentCaptor.forClass(BookingFlowDtos.CreateBookingRequest.class);
         verify(bookingFlowService).createBooking(captor.capture());
         assertEquals("stripe", captor.getValue().paymentMethod());
-        assertTrue(reply.contains("Booking confirmed"), reply);
+        // The assistant cannot take a card, so it must reserve rather than sell:
+        // anything else writes a paid booking for money nobody collected.
+        assertTrue(captor.getValue().reservationOnly(), "assistant booking must be reservation-only");
+        assertTrue(reply.contains("Seats reserved"), reply);
+        assertTrue(reply.contains("Amount due"), reply);
+        assertFalse(reply.contains("Booking confirmed"), reply);
     }
 
 

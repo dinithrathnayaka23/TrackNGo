@@ -95,12 +95,16 @@ public class BookingAgentService {
                             originalAmount,
                             BigDecimal.ZERO,
                             null,
-                            request.promoCode()));
+                            request.promoCode(),
+                            null,
+                            // Reserve only: the assistant cannot take a card, so the
+                            // seats are held and payment stays pending.
+                            true));
 
             return new BookingAgent.BookingResponse(
                     "SUCCESS",
                     confirmation.bookingReference(),
-                    "Confirmed %s seat(s) on %s from %s to %s. Total %s.".formatted(
+                    "Reserved %s seat(s) on %s from %s to %s. %s is due - pay in the app to confirm.".formatted(
                             seats.size(),
                             confirmation.busNumber(),
                             confirmation.fromLocation(),

@@ -372,12 +372,16 @@ public class AgentRouter {
                 .multiply(BigDecimal.valueOf(booking.seatNumbers().size()))
                 .setScale(2, java.math.RoundingMode.HALF_UP);
 
+        // The assistant has no way to take a card, so it reserves rather than sells:
+        // the seats are held, the payment is left pending, and the passenger settles
+        // it through the app's Stripe checkout. Reporting a paid booking here would
+        // hand the passenger a ticket nobody had charged for.
         BookingFlowDtos.CreateBookingRequest request = new BookingFlowDtos.CreateBookingRequest(
                 bus.busId(),
                 travelDate,
                 bus.startTime(),
                 booking.seatNumbers(),
-                "Created through TrackNGo AI natural-language booking.",
+                "Reserved through TrackNGo AI natural-language booking. Payment pending.",
                 "stripe",
                 totalAmount,
                 context.userId(),
@@ -386,19 +390,23 @@ public class AgentRouter {
                 totalAmount,
                 BigDecimal.ZERO,
                 null,
-                null
+                null,
+                null,
+                true
         );
 
         try {
             BookingFlowDtos.BookingConfirmationResult created = bookingFlowService.createBooking(request);
             return """
-                    **Booking confirmed.**
+                    **Seats reserved — payment still due.**
                     - **Reference:** %s
                     - **Bus:** %s
                     - **Route:** %s to %s
                     - **Date/time:** %s at %s
                     - **Seats:** %s
-                    - **Total:** LKR %s
+                    - **Amount due:** LKR %s
+
+                    Your seats are held. Open **My Bookings** in the app and pay to confirm them.
                     """.formatted(
                     created.bookingReference(),
                     created.busNumber(),

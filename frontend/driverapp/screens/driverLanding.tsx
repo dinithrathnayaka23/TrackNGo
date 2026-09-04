@@ -7,6 +7,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons"; // Ionicons for icons
 
 export default function LandingScreen() {
@@ -48,7 +49,7 @@ export default function LandingScreen() {
   }, []); // Empty dependency array means this runs once on mount
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom", "left", "right"]}>
       <View style={styles.content}>
         {/* Logo circle */}
         <Animated.View
@@ -90,7 +91,7 @@ export default function LandingScreen() {
           />
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

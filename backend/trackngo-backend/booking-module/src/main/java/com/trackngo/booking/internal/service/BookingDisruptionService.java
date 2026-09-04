@@ -73,7 +73,7 @@ public class BookingDisruptionService implements BookingDisruptionHandler {
                 FROM seat_booking sb
                 LEFT JOIN payment p ON p.payment_id = sb.payment_id
                 WHERE sb.%s = ?
-                  AND sb.status = 'confirmed'
+                  AND sb.status IN ('reserved', 'confirmed')
                   AND sb.journey_date >= CURDATE()
                 ORDER BY sb.seat_booking_id
                 """.formatted(filterColumn);
@@ -88,7 +88,7 @@ public class BookingDisruptionService implements BookingDisruptionHandler {
 
             int cancelled = jdbc.update(
                     "UPDATE seat_booking SET status = 'cancelled', cancellation_reason = ? " +
-                    "WHERE seat_booking_id = ? AND status = 'confirmed' AND journey_date >= CURDATE()",
+                    "WHERE seat_booking_id = ? AND status IN ('reserved', 'confirmed') AND journey_date >= CURDATE()",
                     reason,
                     bookingId
             );

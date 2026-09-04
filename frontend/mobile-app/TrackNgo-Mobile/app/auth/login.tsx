@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { httpPost, setAuthToken } from "../../services/http";
+import { extractApiMessage, HttpError, httpPost, setAuthToken } from "../../services/http";
 import { getTrustedDeviceToken, saveTrustedDeviceToken } from "../../services/trustedDeviceStorage";
 import { useSession } from "../../store/sessionStore";
 import type { UserType } from "../../types/chat";
@@ -56,6 +56,11 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ identifier?: string; password?: string }>({});
+  // Shown above the fields when the backend rejects the sign-in itself, as
+  // opposed to a per-field validation problem. A wrong password is an ordinary
+  // outcome, so it belongs on the form rather than in a pop-up the user has to
+  // dismiss before they can correct anything.
+  const [formError, setFormError] = useState<string | null>(null);
 
   function validate(): boolean {
     const next: { identifier?: string; password?: string } = {};
@@ -79,6 +84,7 @@ export default function LoginScreen() {
   }
 
   async function handleLogin() {
+    setFormError(null);
     if (!validate()) return;
     setLoading(true);
     try {
@@ -120,19 +126,23 @@ export default function LoginScreen() {
       // already behind the device's dialog when the choice is made.
       void requestLocationOnSignIn();
     } catch (error: unknown) {
-      let message = "Login failed. Please check your credentials and try again.";
-      if (error instanceof Error) {
-        const raw = error.message;
-        try {
-          const parsed = JSON.parse(raw.substring(raw.indexOf("{")));
-          if (parsed?.message) message = parsed.message;
-        } catch {
-          if (raw.toLowerCase().includes("invalid credentials")) {
-            message = "Invalid email or password.";
-          }
-        }
+      const reachedServer = error instanceof HttpError;
+      const message = reachedServer
+        ? extractApiMessage(error, "We could not sign you in. Please try again.")
+        : "We could not reach TrackNGo. Check your connection and try again.";
+
+      // The backend deliberately says only "Invalid credentials" so it never
+      // reveals whether the account exists; this keeps that property while
+      // telling the user what to actually do next.
+      const isBadCredentials = message.toLowerCase().includes("invalid credentials");
+      setFormError(
+        isBadCredentials
+          ? "That email or password is not correct. Please check and try again."
+          : message,
+      );
+      if (isBadCredentials) {
+        setPassword("");
       }
-      Alert.alert("Login Failed", message);
     } finally {
       setLoading(false);
     }
@@ -161,6 +171,13 @@ export default function LoginScreen() {
 
         {/* Form */}
         <View style={styles.form}>
+          {formError ? (
+            <View style={styles.formErrorBanner}>
+              <Ionicons name="alert-circle" size={18} color="#DC2626" />
+              <Text style={styles.formErrorText}>{formError}</Text>
+            </View>
+          ) : null}
+
           {/* Identifier */}
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Email or Phone Number</Text>
@@ -361,6 +378,23 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 16,
+  },
+  formErrorBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  formErrorText: {
+    flex: 1,
+    color: "#B91C1C",
+    fontSize: 13,
+    lineHeight: 18,
   },
   fieldGroup: {
     gap: 6,

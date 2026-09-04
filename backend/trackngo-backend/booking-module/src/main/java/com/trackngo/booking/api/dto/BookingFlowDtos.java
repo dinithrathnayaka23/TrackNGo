@@ -140,8 +140,39 @@ public final class BookingFlowDtos {
             BigDecimal discountAmount,
             Long promotionId,
             String promoCode,
-            String paymentProviderReference
+            String paymentProviderReference,
+            /**
+             * Holds the seats without collecting payment. Set by the AI assistant,
+             * which can reserve but has no way to take a card: the booking is written
+             * as 'reserved' with a 'pending' payment, and the passenger pays through
+             * the app's normal Stripe checkout afterwards. Every paying caller leaves
+             * this false and is unaffected.
+             */
+            boolean reservationOnly
     ) {
+        /** Backwards-compatible constructor for paying clients that supply a provider reference. */
+        public CreateBookingRequest(
+                Long busId,
+                String journeyDate,
+                String journeyTime,
+                List<String> seatNumbers,
+                String specialRequest,
+                String paymentMethod,
+                BigDecimal totalAmount,
+                Long passengerId,
+                String fromLocation,
+                String toLocation,
+                BigDecimal originalAmount,
+                BigDecimal discountAmount,
+                Long promotionId,
+                String promoCode,
+                String paymentProviderReference
+        ) {
+            this(busId, journeyDate, journeyTime, seatNumbers, specialRequest, paymentMethod,
+                    totalAmount, passengerId, fromLocation, toLocation, originalAmount,
+                    discountAmount, promotionId, promoCode, paymentProviderReference, false);
+        }
+
         /** Backwards-compatible constructor for non-provider and older clients. */
         public CreateBookingRequest(
                 Long busId,
@@ -161,7 +192,7 @@ public final class BookingFlowDtos {
         ) {
             this(busId, journeyDate, journeyTime, seatNumbers, specialRequest, paymentMethod,
                     totalAmount, passengerId, fromLocation, toLocation, originalAmount,
-                    discountAmount, promotionId, promoCode, null);
+                    discountAmount, promotionId, promoCode, null, false);
         }
     }
 

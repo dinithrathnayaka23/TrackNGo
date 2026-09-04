@@ -595,6 +595,31 @@ export async function getStripeSessionStatus(
   return res.data;
 }
 
+/**
+ * Pays for a reservation the AI assistant is holding.
+ *
+ * The assistant can hold seats but cannot take a card, so those bookings wait as
+ * "reserved" until this runs. Only the Stripe session id is sent: the backend
+ * re-checks it with Stripe rather than trusting this device's word that the
+ * payment succeeded. Safe to call twice — an already-confirmed booking comes
+ * back unchanged instead of erroring.
+ */
+export async function settleReservationPayment(
+  bookingRef: string,
+  stripeSessionId: string,
+  passengerId?: number,
+): Promise<BookingConfirmation> {
+  const res = await httpPost<ApiResponse<BookingConfirmation>>(
+    `/api/booking-flow/bookings/${encodeURIComponent(bookingRef)}/settle-payment`,
+    undefined,
+    {
+      stripeSessionId,
+      ...(passengerId ? { passengerId: String(passengerId) } : {}),
+    },
+  );
+  return res.data;
+}
+
 export async function getBookingByRef(
   bookingRef: string,
 ): Promise<BookingConfirmation> {

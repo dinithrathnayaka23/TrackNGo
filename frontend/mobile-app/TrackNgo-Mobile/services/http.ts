@@ -120,6 +120,51 @@ function notifyUnauthorized(status: number, path: string) {
   unauthorizedListeners.forEach((listener) => listener());
 }
 
+// Field names whose values must never reach the console. Request bodies are
+// logged to help debugging, and the login body carries the user's password in
+// clear text, so it is replaced before the line is written.
+const SENSITIVE_FIELDS = [
+  "password",
+  "newPassword",
+  "currentPassword",
+  "confirmPassword",
+  "token",
+  "trustedDeviceToken",
+  "twoFactorToken",
+  "otp",
+  "code",
+];
+
+function redactForLog(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const safe: Record<string, unknown> = { ...(body as Record<string, unknown>) };
+  SENSITIVE_FIELDS.forEach((field) => {
+    if (field in safe && safe[field] !== undefined && safe[field] !== null) {
+      safe[field] = "***";
+    }
+  });
+  return safe;
+}
+
+/**
+ * Reports a request the backend refused.
+ *
+ * A 4xx is the backend answering the question that was asked - wrong password,
+ * seat already taken, validation failed - and the screen turns it into a message
+ * for the user. Logging those through console.error made React Native raise them
+ * as red runtime errors with a stack trace, which read like crashes for what are
+ * ordinary outcomes. Only faults the user cannot resolve, meaning server errors,
+ * are reported at error level.
+ */
+function logResponseFailure(method: string, path: string, status: number, detail: string) {
+  const line = `[HTTP ${method}] ${status} ${path}: ${detail}`;
+  if (status >= 500) {
+    console.error(line);
+  } else {
+    console.warn(line);
+  }
+}
+
 function isAbortError(error: unknown) {
   return (
     typeof error === "object" &&
@@ -158,7 +203,7 @@ export async function httpGet<T>(
     });
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[HTTP GET] Error ${response.status}:`, errorText);
+      logResponseFailure("GET", path, response.status, errorText);
       notifyUnauthorized(response.status, path);
       throw new HttpError(`GET ${path} failed: ${response.status} - ${errorText}`, response.status);
     }
@@ -166,7 +211,7 @@ export async function httpGet<T>(
     console.log(`[HTTP GET] Success: ${path}`);
     return data;
   } catch (err) {
-    console.error(`[HTTP GET] Exception:`, err);
+    if (!(err instanceof HttpError)) console.error(`[HTTP GET] ${path} failed:`, err);
     throw err;
   }
 }
@@ -179,7 +224,7 @@ export async function httpPost<T>(
   timeoutMs?: number,
 ): Promise<T> {
   const url = buildUrl(path, query);
-  console.log(`[HTTP POST] ${url}`, body);
+  console.log(`[HTTP POST] ${url}`, redactForLog(body));
   const controller = timeoutMs ? new AbortController() : undefined;
   const timeout = controller
     ? setTimeout(() => controller.abort(), timeoutMs)
@@ -196,7 +241,7 @@ export async function httpPost<T>(
     });
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[HTTP POST] Error ${response.status}:`, errorText);
+      logResponseFailure("POST", path, response.status, errorText);
       notifyUnauthorized(response.status, path);
       throw new HttpError(`POST ${path} failed: ${response.status} - ${errorText}`, response.status);
     }
@@ -211,7 +256,7 @@ export async function httpPost<T>(
       console.error(`[HTTP POST] Exception:`, timeoutError);
       throw timeoutError;
     }
-    console.error(`[HTTP POST] Exception:`, err);
+    if (!(err instanceof HttpError)) console.error(`[HTTP POST] ${path} failed:`, err);
     throw err;
   } finally {
     if (timeout) {
@@ -226,7 +271,7 @@ export async function httpPut<T>(
   headers?: Record<string, string>,
 ): Promise<T> {
   const url = buildUrl(path);
-  console.log(`[HTTP PUT] ${url}`, body);
+  console.log(`[HTTP PUT] ${url}`, redactForLog(body));
   try {
     const response = await fetch(url, {
       method: "PUT",
@@ -238,7 +283,7 @@ export async function httpPut<T>(
     });
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[HTTP PUT] Error ${response.status}:`, errorText);
+      logResponseFailure("PUT", path, response.status, errorText);
       notifyUnauthorized(response.status, path);
       throw new HttpError(`PUT ${path} failed: ${response.status} - ${errorText}`, response.status);
     }
@@ -246,7 +291,7 @@ export async function httpPut<T>(
     console.log(`[HTTP PUT] Success: ${path}`);
     return data;
   } catch (err) {
-    console.error(`[HTTP PUT] Exception:`, err);
+    if (!(err instanceof HttpError)) console.error(`[HTTP PUT] ${path} failed:`, err);
     throw err;
   }
 }
@@ -265,7 +310,7 @@ export async function httpDelete<T>(
     });
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[HTTP DELETE] Error ${response.status}:`, errorText);
+      logResponseFailure("DELETE", path, response.status, errorText);
       notifyUnauthorized(response.status, path);
       throw new HttpError(
         `DELETE ${path} failed: ${response.status} - ${errorText}`,
@@ -276,7 +321,7 @@ export async function httpDelete<T>(
     console.log(`[HTTP DELETE] Success: ${path}`);
     return data;
   } catch (err) {
-    console.error(`[HTTP DELETE] Exception:`, err);
+    if (!(err instanceof HttpError)) console.error(`[HTTP DELETE] ${path} failed:`, err);
     throw err;
   }
 }
@@ -300,7 +345,7 @@ export async function httpPostForm<T>(
     });
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[HTTP POST FORM] Error ${response.status}:`, errorText);
+      logResponseFailure("POST FORM", path, response.status, errorText);
       notifyUnauthorized(response.status, path);
       throw new HttpError(`POST ${path} failed: ${response.status} - ${errorText}`, response.status);
     }

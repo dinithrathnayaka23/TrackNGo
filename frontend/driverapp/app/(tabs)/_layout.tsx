@@ -8,9 +8,17 @@ import { useLanguage } from '@/context/LanguageContext';
 import { getUserConversations, type ConversationDto } from '@/services/chatApi';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const { darkMode } = useTheme();
+  // The tab bar used a fixed 70pt height with 14pt of bottom padding, which
+  // assumed every phone has no system UI below the app. On Android gesture
+  // navigation and on iPhones with a home indicator the bar was drawn
+  // underneath that control bar, so the labels sat behind it and the bottom
+  // row of tabs was hard to tap. Growing the bar by the device's own bottom
+  // inset keeps the icons clear of the system UI on every screen shape.
+  const insets = useSafeAreaInsets();
   const { user } = useUser();
   const { t } = useLanguage();
   const [unreadTotal, setUnreadTotal] = useState(0);
@@ -59,9 +67,9 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
         tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
         tabBarStyle: {
-          height: 70,
+          height: 62 + insets.bottom,
           paddingTop: 6,
-          paddingBottom: 14,
+          paddingBottom: Math.max(insets.bottom, 10),
           backgroundColor: darkMode ? '#1E1E1E' : '#FFFFFF',
           borderTopColor: darkMode ? '#333' : '#E9EDF3',
           borderTopWidth: 1,

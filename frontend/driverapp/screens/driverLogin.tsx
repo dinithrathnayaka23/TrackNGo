@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView, // To avoid keyboard overlap
   Alert,
 } from 'react-native'; // To build UI
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons,MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router'; // Navigate between screens in the app
 import { driverLogin } from "../services/auth"; //driverLogin function from the auth service 
@@ -105,6 +106,7 @@ export default function DriverLoginScreen() {   //default finction because we ar
   };
 
   return (
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'} // Adjust behavior based on platform 
       style={styles.container}
@@ -216,10 +218,15 @@ export default function DriverLoginScreen() {   //default finction because we ar
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F6F7F9',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F6F7F9',
@@ -227,7 +234,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingVertical: 48,
+    paddingVertical: 24,
     justifyContent: 'flex-start',
   },
   iconContainer: {

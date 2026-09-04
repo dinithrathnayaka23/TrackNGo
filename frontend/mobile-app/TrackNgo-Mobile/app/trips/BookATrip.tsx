@@ -123,10 +123,15 @@ async function searchRouteLocations(query: string): Promise<PlaceSuggestion[]> {
     const locations = await httpGet<{
       id: number;
       name: string;
-      latitude: number;
-      longitude: number;
+      latitude: number | null;
+      longitude: number | null;
     }[]>("/api/locations/search", { query });
 
+    // Some rows in the bus network carry no coordinates yet. Number(null) is 0,
+    // so mapping them blindly produced a suggestion pinned at (0, 0) — a point
+    // in the Atlantic that put the map marker in the ocean and made the
+    // haversine distance (and therefore the quoted fare) nonsense. A location
+    // we cannot place on the map is not a usable pickup or drop-off, so drop it.
     return locations
       .filter((location) => location.name?.trim())
       .map((location) => ({
@@ -136,7 +141,13 @@ async function searchRouteLocations(query: string): Promise<PlaceSuggestion[]> {
         latitude: Number(location.latitude),
         longitude: Number(location.longitude),
         source: "route" as const,
-      }));
+      }))
+      .filter(
+        (suggestion) =>
+          Number.isFinite(suggestion.latitude) &&
+          Number.isFinite(suggestion.longitude) &&
+          !(suggestion.latitude === 0 && suggestion.longitude === 0),
+      );
   } catch {
     return [];
   }
@@ -1006,7 +1017,10 @@ export default function BookATrip() {
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
             <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: "#EEF4FF", alignItems: "center", justifyContent: "center" }}><Ionicons name="navigate-circle-outline" size={19} color="#2563EB" /></View>
             <View style={{ marginLeft: 10 }}><Text style={{ fontWeight: "800", color: "#111827", fontSize: 16 }}>Route preview</Text><Text style={{ color: "#94A3B8", fontSize: 11, marginTop: 2 }}>Your selected journey</Text></View>
-            {pickup?.latitude && drop?.latitude && distance > 0 && (
+            {/* Guarded with typeof rather than truthiness: a latitude of 0 made
+                `pickup?.latitude && ...` short-circuit to the number 0, which
+                React Native then tried to render as a bare text node. */}
+            {typeof pickup?.latitude === "number" && typeof drop?.latitude === "number" && distance > 0 && (
               <View
                 style={{
                   marginLeft: "auto",

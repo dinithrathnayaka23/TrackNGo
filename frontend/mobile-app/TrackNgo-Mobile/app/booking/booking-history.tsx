@@ -253,6 +253,29 @@ export default function BookingHistoryScreen() {
 
   // ── Navigation Handlers ────────────────────────────────
 
+  /**
+   * Opens checkout for a reservation the AI assistant is holding. The seats are
+   * already blocked, so this only settles the outstanding payment - the payment
+   * screen is told which booking to settle rather than creating a new one.
+   */
+  const navigateToPayReservation = useCallback((b: BookingHistoryDto) => {
+    router.push({
+      pathname: "/booking/payment-gateway",
+      params: {
+        bookingRef: b.bookingReference,
+        from: b.startLocation,
+        to: b.endLocation,
+        date: b.journeyDate,
+        depart: b.journeyTime,
+        seats: b.seatNumber,
+        totalPrice: String(b.totalAmount),
+        originalAmount: String(b.totalAmount),
+        discountAmount: "0",
+        busType: b.busType,
+      },
+    });
+  }, [router]);
+
   const navigateToTicket = useCallback((b: BookingHistoryDto) => {
     router.push({
       pathname: "/booking/view-ticket",
@@ -351,10 +374,12 @@ export default function BookingHistoryScreen() {
         onDeclineAdminCancel={handleOpenDeclineModal}
         onTrack={navigateToTrack}
         onNegotiate={navigateToNegotiate}
+        onPayReservation={navigateToPayReservation}
       />
     ),
     [
       isUpcoming,
+      navigateToPayReservation,
       navigateToTicket,
       navigateToRate,
       navigateToComplaint,
@@ -629,6 +654,9 @@ const STATUS_COLORS: Record<string, string> = {
   confirmed: "#16A34A",
   cancelled: "#DC2626",
   pending: "#F59E0B",
+  // Seats the assistant is holding while payment is still outstanding. Amber
+  // rather than green so an unpaid hold never reads as a settled booking.
+  reserved: "#F59E0B",
 };
 
 /** 24h "HH:mm[:ss]" -> "hh:mm AM/PM" */
@@ -664,6 +692,7 @@ const BookingCard = React.memo(function BookingCard({
   onDeclineAdminCancel,
   onTrack,
   onNegotiate,
+  onPayReservation,
 }: {
   booking: BookingHistoryDto;
   isUpcoming: boolean;
@@ -675,6 +704,7 @@ const BookingCard = React.memo(function BookingCard({
   onDeclineAdminCancel: (b: BookingHistoryDto) => void;
   onTrack: (b: BookingHistoryDto) => void;
   onNegotiate: (b: BookingHistoryDto) => void;
+  onPayReservation: (b: BookingHistoryDto) => void;
 }) {
   const status = (b.status || "").toLowerCase();
   const cancelStatus = (b.cancellationStatus || "none").toLowerCase();
@@ -707,6 +737,7 @@ const BookingCard = React.memo(function BookingCard({
   const handleCancelPress = useCallback(() => onRequestCancel(b), [onRequestCancel, b]);
   const handleTrack = useCallback(() => onTrack(b), [onTrack, b]);
   const handleNegotiate = useCallback(() => onNegotiate(b), [onNegotiate, b]);
+  const handlePayReservation = useCallback(() => onPayReservation(b), [onPayReservation, b]);
 
   return (
     <View style={styles.card}>
@@ -820,8 +851,20 @@ const BookingCard = React.memo(function BookingCard({
         </View>
       )}
 
-      {/* Standard Actions (When no active cancel request is pending) */}
-      {isUpcoming && !isUserCancelRequested && !isAdminCancelRequested && status === "confirmed" && !(isTripBooking && !isPaid) ? (
+      {/* Seats the assistant is holding: the only thing outstanding is payment,
+          so lead with it. No ticket is offered until the booking is paid. */}
+      {isUpcoming && !isUserCancelRequested && !isAdminCancelRequested && status === "reserved" ? (
+        <View style={styles.actionRow}>
+          <Pressable style={styles.primaryBtn} onPress={handlePayReservation}>
+            <Ionicons name="card-outline" size={15} color="#FFF" />
+            <Text style={styles.primaryBtnText}>Pay Now</Text>
+          </Pressable>
+          <Pressable style={styles.cancelBtn} onPress={handleCancelPress}>
+            <Ionicons name="close-circle-outline" size={15} color="#DC2626" />
+          </Pressable>
+        </View>
+      ) : /* Standard Actions (When no active cancel request is pending) */
+      isUpcoming && !isUserCancelRequested && !isAdminCancelRequested && status === "confirmed" && !(isTripBooking && !isPaid) ? (
         <View style={styles.actionRow}>
           <Pressable style={styles.primaryBtn} onPress={handleTicket}>
             <Ionicons name="ticket-outline" size={15} color="#FFF" />

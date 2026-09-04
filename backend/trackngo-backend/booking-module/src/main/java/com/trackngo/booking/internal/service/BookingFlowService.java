@@ -807,7 +807,8 @@ public class BookingFlowService {
     @Transactional
     public void cancelBooking(String bookingRef) {
         int updated = jdbc.update(
-            "UPDATE seat_booking SET status = 'cancelled', cancellation_status = 'accepted' WHERE booking_reference = ? AND status = 'confirmed'",
+            "UPDATE seat_booking SET status = 'cancelled', cancellation_status = 'accepted' " +
+                "WHERE booking_reference = ? AND status IN ('reserved', 'confirmed')",
             bookingRef
         );
         if (updated == 0) {

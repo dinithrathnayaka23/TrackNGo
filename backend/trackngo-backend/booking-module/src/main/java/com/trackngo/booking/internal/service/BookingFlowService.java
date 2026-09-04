@@ -9,6 +9,7 @@ import com.trackngo.commons.exception.SeatUnavailableException;
 import com.trackngo.notification.api.NotificationDispatcher;
 import com.trackngo.notification.api.NotificationType;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -81,17 +82,20 @@ public class BookingFlowService {
     private final ObjectMapper mapper;
     private final PromotionService promotionService;
     private final NotificationDispatcher notifications;
+    private final StripeSessionVerifier stripeSessionVerifier;
 
     public BookingFlowService(
             JdbcTemplate jdbc,
             ObjectMapper mapper,
             PromotionService promotionService,
-            NotificationDispatcher notifications
+            NotificationDispatcher notifications,
+            StripeSessionVerifier stripeSessionVerifier
     ) {
         this.jdbc = jdbc;
         this.mapper = mapper;
         this.promotionService = promotionService;
         this.notifications = notifications;
+        this.stripeSessionVerifier = stripeSessionVerifier;
     }
 
     /*
@@ -804,6 +808,113 @@ public class BookingFlowService {
     /*
        7. Cancel booking by reference
     */
+    /**
+     * Turns a reservation the AI assistant is holding into a paid booking.
+     *
+     * The assistant can hold seats but has no way to take a card, so those bookings
+     * sit as 'reserved' with a 'pending' payment until the passenger settles them in
+     * the app. This is the step that closes that gap.
+     *
+     * Stripe is asked directly whether the session was paid rather than trusting the
+     * device that reports it, and the seats are already held from the moment the
+     * reservation was created, so paying cannot fail on availability.
+     *
+     * Settling twice is not an error: a booking that is already confirmed returns its
+     * current state, so a retry after a dropped connection is safe.
+     */
+    @Transactional
+    public BookingConfirmationResult settleReservation(String bookingRef, String stripeSessionId, Long passengerId) {
+        Map<String, Object> booking;
+        try {
+            booking = jdbc.queryForMap("""
+                    SELECT sb.seat_booking_id, sb.status, sb.total_amount, sb.passenger_id, sb.payment_id,
+                           sb.seat_number, sb.journey_date, sb.journey_time, sb.from_stop, sb.to_stop,
+                           b.bus_number, r.start_location, r.end_location, p.transaction_id, p.payment_status
+                    FROM seat_booking sb
+                    JOIN bus b ON b.bus_id = sb.bus_id
+                    JOIN route r ON r.route_id = sb.route_id
+                    JOIN payment p ON p.payment_id = sb.payment_id
+                    WHERE sb.booking_reference = ?
+                    """, bookingRef);
+        } catch (EmptyResultDataAccessException ex) {
+            throw new BusinessException("That booking could not be found.");
+        }
+
+        // A passenger may only settle their own reservation.
+        Long owner = ((Number) booking.get("passenger_id")).longValue();
+        if (passengerId != null && !owner.equals(passengerId)) {
+            throw new BusinessException("That booking belongs to another passenger.");
+        }
+
+        String status = String.valueOf(booking.get("status"));
+        String fromLoc = firstNonBlankValue(booking.get("from_stop"), booking.get("start_location"));
+        String toLoc = firstNonBlankValue(booking.get("to_stop"), booking.get("end_location"));
+        BigDecimal amount = (BigDecimal) booking.get("total_amount");
+
+        if ("confirmed".equalsIgnoreCase(status)) {
+            return new BookingConfirmationResult(
+                    bookingRef,
+                    "confirmed",
+                    (String) booking.get("transaction_id"),
+                    (String) booking.get("seat_number"),
+                    amount,
+                    (String) booking.get("bus_number"),
+                    fromLoc,
+                    toLoc,
+                    String.valueOf(booking.get("journey_date")),
+                    String.valueOf(booking.get("journey_time")));
+        }
+
+        if (!"reserved".equalsIgnoreCase(status)) {
+            throw new BusinessException(
+                    "This booking is " + status.toLowerCase(Locale.ROOT) + " and cannot be paid for.");
+        }
+
+        StripeSessionVerifier.VerifiedPayment payment =
+                stripeSessionVerifier.verifyPaidFor(stripeSessionId, bookingRef, amount);
+
+        jdbc.update(
+                "UPDATE payment SET payment_status = 'success', provider_transaction_id = ? WHERE payment_id = ?",
+                payment.paymentIntentId(),
+                ((Number) booking.get("payment_id")).longValue());
+
+        jdbc.update(
+                "UPDATE seat_booking SET status = 'confirmed' WHERE booking_reference = ? AND status = 'reserved'",
+                bookingRef);
+
+        notifySeatBookingConfirmed(
+                owner,
+                bookingRef,
+                (String) booking.get("seat_number"),
+                (String) booking.get("bus_number"),
+                fromLoc,
+                toLoc,
+                String.valueOf(booking.get("journey_date")),
+                String.valueOf(booking.get("journey_time")),
+                amount,
+                BigDecimal.ZERO,
+                (String) booking.get("transaction_id"),
+                false
+        );
+
+        return new BookingConfirmationResult(
+                bookingRef,
+                "confirmed",
+                (String) booking.get("transaction_id"),
+                (String) booking.get("seat_number"),
+                amount,
+                (String) booking.get("bus_number"),
+                fromLoc,
+                toLoc,
+                String.valueOf(booking.get("journey_date")),
+                String.valueOf(booking.get("journey_time")));
+    }
+
+    private static String firstNonBlankValue(Object preferred, Object fallback) {
+        String value = preferred == null ? "" : String.valueOf(preferred);
+        return value.isBlank() ? String.valueOf(fallback) : value;
+    }
+
     @Transactional
     public void cancelBooking(String bookingRef) {
         int updated = jdbc.update(

@@ -103,6 +103,25 @@ public class BookingFlowController {
     }
 
     /**
+     * 6a. Pay for a reservation the AI assistant is holding.
+     *
+     * The assistant reserves seats but cannot take a card, so those bookings wait as
+     * 'reserved' until the passenger pays here. The Stripe session is re-checked
+     * against Stripe by the service rather than trusted from the request body.
+     */
+    @PostMapping("/bookings/{bookingRef}/settle-payment")
+    public ApiResponse<BookingConfirmationResult> settleReservation(
+            @PathVariable String bookingRef,
+            @RequestBody Map<String, String> body
+    ) {
+        String sessionId = body == null ? null : body.get("stripeSessionId");
+        String passenger = body == null ? null : body.get("passengerId");
+        Long passengerId = passenger == null || passenger.isBlank() ? null : Long.valueOf(passenger);
+        BookingConfirmationResult result = service.settleReservation(bookingRef, sessionId, passengerId);
+        return ApiResponse.ok("Payment confirmed", result);
+    }
+
+    /**
      * 7. Retrieve a specific booking confirmation by its reference number.
      */
     @GetMapping("/bookings/{bookingRef}")

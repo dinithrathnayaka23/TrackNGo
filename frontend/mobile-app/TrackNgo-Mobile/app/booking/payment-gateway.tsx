@@ -11,7 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
-import { createBooking, createStripeCheckoutSession, getStripeSessionStatus } from '../../services/bookingFlowApi';
+import { createBooking, createStripeCheckoutSession, getStripeSessionStatus, settleReservationPayment } from '../../services/bookingFlowApi';
 import { useSession } from '../../store/sessionStore';
 import { API_BASE_URL } from '../../config/env';
 import { isUnbookableBookingDate, BOOKING_LEAD_TIME_MESSAGE, earliestBookableDateString } from '../../utils/bookingDate';
@@ -47,6 +47,8 @@ export default function PaymentGatewayScreen() {
     email?: string;
     specialRequest?: string;
     routeName?: string;
+    /** Set when paying for a reservation the assistant already created. */
+    bookingRef?: string;
   }>();
 
   // Default values and numeric parsing for cost details
@@ -66,7 +68,17 @@ export default function PaymentGatewayScreen() {
   const mobile = params.mobile ?? '';
   const email = params.email ?? '';
   const specialRequest = params.specialRequest ?? '';
-  const invalidBookingDate = isUnbookableBookingDate(date);
+
+  // Paying for a booking that already exists, rather than creating one after
+  // payment. The AI assistant reserves seats it cannot charge for, and this is
+  // where the passenger settles them.
+  const settlingBookingRef = params.bookingRef ?? '';
+  const isSettlingReservation = settlingBookingRef.length > 0;
+
+  // The lead-time rule guards new bookings. A reservation was already accepted
+  // on its own date, so re-applying the rule here would strand a passenger who
+  // is simply trying to pay for seats they already hold.
+  const invalidBookingDate = !isSettlingReservation && isUnbookableBookingDate(date);
 
   // State for managing the payment WebView and backend processing
   const [loading, setLoading] = useState(false);
@@ -91,7 +103,12 @@ export default function PaymentGatewayScreen() {
       return;
     }
     setLoading(true);
-    const orderId = `BUS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    // When settling, the order id IS the booking reference. The backend reads it
+    // back out of the Stripe session metadata to prove the payment belongs to
+    // this booking, so it must not be a fresh random id here.
+    const orderId = isSettlingReservation
+      ? settlingBookingRef
+      : `BUS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     try {
       const result = await createStripeCheckoutSession({
@@ -135,6 +152,33 @@ export default function PaymentGatewayScreen() {
         return;
       }
 
+      // A reservation already exists with its seats held; paying only settles it.
+      // Creating a second booking here would double-book the same passenger.
+      if (isSettlingReservation) {
+        const settled = await settleReservationPayment(
+          settlingBookingRef,
+          sessionId,
+          currentUser?.userId,
+        );
+        router.replace({
+          pathname: '/booking/booking-confirmation',
+          params: {
+            bookingRef: settled.bookingReference,
+            from: settled.fromLocation,
+            to: settled.toLocation,
+            busNumber: settled.busNumber,
+            seats: settled.seatNumbers,
+            totalPrice: String(settled.totalAmount),
+            date: settled.journeyDate,
+            depart: settled.journeyTime,
+            transactionId: settled.transactionId ?? status.paymentIntentId,
+            status: settled.status,
+            routeName: params.routeName ?? '',
+          },
+        });
+        return;
+      }
+
       const seatList = seats.split(',').filter(Boolean);
       const result = await createBooking({
         busId: Number(busId),
@@ -172,13 +216,15 @@ export default function PaymentGatewayScreen() {
     } catch (e: any) {
       console.error('[Stripe] Booking creation failed', e);
       Alert.alert(
-        'Booking Failed',
-        'Payment was successful but booking creation failed. Please contact support.'
+        isSettlingReservation ? 'Could Not Confirm Payment' : 'Booking Failed',
+        isSettlingReservation
+          ? 'Your seats are still reserved. If you were charged, reopen the booking and try again before contacting support.'
+          : 'Payment was successful but booking creation failed. Please contact support.'
       );
     } finally {
       setProcessingResult(false);
     }
-  }, [sessionId, seats, busId, date, depart, specialRequest, totalPrice, currentUser, router, originalAmount, discountAmount, promotionId, promoCode, invalidBookingDate]);
+  }, [sessionId, seats, busId, date, depart, specialRequest, totalPrice, currentUser, router, originalAmount, discountAmount, promotionId, promoCode, invalidBookingDate, isSettlingReservation, settlingBookingRef, from, to, params.routeName]);
 
   /*
    * Listens for messages sent from the WebView (e.g. from the success/cancel pages).

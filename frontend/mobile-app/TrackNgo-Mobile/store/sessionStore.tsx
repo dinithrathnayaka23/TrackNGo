@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { PropsWithChildren } from "react";
 import type { SessionUser } from "../types/chat";
-import { clearAuthToken, onUnauthorized } from "../services/http";
+import { clearAuthToken, getValidAuthToken, onUnauthorized } from "../services/http";
 
 const STORAGE_KEY = "trackngo.session.user";
 
@@ -30,9 +30,18 @@ export function SessionProvider({ children }: PropsWithChildren) {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          setCurrentUserState(JSON.parse(raw));
+        if (!raw) return;
+        // The stored user survives app restarts but the JWT expires after a day.
+        // Restoring the user without checking the token left the app believing it
+        // was logged in, so the first screen to load fired an authenticated
+        // request that came back 401. Verify the token here and start signed out
+        // instead, which sends the user straight to login with no failed request.
+        if (!(await getValidAuthToken())) {
+          await AsyncStorage.removeItem(STORAGE_KEY);
+          await clearAuthToken();
+          return;
         }
+        setCurrentUserState(JSON.parse(raw));
       } finally {
         setLoading(false);
       }

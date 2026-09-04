@@ -48,6 +48,43 @@ export async function clearAuthToken(): Promise<void> {
   await AsyncStorage.removeItem(TOKEN_KEY);
 }
 
+/**
+ * Reads the `exp` claim without verifying the signature. The device only needs to
+ * know whether the backend will still accept this token; the backend remains the
+ * authority on validity. A token we cannot parse is treated as expired so a
+ * corrupt value fails closed rather than producing a request that 401s.
+ */
+export function isTokenExpired(token: string): boolean {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return true;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(
+      normalized.length + ((4 - (normalized.length % 4)) % 4),
+      "=",
+    );
+    const claims = JSON.parse(
+      decodeURIComponent(
+        atob(padded)
+          .split("")
+          .map((c) => `%${c.charCodeAt(0).toString(16).padStart(2, "0")}`)
+          .join(""),
+      ),
+    );
+    if (typeof claims?.exp !== "number") return true;
+    return claims.exp * 1000 <= Date.now();
+  } catch {
+    return true;
+  }
+}
+
+/** The stored token, or null when it is missing or has already expired. */
+export async function getValidAuthToken(): Promise<string | null> {
+  const token = await getAuthToken();
+  if (!token || isTokenExpired(token)) return null;
+  return token;
+}
+
 // Callers used to build the Authorization header themselves in each service
 // module, which meant any request that forgot it silently came back as an empty
 // 403. The token is attached here instead so every request carries it, while an

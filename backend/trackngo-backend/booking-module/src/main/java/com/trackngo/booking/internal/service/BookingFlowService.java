@@ -642,6 +642,12 @@ public class BookingFlowService {
             appliedPromotionId = quote.promotionId();
         }
 
+        // A reservation holds the seats but collects nothing, so the payment stays
+        // 'pending' and the booking reads 'reserved' rather than 'confirmed'. Every
+        // paying caller leaves reservationOnly false and keeps the previous values.
+        String paymentStatus = req.reservationOnly() ? "pending" : "success";
+        String bookingStatus = req.reservationOnly() ? "reserved" : "confirmed";
+
         String txnId = "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         String bookingRef = "BK-" + req.journeyDate().replace("-", "")
                 + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
@@ -656,7 +662,7 @@ public class BookingFlowService {
             );
             ps.setString(1, txnId);
             ps.setString(2, req.paymentMethod() != null ? req.paymentMethod() : "stripe");
-            ps.setString(3, "success");
+            ps.setString(3, paymentStatus);
             ps.setBigDecimal(4, finalPayableAmount);
             ps.setString(5, req.paymentProviderReference());
             return ps;
@@ -683,7 +689,7 @@ public class BookingFlowService {
             ps.setString(4, seatNumbers);
             ps.setString(5, req.specialRequest());
             ps.setBigDecimal(6, bookingAmount);
-            ps.setString(7, "confirmed");
+            ps.setString(7, bookingStatus);
             ps.setLong(8, req.passengerId());
             ps.setLong(9, req.busId());
             ps.setLong(10, routeId);
@@ -741,12 +747,13 @@ public class BookingFlowService {
                 req.journeyTime(),
                 payableAmount,
                 discountAmount,
-                txnId
+                txnId,
+                req.reservationOnly()
         );
 
         return new BookingConfirmationResult(
                 bookingRef,
-                "confirmed",
+                bookingStatus,
                 txnId,
                 seatNumbers,
                 payableAmount,
@@ -1060,28 +1067,36 @@ public class BookingFlowService {
             String journeyTime,
             BigDecimal paidAmount,
             BigDecimal discountAmount,
-            String transactionId
+            String transactionId,
+            boolean reservationOnly
     ) {
         String seatLabel = seatNumbers != null && seatNumbers.contains(",")
                 ? "Seats " + seatNumbers
                 : "Seat " + seatNumbers;
         String departure = journeyTime == null || journeyTime.isBlank() ? "" : " at " + journeyTime;
 
+        String journeyLine = seatLabel + " on bus " + busNumber + " from " + fromLocation
+                + " to " + toLocation + " on " + journeyDate + departure;
+
         notifications.toPassenger(
                 passengerId,
                 NotificationType.BOOKING,
-                "Booking Confirmed",
-                seatLabel + " on bus " + busNumber + " from " + fromLocation + " to " + toLocation
-                        + " on " + journeyDate + departure + " is confirmed. "
-                        + "Booking reference " + bookingRef + "."
+                reservationOnly ? "Seats Reserved" : "Booking Confirmed",
+                reservationOnly
+                        ? journeyLine + " is reserved for you. Complete payment in the app to "
+                                + "confirm it. Booking reference " + bookingRef + "."
+                        : journeyLine + " is confirmed. Booking reference " + bookingRef + "."
         );
 
         notifications.toPassenger(
                 passengerId,
                 NotificationType.PAYMENT,
-                "Payment Successful",
-                formatAmount(paidAmount) + " was received for booking " + bookingRef
-                        + ". Transaction " + transactionId + "."
+                reservationOnly ? "Payment Required" : "Payment Successful",
+                reservationOnly
+                        ? formatAmount(paidAmount) + " is due for booking " + bookingRef
+                                + ". The seats are held until you pay."
+                        : formatAmount(paidAmount) + " was received for booking " + bookingRef
+                                + ". Transaction " + transactionId + "."
         );
 
         if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {

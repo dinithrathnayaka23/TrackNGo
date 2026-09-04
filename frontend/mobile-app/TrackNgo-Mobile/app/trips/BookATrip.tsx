@@ -498,7 +498,12 @@ export default function BookATrip() {
   const [roadRouteCoordinates, setRoadRouteCoordinates] = useState<RouteCoordinate[]>([]);
   const [roadRouteLoading, setRoadRouteLoading] = useState(false);
   const roadRouteRequestRef = useRef(0);
-  // ── Zoom map to fit both markers when both locations are set ──
+  // ── Provisional straight-line distance until the road route lands ──
+  // This must not depend on mapReady. It used to share an effect with the map
+  // zoom below, so when the map finished loading after the road route had
+  // already resolved, the effect re-ran and overwrote the real road distance
+  // with the straight-line one — quietly under-pricing every trip by the
+  // difference (Colombo to Kandy is ~72 km direct but ~115 km by road).
   useEffect(() => {
     const hasCoordinates = [pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude]
       .every((coordinate) => typeof coordinate === "number" && Number.isFinite(coordinate));
@@ -512,18 +517,26 @@ export default function BookATrip() {
     const dist = haversineKm(pickup!.latitude!, pickup!.longitude!, drop!.latitude!, drop!.longitude!);
     setDistance(Math.round(dist));
     setRoadRouteError(false);
-    if (mapReady) {
-      setTimeout(() => {
-        mapRef.current?.fitToCoordinates(
-          [
-            { latitude: pickup!.latitude!, longitude: pickup!.longitude! },
-            { latitude: drop!.latitude!, longitude: drop!.longitude! },
-          ],
-          { edgePadding: { top: 60, right: 60, bottom: 60, left: 60 }, animated: true }
-        );
-      }, 250);
-    }
-  }, [pickup, drop, mapReady]);
+  }, [pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude]);
+
+  // ── Zoom map to fit both markers when both locations are set ──
+  useEffect(() => {
+    if (!mapReady) return;
+    const hasCoordinates = [pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude]
+      .every((coordinate) => typeof coordinate === "number" && Number.isFinite(coordinate));
+    if (!hasCoordinates) return;
+
+    const timer = setTimeout(() => {
+      mapRef.current?.fitToCoordinates(
+        [
+          { latitude: pickup!.latitude!, longitude: pickup!.longitude! },
+          { latitude: drop!.latitude!, longitude: drop!.longitude! },
+        ],
+        { edgePadding: { top: 60, right: 60, bottom: 60, left: 60 }, animated: true }
+      );
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude, mapReady]);
 
   // Fetch a real road polyline for any two selected places. This is independent
   // of the configured bus-route lookup, so arbitrary Sri Lankan destinations

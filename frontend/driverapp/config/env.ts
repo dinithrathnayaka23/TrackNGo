@@ -5,6 +5,10 @@ const env =
   (globalThis as { process?: { env?: Record<string, string | undefined> } })
     .process?.env ?? {};
 
+const expoExtra = (Constants.expoConfig?.extra ?? {}) as {
+  apiBaseUrl?: string;
+};
+
 function getDevHost(): string | null {
   const hostUri =
     Constants.expoConfig?.hostUri ??
@@ -24,8 +28,12 @@ function normalizeBaseUrl(baseUrl: string): string {
 }
 
 function getAPIBaseUrl(): string {
-  if (env.EXPO_PUBLIC_API_BASE_URL) {
-    return normalizeBaseUrl(env.EXPO_PUBLIC_API_BASE_URL);
+  // If explicitly set in env, or baked into the manifest by app.config.js
+  // (EAS Build's Metro step does not always inline EXPO_PUBLIC_* vars, so
+  // this is the reliable path for a production build).
+  const explicit = env.EXPO_PUBLIC_API_BASE_URL || expoExtra.apiBaseUrl;
+  if (explicit) {
+    return normalizeBaseUrl(explicit);
   }
 
   const devHost = getDevHost();

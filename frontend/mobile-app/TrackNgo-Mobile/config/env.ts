@@ -23,6 +23,7 @@ function getDevHost(): string | null {
 const devHost = getDevHost();
 const expoExtra = (Constants.expoConfig?.extra ?? {}) as {
   googleMapsApiKey?: string;
+  apiBaseUrl?: string;
 };
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -36,11 +37,14 @@ function getAPIPort(): string {
 
 // Dynamically determine API URL based on environment
 function getAPIBaseUrl(): string {
-  // If explicitly set in env
-  if (env.EXPO_PUBLIC_API_BASE_URL) {
-    return normalizeBaseUrl(env.EXPO_PUBLIC_API_BASE_URL);
+  // If explicitly set in env, or baked into the manifest by app.config.js
+  // (EAS Build's Metro step does not always inline EXPO_PUBLIC_* vars, so
+  // this is the reliable path for a production build).
+  const explicit = env.EXPO_PUBLIC_API_BASE_URL || expoExtra.apiBaseUrl;
+  if (explicit) {
+    return normalizeBaseUrl(explicit);
   }
-  
+
   // If dev host detected (running from Expo Go), use same host
   if (devHost) {
     // An Android emulator's own "localhost" is itself, not the host machine,

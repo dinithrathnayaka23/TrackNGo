@@ -142,14 +142,12 @@ public class AiSchemaInitializer implements ApplicationRunner {
                    OR longitude IS NULL
                    OR speed IS NULL
                 """);
-        jdbcTemplate.execute("""
-                INSERT INTO bus_locations (name, bus_number, latitude, longitude, heading, speed, recorded_at)
-                SELECT b.bus_number, b.bus_number, 7.29360, 80.63500, 45.00, 28.00, CURRENT_TIMESTAMP
-                FROM bus b
-                WHERE b.bus_number = 'NB-0012'
-                  AND NOT EXISTS (SELECT 1 FROM bus_locations bl WHERE bl.bus_number = b.bus_number)
-                LIMIT 1
-                """);
+        // A seeded position used to be inserted for NB-0012 here, stamped with the
+        // current time so it looked like a live fix. The assistant then reported
+        // that invented location as the bus's current position, and kept doing so
+        // for as long as the row was the newest one. Real fixes now arrive from the
+        // driver app through BusLocationRecorder, and a bus with no fix is correctly
+        // reported as not currently tracking.
     }
 
     private void addColumnIfMissing(String tableName, String columnName, String columnDefinition) {

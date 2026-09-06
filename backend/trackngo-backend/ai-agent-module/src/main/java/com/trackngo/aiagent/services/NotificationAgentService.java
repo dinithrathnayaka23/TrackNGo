@@ -42,8 +42,21 @@ public class NotificationAgentService {
                 message = "Reminder: " + busLabel(request) + " is departing soon from " + valueOrDefault(request.source(), "your boarding stop") + ". Please be at the halt 15 minutes early.";
             }
             case "delay_alert" -> {
-                message = "Delay alert: Traffic is affecting " + busLabel(request) + " on the " + routeLabel(request) + " corridor. Please allow extra time.";
+                // The observation has to be supplied by the caller. This used to state
+                // that traffic was affecting the bus and that the passenger should
+                // allow extra time, without anything ever having checked: the alert
+                // fired because the passenger's own message contained the word
+                // "delay". There is no traffic feed behind this service.
+                message = "Delay alert: " + valueOrDefault(
+                        request.eventMessage(),
+                        busLabel(request) + " is reported as delayed.");
                 suggestedRoute = "Check alternatives on the same route, or nearby Colombo Fort, Kadawatha, Panadura, Galle, Kandy, or Matara stops where applicable.";
+            }
+            case "bus_status" -> {
+                // What live tracking actually reports, passed through unchanged.
+                message = valueOrDefault(
+                        request.eventMessage(),
+                        "No current status is available for " + busLabel(request) + ".");
             }
             case "alternative_route" -> {
                 message = "Alternative route: A disruption has been detected for " + busLabel(request) + ".";
@@ -113,6 +126,7 @@ public class NotificationAgentService {
         return switch (type) {
             case "reminder" -> "Trip reminder";
             case "delay_alert" -> "Delay alert";
+            case "bus_status" -> "Bus status";
             case "alternative_route" -> "Alternative route";
             case "promotion", "recommendation" -> "Personalized recommendation";
             default -> "TrackNGo update";
@@ -122,7 +136,7 @@ public class NotificationAgentService {
     /** Maps AI-specific notification names to values accepted by the notification table enum. */
     private String databaseType(String type) {
         return switch (type) {
-            case "reminder", "delay_alert", "alternative_route" -> "journey";
+            case "reminder", "delay_alert", "alternative_route", "bus_status" -> "journey";
             case "promotion", "recommendation" -> "promotion";
             default -> "system_alert";
         };

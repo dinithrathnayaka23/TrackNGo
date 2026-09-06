@@ -76,16 +76,41 @@ public class TrafficEtaAgentService {
             }
 
             Map<String, Object> location = locations.get(0);
+            String routeLabel = routeLabel(bus);
+            long ageMinutes = ageInMinutes(location.get("recorded_at"));
+
+            // A fix from hours or days ago describes where the bus was, not where it
+            // is. Saying "is near X" from one of those is the difference between
+            // reporting and guessing, so an old fix is reported as an old fix.
+            if (ageMinutes > FRESH_FIX_MINUTES) {
+                return new TrafficEtaAgent.EtaResponse(
+                        routeLabel,
+                        0,
+                        "%s is not reporting its position right now. The last GPS fix on %s arrived %s. I cannot say where it is at the moment.".formatted(
+                                busNumber, routeLabel, describeAge(ageMinutes)),
+                        "low",
+                        "stale_gps_db");
+            }
+
             double speed = location.get("speed") == null ? 0.0 : ((Number) location.get("speed")).doubleValue();
-            int delay = estimateDelay(speed, location.get("recorded_at"));
-            String nearestStop = nearestStopLabel(bus, location);
-            String message = delay > 0
-                    ? "%s is delayed by about %d minutes near %s. Likely congestion on %s.".formatted(busNumber, delay, nearestStop, bus.get("route_name"))
-                    : "%s is moving normally near %s on %s.".formatted(busNumber, nearestStop, bus.get("route_name"));
+            String place = nearestStopLabel(bus, location);
+
+            // Only what the fix actually says. There is no timetable comparison and no
+            // traffic feed behind this, so no delay figure is claimed: the previous
+            // version read a number out of a hardcoded speed table and presented it as
+            // a measured delay, along with a cause it had never observed.
+            boolean stopKnown = !"its route".equals(place);
+            String where = stopKnown
+                    ? "near %s, on the %s route".formatted(place, routeLabel)
+                    : "on the %s route".formatted(routeLabel);
+            String message = speed <= 1.0
+                    ? "%s is stopped %s. Position reported %s.".formatted(busNumber, where, describeAge(ageMinutes))
+                    : "%s is moving at about %.0f km/h %s. Position reported %s.".formatted(
+                            busNumber, speed, where, describeAge(ageMinutes));
 
             return new TrafficEtaAgent.EtaResponse(
-                    nearestStop,
-                    delay,
+                    stopKnown ? place : routeLabel,
+                    0,
                     message,
                     "medium",
                     "live_gps_db");
@@ -123,23 +148,55 @@ public class TrafficEtaAgentService {
                 """;
     }
 
-    private int estimateDelay(double speed, Object recordedAt) {
-        int delay = speed <= 0 ? 12 : speed < 25 ? 25 : speed < 40 ? 15 : speed < 55 ? 8 : 0;
+    /**
+     * How old a fix may be and still describe where the bus is now.
+     *
+     * Live tracking treats a fix as stale after 30 seconds because it animates a
+     * marker. A chat answer tolerates a slightly older fix, but must never present
+     * one from another day as the current position.
+     */
+    private static final long FRESH_FIX_MINUTES = 5;
+
+    private long ageInMinutes(Object recordedAt) {
         if (recordedAt instanceof Timestamp timestamp) {
-            long ageMins = Duration.between(timestamp.toLocalDateTime(), LocalDateTime.now()).toMinutes();
-            if (ageMins > 10) {
-                delay += 5;
-            }
+            return Math.max(0, Duration.between(timestamp.toLocalDateTime(), LocalDateTime.now()).toMinutes());
         }
-        return delay;
+        // Without a timestamp the age is unknown, which must not read as fresh.
+        return Long.MAX_VALUE;
     }
 
+    private String describeAge(long minutes) {
+        if (minutes == Long.MAX_VALUE) return "at an unknown time";
+        if (minutes <= 1) return "just now";
+        if (minutes < 60) return "%d minutes ago".formatted(minutes);
+        long hours = minutes / 60;
+        if (hours < 24) return hours == 1 ? "an hour ago" : "%d hours ago".formatted(hours);
+        long days = hours / 24;
+        return days == 1 ? "a day ago" : "%d days ago".formatted(days);
+    }
+
+    private String routeLabel(Map<String, Object> bus) {
+        Object start = bus.get("start_location");
+        Object end = bus.get("end_location");
+        if (start != null && end != null) {
+            return "%s to %s".formatted(start, end);
+        }
+        Object routeName = bus.get("route_name");
+        return routeName == null ? "its route" : routeName.toString();
+    }
+
+    /**
+     * Names the stop the bus is closest to.
+     *
+     * Falls back to the route rather than to the raw fix. Not every route has
+     * coordinates against its stops - the Colombo Fort to Kandy stops have none -
+     * and printing "latest GPS point 7.29360, 80.63500" at a passenger tells them
+     * nothing they can act on.
+     */
     private String nearestStopLabel(Map<String, Object> bus, Map<String, Object> location) {
         Object routeId = bus.get("route_id");
         if (routeId == null || location.get("latitude") == null || location.get("longitude") == null) {
-            return "latest GPS point %.5f, %.5f".formatted(
-                    toDouble(location.get("latitude")),
-                    toDouble(location.get("longitude")));
+            return "its route";
         }
         List<Map<String, Object>> stops = jdbc.queryForList("""
                 SELECT name, latitude, longitude
@@ -149,9 +206,7 @@ public class TrafficEtaAgentService {
                   AND longitude IS NOT NULL
                 """, routeId);
         if (stops.isEmpty()) {
-            return "latest GPS point %.5f, %.5f".formatted(
-                    toDouble(location.get("latitude")),
-                    toDouble(location.get("longitude")));
+            return "its route";
         }
         double lat = toDouble(location.get("latitude"));
         double lng = toDouble(location.get("longitude"));

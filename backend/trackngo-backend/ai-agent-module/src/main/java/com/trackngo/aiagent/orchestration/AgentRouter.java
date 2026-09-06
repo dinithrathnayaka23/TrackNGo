@@ -757,11 +757,22 @@ public class AgentRouter {
                 .or(() -> Optional.ofNullable(understanding == null ? null : understanding.busReference()));
     }
 
+    /**
+     * The delay line is printed only when there is a delay to report. It used to be
+     * unconditional, so an answer that knew of no delay still ended with "Delay
+     * estimate: 0 minutes", and the location line repeated whatever the message had
+     * already said.
+     */
     private String formatEtaResponse(TrafficEtaAgent.EtaResponse response) {
-        return "%s\nDelay estimate: %d minutes\nLocation: %s".formatted(
-                response.message(),
-                response.estimatedDelayMinutes(),
-                response.currentLocation());
+        StringBuilder reply = new StringBuilder(response.message());
+        if (response.estimatedDelayMinutes() > 0) {
+            reply.append("\nDelay estimate: ").append(response.estimatedDelayMinutes()).append(" minutes");
+        }
+        String location = response.currentLocation();
+        if (location != null && !location.isBlank() && !response.message().contains(location)) {
+            reply.append("\nLocation: ").append(location);
+        }
+        return reply.toString();
     }
 
     private String handleComplaintIntent(String userQuery, ExtractedComplaint alreadyExtracted) {

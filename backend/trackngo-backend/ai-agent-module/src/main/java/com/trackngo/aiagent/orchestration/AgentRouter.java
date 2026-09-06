@@ -290,6 +290,33 @@ public class AgentRouter {
                     : "reminder";
         String busId = parseBusReference(userQuery).orElse(null);
         Optional<TripPlanningAgent.RouteRequest> route = parseRouteRequest(userQuery);
+
+        // A delay alert used to be raised purely because the passenger's message
+        // contained the word "delay", and was written into their inbox asserting
+        // traffic nobody had looked at. When a bus is named, ask live tracking what
+        // it is actually doing and report that instead.
+        String observation = null;
+        if ("delay_alert".equals(type) && busId != null) {
+            TrafficEtaAgent.EtaResponse live =
+                    trafficEtaAgentService.getLiveEta(new TrafficEtaAgent.EtaRequest(busId));
+
+            // Nothing is known about this bus right now, so there is nothing to
+            // alert on and no notification is written.
+            if (!"live_gps_db".equals(live.source())) {
+                return live.message()
+                        + "\n\nI have not raised an alert, because there is nothing to report yet."
+                        + " I can only check a bus's current position on request; I cannot watch it"
+                        + " for you and send an alert later.";
+            }
+
+            observation = live.message();
+            // Only a delay that live tracking actually reports is delivered as a
+            // delay alert. Anything else is delivered as the plain status it is.
+            if (live.estimatedDelayMinutes() <= 0) {
+                type = "bus_status";
+            }
+        }
+
         AgentExecutionContext.Context context = AgentExecutionContext.get();
         Long passengerId = context != null && context.hasUser() && "passenger".equalsIgnoreCase(context.role())
                 ? context.userId()
@@ -305,7 +332,7 @@ public class AgentRouter {
                 new NotificationAgent.NotificationRequest(
                         type,
                         busId,
-                        userQuery,
+                        observation == null ? userQuery : observation,
                         route.map(TripPlanningAgent.RouteRequest::source).orElse(null),
                         route.map(TripPlanningAgent.RouteRequest::destination).orElse(null),
                         passengerId,
@@ -318,7 +345,13 @@ public class AgentRouter {
                 response.type(),
                 response.message(),
                 delivery,
-                response.suggestedRoute().isBlank() ? "" : "\n- **Suggested route:** " + response.suggestedRoute());
+                response.suggestedRoute().isBlank() ? "" : "\n- **Suggested route:** " + response.suggestedRoute())
+                // "Notify me if X" reads as a standing request, but nothing here
+                // watches the bus afterwards. Saying so is better than letting the
+                // passenger believe an alert will arrive.
+                + (observation == null
+                        ? ""
+                        : "\n\nThis is the position right now. I cannot watch the bus and alert you later yet.");
     }
     private String handleBookingIntent(String userQuery, Understanding understanding) {
         ParsedBookingRequest booking = parseNaturalLanguageBooking(userQuery);
@@ -757,11 +790,22 @@ public class AgentRouter {
                 .or(() -> Optional.ofNullable(understanding == null ? null : understanding.busReference()));
     }
 
+    /**
+     * The delay line is printed only when there is a delay to report. It used to be
+     * unconditional, so an answer that knew of no delay still ended with "Delay
+     * estimate: 0 minutes", and the location line repeated whatever the message had
+     * already said.
+     */
     private String formatEtaResponse(TrafficEtaAgent.EtaResponse response) {
-        return "%s\nDelay estimate: %d minutes\nLocation: %s".formatted(
-                response.message(),
-                response.estimatedDelayMinutes(),
-                response.currentLocation());
+        StringBuilder reply = new StringBuilder(response.message());
+        if (response.estimatedDelayMinutes() > 0) {
+            reply.append("\nDelay estimate: ").append(response.estimatedDelayMinutes()).append(" minutes");
+        }
+        String location = response.currentLocation();
+        if (location != null && !location.isBlank() && !response.message().contains(location)) {
+            reply.append("\nLocation: ").append(location);
+        }
+        return reply.toString();
     }
 
     private String handleComplaintIntent(String userQuery, ExtractedComplaint alreadyExtracted) {

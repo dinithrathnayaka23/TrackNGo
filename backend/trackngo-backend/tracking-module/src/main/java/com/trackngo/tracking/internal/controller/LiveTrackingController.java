@@ -10,6 +10,7 @@ import com.trackngo.tracking.internal.entity.Route;
 import com.trackngo.tracking.internal.entity.RouteStop;
 import com.trackngo.tracking.internal.repository.RouteRepository;
 import com.trackngo.tracking.internal.service.BusDriverLookupService;
+import com.trackngo.tracking.internal.service.BusLocationRecorder;
 import com.trackngo.tracking.internal.service.LiveLocationQualityService;
 import com.trackngo.tracking.internal.websocket.TrackingWebSocketHandler;
 import jakarta.validation.Valid;
@@ -35,6 +36,7 @@ public class LiveTrackingController {
     private final ObjectMapper objectMapper;
     private final LiveLocationQualityService liveLocationQualityService;
     private final BusDriverLookupService busDriverLookupService;
+    private final BusLocationRecorder busLocationRecorder;
 
     /*
       POST /api/tracking/live-location
@@ -59,6 +61,11 @@ public class LiveTrackingController {
         }
 
         LiveBusLocationDto accepted = result.getLocation();
+
+        // Persist the fix so readers outside this process - the AI assistant asking
+        // where a bus is - see the same position the map shows, instead of whatever
+        // was last left in the table. Recording never blocks the broadcast.
+        busLocationRecorder.record(accepted);
 
         // Broadcast via WebSocket to all connected clients
         try {

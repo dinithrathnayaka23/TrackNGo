@@ -21,9 +21,20 @@ module.exports = () => {
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
     process.env.GOOGLE_MAPS_API_KEY ||
     readRootEnvValue('GOOGLE_MAPS_API_KEY');
+  // EAS Build's Metro bundling step does not reliably inline EXPO_PUBLIC_*
+  // vars from eas.json into app source (verified by inspecting a built APK -
+  // the value never reached the JS bundle). Baking it into `extra` here
+  // instead means config/env.ts can read it from Constants.expoConfig at
+  // runtime, which this config-resolution step *does* reliably reach.
+  const apiBaseUrl =
+    process.env.EXPO_PUBLIC_API_BASE_URL || readRootEnvValue('EXPO_PUBLIC_API_BASE_URL');
 
   return {
     ...config,
+    extra: {
+      ...config.extra,
+      apiBaseUrl,
+    },
     android: {
       ...config.android,
       config: googleMapsApiKey

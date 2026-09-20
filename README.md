@@ -350,8 +350,7 @@ TrackNGo/
 │   └── admin-web/my-react-app/       # Administrator dashboard
 ├── postman/
 ├── .postman/
-├── trackngo_complete.sql
-├── trackngo_sample_data.sql
+├── trackngo_complete.sql   # Schema only — no sample/seed data is committed
 ├── AI_ASSISTANT_GUIDE.md
 └── README.md
 ```
@@ -451,12 +450,11 @@ CREATE DATABASE trackngo;
 ```bash
 # Full schema
 mysql -u root -p trackngo < trackngo_complete.sql
-
-# Optional sample data
-mysql -u root -p trackngo < trackngo_sample_data.sql
 ```
 
-For current, data-backed driver earnings in the demonstration app, run the idempotent development seed after importing the sample data:
+> 🔒 **Sample/demo data is intentionally not committed to this repository.** A seed dump is convenient for local demos, but a file where every fabricated account shares one bcrypt hash for the same publicly-documented password is safe only as long as nobody ever loads it onto anything internet-reachable — a mistake that is easy to make and hard to notice. If you need demo data locally, generate your own seed with unique, randomly-salted passwords per account and keep it out of version control — `trackngo_sample_data.sql` is already covered by `.gitignore`.
+
+For current, data-backed driver earnings in the demonstration app, run the idempotent development seed after populating some passengers, drivers, and buses:
 
 ```bash
 mysql -u root -p trackngo < backend/trackngo-backend/database/seed/dev_driver_earnings.sql
@@ -474,7 +472,7 @@ This creates linked completed bookings and successful payments for assigned driv
 
 </details>
 
-The backend is configured with `spring.jpa.hibernate.ddl-auto=update` for local development. The SQL files remain useful for reproducible setup and demo data.
+The backend runs with `spring.jpa.hibernate.ddl-auto=validate` by default (see `JPA_DDL_AUTO` in `.env.example`), so Hibernate checks the schema against the entities rather than creating it — `trackngo_complete.sql` is what actually creates the tables on a fresh database.
 
 ## ▶️ Running the project
 

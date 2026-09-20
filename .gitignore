@@ -59,3 +59,11 @@ Thumbs.db
 CLAUDE.md
 **/CLAUDE.md
 .claude/
+
+# Seed data dumps — contain fabricated but realistic accounts sharing one
+# known bcrypt hash (password "Test@1234"). Keep these out of the repo; the
+# schema in trackngo_complete.sql is enough to run the app against an empty
+# database. Restore a personal copy from a private backup if you need demo
+# data locally.
+trackngo_sample_data.sql
+**/trackngo_sample_data.sql

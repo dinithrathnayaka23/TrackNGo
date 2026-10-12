@@ -53,8 +53,6 @@ TrackNGo brings the complete public and corporate transport journey into one eco
 - [Database setup](#-database-setup)
 - [Running the project](#-running-the-project)
 - [Testing](#-testing)
-- [Demo flow](#-suggested-demonstration-flow)
-- [Limitations & roadmap](#-current-limitations-and-production-considerations)
 - [License](#-license)
 
 ## 🎯 Why TrackNGo?
@@ -443,36 +441,6 @@ npm test
 ```
 
 Postman collections and additional testing notes are available in `postman/`, `.postman/`, and the project testing guides ([TEST_QUICK_START.md](TEST_QUICK_START.md), [UNIT_TESTING_GUIDE.md](UNIT_TESTING_GUIDE.md), [TEST_RESULTS_GUIDE.md](TEST_RESULTS_GUIDE.md), [LIVE_TRACKING_TESTING.md](LIVE_TRACKING_TESTING.md)).
-
-## 🎬 Suggested demonstration flow
-
-For a five-minute demo, tell one connected passenger-to-operator story:
-
-1. 🔎 In the passenger app, search for buses from Colombo Fort to Kandy tomorrow morning.
-2. 🎟️ Show route options, availability, seat selection, and a digital booking confirmation.
-3. 📍 Open live tracking — show the route, bus location, ETA, and SOS entry point.
-4. 🖥️ Switch to the administrator dashboard and show today's analytics and unresolved high-priority complaints.
-5. ✅ Open the booking and complaint views to show the same data flowing from passenger to operator.
-
-The strongest message: TrackNGo is **not only a booking app** — it's an action-oriented transport platform connecting passengers, drivers, and operators through real booking, route, tracking, complaint, and notification services.
-
-## ⚠️ Current limitations and production considerations
-
-- Live ETA quality depends on the availability and freshness of GPS/location data
-- Stripe, PayHere, and Google Maps should be configured with production credentials before deployment
-- Payment integrations should remain in sandbox/test mode during development and demonstrations
-- Chat, location, payment, and emergency data require appropriate privacy and access controls
-- The project is currently intended for educational, prototyping, and ideathon use
-
-## 🔭 Future enhancements
-
-- ETA prediction using historical traffic and trip data
-- Smarter route and fleet optimization
-- Push notifications and broader device support
-- Voice-enabled and multilingual passenger assistance
-- Advanced operator analytics and forecasting
-- QR validation and conductor/inspector workflows
-- Cloud deployment, CI/CD, observability, and production-grade audit controls
 
 ## 📌 Project status
 

@@ -4,7 +4,7 @@
 
 # TrackNGo
 
-**A connected, AI-assisted transport management platform for passengers, drivers, operators, and corporate transport teams.**
+**A connected transport management platform for passengers, drivers, operators, and corporate transport teams.**
 
 [![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](backend/trackngo-backend)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.4-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](backend/trackngo-backend)
@@ -22,7 +22,6 @@
 [![WebSocket](https://img.shields.io/badge/WebSocket-Real--time-black?style=flat-square&logo=websocket&logoColor=white)](backend/trackngo-backend/tracking-module)
 [![JWT](https://img.shields.io/badge/Auth-JWT-black?style=flat-square&logo=jsonwebtokens&logoColor=white)](backend/trackngo-backend/auth-user-module)
 [![Google Maps](https://img.shields.io/badge/Google%20Maps-Platform-4285F4?style=flat-square&logo=googlemaps&logoColor=white)](https://mapsplatform.google.com/)
-[![Gemini](https://img.shields.io/badge/AI-Gemini%20%2F%20OpenAI--compatible-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)](backend/trackngo-backend/ai-agent-module)
 [![Stripe](https://img.shields.io/badge/Stripe-Payments-635BFF?style=flat-square&logo=stripe&logoColor=white)](backend/trackngo-backend/payment-module)
 [![Maven](https://img.shields.io/badge/Build-Maven-C71A36?style=flat-square&logo=apachemaven&logoColor=white)](backend/trackngo-backend/pom.xml)
 [![Jest](https://img.shields.io/badge/Tested%20with-Jest-C21325?style=flat-square&logo=jest&logoColor=white)](frontend)
@@ -31,13 +30,13 @@
 
 <br/>
 
-TrackNGo brings the complete public and corporate transport journey into one ecosystem — route discovery, seat booking, payments, digital tickets, live bus tracking, driver operations, real-time communication, complaints, emergency support, and administrator analytics — powered by a modular Spring Boot backend and a purpose-built AI assistant.
+TrackNGo brings the complete public and corporate transport journey into one ecosystem — route discovery, seat booking, payments, digital tickets, live bus tracking, driver operations, real-time communication, complaints, emergency support, and administrator analytics — powered by a modular Spring Boot backend.
 
 <div align="center">
 
 | 📱 Passenger App | 🚌 Driver App | 🖥️ Admin Dashboard |
 |:---:|:---:|:---:|
-| Search, book, pay, track live, chat, get AI help, and raise SOS alerts | Manage allocations, share live location, view earnings, and chat | Manage fleet, routes, bookings, complaints, and run AI-assisted operations |
+| Search, book, pay, track live, chat, and raise SOS alerts | Manage allocations, share live location, view earnings, and chat | Manage fleet, routes, bookings, complaints, and operations |
 
 </div>
 
@@ -87,7 +86,6 @@ flowchart LR
 - Booking history, cancellation & refunds
 - **Live bus tracking** with route geometry
 - Real-time chat & notifications
-- **AI assistant** for routes, ETA, bookings, complaints
 - SOS alerts & emergency contacts
 - Corporate transport contracts & billing
 
@@ -114,7 +112,6 @@ flowchart LR
 - SOS & emergency handling
 - Promotions & discounts
 - Corporate contracts & invoicing
-- **AI operations assistant**
 
 </td></tr>
 </table>
@@ -159,7 +156,7 @@ flowchart TB
     subgraph Modules["Domain modules"]
         direction LR
         M1["Auth"] ~~~ M2["Booking"] ~~~ M3["Tracking"] ~~~ M4["Fleet"] ~~~ M5["Payments"]
-        M6["Chat"] ~~~ M7["AI Agents"] ~~~ M8["Complaints"] ~~~ M9["Notifications"] ~~~ M10["SOS / Admin / Ratings"]
+        M6["Chat"] ~~~ M8["Complaints"] ~~~ M9["Notifications"] ~~~ M10["SOS / Admin / Ratings"]
     end
     SB --> Modules
     Modules --> DB[("MySQL")]
@@ -184,7 +181,6 @@ flowchart TB
 | `feedback-rating-module` | Passenger ratings and feedback |
 | `admin-module` | Administrator operations and audit logging |
 | `sos-module` | SOS alerts and emergency support |
-| `ai-agent-module` | AI controller, intent routing, six agents, grounding, conversation memory |
 | `app` | Main Spring Boot application and configuration |
 
 ## 🧰 Technology stack
@@ -203,17 +199,7 @@ flowchart TB
 
 - Spring Web / REST APIs
 - Spring WebSocket
-- Spring AI-compatible chat integration
 - Bean Validation, Lombok
-
-**AI**
-
-![Gemini](https://img.shields.io/badge/-Gemini-8E75B2?logo=googlegemini&logoColor=white)
-![OpenAI compatible](https://img.shields.io/badge/-OpenAI--compatible-412991?logo=openai&logoColor=white)
-
-- Configurable primary + fallback models
-- Function/tool-oriented agent services
-- Conversation memory & TrackNGo data grounding
 
 </td><td valign="top" width="50%">
 
@@ -269,7 +255,6 @@ TrackNGo/
 │       ├── feedback-rating-module/
 │       ├── admin-module/
 │       ├── sos-module/
-│       ├── ai-agent-module/
 │       └── app/
 ├── frontend/
 │   ├── mobile-app/TrackNgo-Mobile/   # Passenger application
@@ -292,7 +277,7 @@ TrackNGo/
 | 🐬 MySQL 8+ | Or a compatible MySQL server |
 | 🟩 Node.js & npm | Frontend apps |
 | 📱 Android Studio / Expo | For mobile development and emulation |
-| 🔑 API credentials | For the integrations you want to enable (Maps, AI, Stripe, PayHere) |
+| 🔑 API credentials | For the integrations you want to enable (Maps, Stripe, PayHere) |
 
 ## ⚙️ Configuration
 
@@ -331,31 +316,6 @@ STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
 PAYHERE_MERCHANT_ID=your_payhere_merchant_id
 PAYHERE_MERCHANT_SECRET=your_payhere_merchant_secret
 PAYHERE_SANDBOX=true
-```
-
-</details>
-
-<details>
-<summary><b>AI configuration</b></summary>
-
-The backend supports OpenAI-compatible providers and Gemini-compatible endpoints:
-
-```env
-AI_API_KEY=your_ai_provider_api_key
-AI_BASE_URL=https://api.groq.com/openai/v1
-AI_MODEL=llama-3.1-8b-instant
-AI_FALLBACK_MODEL=llama-3.1-8b-instant
-AI_MODEL_TIMEOUT_SECONDS=12
-AI_MODEL_FUNCTIONS_ENABLED=false
-AI_MODEL_DIRECT_HTTP_ENABLED=true
-```
-
-Gemini-style fallback names are also supported:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-1.5-pro
-GEMINI_FALLBACK_MODEL=gemini-1.5-flash
 ```
 
 </details>
@@ -488,27 +448,25 @@ Postman collections and additional testing notes are available in `postman/`, `.
 
 For a five-minute demo, tell one connected passenger-to-operator story:
 
-1. 🔎 In the passenger app, ask **TrackNGo AI** to find buses from Colombo Fort to Kandy tomorrow morning.
+1. 🔎 In the passenger app, search for buses from Colombo Fort to Kandy tomorrow morning.
 2. 🎟️ Show route options, availability, seat selection, and a digital booking confirmation.
 3. 📍 Open live tracking — show the route, bus location, ETA, and SOS entry point.
-4. 🖥️ Switch to the administrator dashboard and ask the AI operations assistant for today's summary or unresolved high-priority complaints.
-5. ✅ Open the relevant admin view to show the AI response is connected to real operational data.
+4. 🖥️ Switch to the administrator dashboard and show today's analytics and unresolved high-priority complaints.
+5. ✅ Open the booking and complaint views to show the same data flowing from passenger to operator.
 
-The strongest message: TrackNGo is **not only a booking app** and **not only a chatbot** — it's an action-oriented transport platform connecting passengers, drivers, and operators through real booking, route, tracking, complaint, and notification services.
+The strongest message: TrackNGo is **not only a booking app** — it's an action-oriented transport platform connecting passengers, drivers, and operators through real booking, route, tracking, complaint, and notification services.
 
 ## ⚠️ Current limitations and production considerations
 
-- AI features require a configured external model provider and API key
 - Live ETA quality depends on the availability and freshness of GPS/location data
 - Stripe, PayHere, and Google Maps should be configured with production credentials before deployment
 - Payment integrations should remain in sandbox/test mode during development and demonstrations
-- AI responses should be rate-limited, monitored, and audited before production use
 - Chat, location, payment, and emergency data require appropriate privacy and access controls
 - The project is currently intended for educational, prototyping, and ideathon use
 
 ## 🔭 Future enhancements
 
-- AI-powered ETA prediction using historical traffic and trip data
+- ETA prediction using historical traffic and trip data
 - Smarter route and fleet optimization
 - Push notifications and broader device support
 - Voice-enabled and multilingual passenger assistance
@@ -518,7 +476,7 @@ The strongest message: TrackNGo is **not only a booking app** and **not only a c
 
 ## 📌 Project status
 
-TrackNGo is an actively developed software engineering project with implemented passenger, driver, administrator, backend, real-time communication, payment, safety, and AI-agent workflows. Individual integrations may require local configuration, valid credentials, sample data, and an available backend service before they can be demonstrated end to end.
+TrackNGo is an actively developed software engineering project with implemented passenger, driver, administrator, backend, real-time communication, payment, and safety workflows. Individual integrations may require local configuration, valid credentials, sample data, and an available backend service before they can be demonstrated end to end.
 
 ## 📄 License
 

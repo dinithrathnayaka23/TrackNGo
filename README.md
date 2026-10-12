@@ -19,12 +19,11 @@
 
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white)](frontend/admin-web/my-react-app)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind%20CSS-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](frontend/admin-web/my-react-app)
-[![WebSocket](https://img.shields.io/badge/WebSocket-STOMP%2FSockJS-black?style=flat-square&logo=websocket&logoColor=white)](backend/trackngo-backend/tracking-module)
+[![WebSocket](https://img.shields.io/badge/WebSocket-Real--time-black?style=flat-square&logo=websocket&logoColor=white)](backend/trackngo-backend/tracking-module)
 [![JWT](https://img.shields.io/badge/Auth-JWT-black?style=flat-square&logo=jsonwebtokens&logoColor=white)](backend/trackngo-backend/auth-user-module)
 [![Google Maps](https://img.shields.io/badge/Google%20Maps-Platform-4285F4?style=flat-square&logo=googlemaps&logoColor=white)](https://mapsplatform.google.com/)
 [![Gemini](https://img.shields.io/badge/AI-Gemini%20%2F%20OpenAI--compatible-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)](backend/trackngo-backend/ai-agent-module)
 [![Stripe](https://img.shields.io/badge/Stripe-Payments-635BFF?style=flat-square&logo=stripe&logoColor=white)](backend/trackngo-backend/payment-module)
-[![Twilio](https://img.shields.io/badge/Twilio-SMS-F22F46?style=flat-square&logo=twilio&logoColor=white)](backend/trackngo-backend/sos-module)
 [![Maven](https://img.shields.io/badge/Build-Maven-C71A36?style=flat-square&logo=apachemaven&logoColor=white)](backend/trackngo-backend/pom.xml)
 [![Jest](https://img.shields.io/badge/Tested%20with-Jest-C21325?style=flat-square&logo=jest&logoColor=white)](frontend)
 
@@ -46,7 +45,6 @@ TrackNGo brings the complete public and corporate transport journey into one eco
 
 - [Why TrackNGo?](#-why-trackngo)
 - [Feature highlights](#-feature-highlights)
-- [AI assistant and agent architecture](#-ai-assistant-and-agent-architecture)
 - [Live tracking pipeline](#-live-tracking-pipeline)
 - [Architecture](#-architecture)
 - [Technology stack](#-technology-stack)
@@ -120,76 +118,6 @@ flowchart LR
 
 </td></tr>
 </table>
-
-## 🤖 AI assistant and agent architecture
-
-TrackNGo ships a unified conversational assistant available in both the passenger app and the admin dashboard, backed by a Spring AI-compatible orchestration layer and six specialized domain agents.
-
-| Agent | Responsibility |
-|---|---|
-| 🗺️ `TripPlanningAgent` | Finds available routes and bus options between two locations for a date, category, and preferred time. |
-| 🎟️ `BookingAgent` | Handles seat reservations and returns booking status, reference, seats, and fare details. |
-| ⏱️ `TrafficEtaAgent` | Uses live bus location and traffic context to report current position, delay, ETA, and confidence. |
-| 🔔 `NotificationAgent` | Sends or prepares ride reminders, delay alerts, and alternative-route notifications. |
-| 📋 `ComplaintAgent` | Categorizes, summarizes, prioritizes, and routes complaints to the right workflow. |
-| 💡 `RecommendationAgent` | Produces travel, promotion, and service recommendations from user and trip context. |
-
-```mermaid
-flowchart TD
-    U["Passenger or Admin message"] --> CC[ChatController]
-    CC --> AR[AgentRouter]
-    AR --> ID["Intent detection + context"]
-    ID --> TP[TripPlanningAgent]
-    ID --> BK[BookingAgent]
-    ID --> ETA[TrafficEtaAgent]
-    ID --> NT[NotificationAgent]
-    ID --> CP[ComplaintAgent]
-    ID --> RC[RecommendationAgent]
-    ID --> AO["Admin Ops summaries"]
-    TP --> G["Grounded response using<br/>TrackNGo services & database"]
-    BK --> G
-    ETA --> G
-    NT --> G
-    CP --> G
-    RC --> G
-    AO --> G
-```
-
-The assistant is designed to be **action-oriented rather than a generic chatbot**:
-
-- ✅ Uses authenticated passenger context where available
-- ✅ Grounds route and booking answers in real TrackNGo data
-- ✅ Checks bus and seat availability before creating a booking
-- ✅ Requires explicit confirmation before completing booking actions
-- ✅ Never invents booking references or payment confirmations
-- ✅ Triages safety-related complaints into the admin review workflow
-- ✅ Falls back to a deterministic response if the external AI provider is unavailable
-- ✅ Keeps session conversation context using a chat ID
-
-<details>
-<summary><b>💬 Example prompts</b></summary>
-
-**Passenger**
-```text
-Find buses from Colombo Fort to Kandy tomorrow morning
-ETA for NB-0012
-Book one seat from Colombo Fort to Galle
-What should I do if my bus is late?
-I want to report an unsafe driving incident for booking BK-20250501-ABCD
-```
-
-**Administrator**
-```text
-Give me today's operations summary
-Show unresolved high-priority complaints
-Which buses are linked to recent safety complaints?
-What promotions should we run for frequent passengers?
-Send a delay notification to passengers on this route
-```
-
-</details>
-
-See [AI_ASSISTANT_GUIDE.md](AI_ASSISTANT_GUIDE.md) for implementation and testing notes.
 
 ## 📍 Live tracking pipeline
 
@@ -274,7 +202,7 @@ flowchart TB
 ![Maven](https://img.shields.io/badge/-Maven-C71A36?logo=apachemaven&logoColor=white)
 
 - Spring Web / REST APIs
-- Spring WebSocket + STOMP/SockJS
+- Spring WebSocket
 - Spring AI-compatible chat integration
 - Bean Validation, Lombok
 
@@ -297,7 +225,7 @@ flowchart TB
 
 - Expo Router, Expo Location
 - React Native Maps
-- STOMP.js + SockJS for live tracking/chat
+- WebSocket for live tracking/chat
 - QR code generation
 - Expo Print, Sharing, Media Library, WebView
 
@@ -316,7 +244,6 @@ flowchart TB
 ![MySQL](https://img.shields.io/badge/-MySQL%208-4479A1?logo=mysql&logoColor=white)
 ![Google Maps](https://img.shields.io/badge/-Google%20Maps-4285F4?logo=googlemaps&logoColor=white)
 ![Stripe](https://img.shields.io/badge/-Stripe-635BFF?logo=stripe&logoColor=white)
-![Twilio](https://img.shields.io/badge/-Twilio-F22F46?logo=twilio&logoColor=white)
 
 - PayHere for local payment flow support
 
@@ -351,7 +278,6 @@ TrackNGo/
 ├── postman/
 ├── .postman/
 ├── trackngo_complete.sql   # Schema only — no sample/seed data is committed
-├── AI_ASSISTANT_GUIDE.md
 └── README.md
 ```
 
@@ -366,7 +292,7 @@ TrackNGo/
 | 🐬 MySQL 8+ | Or a compatible MySQL server |
 | 🟩 Node.js & npm | Frontend apps |
 | 📱 Android Studio / Expo | For mobile development and emulation |
-| 🔑 API credentials | For the integrations you want to enable (Maps, AI, Stripe, PayHere, Twilio) |
+| 🔑 API credentials | For the integrations you want to enable (Maps, AI, Stripe, PayHere) |
 
 ## ⚙️ Configuration
 
@@ -389,15 +315,10 @@ GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 <summary><b>SMS configuration</b></summary>
 
 ```env
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
-TWILIO_PHONE_NUMBER=your_twilio_phone_number
-TWILIO_MESSAGING_SERVICE_SID=your_twilio_messaging_service_sid
-TWILIO_DEFAULT_COUNTRY_CODE=+94
-SMS_PROVIDER=twilio
+SMS_PROVIDER=android-gateway
+SMS_ANDROID_GATEWAY_URL=your_android_sms_gateway_url
+SMS_ANDROID_GATEWAY_API_KEY=your_android_sms_gateway_api_key
 ```
-
-An Android SMS gateway is also supported through `SMS_ANDROID_GATEWAY_URL` and `SMS_ANDROID_GATEWAY_API_KEY`.
 
 </details>
 
@@ -579,7 +500,7 @@ The strongest message: TrackNGo is **not only a booking app** and **not only a c
 
 - AI features require a configured external model provider and API key
 - Live ETA quality depends on the availability and freshness of GPS/location data
-- Stripe, PayHere, Twilio, and Google Maps should be configured with production credentials before deployment
+- Stripe, PayHere, and Google Maps should be configured with production credentials before deployment
 - Payment integrations should remain in sandbox/test mode during development and demonstrations
 - AI responses should be rate-limited, monitored, and audited before production use
 - Chat, location, payment, and emergency data require appropriate privacy and access controls
